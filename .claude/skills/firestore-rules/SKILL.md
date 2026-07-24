@@ -43,17 +43,42 @@ match /NEW_COLLECTION/{id} {
 }
 ```
 
-### B. Mutable single document that is cleared by design (delete allowed)
-Use only for draft-style data that is overwritten on every change and removed
-when finalized (like drafts/current).
+### B. Mutable single document, overwritten on every change (delete still denied)
+Use for draft-style data rewritten constantly, like `drafts/current`.
+
+⚠️ **Delete stays denied even here.** `drafts/current` used to be deleted when the
+week was archived, but since v179 nothing in the app deletes it — `clearSupplier`
+removes only that supplier's keys with `deleteField()`. Allowing delete would leave
+a way to wipe an order in progress and nothing that needs it.
+
+⚠️ **Anything written with `setDoc(merge: true)` or `updateDoc` — which is what
+`saveDoc`/`clearFields` use — is seen by the rules as the FULL MERGED document, not
+the patch.** Two consequences, both learnt the hard way:
+- `hasOnly()` must list every field a live document was EVER given, **retired ones
+  included**. A merge write never deletes a field, so retired fields are still there.
+  `drafts/current` still carries `weekId` from the weekly model; suppliers still carry
+  `notifyHoursBefore`. Omit one and every future write to that document is refused.
+- **No field may be required**, because a partial write (`{ active }` from Deactivate)
+  merges onto a document that may predate that field.
+
+Read the real production documents before writing the whitelist. Do not infer it.
+
 ```
 match /NEW_COLLECTION/{id} {
   allow read: if request.auth != null;
   allow create, update: if request.auth != null
-    && request.resource.data.bakery == 'main';
-  allow delete: if request.auth != null;
+    && request.resource.data.bakery == 'main'
+    && request.resource.data.keys().hasOnly(['bakery', 'FIELD_A', 'RETIRED_FIELD'])
+    && (!('FIELD_A' in request.resource.data)
+        || (request.resource.data.FIELD_A is map
+            && request.resource.data.FIELD_A.size() <= 2000));
+  allow delete: if false;
 }
 ```
+
+By contrast, a collection written WHOLE (`setDoc` without merge, or a transaction's
+`tx.set` — like `orders-history`) sees only the payload, so `hasOnly` is exact and
+fields CAN be required. Template A covers that case.
 
 ### C. Data tied to a person (future — Step 2 PIN login)
 PIN login is app-level, NOT Firebase Auth, so anonymous auth still cannot prove
@@ -71,14 +96,24 @@ match /NEW_COLLECTION/{id} {
 }
 ```
 
-## How to add a collection (checklist)
-1. Pick the matching template (A, B, or C).
-2. Add the `match` block ABOVE the default-deny block, never below it.
-3. List the exact allowed keys (including `bakery`) and validate each field.
-4. Keep `bakery == 'main'` on every write.
-5. Leave the trailing default-deny exactly as it is.
-6. Deploy: `firebase deploy --only firestore:rules`.
-7. Tell the user the collection name, the rule added, and to run the deploy.
+## How to add or tighten a collection (checklist)
+1. **Read the real production documents FIRST** if the collection already has data —
+   the union of their field names is the whitelist. Inferring it from the code misses
+   retired fields, and the resulting refusal is silent and permanent.
+2. Work out how the collection is written (merge vs whole) — that decides whether
+   fields may be required. See template B.
+3. Pick the matching template (A, B, or C).
+4. Add the `match` block ABOVE the default-deny block, never below it.
+5. List the exact allowed keys (including `bakery`) and validate each field.
+6. Keep `bakery == 'main'` on every write.
+7. Leave the trailing default-deny exactly as it is.
+8. **Test against the emulator before deploying:** `firebase emulators:exec --only
+   auth,firestore "npm run test:rules"` (`tests/rules/firestore-rules-check.mjs`).
+   Add cases for the new collection, covering the legacy shapes as well as the
+   current one. Then break a rule on purpose and confirm a test notices — a suite
+   that passes whatever the rules say is worthless.
+9. Deploy: `firebase deploy --only firestore:rules`.
+10. Tell the user the collection name, the rule added, and to run the deploy.
 
 ## Never
 - Never add `allow read, write: if true` or any rule without `request.auth`.

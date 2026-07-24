@@ -5,6 +5,8 @@
   "type": "module",
   "description": "PWA: dough scaling calculator + supplier orders. Vanilla JS + Firebase.",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:rules": "node tests/rules/firestore-rules-check.mjs",
+    "seed:emulator": "node tests/rules/seed-emulator.mjs"
   }
 }
