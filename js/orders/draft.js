@@ -25,12 +25,37 @@ const SAVE_DELAY_MS = 800; // debounce to limit Firestore writes (cost control)
 
 let saveTimer = null;
 let queued = null;         // the change waiting for the debounce, so it can be flushed
+let reportSaveResult = null;   // (ok: boolean) => void — injected by orders-main.js
+
+// How the debounced autosave reports whether it landed. Injected one-way from
+// orders-main.js rather than imported, so this module keeps knowing nothing about
+// the page around it — and the user-facing wording stays in the UI layer.
+export function setDraftSaveReporter(fn) {
+  reportSaveResult = fn;
+}
 
 // Autosave the draft a short moment after the last change.
+//
+// The timer is the ONE draft write with no caller to hand a rejection to, so it has
+// to catch its own. Without this, a refused write (no network, or a Firestore rule
+// rejecting the payload) was an unhandled promise rejection in the console and
+// nothing else: the operator kept typing an order that was no longer being saved
+// anywhere, and a reload would have thrown it all away.
+//
+// Success is reported too, not just failure. Every save sends the WHOLE entries map,
+// so one success genuinely persists everything a failed write was carrying — which
+// means a transient blip must not leave a permanent alarm on screen.
 export function scheduleDraftSave(entries, days) {
   queued = { entries, days };
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { saveDraftNow(entries, days); }, SAVE_DELAY_MS);
+  saveTimer = setTimeout(() => {
+    saveDraftNow(entries, days)
+      .then(() => reportSaveResult?.(true))
+      .catch(err => {
+        console.error('Draft autosave failed:', err);
+        reportSaveResult?.(false);
+      });
+  }, SAVE_DELAY_MS);
 }
 
 export function saveDraftNow(entries, days) {

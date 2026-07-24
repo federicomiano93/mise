@@ -25,6 +25,22 @@
 const MIN_ORDERS = 4;       // orders of this ingredient before suggestions activate
 const WINDOW_ORDERS = 8;    // average over at most this many recent orders
 
+// Read a stored quantity defensively: anything that is not a finite, non-negative
+// number becomes 0.
+//
+// This is not paranoia about a hypothetical attacker. Firestore rules cannot check
+// the VALUES inside a map — rules v2 has no way to iterate one, and the only
+// alternative (enumerating every allowed number) would reject a legitimately large
+// order, so it was deliberately not done. That leaves this function as the place the
+// app stops trusting what it reads: a corrupt value, a bad migration, or a bug of our
+// own would otherwise flow straight into `qty + stock` — where a string CONCATENATES
+// rather than adds, turning par into NaN and putting "Suggested: NaN" on screen.
+// P20: clamp to sane ranges, never produce NaN.
+function num(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 // history: array of { date | weekStart, quantities:{id:qty}, stock:{id:qty} }
 // Returns one of:
 //   { active: false, ordersRemaining: N }     — not enough history yet
@@ -43,13 +59,9 @@ export function computeSuggestion(ingredientId, currentStock, history) {
   }
 
   const recent = orders.slice(0, WINDOW_ORDERS);
-  const levels = recent.map(r => {
-    const qty = r.quantities[ingredientId] || 0;
-    const stock = (r.stock && r.stock[ingredientId]) || 0;
-    return qty + stock;
-  });
+  const levels = recent.map(r => num(r.quantities[ingredientId]) + num(r.stock && r.stock[ingredientId]));
   const par = levels.reduce((sum, v) => sum + v, 0) / levels.length;
-  const suggestion = Math.max(0, Math.round(par - (Number(currentStock) || 0)));
+  const suggestion = Math.max(0, Math.round(par - num(currentStock)));
 
   return { active: true, suggestion, par: Math.round(par) };
 }

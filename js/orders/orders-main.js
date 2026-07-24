@@ -14,7 +14,7 @@ import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import {
   scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
-  saveHistoryRecord, deleteHistoryRecord,
+  saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
 } from './draft.js';
 import { buildSendScreen } from './preview.js';
 import { renderHistory as renderHistoryView } from './history.js';
@@ -495,6 +495,10 @@ function setupTabs() {
   });
 }
 
+// The one wording for a failed draft autosave, named because it is both SET and
+// CLEARED from different places and the two must match exactly.
+const DRAFT_SAVE_ERROR = 'Could not save the order — check your network. Keep this page open.';
+
 let statusTimer = null;
 // Set the status line. With autoHideMs, the line hides itself after that delay,
 // but ONLY if its text is still the same — so a later error / "order saved"
@@ -511,6 +515,14 @@ function setStatus(text, kind, autoHideMs) {
       if (elStatus.textContent === text) elStatus.hidden = true;
     }, autoHideMs);
   }
+}
+
+// Hide the status line, but ONLY if it still shows `text`. Same guard as the
+// auto-hide above and for the same reason: whoever set a newer message — an error,
+// or "order saved to history ✓" — must never have it wiped by a stale clear.
+function clearStatusIf(text) {
+  const elStatus = document.getElementById('orders-status');
+  if (elStatus && elStatus.textContent === text) elStatus.hidden = true;
 }
 
 // Bottom bar shown ONLY while the device is offline. There is no
@@ -530,6 +542,17 @@ function setupOfflineIndicator() {
 async function init() {
   setupTabs();
   document.getElementById('orders-wa-btn')?.addEventListener('click', openSendScreen);
+
+  // The debounced draft autosave has no caller to hand a rejection to, so it reports
+  // through here. Never auto-hidden on a timer: an order that is no longer being
+  // saved is not a message the operator may miss. It clears only when a LATER
+  // autosave succeeds — every save carries the whole entries map, so one success
+  // really does persist what the failed write held, and a two-second network blip
+  // must not leave a permanent alarm on screen.
+  setDraftSaveReporter(ok => {
+    if (ok) clearStatusIf(DRAFT_SAVE_ERROR);
+    else setStatus(DRAFT_SAVE_ERROR, 'error');
+  });
 
   const settingsBtn = document.getElementById('settings-footer-btn');
   if (settingsBtn) {

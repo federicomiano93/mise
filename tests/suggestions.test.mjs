@@ -138,3 +138,51 @@ test('old weekly records and new daily ones mix, and sort together correctly', (
   // par = (20 + 10 + 10 + 10) / 4 = 12.5 → 13 after rounding the suggestion.
   assert.deepEqual(computeSuggestion('flour', 0, history), { active: true, suggestion: 13, par: 13 });
 });
+
+// ── Corrupt stored data must never reach the screen ──────────────────────────
+// Firestore rules cannot check the VALUES inside a map (rules v2 has no way to
+// iterate one, and enumerating every allowed number would reject a legitimately
+// large order). So the engine is the place that stops trusting what it reads.
+// Without the guard, `qty + stock` CONCATENATES a string instead of adding, par
+// becomes NaN, and the app offers "Suggested: NaN".
+
+test('a junk string in a stored quantity never produces NaN', () => {
+  const history = [
+    order('2026-07-01', 'flour', 10, 0),
+    order('2026-07-02', 'flour', 10, 0),
+    order('2026-07-03', 'flour', 10, 0),
+    { date: '2026-07-04', supplierId: 's', quantities: { flour: 'HELLO' }, stock: { flour: 0 } },
+  ];
+  const result = computeSuggestion('flour', 0, history);
+  assert.ok(Number.isFinite(result.suggestion), 'suggestion must be a real number');
+  assert.ok(Number.isFinite(result.par), 'par must be a real number');
+  // The junk order counts as a level of 0: (10 + 10 + 10 + 0) / 4 = 7.5 → 8.
+  assert.deepEqual(result, { active: true, suggestion: 8, par: 8 });
+});
+
+test('Infinity, null and a negative quantity are all treated as zero', () => {
+  const history = [
+    order('2026-07-01', 'flour', 12, 0),
+    order('2026-07-02', 'flour', 12, 0),
+    { date: '2026-07-03', supplierId: 's', quantities: { flour: Infinity }, stock: { flour: 0 } },
+    { date: '2026-07-04', supplierId: 's', quantities: { flour: -50 }, stock: { flour: null } },
+  ];
+  const result = computeSuggestion('flour', 0, history);
+  assert.ok(Number.isFinite(result.suggestion));
+  // (12 + 12 + 0 + 0) / 4 = 6.
+  assert.deepEqual(result, { active: true, suggestion: 6, par: 6 });
+});
+
+test('a junk CURRENT stock reading cannot produce NaN either', () => {
+  const history = [
+    order('2026-07-01', 'flour', 10, 0),
+    order('2026-07-02', 'flour', 10, 0),
+    order('2026-07-03', 'flour', 10, 0),
+    order('2026-07-04', 'flour', 10, 0),
+  ];
+  for (const junk of ['abc', NaN, Infinity, -5, null, undefined, {}]) {
+    const result = computeSuggestion('flour', junk, history);
+    assert.ok(Number.isFinite(result.suggestion), `suggestion must survive ${String(junk)}`);
+    assert.equal(result.suggestion, 10, `${String(junk)} must read as zero stock`);
+  }
+});
