@@ -151,8 +151,16 @@ export function buildHistoryEditor(record, ingredients, actions) {
     });
     if (!ok) return;
 
-    actions.onSave(record.id, {
-      ...record,
+    // `record` comes from watchCollection, which injects the document id as a
+    // FIELD ({ id: d.id, ...d.data() }). saveHistoryRecord overwrites the document
+    // WHOLE, so spreading `record` straight through wrote that id back in as a
+    // redundant top-level field. Worse, watchCollection puts ...d.data() LAST, so a
+    // stored `id` shadows the real document id — if the two ever diverged, the next
+    // save would target the wrong document. The id is the first argument; it never
+    // belongs in the payload.
+    const { id, ...fields } = record;
+    actions.onSave(id, {
+      ...fields,
       quantities: nextQuantities,
       stock: nextStock,
       updatedAt: new Date().toISOString(),
