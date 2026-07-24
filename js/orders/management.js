@@ -15,7 +15,7 @@
 
 import { el } from './dom.js';
 import { renderNotificationSettings } from './notifications.js';
-import { confirmDialog } from './confirm-dialog.js';
+import { confirmDialog, alertDialog } from './confirm-dialog.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
 
@@ -153,6 +153,21 @@ export function buildManagement(data, actions) {
     });
   }
 
+  // Report a failed write. Every write in this panel used to drop its promise, so a
+  // rejection (network down, or a Firestore rule refusing the payload) left the
+  // operator looking at an unchanged row with no idea anything had gone wrong.
+  //
+  // A dialog, not the Orders status line: this panel is a full-screen overlay, so
+  // #orders-status is BEHIND it and would never be read. alertDialog sits at
+  // z-index 10000, above the overlay.
+  async function reportFailure(action, name, err) {
+    console.error(`${action} failed:`, err);
+    await alertDialog(
+      `Could not ${action} "${name}". Check your network and try again.`,
+      { title: 'Not saved' },
+    );
+  }
+
   // A row with three actions: Edit, Deactivate/Activate (reversible), Delete
   // (permanent). Deactivate confirms only when hiding; Delete always confirms with
   // a strong, irreversible warning and is styled low-key in danger red (P20).
@@ -174,7 +189,8 @@ export function buildManagement(data, actions) {
             });
             if (!ok) return;
           }
-          onToggle();
+          try { await onToggle(); }
+          catch (err) { await reportFailure(active ? 'deactivate' : 'activate', name, err); }
         } }, active ? 'Deactivate' : 'Activate'),
         el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
           const ok = await confirmDialog({
@@ -182,7 +198,8 @@ export function buildManagement(data, actions) {
             okLabel: 'Delete', danger: true,
           });
           if (!ok) return;
-          onDelete();
+          try { await onDelete(); }
+          catch (err) { await reportFailure('delete', name, err); }
         } }, 'Delete'),
       ]),
     ]);
@@ -228,7 +245,10 @@ export function buildManagement(data, actions) {
         active: item ? item.active !== false : true,
       };
       try { await actions.saveSupplier(item?.id || null, payload); view = { type: 'list' }; render(); }
-      catch (err) { console.error('Save supplier failed:', err); save.disabled = false; }
+      catch (err) {
+        save.disabled = false;                       // let them try again
+        await reportFailure('save', payload.name, err);
+      }
     } }, 'Save');
 
     return el('div', { class: 'mgmt-form' }, [
@@ -278,7 +298,10 @@ export function buildManagement(data, actions) {
         active: item ? item.active !== false : true,
       };
       try { await actions.saveIngredient(item?.id || null, payload); view = { type: 'list' }; render(); }
-      catch (err) { console.error('Save ingredient failed:', err); save.disabled = false; }
+      catch (err) {
+        save.disabled = false;                       // let them try again
+        await reportFailure('save', payload.name, err);
+      }
     } }, 'Save');
 
     return el('div', { class: 'mgmt-form' }, [
