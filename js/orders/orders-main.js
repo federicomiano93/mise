@@ -25,7 +25,10 @@ import { computeSuggestion } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
 import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
-import { todayISO, dayPhrase, localDayOf } from './day.js';
+import { todayISO, dayPhrase, localDayOf, dayLabel } from './day.js';
+import {
+  buildOrderMessage, whatsappUrl, itemsFromQuantities, indexById,
+} from './order-text.js';
 import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
 import { todayOrders, pendingSuppliers } from './reminders.js';
 import { renderTodayOrders, renderPending } from './reminder-view.js';
@@ -138,8 +141,54 @@ function renderHistory() {
     state.history,
     state.suppliers,
     state.ingredients,
-    { onEdit: openHistoryEditor },
+    { onEdit: openHistoryEditor, onSend: sendRecord, onSendDay: openSendDayScreen },
   );
+}
+
+// ── Sending an order that is already recorded ─────────────────────────────────
+//
+// Recording an order clears its rows from the draft, so from that moment the only
+// place the message can be built from is the archive. That is why sending lives here
+// too and not only before placing: "placed" and "sent" are two different things, and
+// the app should not force one order on them.
+
+// A stored record → the picker/message row shape. Names and weights are resolved from
+// the CURRENT ingredient list, the same lens the History view uses on screen.
+function recordToRow(record) {
+  return {
+    id: record.id,
+    name: record.supplierName || 'Order',
+    items: itemsFromQuantities(record.quantities, indexById(state.ingredients)),
+  };
+}
+
+function sendMessageFor(rows) {
+  const text = buildOrderMessage(rows.map(r => ({ supplierName: r.name, items: r.items })));
+  if (!text) {
+    setStatus('Nothing to send — that order has no items.', 'warn', 4000);
+    return;
+  }
+  window.open(whatsappUrl(text), '_blank');
+}
+
+// One recorded order, straight out — no tick-list to wade through for a single card.
+function sendRecord(record) {
+  sendMessageFor([recordToRow(record)]);
+}
+
+// A whole day: the same tick-list as everywhere else, so a day of five orders can go
+// out as one message or as the three you actually still need to send.
+function openSendDayScreen(date, records) {
+  const rows = records.map(recordToRow).filter(r => r.items.length);
+  const overlay = buildSupplierPicker(rows, {
+    title: `Send ${dayLabel(date).toLowerCase()}`,
+    actionLabel: 'Send on WhatsApp',
+    emptyText: 'Nothing to send for that day.',
+  }, {
+    onBack: () => overlay.remove(),
+    onConfirm: selected => { overlay.remove(); sendMessageFor(selected); },
+  });
+  document.body.appendChild(overlay);
 }
 
 // ── Correcting a recorded order ───────────────────────────────────────────────
