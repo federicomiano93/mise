@@ -1,0 +1,140 @@
+// Unit tests for the Orders WhatsApp message builder (P15 — the owner cannot read
+// code, so these tests are the safety net).
+//
+// This text is what the SUPPLIER actually receives, so a mistake here is not a UI
+// glitch: it is a wrong order arriving at the bakery. The same builder is now used
+// from two sources — the draft being typed, and a history record being re-sent — and
+// these tests pin that both produce byte-identical output for the same order.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  buildOrderMessage, itemsFromQuantities, indexById, itemLabel, whatsappUrl,
+  sortItems,
+} from '../js/orders/order-text.js';
+
+const ingredients = [
+  { id: 'i1', name: 'Bacon', weight: '2.27kg', unit: 'casse' },
+  { id: 'i2', name: 'Mozzarella', weight: '1kg', unit: 'box' },
+  { id: 'i3', name: 'Loose apples', weight: '' },
+];
+
+test('the message keeps the format the app has always sent', () => {
+  const text = buildOrderMessage([
+    { supplierName: 'Brava Fresh', items: [
+      { name: 'Bacon', weight: '2.27kg', qty: 5 },
+      { name: 'Mozzarella', weight: '1kg', qty: 2 },
+    ] },
+  ]);
+  assert.equal(text,
+    '*Order — The Italian Club*\n\n' +
+    '*Brava Fresh*\n' +
+    '- Bacon 2.27kg: 5\n' +
+    '- Mozzarella 1kg: 2');
+});
+
+test('several suppliers are separated by a blank line', () => {
+  const text = buildOrderMessage([
+    { supplierName: 'Bako', items: [{ name: 'Flour', weight: '25kg', qty: 4 }] },
+    { supplierName: 'Salvo', items: [{ name: 'Olives', weight: '', qty: 1 }] },
+  ]);
+  assert.equal(text,
+    '*Order — The Italian Club*\n\n' +
+    '*Bako*\n- Flour 25kg: 4\n\n' +
+    '*Salvo*\n- Olives: 1');
+});
+
+test('an empty weight is skipped, leaving no double space', () => {
+  assert.equal(itemLabel('Loose apples', ''), 'Loose apples');
+  assert.equal(itemLabel('Bacon', '2.27kg'), 'Bacon 2.27kg');
+});
+
+test('the order unit never reaches the supplier — only the number', () => {
+  const text = buildOrderMessage([
+    { supplierName: 'S', items: [{ name: 'Bacon', weight: '2.27kg', qty: 3 }] },
+  ]);
+  assert.ok(!text.includes('casse'), 'the order unit is a private reminder');
+  assert.ok(text.includes('- Bacon 2.27kg: 3'));
+});
+
+test('a supplier with no items is dropped, and an empty order builds no message', () => {
+  const text = buildOrderMessage([
+    { supplierName: 'Empty', items: [] },
+    { supplierName: 'Real', items: [{ name: 'Flour', weight: '', qty: 2 }] },
+  ]);
+  assert.ok(!text.includes('Empty'));
+  assert.equal(buildOrderMessage([{ supplierName: 'Empty', items: [] }]), '');
+  assert.equal(buildOrderMessage([]), '');
+  assert.equal(buildOrderMessage(null), '');
+});
+
+// ── Building from a stored history record ────────────────────────────────────
+test('a history record produces the same message as the draft did', () => {
+  const byId = indexById(ingredients);
+  const fromHistory = buildOrderMessage([{
+    supplierName: 'Brava Fresh',
+    items: itemsFromQuantities({ i1: 5, i2: 2 }, byId),
+  }]);
+  const fromDraft = buildOrderMessage([{
+    supplierName: 'Brava Fresh',
+    items: [
+      { name: 'Bacon', weight: '2.27kg', qty: 5 },
+      { name: 'Mozzarella', weight: '1kg', qty: 2 },
+    ],
+  }]);
+  assert.equal(fromHistory, fromDraft,
+    're-sending a placed order must read exactly like the original');
+});
+
+test('items are sorted by their displayed label, not by id', () => {
+  const byId = indexById(ingredients);
+  const items = itemsFromQuantities({ i2: 1, i1: 1, i3: 1 }, byId);
+  assert.deepEqual(items.map(i => i.name), ['Bacon', 'Loose apples', 'Mozzarella']);
+});
+
+test('an ingredient deleted since the order falls back to its id, never vanishes', () => {
+  const items = itemsFromQuantities({ gone: 3 }, indexById(ingredients));
+  assert.deepEqual(items, [{ name: 'gone', weight: '', qty: 3 }]);
+});
+
+test('zero and junk quantities are dropped, never sent to a supplier', () => {
+  const byId = indexById(ingredients);
+  assert.deepEqual(itemsFromQuantities({ i1: 0 }, byId), []);
+  assert.deepEqual(itemsFromQuantities({ i1: -2 }, byId), []);
+  assert.deepEqual(itemsFromQuantities({ i1: 'HELLO' }, byId), []);
+  assert.deepEqual(itemsFromQuantities({ i1: null }, byId), []);
+  assert.deepEqual(itemsFromQuantities({}, byId), []);
+  assert.deepEqual(itemsFromQuantities(null, byId), []);
+});
+
+test('a decimal quantity is rounded, so no supplier is asked for 2.5 boxes', () => {
+  const items = itemsFromQuantities({ i1: 2.4 }, indexById(ingredients));
+  assert.deepEqual(items, [{ name: 'Bacon', weight: '2.27kg', qty: 2 }]);
+});
+
+test('the WhatsApp url carries no recipient — the operator picks the chat', () => {
+  const url = whatsappUrl('*Order*\n- x: 1');
+  assert.ok(url.startsWith('https://wa.me/?text='), 'empty path = no recipient');
+  assert.equal(decodeURIComponent(url.split('?text=')[1]), '*Order*\n- x: 1');
+});
+
+test('the builder sorts the lines itself, whatever order the caller passes', () => {
+  // The draft used to hand items over in raw Firestore order. Sorting inside the
+  // builder is what makes a draft send and a later re-send from History identical.
+  const shuffled = buildOrderMessage([{
+    supplierName: 'S',
+    items: [
+      { name: 'Mozzarella', weight: '1kg', qty: 2 },
+      { name: 'Bacon', weight: '2.27kg', qty: 5 },
+    ],
+  }]);
+  assert.equal(shuffled,
+    '*Order — The Italian Club*\n\n*S*\n- Bacon 2.27kg: 5\n- Mozzarella 1kg: 2');
+});
+
+test('sortItems does not mutate the caller\'s array', () => {
+  const items = [{ name: 'B', weight: '', qty: 1 }, { name: 'A', weight: '', qty: 1 }];
+  const sorted = sortItems(items);
+  assert.deepEqual(items.map(i => i.name), ['B', 'A'], 'the original must be untouched');
+  assert.deepEqual(sorted.map(i => i.name), ['A', 'B']);
+});
