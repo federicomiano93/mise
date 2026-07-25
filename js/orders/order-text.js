@@ -1,0 +1,96 @@
+// order-text.js — the WhatsApp message for an order. PURE: no DOM, no Firestore.
+//
+// Extracted from preview.js because the same text is now built from two different
+// sources: the draft (the order you are typing) and a history record (an order
+// already placed, which you may want to send, or send again). Keeping one builder
+// means the supplier can never receive two differently-formatted messages for the
+// same order.
+//
+// Pure and DOM-free on purpose, following js/calculator-recipe-text.js — that module
+// exists for exactly this reason, so the text can be asserted in a unit test instead
+// of being re-read out of rendered markup (P15).
+//
+// The format is deliberately unchanged from what the app has always sent:
+//   *Order — The Italian Club*
+//
+//   *Supplier name*
+//   - Bacon 2.27kg: 5
+//   - Mozzarella 1kg: 2
+//
+// The order unit (casse/box) is a private reminder on the order screen and is NOT in
+// the message — the supplier gets the number only. An empty weight is skipped.
+
+const TITLE = '*Order — The Italian Club*';
+
+// Round a quantity the same way every other Orders module does (archive.js).
+const num = v => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+};
+
+// "Bacon 2.27kg" — the name with its weight, skipping an empty one.
+export function itemLabel(name, weight) {
+  return [name, weight].filter(Boolean).join(' ');
+}
+
+// One supplier's block: bold name, then "- label: qty" lines, BY NAME.
+//
+// The sort lives here, in the one place every message passes through, and not in the
+// callers. Two reasons. The draft used to send items in raw Firestore order while the
+// order screen shows them sorted, so the message never matched what the operator had
+// just checked. And now the same order can be sent twice — once from the draft, later
+// re-sent from History — so without a single deterministic order the supplier would
+// receive the same order twice with the lines shuffled, and reasonably read it as a
+// different order.
+// group: { supplierName, items: [{ name, weight, qty }] }
+function sectionFor({ supplierName, items }) {
+  const lines = sortItems(items).map(it => `- ${itemLabel(it.name, it.weight)}: ${num(it.qty)}`);
+  return `*${supplierName || 'Order'}*\n` + lines.join('\n');
+}
+
+// By displayed label, so the message reads in the order the eye expects.
+export function sortItems(items) {
+  return (items || []).slice().sort((a, b) =>
+    itemLabel(a.name, a.weight).localeCompare(itemLabel(b.name, b.weight)));
+}
+
+// The whole message: one section per supplier, blank line between them.
+// groups: [{ supplierName, items: [{ name, weight, qty }] }]
+// Returns '' when there is nothing to send, so callers can refuse rather than open
+// WhatsApp with an empty order.
+export function buildOrderMessage(groups) {
+  const withItems = (groups || []).filter(g => (g.items || []).length);
+  if (!withItems.length) return '';
+  return `${TITLE}\n\n` + withItems.map(sectionFor).join('\n\n');
+}
+
+// Turn a stored `quantities` map into message items, resolving names and weights from
+// the CURRENT ingredient list — the same lens history.js uses on screen, so what the
+// supplier reads matches what the operator sees.
+//
+// An ingredient deleted since the order was placed falls back to its id rather than
+// vanishing from its own order: a short line of nonsense is recoverable, a silently
+// missing line is not. Rows with a quantity of 0 are dropped — there is no such thing
+// as ordering none of something.
+export function itemsFromQuantities(quantities, ingredientsById) {
+  return Object.keys(quantities || {})
+    .map(id => ({
+      name: ingredientsById?.[id]?.name || id,
+      weight: ingredientsById?.[id]?.weight || '',
+      qty: num(quantities[id]),
+    }))
+    .filter(it => it.qty > 0)
+    .sort((a, b) => itemLabel(a.name, a.weight).localeCompare(itemLabel(b.name, b.weight)));
+}
+
+// Index a list of ingredients by id, for itemsFromQuantities.
+export function indexById(items) {
+  return (items || []).reduce((acc, it) => { acc[it.id] = it; return acc; }, {});
+}
+
+// The wa.me URL for a message. One place, so the "no recipient — the operator picks
+// the chat" decision is stated once instead of being re-derived at every call site.
+// (The whole app sends this way: js/whatsapp.js, js/calc.js, and here.)
+export function whatsappUrl(text) {
+  return 'https://wa.me/?text=' + encodeURIComponent(text);
+}

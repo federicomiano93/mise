@@ -1,105 +1,45 @@
-// preview.js — the "Send order on WhatsApp" selection screen.
+// preview.js — "Send order on WhatsApp" for the order IN PROGRESS.
 //
-// Opened by the header WhatsApp button. Shows a checkbox per supplier that has
-// items in the current order (all ticked by default) plus a "Select all" master
-// checkbox, then builds ONE combined message grouped by supplier and opens
-// WhatsApp with NO recipient — so the operator picks the chat himself (mirrors the
-// Calculator's WhatsApp share, js/whatsapp.js).
+// Opened by the header WhatsApp button. Shows a tick per supplier that has items in
+// the current draft, builds ONE message grouped by supplier, and opens WhatsApp with
+// NO recipient — the operator picks the chat himself (the whole app sends this way;
+// see js/whatsapp.js and js/orders/order-text.js).
 //
-// Sending still does not archive anything by itself, but it now reports WHICH
-// suppliers were sent (onSent), and the caller offers to mark exactly those as
-// placed. Sending is the moment the order actually leaves, so it is the moment to
-// ask — forgetting to record it afterwards was the whole problem.
+// The screen itself is supplier-picker.js and the text is order-text.js, both shared
+// with the bulk "Order placed" flow and with re-sending an order from History. What
+// is left here is the one thing specific to sending a DRAFT: reporting which
+// suppliers went out, so the caller can offer to mark exactly those as placed.
+//
+// Sending is the moment the order actually leaves, so it is the moment to ask —
+// forgetting to record it afterwards was the whole problem.
 
-import { el } from './dom.js';
-
-const BACK_ICON =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
-
-// Build the WhatsApp message: one section per selected supplier, bold name, then
-// "- name weight: qty" lines (no comma). The order unit (casse/box) is a private
-// reminder on the order screen only — the message to the supplier carries just the
-// number. Empty weight is skipped. Grouped and ready to paste into any chat.
-function buildCombinedMessage(selected) {
-  const sections = selected.map(({ supplier, items }) => {
-    const lines = items.map(it => {
-      const label = [it.name, it.weight].filter(Boolean).join(' ');
-      return `- ${label}: ${it.qty}`;
-    });
-    return `*${supplier.name}*\n` + lines.join('\n');
-  });
-  return '*Order — The Italian Club*\n\n' + sections.join('\n\n');
-}
+import { buildSupplierPicker } from './supplier-picker.js';
+import { buildOrderMessage, whatsappUrl } from './order-text.js';
 
 // suppliers: array; ingredientsBySupplier: { supplierId: [ingredient] };
 // entries: { ingredientId: { qty, stock } }; callbacks: { onBack, onSent }.
 export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callbacks) {
   // Only suppliers with at least one ordered item can be sent.
-  const withItems = suppliers.map(supplier => {
-    const items = (ingredientsBySupplier[supplier.id] || [])
+  const rows = suppliers.map(supplier => ({
+    id: supplier.id,
+    name: supplier.name,
+    items: (ingredientsBySupplier[supplier.id] || [])
       .filter(ing => (entries[ing.id]?.qty || 0) > 0)
-      .map(ing => ({ name: ing.name, weight: ing.weight || '', qty: entries[ing.id].qty }));
-    return { supplier, items };
-  }).filter(s => s.items.length);
+      .map(ing => ({ name: ing.name, weight: ing.weight || '', qty: entries[ing.id].qty })),
+  })).filter(row => row.items.length);
 
-  const scroll = el('div', { class: 'preview-scroll' });
-  const sendBtn = el('button', { type: 'button', class: 'btn-primary' }, 'Send on WhatsApp');
-  const checks = [];             // { supplier, items, input }
-  let selectAllInput = null;
-
-  function syncSendState() {
-    sendBtn.disabled = !checks.some(c => c.input.checked);
-    if (selectAllInput) selectAllInput.checked = checks.length > 0 && checks.every(c => c.input.checked);
-  }
-
-  if (!withItems.length) {
-    scroll.appendChild(el('p', { class: 'preview-empty', text: 'No items in this order yet. Add quantities first.' }));
-    sendBtn.disabled = true;
-  } else {
-    selectAllInput = el('input', { type: 'checkbox' });
-    selectAllInput.checked = true;
-    selectAllInput.addEventListener('change', () => {
-      checks.forEach(c => { c.input.checked = selectAllInput.checked; });
-      syncSendState();
-    });
-    scroll.appendChild(el('label', { class: 'send-select-all' }, [
-      selectAllInput, el('span', { text: 'Select all suppliers' }),
-    ]));
-
-    withItems.forEach(({ supplier, items }) => {
-      const input = el('input', { type: 'checkbox' });
-      input.checked = true;
-      input.addEventListener('change', syncSendState);
-      checks.push({ supplier, items, input });
-      const count = items.length === 1 ? '1 item' : `${items.length} items`;
-      scroll.appendChild(el('label', { class: 'send-supplier-row' }, [
-        input,
-        el('div', { class: 'send-supplier-main' }, [
-          el('span', { class: 'send-supplier-name', text: supplier.name }),
-          el('span', { class: 'send-supplier-count', text: count }),
-        ]),
-      ]));
-    });
-  }
-
-  sendBtn.addEventListener('click', () => {
-    const selected = checks.filter(c => c.input.checked).map(c => ({ supplier: c.supplier, items: c.items }));
-    if (!selected.length) return;
-    const text = buildCombinedMessage(selected);
-    window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-    callbacks.onSent?.(selected.map(c => c.supplier.id));
+  return buildSupplierPicker(rows, {
+    title: 'Send order',
+    actionLabel: 'Send on WhatsApp',
+    emptyText: 'No items in this order yet. Add quantities first.',
+  }, {
+    onBack: () => callbacks.onBack(),
+    onConfirm: selected => {
+      const text = buildOrderMessage(
+        selected.map(r => ({ supplierName: r.name, items: r.items })));
+      if (!text) return;            // nothing orderable — never open an empty chat
+      window.open(whatsappUrl(text), '_blank');
+      callbacks.onSent?.(selected.map(r => r.id));
+    },
   });
-
-  const backBtn = el('button', { type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back', icon: BACK_ICON,
-    onClick: () => callbacks.onBack() });
-
-  return el('div', { class: 'preview-overlay' }, [
-    el('header', { class: 'orders-header' }, [
-      backBtn,
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Send order' })]),
-      el('span', { style: { width: '36px', flexShrink: '0' } }),
-    ]),
-    scroll,
-    el('div', { class: 'preview-footer' }, [sendBtn]),
-  ]);
 }

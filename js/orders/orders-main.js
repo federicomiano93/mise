@@ -17,6 +17,7 @@ import {
   saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
 } from './draft.js';
 import { buildSendScreen } from './preview.js';
+import { buildSupplierPicker } from './supplier-picker.js';
 import { renderHistory as renderHistoryView } from './history.js';
 import { buildHistoryEditor } from './history-edit.js';
 import { buildManagement, isAdmin } from './management.js';
@@ -24,7 +25,10 @@ import { computeSuggestion } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
 import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
-import { todayISO, dayPhrase, localDayOf } from './day.js';
+import { todayISO, dayPhrase, localDayOf, dayLabel } from './day.js';
+import {
+  buildOrderMessage, whatsappUrl, itemsFromQuantities, indexById,
+} from './order-text.js';
 import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
 import { todayOrders, pendingSuppliers } from './reminders.js';
 import { renderTodayOrders, renderPending } from './reminder-view.js';
@@ -81,6 +85,7 @@ function ingredientsBySupplier() {
 function refreshAllSuppliers() {
   const bySupplier = ingredientsBySupplier();
   activeSuppliers().forEach(s => refreshSupplierDerived(s, bySupplier[s.id] || [], state.entries));
+  refreshPlaceAllButton();
 }
 
 function syncInputsFromState() {
@@ -136,8 +141,54 @@ function renderHistory() {
     state.history,
     state.suppliers,
     state.ingredients,
-    { onEdit: openHistoryEditor },
+    { onEdit: openHistoryEditor, onSend: sendRecord, onSendDay: openSendDayScreen },
   );
+}
+
+// ── Sending an order that is already recorded ─────────────────────────────────
+//
+// Recording an order clears its rows from the draft, so from that moment the only
+// place the message can be built from is the archive. That is why sending lives here
+// too and not only before placing: "placed" and "sent" are two different things, and
+// the app should not force one order on them.
+
+// A stored record → the picker/message row shape. Names and weights are resolved from
+// the CURRENT ingredient list, the same lens the History view uses on screen.
+function recordToRow(record) {
+  return {
+    id: record.id,
+    name: record.supplierName || 'Order',
+    items: itemsFromQuantities(record.quantities, indexById(state.ingredients)),
+  };
+}
+
+function sendMessageFor(rows) {
+  const text = buildOrderMessage(rows.map(r => ({ supplierName: r.name, items: r.items })));
+  if (!text) {
+    setStatus('Nothing to send — that order has no items.', 'warn', 4000);
+    return;
+  }
+  window.open(whatsappUrl(text), '_blank');
+}
+
+// One recorded order, straight out — no tick-list to wade through for a single card.
+function sendRecord(record) {
+  sendMessageFor([recordToRow(record)]);
+}
+
+// A whole day: the same tick-list as everywhere else, so a day of five orders can go
+// out as one message or as the three you actually still need to send.
+function openSendDayScreen(date, records) {
+  const rows = records.map(recordToRow).filter(r => r.items.length);
+  const overlay = buildSupplierPicker(rows, {
+    title: `Send ${dayLabel(date).toLowerCase()}`,
+    actionLabel: 'Send on WhatsApp',
+    emptyText: 'Nothing to send for that day.',
+  }, {
+    onBack: () => overlay.remove(),
+    onConfirm: selected => { overlay.remove(); sendMessageFor(selected); },
+  });
+  document.body.appendChild(overlay);
 }
 
 // ── Correcting a recorded order ───────────────────────────────────────────────
@@ -193,11 +244,29 @@ function listNames(names) {
 // Sending is the moment the order actually leaves, so it is the moment to ask —
 // forgetting to tap "Order placed" afterwards is exactly what left orders
 // unrecorded. Only the suppliers that were actually ticked and sent are offered.
-async function offerToRecordSent(supplierIds) {
+function offerToRecordSent(supplierIds) {
+  return recordSuppliers(supplierIds, {
+    title: 'Order sent',
+    okLabel: 'Mark as placed',
+    cancelLabel: 'Not yet',
+  });
+}
+
+// Record several suppliers' orders behind ONE confirmation. Shared by the prompt
+// that follows a WhatsApp send and by the "Order placed" screen, so both spell out
+// the same consequences and both add to an existing same-day record the same way.
+async function recordSuppliers(supplierIds, { title, okLabel, cancelLabel = 'Cancel' }) {
   const suppliers = supplierIds
     .map(id => state.suppliers.find(s => s.id === id))
     .filter(s => s && supplierHasItems(s.id, state.ingredients, state.entries));
-  if (!suppliers.length) return;
+
+  // Everything selected has since lost its rows — another device placed the order,
+  // or the ingredients were deactivated. Say so: returning in silence looks exactly
+  // like the app ignoring the tap, which is what it used to do here.
+  if (!suppliers.length) {
+    setStatus('Nothing left to record — those rows are already placed or empty.', 'warn', 5000);
+    return;
+  }
 
   const names = listNames(suppliers.map(s => s.name));
   const alreadyRecorded = suppliers.filter(s =>
@@ -209,22 +278,80 @@ async function offerToRecordSent(supplierIds) {
     message += `\n\n${already} already has an order recorded for that day — these items will be ADDED to it.`;
   }
 
-  const ok = await confirmDialog({
-    title: 'Order sent',
-    message,
-    okLabel: 'Mark as placed',
-    cancelLabel: 'Not yet',
-  });
+  const ok = await confirmDialog({ title, message, okLabel, cancelLabel });
   if (!ok) return;
 
   // Sequentially: each archive writes and then clears its own rows, and the draft
   // is one shared document — overlapping writes would race on it.
   const saved = [];
+  const failed = [];
   for (const supplier of suppliers) {
     const done = await placeOrder(supplier.id, { confirm: false });
-    if (done) saved.push(supplier.name);
+    (done ? saved : failed).push(supplier.name);
+  }
+
+  // A failure must never be buried under a success. placeOrder reports its own
+  // error, but the summary below used to overwrite it with a green line naming only
+  // the ones that worked — so a supplier that failed vanished from view while its
+  // rows sat there untouched. With several suppliers at once that is far more likely,
+  // so the summary now leads with what went wrong.
+  if (failed.length) {
+    setStatus(
+      `${listNames(failed)} — NOT recorded, the rows are still there. ` +
+      (saved.length ? `${listNames(saved)} saved.` : 'Try again.'),
+      'error',
+    );
+    return;
   }
   if (saved.length) setStatus(`${listNames(saved)} — order saved to history ✓`, 'ok', 5000);
+}
+
+// ── Order placed for several suppliers at once ────────────────────────────────
+
+// Every supplier that currently has something to order, as picker rows.
+function suppliersWithItems() {
+  const bySupplier = ingredientsBySupplier();
+  return activeSuppliers()
+    .map(supplier => ({
+      id: supplier.id,
+      name: supplier.name,
+      items: (bySupplier[supplier.id] || []).filter(i => (state.entries[i.id]?.qty || 0) > 0),
+    }))
+    .filter(row => row.items.length);
+}
+
+// The same tick-list as the WhatsApp send, so recording several orders is reviewed
+// rather than blind.
+//
+// The single global "Order placed" was deliberately REMOVED in v1.9.0 because it
+// archived everything into one record and wiped the whole draft, destroying the
+// quantities already typed for a supplier ordered later in the week. This is not that
+// button: each supplier still gets its own {day}_{supplier} record, and the ticks
+// exist so a half-typed Thursday order can be left out of a Monday run.
+function openPlaceAllScreen() {
+  const overlay = buildSupplierPicker(suppliersWithItems(), {
+    title: 'Order placed',
+    actionLabel: 'Order placed',
+    emptyText: 'No quantities typed yet. Add them first.',
+  }, {
+    onBack: () => overlay.remove(),
+    onConfirm: rows => {
+      overlay.remove();
+      recordSuppliers(rows.map(r => r.id), {
+        title: 'Record these orders',
+        okLabel: 'Order placed',
+        cancelLabel: 'Not yet',
+      });
+    },
+  });
+  document.body.appendChild(overlay);
+}
+
+// Show the button only when it saves taps: with one supplier the button on its own
+// card is right there, and a second control for the same job is just noise.
+function refreshPlaceAllButton() {
+  const btn = document.getElementById('place-all-btn');
+  if (btn) btn.hidden = suppliersWithItems().length < 2;
 }
 
 // ── Order placed (one supplier at a time) ─────────────────────────────────────
@@ -553,6 +680,8 @@ async function init() {
     if (ok) clearStatusIf(DRAFT_SAVE_ERROR);
     else setStatus(DRAFT_SAVE_ERROR, 'error');
   });
+
+  document.getElementById('place-all-btn')?.addEventListener('click', openPlaceAllScreen);
 
   const settingsBtn = document.getElementById('settings-footer-btn');
   if (settingsBtn) {

@@ -364,6 +364,34 @@ input.ing-stock {
 }
 .history-day-label:first-child { margin-top: 0; }
 
+/* A day with more than one order gets "Send all" beside its heading. The heading
+   keeps its own baseline metrics; only the row wrapper changes, so a day without
+   the button is pixel-identical to before. */
+.history-day-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.history-send-day {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-family: 'Manrope', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  cursor: pointer;
+}
+.history-send-day:active { background: var(--surface2); transform: scale(0.97); }
+.history-send-icon { display: flex; align-items: center; }
+
 /* Editing a recorded order: a quiet link at the foot of the card, not a control
    that competes with reading it. Flex on the button AND on the icon's span — an
    SVG in an inline span sits on the text baseline, ~2px low. */
@@ -384,6 +412,10 @@ input.ing-stock {
   cursor: pointer;
 }
 .history-edit-icon { display: flex; align-items: center; }
+
+/* When both actions are present, only the first keeps the divider — a second rule
+   above "Edit order" would read as a separator between two unrelated things. */
+.history-send-btn + .history-edit-btn { border-top: none; margin-top: 2px; }
 
 /* ── History editor overlay ───────────────────────────────────────────────── */
 .hist-edit-save { width: auto; padding: 0 10px; font-size: 15px; font-weight: 600; }

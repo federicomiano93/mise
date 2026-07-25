@@ -30,10 +30,23 @@ function resetIfIdle() {
     // ignore
   }
 
-  if (Date.now() - hiddenAt > IDLE_LIMIT_MS) {
-    // replace() so the stale page is not left in history (no "back" to it)
-    location.replace(HOME_URL);
-  }
+  if (Date.now() - hiddenAt <= IDLE_LIMIT_MS) return;
+
+  // Never navigate out from under an open confirmation. The question on screen was
+  // asked BEFORE the app went to the background, so it is waiting for an answer the
+  // user has not given yet; replacing the page answers it for them, silently.
+  //
+  // This is not hypothetical. Sending an order on WhatsApp raises "Order sent — mark
+  // as placed?" and opens WhatsApp in the same gesture, so the app goes to the
+  // background with that dialog open by design. Spend more than the idle limit
+  // writing to the supplier and, without this guard, you come back to the Home screen
+  // and the order is never recorded — which is exactly the "sometimes it doesn't ask
+  // me" report. Reproduced: 2 minutes away and the dialog survives, 6 minutes and it
+  // is gone with the page.
+  if (document.querySelector('.app-dialog')) return;
+
+  // replace() so the stale page is not left in history (no "back" to it)
+  location.replace(HOME_URL);
 }
 
 document.addEventListener('visibilitychange', () => {

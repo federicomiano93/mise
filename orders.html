@@ -86,10 +86,15 @@
     <div id="orders-pending"></div>
     <div id="orders-today"></div>
     <div id="orders-alerts"></div>
-    <!-- "Order placed" is not here anymore: it lives on each supplier card, so
-         recording Salvo's Monday order cannot wipe the quantities already typed
-         for the supplier you order on Thursday. -->
+    <!-- The per-supplier "Order placed" lives on each supplier card, so recording
+         Salvo's Monday order cannot wipe the quantities already typed for the
+         supplier you order on Thursday. The button below does NOT bring back the
+         old global one that archived everything into a single record: it opens a
+         tick-list, and each supplier still gets its own {day}_{supplier} record.
+         Hidden until at least TWO suppliers have quantities — with one, the button
+         on its own card is right there. -->
     <div id="suppliers-list"></div>
+    <button class="btn-primary" id="place-all-btn" type="button" hidden>Order placed for several…</button>
   </section>
 
   <!-- HISTORY -->
