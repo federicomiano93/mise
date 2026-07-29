@@ -195,8 +195,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
-/* .view-switch sets display:flex, which beats the browser's [hidden] rule — without
-   this the switch would still show on the empty screen. */
+/* Kept even though tokens.css now enforces [hidden] app-wide: it states the intent
+   locally, next to the display:flex that would otherwise fight it. */
 .view-switch[hidden] { display: none; }
 /* 13px, not the 14–15px used elsewhere, and 6px of side padding: MEASURED on a
    282px-wide viewport (a real 6.1" phone window), where "All ingredients" is 89px
