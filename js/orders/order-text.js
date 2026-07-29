@@ -54,14 +54,49 @@ export function sortItems(items) {
     itemLabel(a.name, a.weight).localeCompare(itemLabel(b.name, b.weight)));
 }
 
-// The whole message: one section per supplier, blank line between them.
+// One flat shopping list: every item from every group, no supplier headings.
+//
+// Two lines carrying the SAME label are added together. That is what a shopping list
+// wants — the same flour bought from two suppliers is still "buy this much flour" to
+// the person walking round the shop. (In the grouped format they stay apart, because
+// there each line is addressed to a different supplier.)
+//
+// Rows adding up to nothing are dropped: this format is read as "what to buy", and
+// "- Bacon: 0" is not something to buy.
+function flatLines(groups) {
+  const totals = new Map();
+  groups.forEach(group => (group.items || []).forEach(item => {
+    const label = itemLabel(item.name, item.weight);
+    totals.set(label, (totals.get(label) || 0) + num(item.qty));
+  }));
+
+  return [...totals.entries()]
+    .filter(([, qty]) => qty > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, qty]) => `- ${label}: ${qty}`);
+}
+
+// The whole message, in one of two formats.
 // groups: [{ supplierName, items: [{ name, weight, qty }] }]
+//
+//   grouped: true  (the default, and what the app has always sent) — one bold section
+//                  per supplier. This is the format a SUPPLIER receives, so it is
+//                  deliberately untouched, down to the byte.
+//   grouped: false — one flat A→Z list with no headings: a shopping list for yourself.
+//                  It does NOT say who sells what, so sending it to a supplier shows
+//                  them everyone else's order too. Hence the default above.
+//
 // Returns '' when there is nothing to send, so callers can refuse rather than open
 // WhatsApp with an empty order.
-export function buildOrderMessage(groups) {
+export function buildOrderMessage(groups, { grouped = true } = {}) {
   const withItems = (groups || []).filter(g => (g.items || []).length);
   if (!withItems.length) return '';
-  return `${TITLE}\n\n` + withItems.map(sectionFor).join('\n\n');
+
+  if (grouped) return `${TITLE}\n\n` + withItems.map(sectionFor).join('\n\n');
+
+  const lines = flatLines(withItems);
+  if (!lines.length) return '';
+  return `${TITLE}\n\n` + lines.join('\n');
 }
 
 // Turn a stored `quantities` map into message items, resolving names and weights from

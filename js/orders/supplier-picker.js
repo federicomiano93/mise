@@ -19,15 +19,62 @@ export function itemsLabel(count) {
   return count === 1 ? '1 item' : `${count} items`;
 }
 
+// The message-format chooser: grouped by supplier (what a supplier receives) or one
+// flat shopping list (for yourself).
+//
+// role="radiogroup", not the "tablist" the order-view switch uses, even though the two
+// look identical: this picks a VALUE, it does not swap a panel, and announcing it as
+// tabs would tell a screen-reader user to expect content to change.
+function buildFormatSwitch({ grouped, onChange }) {
+  const group = el('div', { class: 'view-switch', role: 'radiogroup', 'aria-label': 'Message format' });
+  let current = grouped;
+
+  const buttons = [['By supplier', true], ['One list', false]].map(([label, value]) => {
+    const btn = el('button', {
+      type: 'button', class: 'view-switch-btn', role: 'radio',
+      onClick: () => {
+        if (current === value) return;
+        current = value;
+        paint();
+        onChange?.(value);
+      },
+    }, label);
+    btn.dataset.grouped = String(value);
+    group.appendChild(btn);
+    return btn;
+  });
+
+  function paint() {
+    buttons.forEach(btn => {
+      const on = (btn.dataset.grouped === 'true') === current;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-checked', String(on));
+    });
+  }
+  paint();
+
+  return {
+    node: el('div', { class: 'preview-format' }, [
+      el('span', { class: 'preview-format-label', text: 'Message' }),
+      group,
+    ]),
+    get grouped() { return current; },
+  };
+}
+
 // rows:     [{ id, name, items: [...] }] — `items` is opaque here, only counted and
 //           handed back; whoever passes it decides what it means.
-// options:  { title, actionLabel, emptyText, danger? }
-// callbacks:{ onBack, onConfirm(selectedRows) }
+// options:  { title, actionLabel, emptyText, danger?, format? }
+//           format: { grouped, onChange(grouped) } — present only on the flows that
+//           SEND a message. "Order placed" writes to History and sends nothing, so it
+//           must not offer a message format.
+// callbacks:{ onBack, onConfirm(selectedRows, { grouped }) }
 //
 // Every row starts ticked: the common case is "yes, all of them", and the checkboxes
 // are there so the uncommon case is possible, not so the common one is laborious.
 export function buildSupplierPicker(rows, options, callbacks) {
-  const { title, actionLabel, emptyText, danger = false } = options;
+  const { title, actionLabel, emptyText, danger = false, format = null } = options;
+  const formatSwitch = format ? buildFormatSwitch(format) : null;
 
   const scroll = el('div', { class: 'preview-scroll' });
   const actionBtn = el('button', {
@@ -79,7 +126,7 @@ export function buildSupplierPicker(rows, options, callbacks) {
   actionBtn.addEventListener('click', () => {
     const selected = checks.filter(c => c.input.checked).map(c => c.row);
     if (!selected.length) return;
-    callbacks.onConfirm(selected);
+    callbacks.onConfirm(selected, { grouped: formatSwitch ? formatSwitch.grouped : true });
   });
 
   const overlay = el('div', { class: 'preview-overlay' }, [
@@ -93,7 +140,10 @@ export function buildSupplierPicker(rows, options, callbacks) {
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
     scroll,
-    el('div', { class: 'preview-footer' }, [actionBtn]),
+    // Stacked, not the footer's default row: the format chooser belongs ABOVE the
+    // green button, not beside it competing for the same width.
+    el('div', { class: 'preview-footer' + (formatSwitch ? ' preview-footer-stacked' : '') },
+      [formatSwitch?.node, actionBtn]),
   ]);
 
   return overlay;

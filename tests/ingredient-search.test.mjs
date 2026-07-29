@@ -13,7 +13,9 @@ import assert from 'node:assert/strict';
 import {
   NO_SUPPLIER_ID, NO_SUPPLIER, isNoSupplier, resolveSuppliers, orderSuppliers,
 } from '../js/orders/no-supplier.js';
-import { normalizeText, letterOf, matchesQuery, flatRows } from '../js/orders/ingredient-search.js';
+import {
+  normalizeText, letterOf, matchesQuery, flatRows, orderSummary,
+} from '../js/orders/ingredient-search.js';
 
 const SALVO = { id: 'salvo', name: 'Salvo', active: true };
 const BRAKES = { id: 'brakes', name: 'Brakes', active: true };
@@ -171,4 +173,80 @@ test('each row carries the supplier it is filed under, for the line under the na
 test('nothing at all does not throw', () => {
   assert.deepEqual(flatRows({ ingredients: [], suppliers: [], query: '' }), { rows: [], total: 0 });
   assert.deepEqual(flatRows({}), { rows: [], total: 0 });
+});
+
+// ── The "just what I'm ordering" filter ──────────────────────────────────────
+
+function filtered(only, query = '') {
+  const ingredients = resolveSuppliers(ALL, SUPPLIERS, true);
+  const suppliers = orderSuppliers([BRAKES, SALVO], ingredients);
+  return flatRows({ ingredients, suppliers, query, only });
+}
+
+test('the filter narrows the list to the given ids, and the total still counts all', () => {
+  const { rows, total } = filtered(new Set(['bacon', 'paper']));
+  assert.deepEqual(rows.map(r => r.label), ['Bacon 2.27kg', 'Baking Paper']);
+  assert.equal(total, 5, 'the "All (N)" button must still say how many there are');
+});
+
+test('the search combines with the filter instead of replacing it', () => {
+  const only = new Set(['bacon', 'paper', 'mozza']);
+  assert.deepEqual(filtered(only, 'bak').rows.map(r => r.label), ['Baking Paper']);
+  assert.deepEqual(filtered(only, 'salvo').rows.map(r => r.label), ['Mozzarella 5kg']);
+});
+
+test('an id in the filter that no longer exists is simply not shown', () => {
+  const { rows } = filtered(new Set(['bacon', 'deleted-since']));
+  assert.deepEqual(rows.map(r => r.label), ['Bacon 2.27kg']);
+});
+
+test('the letters follow the filtered list too', () => {
+  assert.deepEqual(filtered(new Set(['mozza', 'paper'])).rows.map(r => r.letter), ['B', 'M']);
+});
+
+// ── orderSummary ─────────────────────────────────────────────────────────────
+
+function summaryFor(entries) {
+  const ingredients = resolveSuppliers(ALL, SUPPLIERS, true);
+  const suppliers = orderSuppliers([BRAKES, SALVO], ingredients);
+  return orderSummary({ ingredients, suppliers, entries });
+}
+
+test('the summary counts the items and the suppliers behind them', () => {
+  const s = summaryFor({ bacon: { qty: 4 }, mozza: { qty: 2 }, almonds: { qty: 1 } });
+  assert.equal(s.itemCount, 3);
+  assert.equal(s.supplierCount, 2, 'Almonds and Mozzarella are both Salvo');
+  assert.deepEqual(s.ids.slice().sort(), ['almonds', 'bacon', 'mozza']);
+});
+
+test('No supplier counts as a supplier of its own in the summary', () => {
+  const s = summaryFor({ bacon: { qty: 1 }, paper: { qty: 2 } });
+  assert.equal(s.itemCount, 2);
+  assert.equal(s.supplierCount, 2);
+});
+
+test('stock without an order is not part of the order', () => {
+  const s = summaryFor({ bacon: { qty: 0, stock: 9 }, mozza: { stock: 3 } });
+  assert.deepEqual(s, { itemCount: 0, supplierCount: 0, ids: [] });
+});
+
+test('a corrupt stored quantity counts as nothing, never as NaN', () => {
+  ['HELLO', null, undefined, -3, Infinity, NaN, ''].forEach(bad => {
+    const s = summaryFor({ bacon: { qty: bad } });
+    assert.equal(s.itemCount, 0, `quantity ${String(bad)} must not count`);
+  });
+  assert.equal(summaryFor({ bacon: { qty: '4' } }).itemCount, 1, 'a numeric string still counts');
+});
+
+test('a deactivated ingredient, or one of a hidden supplier, is out of the summary', () => {
+  assert.equal(summaryFor({ retired: { qty: 5 } }).itemCount, 0);
+
+  const ingredients = resolveSuppliers([BACON, MOZZARELLA], SUPPLIERS, true);
+  const s = orderSummary({ ingredients, suppliers: [SALVO], entries: { bacon: { qty: 4 }, mozza: { qty: 1 } } });
+  assert.deepEqual(s.ids, ['mozza'], 'Brakes is not in the supplier list, so Bacon is not orderable');
+});
+
+test('an empty order summarises to zero without throwing', () => {
+  assert.deepEqual(summaryFor({}), { itemCount: 0, supplierCount: 0, ids: [] });
+  assert.deepEqual(orderSummary({}), { itemCount: 0, supplierCount: 0, ids: [] });
 });
