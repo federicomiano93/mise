@@ -57,6 +57,18 @@
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+/* ── [hidden] really means hidden ─────────────────────────────────────────
+   The browser hides [hidden] with a `display: none` rule of the same weight as
+   any class selector, so ANY later `.thing { display: flex }` silently beats it
+   and the element is painted while every script on the page believes it is gone.
+   That shipped once: the order-summary bar was left as an empty green strip
+   across the bottom of the Orders screen whenever nothing was being ordered,
+   and it passed review because the checks asked whether the ATTRIBUTE was set,
+   not whether the element was still on screen.
+   `!important` is what it takes to outrank a class here, and it is safe: nothing
+   in this app ever wants a [hidden] element visible. One rule, every screen. */
+[hidden] { display: none !important; }
+
 :root {
   /* ── Ground & surfaces ───────────────────────────────────────────────── */
   --bg:        #EFEBE1;   /* page background (warm neutral ground) */
