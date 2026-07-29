@@ -16,6 +16,7 @@
 import { el } from './dom.js';
 import { renderNotificationSettings } from './notifications.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
+import { NO_SUPPLIER_ID } from './no-supplier.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
 
@@ -278,7 +279,16 @@ export function buildManagement(data, actions) {
     // next to the quantity — not a unit of measure. Same field, new meaning.
     const unit = el('input', { type: 'text', class: 'mgmt-input', value: item?.unit || '', placeholder: 'e.g. casse, box' });
 
+    // "No supplier" is a real answer, not a missing one: the supermarket, the cash
+    // & carry, the shop down the road. It is FIRST and it is the default for a new
+    // ingredient — a forgotten pick then lands in a visible bucket of its own
+    // instead of silently joining whichever supplier happens to sort first.
+    //
+    // It also catches an ingredient whose supplier was deleted: its stored id
+    // matches nothing, so no <option> is selected and the browser falls back to the
+    // first one, which is precisely where that ingredient now belongs.
     const supplierSelect = el('select', { class: 'mgmt-input' });
+    supplierSelect.appendChild(el('option', { value: NO_SUPPLIER_ID, text: '— No supplier —' }));
     data.suppliers().slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
       const opt = el('option', { value: s.id, text: s.name });
       if (item?.supplierId === s.id) opt.selected = true;
@@ -286,7 +296,8 @@ export function buildManagement(data, actions) {
     });
 
     const save = el('button', { type: 'button', class: 'btn-primary', onClick: async () => {
-      if (!name.value.trim() || !supplierSelect.value) { name.focus(); return; }
+      // The supplier is no longer required — only the name is.
+      if (!name.value.trim()) { name.focus(); return; }
       save.disabled = true;
       const payload = {
         name: name.value.trim(),

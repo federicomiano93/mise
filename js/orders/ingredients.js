@@ -68,7 +68,13 @@ export function buildIngredientList(supplier, ingredients, suggest, entries, hoo
   return body;
 }
 
-function buildRow(ing, supplier, suggest, entries, hooks) {
+// One ingredient row. Exported because the flat "All ingredients" view builds the
+// very same row — one row implementation, so a fix to the stock/order behaviour can
+// never land in one view and not the other.
+//
+// `meta` is the line under the name (the supplier, in the flat list). It is left out
+// entirely in the by-supplier view: the card heading already says whose it is.
+export function buildRow(ing, supplier, suggest, entries, hooks, { meta = '' } = {}) {
   const entry = entryFor(entries, ing.id);
 
   const stockInput = el('input', {
@@ -118,6 +124,9 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
     el('div', { class: 'ing-top' }, [
       el('span', { class: 'ing-name', text: nameLabel }),
     ]),
+    // Its own block, not a second child of .ing-top: that is a baseline-aligned flex
+    // row, so the supplier would sit BESIDE the name instead of under it.
+    meta ? el('div', { class: 'ing-supplier', text: meta }) : null,
     el('div', { class: 'ing-fields' }, [
       el('label', { class: 'field order-field' }, [
         el('span', { class: 'field-label', text: 'Order' }),

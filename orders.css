@@ -145,6 +145,45 @@
 .empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .empty-sub { font-size: 14px; color: var(--text3); line-height: 1.5; }
 
+/* ── Order view switch (By supplier / All ingredients) ─────────────────────
+   A segmented control, deliberately NOT drawn like the page's .tab-bar: that one
+   switches SCREEN (Order / History), this one only changes how the order screen is
+   laid out. Two identical underlined tab rows stacked would read as one confused
+   four-tab bar. Colours, radii and type all come from tokens.css — nothing new is
+   invented here (the outer radius is --radius, the segments --radius-sm, so the
+   inner corners sit inside the 4px padding). */
+.view-switch {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+/* .view-switch sets display:flex, which beats the browser's [hidden] rule — without
+   this the switch would still show on the empty screen. */
+.view-switch[hidden] { display: none; }
+/* 13px, not the 14–15px used elsewhere, and 6px of side padding: MEASURED on a
+   282px-wide viewport (a real 6.1" phone window), where "All ingredients" is 89px
+   against 99px of room. At 14px it is 96px and wraps onto a second line, which
+   doubles the height of the control and looks broken. */
+.view-switch-btn {
+  flex: 1;
+  padding: 10px 6px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.06s ease;
+}
+.view-switch-btn:active { transform: scale(0.97); }
+.view-switch-btn.active { background: var(--surface); color: var(--accent); }
+
 /* ── Supplier card (collapsible) ──────────────────────────────────────────── */
 .supplier-card {
   background: var(--surface);
@@ -233,6 +272,47 @@
 .ing-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
 .ing-name { font-size: 16px; font-weight: 500; color: var(--text); }
 .ing-unit { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+/* ── All-ingredients (flat) list ──────────────────────────────────────────────
+   Rendered INSIDE #suppliers-list, so the .ing-row scoping fix above covers these
+   rows too — see the long note there. A container of its own would silently hand
+   them back to the Calculator's flex layout. */
+.ing-flat-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 14px 8px;
+}
+/* Who it is bought from, under the name. In the by-supplier view this line is not
+   rendered at all — the card heading already says it. */
+.ing-supplier {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  margin: -4px 0 8px;
+}
+/* The A / B / C dividers. Same treatment as .ing-category so the flat list and a
+   supplier's categorised list read as the same kind of list. No rule of its own:
+   the row above already draws .ing-row's bottom border, and a second line here
+   would double it. */
+.ing-letter {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: 'DM Mono', monospace;
+  padding-top: 12px;
+  margin-bottom: 2px;
+}
+.ing-flat-list > .ing-letter:first-child { padding-top: 6px; }
+/* "12 of 65" — how much of the list the search is hiding. */
+.ing-count {
+  font-size: 12px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  margin: 0 0 8px 2px;
+}
 
 /* Order on the LEFT, Stock on the RIGHT, pushed to the two edges of the row; each
    column centres its label over its input. No +/- steppers (they overflowed on

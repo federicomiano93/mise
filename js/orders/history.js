@@ -16,6 +16,7 @@
 import { el, groupBy } from './dom.js';
 import { dayLabel } from './day.js';
 import { groupHistoryByDay, isLegacyRecord } from './archive.js';
+import { isNoSupplier } from './no-supplier.js';
 
 const PENCIL_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
@@ -28,6 +29,14 @@ const WA_SVG =
 
 function indexById(items) {
   return (items || []).reduce((acc, it) => { acc[it.id] = it; return acc; }, {});
+}
+
+// What to head a group of items with when no supplier document matches. Bought
+// without a supplier is a deliberate, named thing; a genuinely unresolvable id is
+// not, and calling that "No supplier" too would hide a real problem.
+function supplierHeading(supplierId, supById) {
+  if (supById[supplierId]?.name) return supById[supplierId].name;
+  return isNoSupplier(supplierId) ? 'No supplier' : 'Unknown supplier';
 }
 
 // callbacks: { onEdit(record), onSend(record), onSendDay(date, records) }
@@ -150,7 +159,7 @@ function buildLegacyCard(record, supById, ingById, callbacks) {
 
   const body = el('div', { class: 'history-body' });
   Object.keys(bySupplier).forEach(supplierId => {
-    body.appendChild(el('div', { class: 'history-supplier', text: supById[supplierId]?.name || 'Unknown supplier' }));
+    body.appendChild(el('div', { class: 'history-supplier', text: supplierHeading(supplierId, supById) }));
     bySupplier[supplierId]
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach(r => body.appendChild(el('div', { class: 'history-item' }, [
