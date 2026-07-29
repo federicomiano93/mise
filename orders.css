@@ -118,20 +118,54 @@
 .orders-status.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-border); }
 .orders-status.error { color: var(--error); background: var(--error-bg); border-color: var(--error-border); }
 
-/* ── Offline bar ───────────────────────────────────────────────────────────────
-   Shown ONLY while the device is offline (js/orders/orders-main.js toggles the
-   [hidden] attribute on the browser online/offline events). Fixed to the bottom
-   edge so it stays visible whatever the scroll position; safe-area padding keeps
-   it clear of the iPhone home indicator. */
-.orders-offline {
+/* ── The fixed bottom strip ────────────────────────────────────────────────────
+   ONE fixed container stacking the order-summary bar and the offline notice. They
+   were two independently-fixed elements and would have sat on top of each other;
+   the container also gives orders-main a single height to measure, so the scroll
+   area can be padded by exactly as much as is covered. Safe-area padding lives
+   here now, once, keeping both clear of the iPhone home indicator. */
+.orders-bottom {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 400;
+}
+/* The safe-area inset is added only while something is actually showing — the class
+   is toggled by orders-main. Putting it on the container unconditionally would
+   reserve ~34px at the bottom of every iPhone screen for an empty strip, and the
+   measured height that pads the scroll area would carry that waste with it. */
+.orders-bottom.visible { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* How much is in the order right now, and the way into the list filtered to just
+   that. Brand green and edge-to-edge, so it reads as part of the app's frame (like
+   the header) rather than as another button competing with "Order placed…" (P20).
+   The update banner uses the same green but is a centred, rounded, shadowed pill —
+   and it now sits ABOVE this strip rather than on it (see --bottom-bar-h). */
+.order-summary-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 16px;
+  background: var(--brand);
+  border: none;
+  color: var(--on-brand);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.06s ease;
+}
+.order-summary-bar:active { transform: scale(0.99); }
+.order-summary-bar svg { flex-shrink: 0; }
+
+/* Shown ONLY while the device is offline (js/orders/orders-main.js toggles the
+   [hidden] attribute on the browser online/offline events). */
+.orders-offline {
   margin: 0;
   padding: 10px 14px;
-  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   text-align: center;
   font-size: 13px;
   font-family: 'DM Mono', monospace;
@@ -427,6 +461,21 @@ input.ing-stock {
 }
 .preview-footer .btn-secondary { flex: 1; }
 .preview-footer .btn-primary { flex: 2; margin-top: 0; }
+
+/* The send screens add a message-format chooser above the button, so the footer
+   becomes a column. flex: 2 on the button would then stretch it VERTICALLY. */
+.preview-footer-stacked { flex-direction: column; align-items: stretch; gap: 12px; }
+.preview-footer-stacked .btn-primary { flex: 0 0 auto; }
+.preview-format { display: flex; flex-direction: column; gap: 6px; }
+.preview-format-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.preview-format .view-switch { margin-bottom: 0; }
 
 /* ── History tab ──────────────────────────────────────────────────────────── */
 .history-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 40px 20px; }

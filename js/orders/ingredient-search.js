@@ -50,9 +50,14 @@ export function matchesQuery(row, query) {
 // stay hidden. Callers pass the resolved supplier list (no-supplier.js), so
 // "belongs to nobody" is already "belongs to No supplier" by the time we get here.
 //
+// `only` is an optional Set of ingredient ids — the "just what I'm ordering" filter.
+// It is a FROZEN set, decided by the caller when the filter is entered, never
+// recomputed from the quantities: if it were, typing 0 into a row would delete that
+// row from under the finger correcting it.
+//
 // Returns { rows, total }: `total` is everything orderable, `rows` only what the
-// search left standing — the counter needs both to say "12 of 65".
-export function flatRows({ ingredients, suppliers, query }) {
+// filter and the search left standing — the counter needs both to say "12 of 65".
+export function flatRows({ ingredients, suppliers, query, only }) {
   const byId = new Map((suppliers || []).map(s => [s.id, s]));
 
   const all = (ingredients || [])
@@ -69,7 +74,9 @@ export function flatRows({ ingredients, suppliers, query }) {
       a.label.localeCompare(b.label)
       || String(a.ingredient.id).localeCompare(String(b.ingredient.id)));
 
-  const rows = all.filter(row => matchesQuery(row, query));
+  const rows = all
+    .filter(row => !only || only.has(row.ingredient.id))
+    .filter(row => matchesQuery(row, query));
 
   // The letter is carried on the FIRST row of each run only, so the view can draw a
   // divider without re-deriving where the groups start. It is computed after
@@ -82,4 +89,30 @@ export function flatRows({ ingredients, suppliers, query }) {
   });
 
   return { rows, total: all.length };
+}
+
+// What is currently being ordered, across every supplier → { itemCount,
+// supplierCount, ids }.
+//
+// The problem it solves: with 65 ingredients the typed quantities are SCATTERED —
+// inside closed supplier cards in one view, among 65 rows in the other — and there is
+// nowhere that says "this is the whole order".
+//
+// Only rows with a real, positive quantity count. A corrupt stored value ("4 " from a
+// bad write, or NaN) counts as nothing rather than poisoning the total — the same
+// defensive reading computeSuggestion had to adopt in v1.11.0.
+export function orderSummary({ ingredients, suppliers, entries }) {
+  const known = new Set((suppliers || []).map(s => s.id));
+  const ids = [];
+  const suppliersUsed = new Set();
+
+  (ingredients || []).forEach(ing => {
+    if (ing.active === false || !known.has(ing.supplierId)) return;
+    const qty = Number(entries?.[ing.id]?.qty);
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    ids.push(ing.id);
+    suppliersUsed.add(ing.supplierId);
+  });
+
+  return { itemCount: ids.length, supplierCount: suppliersUsed.size, ids };
 }

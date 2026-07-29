@@ -107,11 +107,17 @@
    banner is created from JS on EVERY page, and the CSP (style-src 'self')
    forbids injected styles, so its look must live in a stylesheet loaded by
    every page — which is only this one. */
+/* --bottom-bar-h is how much fixed UI a page has already parked at the bottom edge
+   (0 everywhere by default). Orders sets it to the measured height of its bottom strip
+   — the order summary and the offline notice. Without it the banner, at z-index 9999,
+   would sit ON TOP of that strip and swallow taps meant for it: the summary bar would
+   simply stop responding for as long as an update was pending. The banner still wins
+   the space it needs; it just stops standing on top of something tappable. */
 #sw-update-host {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--bottom-bar-h, 0px);
   z-index: 9999;
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
   pointer-events: none; /* the host never blocks taps around the button */

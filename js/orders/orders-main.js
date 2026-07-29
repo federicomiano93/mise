@@ -34,8 +34,11 @@ import { todayOrders, pendingSuppliers } from './reminders.js';
 import { renderTodayOrders, renderPending } from './reminder-view.js';
 import { resolveSuppliers, orderSuppliers } from './no-supplier.js';
 import { mountIngredientList } from './ingredient-list.js';
+import { orderSummary } from './ingredient-search.js';
+import { itemsLabel } from './supplier-picker.js';
 
 const VIEW_KEY = 'orders-view';           // 'suppliers' | 'all' — remembered between visits
+const MSG_FORMAT_KEY = 'orders-message-format';   // 'grouped' | 'flat'
 
 const state = {
   suppliers: [],
@@ -48,6 +51,8 @@ const state = {
   expanded: new Set(),
   view: 'suppliers',            // which of the two order views is on screen
   query: '',                    // the flat list's search text, kept OUT of the DOM (see render)
+  tab: 'order',                 // 'order' | 'history' — the summary bar belongs to Order only
+  filterIds: null,              // FROZEN Set of ingredient ids, or null for "show everything"
   loaded: { suppliers: false, ingredients: false, draft: false },
 };
 
@@ -68,10 +73,11 @@ const hooks = {
     if (supplier) {
       refreshSupplierDerived(supplier, ingredientsBySupplier()[supplierId] || [], state.entries);
     }
-    // In the flat list there are no per-supplier cards, so this button is the only
-    // way to record an order. It used to wait for the change to come back from
-    // Firestore before appearing; here it has to appear as you type.
-    refreshPlaceAllButton();
+    // In the flat list there are no per-supplier cards, so the "Order placed…" button
+    // is the only way to record an order. It used to wait for the change to come back
+    // from Firestore before appearing; here it has to appear as you type. The summary
+    // bar's numbers must move as you type for the same reason.
+    refreshOrderTotals();
     // Stamp the day these rows were touched. This is what lets the app offer an
     // order typed yesterday under YESTERDAY's date instead of quietly filing it
     // under today.
@@ -126,7 +132,26 @@ function ingredientsBySupplier() {
 function refreshAllSuppliers() {
   const bySupplier = ingredientsBySupplier();
   orderSupplierList().forEach(s => refreshSupplierDerived(s, bySupplier[s.id] || [], state.entries));
+  refreshOrderTotals();
+}
+
+// Everything derived from "how much is in the order right now". Counted, not listed —
+// which is why it is safe to run on every keystroke while the FILTERED row list is
+// deliberately frozen.
+function currentSummary() {
+  return orderSummary({
+    ingredients: orderIngredients(),
+    suppliers: orderSupplierList(),
+    entries: state.entries,
+  });
+}
+
+function refreshOrderTotals() {
+  const summary = currentSummary();
   refreshPlaceAllButton();
+  refreshSummaryBar(summary);
+  // Counts only — never the rows. See updateCounts in ingredient-list.js.
+  flatView?.updateCounts(summary.itemCount);
 }
 
 function syncInputsFromState() {
@@ -155,6 +180,10 @@ function render() {
   const suppliers = orderSupplierList();
   const hasSomething = suppliers.length > 0;
   setViewSwitchVisible(hasSomething);
+  // The first snapshots can land in any order, and the draft may already hold an order
+  // from a previous session — so the totals are refreshed here too, not only from the
+  // paths that react to typing.
+  refreshOrderTotals();
 
   if (!hasSomething) {
     flatView = null;
@@ -189,6 +218,7 @@ function renderFlatList(container) {
     flatView = mountIngredientList(container, {
       query: state.query,
       onQuery: q => { state.query = q; },
+      onFilter: setOrderFilter,
       suggest: (id, stock) => computeSuggestion(id, stock, state.history),
       entries: state.entries,
       hooks,
@@ -197,6 +227,8 @@ function renderFlatList(container) {
   flatView.repaint({
     ingredients: orderIngredients(),
     suppliers: orderSupplierList(),
+    only: state.filterIds,
+    inOrderCount: currentSummary().itemCount,
   });
 }
 
@@ -217,11 +249,15 @@ function setViewSwitchVisible(visible) {
 function setView(view) {
   if (state.view === view) return;
   state.view = view;
+  // The "just what I'm ordering" filter belongs to the flat list; the cards always
+  // show everything, so leaving for them drops it rather than hiding it somewhere
+  // invisible and surprising the operator with it on the way back.
+  if (view === 'suppliers') state.filterIds = null;
   try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode — the choice just won't stick */ }
   flatView = null;              // force a remount; the query is kept in state
   syncViewButtons();
   render();
-  refreshPlaceAllButton();
+  refreshOrderTotals();
 }
 
 function syncViewButtons() {
@@ -243,6 +279,72 @@ function setupViewSwitch() {
   document.getElementById('view-by-supplier')?.addEventListener('click', () => setView('suppliers'));
   document.getElementById('view-all-ingredients')?.addEventListener('click', () => setView('all'));
   syncViewButtons();
+}
+
+// ── "Just what I'm ordering" ──────────────────────────────────────────────────
+//
+// The row list is FROZEN the moment the filter is entered and is never recomputed
+// from the quantities while it is on. Recomputing per keystroke would mean that
+// correcting a quantity to 0 makes the row vanish under the finger doing the
+// correcting, with no way back to it. The two buttons' NUMBERS do update live — a
+// count is not a list, so it can move without anything disappearing.
+//
+// Deliberately NOT remembered across reloads: the view is a preference, this is a
+// gesture. Reopening the app to a mysteriously short list would be worse than
+// tapping the bar again.
+function setOrderFilter(active) {
+  const next = active ? new Set(currentSummary().ids) : null;
+  const changed = Boolean(state.filterIds) !== Boolean(next);
+  state.filterIds = next;
+  if (changed || active) render();     // re-entering refreshes the frozen set
+}
+
+// Tapping the summary bar: go to the flat list and show only what is being ordered.
+// From the card view that means switching first — the filter has no meaning on cards,
+// which always list everything a supplier sells.
+function openOrderSummary() {
+  setView('all');                       // returns early when already there
+  state.filterIds = new Set(currentSummary().ids);
+  render();
+  document.getElementById('suppliers-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// The bar itself: a readout of the whole order and the way into that filtered list.
+// Order tab only — there is no draft to summarise on the History tab.
+function refreshSummaryBar(summary = currentSummary()) {
+  const bar = document.getElementById('order-summary-bar');
+  const text = document.getElementById('order-summary-text');
+  if (!bar || !text) return;
+
+  const { itemCount, supplierCount } = summary;
+  const show = state.tab === 'order' && itemCount > 0;
+  bar.hidden = !show;
+  if (show) {
+    text.textContent =
+      `${itemsLabel(itemCount)} · ${supplierCount} supplier${supplierCount === 1 ? '' : 's'}`;
+  }
+  syncBottomStrip();
+}
+
+// The fixed strip at the bottom covers the end of the page. Measure what it actually
+// occupies — the offline notice may be stacked in there too, and its text wraps on a
+// narrow screen — and pad the scroll area by exactly that, or the last row of the
+// list ends up permanently underneath it.
+function syncBottomStrip() {
+  const strip = document.getElementById('orders-bottom');
+  const scroll = document.querySelector('.scroll-area');
+  if (!strip || !scroll) return;
+
+  const visible = [...strip.children].some(child => !child.hidden);
+  strip.classList.toggle('visible', visible);
+
+  const height = visible ? Math.round(strip.getBoundingClientRect().height) : 0;
+  scroll.style.paddingBottom = `calc(24px + var(--safe-bot) + ${height}px)`;
+
+  // Tell the app-wide "new version — tap to update" banner how much of the bottom
+  // edge is already taken. It lives at z-index 9999, so without this it would land on
+  // top of the summary bar and eat every tap aimed at it (tokens.css).
+  document.documentElement.style.setProperty('--bottom-bar-h', `${height}px`);
 }
 
 // ── Rendering: history tab ────────────────────────────────────────────────────
@@ -281,8 +383,30 @@ function recordToRow(record) {
   };
 }
 
-function sendMessageFor(rows) {
-  const text = buildOrderMessage(rows.map(r => ({ supplierName: r.name, items: r.items })));
+// ── The message format, remembered ────────────────────────────────────────────
+//
+// Every send path reads the SAME stored choice — the draft send, a re-send of one
+// recorded order, a whole day re-sent. One rule, not three: a supplier must not
+// receive a differently-shaped message depending on which button it left by.
+//
+// All localStorage for this screen lives here on purpose, so the pure modules stay
+// pure and testable.
+function messageIsGrouped() {
+  try { return localStorage.getItem(MSG_FORMAT_KEY) !== 'flat'; } catch { return true; }
+}
+
+function rememberMessageFormat(grouped) {
+  try { localStorage.setItem(MSG_FORMAT_KEY, grouped ? 'grouped' : 'flat'); } catch { /* private mode */ }
+}
+
+// The option handed to any screen that offers the choice.
+function messageFormatOption() {
+  return { grouped: messageIsGrouped(), onChange: rememberMessageFormat };
+}
+
+function sendMessageFor(rows, { grouped = messageIsGrouped() } = {}) {
+  const text = buildOrderMessage(
+    rows.map(r => ({ supplierName: r.name, items: r.items })), { grouped });
   if (!text) {
     setStatus('Nothing to send — that order has no items.', 'warn', 4000);
     return;
@@ -291,6 +415,7 @@ function sendMessageFor(rows) {
 }
 
 // One recorded order, straight out — no tick-list to wade through for a single card.
+// There is nothing to choose here either: it uses the format already chosen.
 function sendRecord(record) {
   sendMessageFor([recordToRow(record)]);
 }
@@ -303,9 +428,10 @@ function openSendDayScreen(date, records) {
     title: `Send ${dayLabel(date).toLowerCase()}`,
     actionLabel: 'Send on WhatsApp',
     emptyText: 'Nothing to send for that day.',
+    format: messageFormatOption(),
   }, {
     onBack: () => overlay.remove(),
-    onConfirm: selected => { overlay.remove(); sendMessageFor(selected); },
+    onConfirm: (selected, { grouped }) => { overlay.remove(); sendMessageFor(selected, { grouped }); },
   });
   document.body.appendChild(overlay);
 }
@@ -350,7 +476,7 @@ function openSendScreen() {
       overlay.remove();
       offerToRecordSent(supplierIds);
     },
-  });
+  }, messageFormatOption());
   document.body.appendChild(overlay);
 }
 
@@ -752,6 +878,10 @@ function setupTabs() {
         document.getElementById(t.btn)?.classList.toggle('active', t.btn === btn);
         document.getElementById(t.panel)?.classList.toggle('active', t.panel === panel);
       });
+      // The summary bar describes the order being typed, so it has no business
+      // sitting over the History tab.
+      state.tab = panel === 'tab-history' ? 'history' : 'order';
+      refreshSummaryBar();
     });
   });
 }
@@ -793,7 +923,9 @@ function clearStatusIf(text) {
 function setupOfflineIndicator() {
   const bar = document.getElementById('orders-offline');
   if (!bar) return;
-  const sync = () => { bar.hidden = navigator.onLine; };
+  // It shares the fixed bottom strip with the summary bar, so appearing or vanishing
+  // changes how much of the page is covered — re-measure both times.
+  const sync = () => { bar.hidden = navigator.onLine; syncBottomStrip(); };
   sync();
   window.addEventListener('online', sync);
   window.addEventListener('offline', sync);
@@ -817,6 +949,7 @@ async function init() {
   });
 
   document.getElementById('place-all-btn')?.addEventListener('click', openPlaceAllScreen);
+  document.getElementById('order-summary-bar')?.addEventListener('click', openOrderSummary);
 
   const settingsBtn = document.getElementById('settings-footer-btn');
   if (settingsBtn) {

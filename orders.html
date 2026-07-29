@@ -118,10 +118,21 @@
 
 </div>
 
-<!-- Offline bar: shown ONLY while the device has no network connection
-     (js/orders/orders-main.js toggles [hidden] on the browser online/offline
-     events). Fixed to the bottom so it stays visible whatever the scroll. -->
-<p class="orders-offline" id="orders-offline" role="status" hidden>You're offline — reconnect to load and save orders.</p>
+<!-- ONE fixed strip at the bottom, stacking the two things that live there. They used
+     to be separate fixed elements and would have overlapped; now they share a
+     container, and orders-main measures its height and pads the scroll area by that
+     much so the last row can never hide underneath.
+     - The order summary: how much is in the order right now, and a way into the list
+       filtered down to exactly that. Order tab only, and only when something is in it.
+     - The offline notice, kept last so it stays at the very bottom edge where it has
+       always been. -->
+<div class="orders-bottom" id="orders-bottom">
+  <button class="order-summary-bar" id="order-summary-bar" type="button" hidden>
+    <span id="order-summary-text"></span>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+  </button>
+  <p class="orders-offline" id="orders-offline" role="status" hidden>You're offline — reconnect to load and save orders.</p>
+</div>
 
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>

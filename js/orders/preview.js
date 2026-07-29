@@ -17,8 +17,10 @@ import { buildSupplierPicker } from './supplier-picker.js';
 import { buildOrderMessage, whatsappUrl } from './order-text.js';
 
 // suppliers: array; ingredientsBySupplier: { supplierId: [ingredient] };
-// entries: { ingredientId: { qty, stock } }; callbacks: { onBack, onSent }.
-export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callbacks) {
+// entries: { ingredientId: { qty, stock } }; callbacks: { onBack, onSent };
+// format: { grouped, onChange } — the remembered message-format choice, owned by
+// orders-main so every send path reads the same one.
+export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callbacks, format) {
   // Only suppliers with at least one ordered item can be sent.
   const rows = suppliers.map(supplier => ({
     id: supplier.id,
@@ -32,11 +34,12 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
     title: 'Send order',
     actionLabel: 'Send on WhatsApp',
     emptyText: 'No items in this order yet. Add quantities first.',
+    format,
   }, {
     onBack: () => callbacks.onBack(),
-    onConfirm: selected => {
+    onConfirm: (selected, { grouped }) => {
       const text = buildOrderMessage(
-        selected.map(r => ({ supplierName: r.name, items: r.items })));
+        selected.map(r => ({ supplierName: r.name, items: r.items })), { grouped });
       if (!text) return;            // nothing orderable — never open an empty chat
       window.open(whatsappUrl(text), '_blank');
       callbacks.onSent?.(selected.map(r => r.id));
