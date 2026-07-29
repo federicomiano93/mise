@@ -32,6 +32,10 @@ import {
 import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
 import { todayOrders, pendingSuppliers } from './reminders.js';
 import { renderTodayOrders, renderPending } from './reminder-view.js';
+import { resolveSuppliers, orderSuppliers } from './no-supplier.js';
+import { mountIngredientList } from './ingredient-list.js';
+
+const VIEW_KEY = 'orders-view';           // 'suppliers' | 'all' — remembered between visits
 
 const state = {
   suppliers: [],
@@ -42,11 +46,14 @@ const state = {
   draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
   pending: [],                  // orders typed on an earlier day and never placed
   expanded: new Set(),
+  view: 'suppliers',            // which of the two order views is on screen
+  query: '',                    // the flat list's search text, kept OUT of the DOM (see render)
   loaded: { suppliers: false, ingredients: false, draft: false },
 };
 
 let mgmt = null;                // open management panel handle, or null
 let pendingChecked = false;     // the unfinished-order check runs once per page load
+let flatView = null;            // mounted flat-list handle, or null when not on screen
 const placing = new Set();      // suppliers whose order is being written right now
 
 // Replace state.entries contents WITHOUT changing the reference (row closures keep working).
@@ -57,10 +64,14 @@ function setEntries(next) {
 
 const hooks = {
   afterChange(supplierId) {
-    const supplier = state.suppliers.find(s => s.id === supplierId);
+    const supplier = findOrderSupplier(supplierId);
     if (supplier) {
       refreshSupplierDerived(supplier, ingredientsBySupplier()[supplierId] || [], state.entries);
     }
+    // In the flat list there are no per-supplier cards, so this button is the only
+    // way to record an order. It used to wait for the change to come back from
+    // Firestore before appearing; here it has to appear as you type.
+    refreshPlaceAllButton();
     // Stamp the day these rows were touched. This is what lets the app offer an
     // order typed yesterday under YESTERDAY's date instead of quietly filing it
     // under today.
@@ -72,19 +83,49 @@ const hooks = {
   },
 };
 
+// ── The supplier lens ─────────────────────────────────────────────────────────
+//
+// Everything in the order flow goes through these three, and nothing reads
+// state.ingredients/state.suppliers directly for ordering purposes. That is the
+// whole safety story for the pseudo-supplier: an ingredient bought without one (or
+// left behind by a deleted supplier) is filed under 'no-supplier' by ONE function,
+// so the card it appears on, the order it is archived into and the rows cleared
+// afterwards can never disagree about where it belongs.
+//
+// History and the management panel deliberately keep the RAW list: they resolve
+// names by id and edit the stored document, so re-pointing a supplier there would
+// be a lie.
+
+// Ingredients with every supplierId resolved against the suppliers that exist.
+function orderIngredients() {
+  return resolveSuppliers(state.ingredients, state.suppliers, state.loaded.suppliers);
+}
+
 function activeSuppliers() {
   return state.suppliers
     .filter(s => s.active !== false)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// The real active suppliers, plus "No supplier" at the end when something is
+// filed under it.
+function orderSupplierList() {
+  return orderSuppliers(activeSuppliers(), orderIngredients());
+}
+
+// A supplier by id, the pseudo one included — state.suppliers.find would return
+// undefined for it and silently do nothing.
+function findOrderSupplier(supplierId) {
+  return orderSupplierList().find(s => s.id === supplierId);
+}
+
 function ingredientsBySupplier() {
-  return groupBy(state.ingredients.filter(i => i.active !== false), 'supplierId');
+  return groupBy(orderIngredients().filter(i => i.active !== false), 'supplierId');
 }
 
 function refreshAllSuppliers() {
   const bySupplier = ingredientsBySupplier();
-  activeSuppliers().forEach(s => refreshSupplierDerived(s, bySupplier[s.id] || [], state.entries));
+  orderSupplierList().forEach(s => refreshSupplierDerived(s, bySupplier[s.id] || [], state.entries));
   refreshPlaceAllButton();
 }
 
@@ -100,23 +141,62 @@ function syncInputsFromState() {
 }
 
 // ── Rendering: order tab ──────────────────────────────────────────────────────
+//
+// Both views are drawn INSIDE #suppliers-list, and that is not a detail. orders.css
+// scopes the fix for the .ing-row name collision with the Calculator to
+// "#suppliers-list .ing-row" — a row rendered anywhere else silently falls back to
+// the Calculator's flex layout and pushes the Order box off the card on a 320px
+// phone. One container, both views.
 function render() {
   const container = document.getElementById('suppliers-list');
   if (!container) return;
   if (!state.loaded.suppliers || !state.loaded.ingredients) return;
 
-  const suppliers = activeSuppliers();
+  const suppliers = orderSupplierList();
+  const hasSomething = suppliers.length > 0;
+  setViewSwitchVisible(hasSomething);
 
-  if (!suppliers.length) {
+  if (!hasSomething) {
+    flatView = null;
     renderEmptyState(container);
     return;
   }
 
+  if (state.view === 'all') renderFlatList(container);
+  else renderSupplierCards(container, suppliers);
+}
+
+function renderSupplierCards(container, suppliers) {
+  flatView = null;              // its nodes go with the container contents below
   renderSuppliers(container, suppliers, ingredientsBySupplier(), {
     entries: state.entries,
     suggest: (id, stock) => computeSuggestion(id, stock, state.history),
     expanded: state.expanded,
     hooks,
+  });
+}
+
+// The flat list is MOUNTED once and then only repainted.
+//
+// render() runs on every suppliers/ingredients/history snapshot, including ones
+// caused by another phone. If it rebuilt the search box each time, the text being
+// typed would be wiped out mid-search by someone else's edit — the same trap
+// renderSearchableList in management.js already sidesteps. The query lives in
+// state.query, so it also survives a trip through the by-supplier view.
+function renderFlatList(container) {
+  if (!flatView) {
+    container.textContent = '';
+    flatView = mountIngredientList(container, {
+      query: state.query,
+      onQuery: q => { state.query = q; },
+      suggest: (id, stock) => computeSuggestion(id, stock, state.history),
+      entries: state.entries,
+      hooks,
+    });
+  }
+  flatView.repaint({
+    ingredients: orderIngredients(),
+    suppliers: orderSupplierList(),
   });
 }
 
@@ -126,6 +206,43 @@ function renderEmptyState(container) {
     el('p', { class: 'empty-title', text: 'No suppliers yet' }),
     el('p', { class: 'empty-sub', text: 'Add your suppliers and ingredients from the settings panel (gear icon, top right).' }),
   ]));
+}
+
+// ── The two order views ───────────────────────────────────────────────────────
+function setViewSwitchVisible(visible) {
+  const sw = document.getElementById('order-view-switch');
+  if (sw) sw.hidden = !visible;
+}
+
+function setView(view) {
+  if (state.view === view) return;
+  state.view = view;
+  try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode — the choice just won't stick */ }
+  flatView = null;              // force a remount; the query is kept in state
+  syncViewButtons();
+  render();
+  refreshPlaceAllButton();
+}
+
+function syncViewButtons() {
+  [['view-by-supplier', 'suppliers'], ['view-all-ingredients', 'all']].forEach(([id, view]) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const on = state.view === view;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', String(on));
+  });
+}
+
+function setupViewSwitch() {
+  try {
+    const saved = localStorage.getItem(VIEW_KEY);
+    if (saved === 'all' || saved === 'suppliers') state.view = saved;
+  } catch { /* private mode — fall back to the default view */ }
+
+  document.getElementById('view-by-supplier')?.addEventListener('click', () => setView('suppliers'));
+  document.getElementById('view-all-ingredients')?.addEventListener('click', () => setView('all'));
+  syncViewButtons();
 }
 
 // ── Rendering: history tab ────────────────────────────────────────────────────
@@ -140,7 +257,9 @@ function renderHistory() {
     document.getElementById('history-list'),
     state.history,
     state.suppliers,
-    state.ingredients,
+    // Resolved, so the one legacy weekly record groups an orphaned item under
+    // "No supplier" rather than "Unknown supplier". Names are unaffected either way.
+    orderIngredients(),
     { onEdit: openHistoryEditor, onSend: sendRecord, onSendDay: openSendDayScreen },
   );
 }
@@ -225,7 +344,7 @@ function showAlerts() {
 
 // ── Send order (WhatsApp selection screen) ────────────────────────────────────
 function openSendScreen() {
-  const overlay = buildSendScreen(activeSuppliers(), ingredientsBySupplier(), state.entries, {
+  const overlay = buildSendScreen(orderSupplierList(), ingredientsBySupplier(), state.entries, {
     onBack: () => overlay.remove(),
     onSent: supplierIds => {
       overlay.remove();
@@ -256,9 +375,10 @@ function offerToRecordSent(supplierIds) {
 // that follows a WhatsApp send and by the "Order placed" screen, so both spell out
 // the same consequences and both add to an existing same-day record the same way.
 async function recordSuppliers(supplierIds, { title, okLabel, cancelLabel = 'Cancel' }) {
+  const ingredients = orderIngredients();
   const suppliers = supplierIds
-    .map(id => state.suppliers.find(s => s.id === id))
-    .filter(s => s && supplierHasItems(s.id, state.ingredients, state.entries));
+    .map(findOrderSupplier)
+    .filter(s => s && supplierHasItems(s.id, ingredients, state.entries));
 
   // Everything selected has since lost its rows — another device placed the order,
   // or the ingredients were deactivated. Say so: returning in silence looks exactly
@@ -311,7 +431,7 @@ async function recordSuppliers(supplierIds, { title, okLabel, cancelLabel = 'Can
 // Every supplier that currently has something to order, as picker rows.
 function suppliersWithItems() {
   const bySupplier = ingredientsBySupplier();
-  return activeSuppliers()
+  return orderSupplierList()
     .map(supplier => ({
       id: supplier.id,
       name: supplier.name,
@@ -347,11 +467,16 @@ function openPlaceAllScreen() {
   document.body.appendChild(overlay);
 }
 
-// Show the button only when it saves taps: with one supplier the button on its own
-// card is right there, and a second control for the same job is just noise.
+// In the by-supplier view this button only earns its place from TWO suppliers up:
+// with one, the "Order placed" button on its own card is right there and a second
+// control for the same job is noise. In the flat list there are no cards and no
+// per-supplier buttons, so it is the ONLY way to record an order — one supplier
+// with quantities is enough.
 function refreshPlaceAllButton() {
   const btn = document.getElementById('place-all-btn');
-  if (btn) btn.hidden = suppliersWithItems().length < 2;
+  if (!btn) return;
+  const minimum = state.view === 'all' ? 1 : 2;
+  btn.hidden = suppliersWithItems().length < minimum;
 }
 
 // ── Order placed (one supplier at a time) ─────────────────────────────────────
@@ -367,7 +492,7 @@ function dayForSupplier(supplierId) {
 // clears without waiting for the write to come back (and so a debounced save
 // already in flight cannot resurrect them).
 function forgetSupplierLocally(supplierId) {
-  ingredientsOf(supplierId, state.ingredients, { activeOnly: false })
+  ingredientsOf(supplierId, orderIngredients(), { activeOnly: false })
     .forEach(ing => { delete state.entries[ing.id]; });
   delete state.days[supplierId];
 }
@@ -381,15 +506,16 @@ function forgetSupplierLocally(supplierId) {
 // supplier's rows — so reading it here would file a "Placed yesterday" order under
 // TODAY, which is precisely the mistake this whole feature exists to prevent.
 async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {}) {
-  const supplier = state.suppliers.find(s => s.id === supplierId);
+  const supplier = findOrderSupplier(supplierId);
   if (!supplier) return false;
+  const ingredients = orderIngredients();
 
   // An order takes a second to write. Without this, a second tap in that second
   // passes every check, archives the same rows again, and mergeArchives — which
   // ADDS by design — doubles the quantities.
   if (placing.has(supplierId)) return false;
 
-  if (!supplierHasItems(supplierId, state.ingredients, state.entries)) {
+  if (!supplierHasItems(supplierId, ingredients, state.entries)) {
     setStatus('Nothing to record for this supplier — add quantities first.', 'warn', 4000);
     return false;
   }
@@ -413,7 +539,7 @@ async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {})
     // lost when the next snapshot arrives.
     await flushDraftSave();
     await archiveSupplier({
-      supplier, ingredients: state.ingredients, entries: state.entries, date,
+      supplier, ingredients, entries: state.entries, date,
     });
   } catch (err) {
     console.error('Archiving order failed:', err);
@@ -436,7 +562,7 @@ async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {})
   renderReminders();
 
   try {
-    await clearSupplier(supplierId, state.ingredients);
+    await clearSupplier(supplierId, ingredients);
     setStatus(`${supplier.name} — order saved to history ✓`, 'ok', 5000);
   } catch (err) {
     console.error('Clearing the draft after archiving failed:', err);
@@ -504,9 +630,12 @@ function checkPendingOnce() {
   if (!state.loaded.suppliers || !state.loaded.ingredients || !state.loaded.draft) return;
   pendingChecked = true;
 
+  // The pseudo-supplier is included here on purpose: it never appears in "order
+  // these today" (it has no order days), but "you typed this on Sunday and never
+  // placed it" is a safety net and must catch everything.
   state.pending = pendingSuppliers({
-    suppliers: state.suppliers,
-    ingredients: state.ingredients,
+    suppliers: orderSupplierList(),
+    ingredients: orderIngredients(),
     entries: state.entries,
     days: state.days,
     fallbackDay: localDayOf(state.draftUpdatedAt),
@@ -551,7 +680,7 @@ async function keepAsToday(supplierId) {
 
 // "Discard" — not wanted at all. Destructive, so it goes behind a red confirm.
 async function discardPending(supplierId) {
-  const supplier = state.suppliers.find(s => s.id === supplierId);
+  const supplier = findOrderSupplier(supplierId);
   if (!supplier) return;
 
   const ok = await confirmDialog({
@@ -563,7 +692,7 @@ async function discardPending(supplierId) {
   if (!ok) return;
 
   try {
-    await clearSupplier(supplierId, state.ingredients);
+    await clearSupplier(supplierId, orderIngredients());
     forgetSupplierLocally(supplierId);
     syncInputsFromState();
     dismissPending(supplierId);
@@ -576,7 +705,12 @@ async function discardPending(supplierId) {
 
 // Open one supplier's card and bring it into view — what tapping its name in the
 // "order today" reminder does.
+//
+// There are no cards in the flat list, so from there the tap would do nothing
+// visible at all. Switch back first: the operator asked for that supplier, and
+// the card view is where a supplier is a thing you can open.
 function expandSupplier(supplierId) {
+  setView('suppliers');
   state.expanded.add(supplierId);
   render();
   document
@@ -668,6 +802,7 @@ function setupOfflineIndicator() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   setupTabs();
+  setupViewSwitch();
   document.getElementById('orders-wa-btn')?.addEventListener('click', openSendScreen);
 
   // The debounced draft autosave has no caller to hand a rejection to, so it reports
