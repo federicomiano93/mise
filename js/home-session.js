@@ -16,7 +16,6 @@ import { onSession, signOutNow, switchLocation } from './firebase.js';
 import { allowedSections } from './sections.js';
 import { confirmDialog } from './confirm-dialog.js';
 
-const host = document.getElementById('session-host');
 const logoutHost = document.getElementById('session-logout-host');
 
 function button(label, className, onClick) {
@@ -38,30 +37,26 @@ function filterCards(location) {
   });
 }
 
-function renderSessionBar(session) {
-  if (!host) return;
-  host.textContent = '';
+// The bottom of the Home, after the cards, in quiet type. Both actions here are
+// rare and neither is what anyone opened the app to do — the location's name
+// says where you are from the green header, which is the part that has to be
+// seen without looking for it.
+function renderSessionActions(session) {
+  if (!logoutHost) return;
+  logoutHost.textContent = '';
 
-  const bar = document.createElement('div');
-  bar.className = 'session-bar';
-
-  const name = document.createElement('span');
-  name.className = 'session-name';
-  name.textContent = session.name || session.locationId || '';
-  bar.append(name);
-
-  // Only worth showing when there is somewhere else to go.
-  if ((session.options || []).length > 1) {
-    bar.append(button('Switch location', 'session-action', async () => {
-      const other = session.options.filter(id => id !== session.locationId);
+  const options = session.options || [];
+  if (options.length > 1) {
+    logoutHost.append(button('Switch location', 'session-logout', async () => {
+      const other = options.filter(id => id !== session.locationId);
       const target = other.length === 1 ? other[0] : null;
       if (!target) { location.reload(); return; }
-      // Names, never database ids — this dialog is the last thing between you and
-      // working in the wrong location, so it has to read like a sentence.
       const names = session.optionNames || {};
       const ok = await confirmDialog({
         title: 'Switch location?',
-        message: `Open ${names[target] || target} instead of ${session.name}?\n\n`
+        message: `Open ${names[target] || target} instead of ${session.name}?
+
+`
           + 'Anything typed but not saved on this device is cleared.',
         okLabel: 'Switch',
       });
@@ -69,15 +64,6 @@ function renderSessionBar(session) {
     }));
   }
 
-  host.append(bar);
-}
-
-// Deliberately NOT in the bar above. Logging out is rare, mildly destructive
-// (everything cached on this device is cleared) and nobody opens the app to do
-// it — so it sits at the bottom, after the cards, in quiet type.
-function renderLogOut() {
-  if (!logoutHost) return;
-  logoutHost.textContent = '';
   logoutHost.append(button('Log out', 'session-logout', async () => {
     const ok = await confirmDialog({
       title: 'Log out?',
@@ -92,6 +78,5 @@ function renderLogOut() {
 onSession(session => {
   if (session.status !== 'ready') return;
   filterCards(session.location);
-  renderSessionBar(session);
-  renderLogOut();
+  renderSessionActions(session);
 });

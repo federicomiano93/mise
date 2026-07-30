@@ -139,46 +139,11 @@
 .auth-choice:hover { background: var(--accent-light); border-color: var(--accent-2); }
 .auth-choice:disabled { opacity: .6; cursor: default; }
 
-/* ── The session strip on the Home screen ──────────────────────────────────
-   Which location you are working on, always visible: ordering for the wrong
-   location is the worst mistake this app can let you make. Log out stays
-   quiet and secondary next to it (P20: destructive actions never compete). */
+/* ── The quiet row at the bottom of the Home ───────────────────────────────
+   The location's name lives in the green header (js/location-title.js), which
+   is where it is seen without being looked for. What is left down here are the
+   two rare actions: switching location, and logging out. */
 
-.session-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 20px 0 8px;
-  padding: 12px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-}
-
-.session-name {
-  font-weight: 700;
-  color: var(--text);
-  margin-right: auto;
-}
-
-.session-action {
-  font: inherit;
-  font-size: .9rem;
-  background: none;
-  border: 0;
-  color: var(--accent-2);
-  text-decoration: underline;
-  cursor: pointer;
-  padding: 8px 4px;
-}
-
-.session-action:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
-
-/* Bottom of the Home, after everything else. Quiet on purpose: no border, no
-   fill, third-level text — present for whoever needs it, invisible to whoever
-   does not. Still a full-height tap target, because "discreet" must not mean
-   "hard to hit". */
 .session-logout {
   display: block;
   margin: 28px auto 8px;
@@ -195,3 +160,4 @@
 
 .session-logout:hover { color: var(--text-2); }
 .session-logout:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
+.session-logout + .session-logout { margin-top: 0; }

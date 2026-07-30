@@ -71,16 +71,15 @@
 
 <header>
   <div>
-    <h1>The Italian Club</h1>
+    <!-- Replaced with the location's own name once a location is open
+         (js/location-title.js). The text here is only what a browser shows
+         before the app runs, behind the sign-in cover. -->
+    <h1 data-location-title>The Italian Club</h1>
     <p>Home</p>
   </div>
 </header>
 
 <div class="scroll-area">
-
-  <!-- Which location this session is working on, plus Switch / Log out.
-       Filled by js/home-session.js once a location is open. -->
-  <div id="session-host"></div>
 
   <!-- Once-a-day "order to place today" reminder, filled by js/home-orders-badge.js.
        Empty (and hidden) when no order is due or it has already shown today. -->
@@ -138,6 +137,7 @@
 <!-- "What's new" after an update. Home only, and it waits for boot.js above to
      take the splash down before it opens. -->
 <script type="module" src="js/whats-new-boot.js"></script>
+<script type="module" src="js/location-title.js"></script>
 <script type="module" src="js/home-session.js"></script>
 <script type="module" src="js/home-orders-badge.js"></script>
 <script type="module" src="js/hold-to-zoom.js"></script>
