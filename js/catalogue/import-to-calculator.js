@@ -26,8 +26,10 @@ export async function importRecipeIntoCalculator(catalogueRecipe) {
     // detects this write and preserves the imported recipe.
     const rev = (Number(rawConfig && rawConfig.configRev) || 0) + 1;
     // Re-normalize so the new recipe gets its keys/order/baseline tidied, then
-    // stamp the revision + bakery for the rules.
-    return { ...normalizeConfig(merged.config), configRev: rev, bakery: 'main' };
+    // stamp the revision. The location stamp the rules check is added by
+    // updateConfigInTransaction — this function must not name a location, or it
+    // goes stale the next time the data moves.
+    return { ...normalizeConfig(merged.config), configRev: rev };
   });
   return { action };
 }

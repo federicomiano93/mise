@@ -92,13 +92,20 @@ export async function getCalculatorConfig() {
 // and must return the full new document to write. Used ONLY by the Calculator
 // import so a whole-document overwrite can't clobber a concurrent Calculator save
 // (runTransaction re-reads and retries on conflict). Returns whatever applyFn built.
+//
+// The location stamp is applied HERE, not by the caller. The rules require the
+// `bakery` field to name the folder the document is being written to, and a caller
+// that hardcodes it goes stale the moment the folder changes — which is exactly
+// what happened when the data moved under locations/: the import kept stamping
+// 'main' and every import was refused. Stamping in the data layer means the field
+// is derived from the open location, in one place, like every other write here.
 export async function updateConfigInTransaction(applyFn) {
   await authReady;
   const ref = doc(db, pathFor('config'), 'calculator');
   let built;
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
-    built = applyFn(snap.exists() ? snap.data() : null);
+    built = withBakery(applyFn(snap.exists() ? snap.data() : null));
     tx.set(ref, built);
   });
   return built;
