@@ -274,9 +274,23 @@ export async function seedDemoWorld() {
     brand: '', weight: '1kg', category: 'Fish', unit: '', active: true,
   });
 
+  // The restaurant, in the exact shape production is about to get: Orders only,
+  // and NOT ONE DOCUMENT of its own. A location that has never been used is the
+  // state every new location starts in, and it is the one nobody ever drives —
+  // trattoria-rosa above has a supplier and an ingredient, so it cannot show
+  // whether an empty Orders screen holds together.
+  await seedDoc('locations/restaurant', {
+    name: 'The Italian Club',
+    sections: { orders: true, calculator: false, catalogue: false },
+  });
+
   await seedAccount('club@club.test', DEMO_PASSWORD, { bakery: true });
   await seedAccount('rosa@club.test', DEMO_PASSWORD, { 'trattoria-rosa': true });
-  await seedAccount('owner@club.test', DEMO_PASSWORD, { bakery: true, 'trattoria-rosa': true });
+  await seedAccount('restaurant@club.test', DEMO_PASSWORD, { restaurant: true });
+  // Three locations, not two: with two, "Switch location" has only one place to
+  // go and never needs the picker. Three is what exercises that path.
+  await seedAccount('owner@club.test', DEMO_PASSWORD,
+    { bakery: true, 'trattoria-rosa': true, restaurant: true });
   await seedAccount('nobody@club.test', DEMO_PASSWORD, {});
 }
 
@@ -292,11 +306,13 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     drafts/current (carries the retired weekId, 1 row stamped 2026-07-20)
     2 orders-history records (2026-W28 legacy + 2026-07-20_SUP_MODERN)
   locations/trattoria-rosa — Orders only, its own supplier + ingredient
+  locations/restaurant — The Italian Club, Orders only, COMPLETELY EMPTY
 
   Sign in with any of these (password: ${DEMO_PASSWORD}):
-    club@club.test    → The Italian Club Bakery
-    rosa@club.test    → Trattoria Rosa (Orders only)
-    owner@club.test   → both, so the location picker appears
-    nobody@club.test  → an account with no location
+    club@club.test       → The Italian Club Bakery
+    rosa@club.test       → Trattoria Rosa (Orders only)
+    restaurant@club.test → The Italian Club (Orders only, no data at all)
+    owner@club.test      → all three, so the location picker appears
+    nobody@club.test     → an account with no location
 `);
 }

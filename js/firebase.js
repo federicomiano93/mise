@@ -296,6 +296,18 @@ export function switchLocation(locationId) {
   location.reload();
 }
 
+// Forget which location this device opens by default, then reload — which lands
+// on the picker, because a remembered choice is the only reason the picker is
+// skipped. Used by "Switch location" when the account has more than two: with
+// exactly two the other one is unambiguous and switchLocation names it, but with
+// three the app cannot guess, and reloading WITHOUT forgetting simply reopens the
+// same location — a button that visibly does nothing.
+export function forgetLocation() {
+  clearLocalData();
+  try { localStorage.removeItem(ACTIVE_LOCATION_KEY); } catch { /* private mode */ }
+  location.reload();
+}
+
 // Used by the "choose location" screen, which has no page to reload into yet.
 export function chooseLocation(locationId) {
   if (!locationsOf(userDocCache).includes(locationId)) {
