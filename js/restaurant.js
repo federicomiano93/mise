@@ -15,9 +15,11 @@
 // instead of falling back to a default: a loud failure on one screen is a
 // nuisance, a quiet write into shared space is a data leak.
 //
-// Today currentRestaurantId() is fixed to 'main' (the Italian Club). The login
-// step replaces that with the restaurant the signed-in user belongs to; nothing
-// else in the app has to change, because nothing else knows the path.
+// The restaurant is NOT known when the page loads: it comes from the signed-in
+// account (js/firebase.js sets it once users/{uid} has been read). Until then
+// pathFor() THROWS. That is deliberate — a default would mean a read firing
+// before sign-in quietly used somebody else's folder, and the data would look
+// perfectly normal on screen. Failing is recoverable; guessing is not.
 
 export const DEFAULT_RESTAURANT_ID = 'main';
 
@@ -50,10 +52,19 @@ export function restaurantDocPath(restaurantId) {
   return `restaurants/${restaurantId}`;
 }
 
-let current = DEFAULT_RESTAURANT_ID;
+let current = null;
 
 export function currentRestaurantId() {
   return current;
+}
+
+export function isRestaurantSet() {
+  return current !== null;
+}
+
+// Only for tests and for signing out: puts the module back to "no restaurant".
+export function clearCurrentRestaurantId() {
+  current = null;
 }
 
 // Set once, at startup, before any read or write. Switching restaurants inside a
@@ -71,5 +82,10 @@ export function setCurrentRestaurantId(id) {
 // The path every data layer uses. Collection names stay plain strings at the
 // call sites; only this file knows where they actually live.
 export function pathFor(collectionName) {
+  if (current === null) {
+    throw new Error(
+      `No restaurant is open yet — ${collectionName} was read before sign-in completed. ` +
+      'Await sessionReady (js/firebase.js) before touching Firestore.');
+  }
   return buildPath(current, collectionName);
 }

@@ -1,27 +1,22 @@
 // firebase-catalogue.js — Firestore data layer for the Recipe catalogue.
 //
-// Reuses the Firebase app + anonymous auth already initialized by js/firebase.js
-// by importing ONLY its exported firebaseConfig (the single sanctioned cross-file
-// bridge) and attaching to the same default app — so the catalogue shares the one
-// anonymous session and inherits the localhost emulator switch + App Check.
-// js/firebase.js is never modified.
+// Reuses the Firebase app and the SESSION established by js/firebase.js (the
+// single sanctioned cross-file bridge), so the catalogue shares the one
+// signed-in account, the one open restaurant, and inherits the localhost
+// emulator switch + App Check.
 //
 // Collection: restaurants/{restaurant}/recipes/{id} — one document per recipe
 // (scales to 500+). Every document carries the restaurant id in `bakery`, which
 // must match the folder it sits in (rules enforce it). js/restaurant.js is the
 // only place that knows the path.
 
-import { firebaseConfig } from '../firebase.js';
+import { firebaseConfig, sessionReady } from '../firebase.js';
 import { currentRestaurantId, pathFor } from '../restaurant.js';
 import {
   getApps,
   getApp,
   initializeApp,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import {
-  getAuth,
-  onAuthStateChanged,
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore,
   collection,
@@ -35,25 +30,15 @@ import {
 
 // Reuse the default app if firebase.js already created it; otherwise create it.
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
 export const db = getFirestore(app);
 
 const RECIPES = 'recipes';
 
-// Resolves once anonymous auth is ready. Firestore rules require
-// request.auth != null, so every read/write awaits this first. It REJECTS after a
-// timeout so a sign-in that never completes surfaces an error instead of hanging
-// every call forever (the caller shows "can't connect" rather than a silent stall).
-const AUTH_TIMEOUT_MS = 20000;
-export const authReady = new Promise((resolve, reject) => {
-  let settled = false;
-  const unsub = onAuthStateChanged(auth, user => {
-    if (user && !settled) { settled = true; clearTimeout(timer); unsub(); resolve(user); }
-  });
-  const timer = setTimeout(() => {
-    if (!settled) { settled = true; unsub(); reject(new Error('Firebase auth not ready (timed out)')); }
-  }, AUTH_TIMEOUT_MS);
-});
+// Resolves once a restaurant is OPEN — not merely once someone is signed in.
+// It no longer needs its own timeout: a sign-in that cannot complete is now a
+// SCREEN (js/auth-gate.js shows why), not a promise that quietly never settles
+// behind a spinner.
+export const authReady = sessionReady;
 
 // A new client-side document id (no write). Lets a brand-new recipe be shown
 // locally BEFORE the network write, so saving works instantly and offline.

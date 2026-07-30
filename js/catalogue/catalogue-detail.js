@@ -5,6 +5,8 @@
 // Calculator.
 
 import { el } from './dom.js';
+import { currentSession } from '../firebase.js';
+import { isSectionAllowed } from '../sections.js';
 import {
   scaleCatalogue, baseAmounts, weighableTotalGrams, unitOf, batchWarning, formatWeight,
 } from './catalogue-model.js';
@@ -151,8 +153,12 @@ export function renderDetail({ recipe, app }) {
   // so hide the whole panel. getScaledTarget stays 0 in that case too.
   if (weighableTotalGrams(recipe) <= 0) weightPanel.hidden = true;
 
+  // "Import into Calculator" WRITES the Calculator's configuration. A restaurant
+  // that does not use the Calculator is refused that write by the rules, so the
+  // button would only ever produce a permission error: hide it instead.
   const importBtn = el('button', {
     class: 'cat-import-btn', type: 'button',
+    hidden: !isSectionAllowed(currentSession().restaurant, 'calculator'),
     onclick: () => app.importRecipe(recipe),
   }, [
     el('span', { icon: IMPORT_SVG, 'aria-hidden': 'true' }),

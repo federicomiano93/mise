@@ -80,11 +80,18 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="auth.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="orders.css">
 <title>The Italian Club</title>
 </head>
-<body>
+<body data-section="calculator">
+<!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
+     paint: the app must never flash a restaurant's data at whoever is holding
+     the phone. js/auth-gate.js fills it in and removes it once a restaurant is
+     open. -->
+<div id="auth-gate" class="auth-gate"></div>
+
 
 <header class="orders-header">
   <button class="orders-icon-btn" id="header-back-btn" type="button" aria-label="Back">
@@ -354,6 +361,7 @@
   <div class="recipe-scroll"><div id="loghistory-content"></div></div>
 </div>
 
+<script type="module" src="js/auth-gate.js"></script>
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>
 <script type="module" src="js/app.js"></script>

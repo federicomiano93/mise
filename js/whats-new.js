@@ -18,6 +18,16 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-07-30-sign-in',
+    title: 'Sign in',
+    points: [
+      'The app now asks for an email and a password. You stay signed in — it is not every day.',
+      'Forgot it? Tap "Forgot your password?" on the sign-in screen and check your email.',
+      'The Home screen shows which restaurant you are working on, above the cards.',
+      'Each restaurant sees only its own suppliers, ingredients, orders and recipes.',
+    ],
+  },
+  {
     id: '2026-07-29-orders-search',
     title: 'Orders',
     // Short on purpose. A notice is read standing up, once — anything that needs

@@ -1,9 +1,8 @@
 // firebase-orders.js — Firestore data layer for the Orders system.
 //
-// Reuses the Firebase app + anonymous auth already initialized by js/firebase.js
-// (imported here only for its config and init side effect). js/firebase.js is
-// never modified — we import its exported firebaseConfig and attach to the same
-// default app, so the Orders pages share the one anonymous session.
+// Reuses the Firebase app and the SESSION already established by js/firebase.js
+// (imported here for its config and its init side effect), so every page shares
+// one signed-in account and one open restaurant.
 //
 // Collections, all under the current restaurant's folder (js/restaurant.js):
 //   restaurants/{restaurant}/suppliers/{id} · …/ingredients/{id} ·
@@ -14,17 +13,13 @@
 // field — now the restaurant id, matching its own path — because removing a
 // field that live documents already carry is what breaks merge writes for good.
 
-import { firebaseConfig } from '../firebase.js';
+import { firebaseConfig, sessionReady } from '../firebase.js';
 import { currentRestaurantId, pathFor } from '../restaurant.js';
 import {
   getApps,
   getApp,
   initializeApp,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import {
-  getAuth,
-  onAuthStateChanged,
-} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore,
   collection,
@@ -42,7 +37,6 @@ import {
 
 // Reuse the default app if firebase.js already created it; otherwise create it.
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // The id stamped on every document, in the `bakery` field. It is the same value
@@ -64,16 +58,10 @@ export const COLLECTIONS = {
   config: 'config',
 };
 
-// Resolves once anonymous auth is ready. Firestore rules require
-// request.auth != null, so every read/write awaits this first.
-export const authReady = new Promise(resolve => {
-  const unsub = onAuthStateChanged(auth, user => {
-    if (user) {
-      unsub();
-      resolve(user);
-    }
-  });
-});
+// Resolves once a restaurant is OPEN — not merely once someone is signed in.
+// Every read and write awaits this, because until it resolves there is no
+// restaurant folder to build a path from (js/restaurant.js throws if asked).
+export const authReady = sessionReady;
 
 // Stamp the current bakery id on a document payload.
 function withBakery(data) {

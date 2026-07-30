@@ -15,6 +15,8 @@ import {
   restaurantDocPath,
   currentRestaurantId,
   setCurrentRestaurantId,
+  clearCurrentRestaurantId,
+  isRestaurantSet,
   pathFor,
 } from '../js/restaurant.js';
 
@@ -60,10 +62,24 @@ test('a bad collection name is refused too', () => {
   });
 });
 
-test('the session starts on the Italian Club and pathFor follows it', () => {
-  assert.equal(DEFAULT_RESTAURANT_ID, 'main');
-  assert.equal(currentRestaurantId(), 'main');
-  assert.equal(pathFor('ingredients'), 'restaurants/main/ingredients');
+test('before sign-in there is NO restaurant, and asking for a path throws', () => {
+  // The single most important behaviour in this file. A default here would mean
+  // a read that fires before sign-in silently uses another restaurant's folder,
+  // and the screen would look completely normal.
+  clearCurrentRestaurantId();
+  assert.equal(isRestaurantSet(), false);
+  assert.equal(currentRestaurantId(), null);
+  assert.throws(() => pathFor('ingredients'), /No restaurant is open yet/);
+});
+
+test('once the session opens a restaurant, pathFor follows it', () => {
+  try {
+    setCurrentRestaurantId(DEFAULT_RESTAURANT_ID);
+    assert.equal(isRestaurantSet(), true);
+    assert.equal(pathFor('ingredients'), 'restaurants/main/ingredients');
+  } finally {
+    clearCurrentRestaurantId();
+  }
 });
 
 test('setting the current restaurant moves every path with it', () => {
@@ -72,11 +88,16 @@ test('setting the current restaurant moves every path with it', () => {
     assert.equal(currentRestaurantId(), 'trattoria-x');
     assert.equal(pathFor('suppliers'), 'restaurants/trattoria-x/suppliers');
   } finally {
-    setCurrentRestaurantId(DEFAULT_RESTAURANT_ID); // never leak state between tests
+    clearCurrentRestaurantId(); // never leak state between tests
   }
 });
 
 test('setting an invalid restaurant throws and leaves the current one alone', () => {
-  assert.throws(() => setCurrentRestaurantId('bad/id'), /Invalid restaurant id/);
-  assert.equal(currentRestaurantId(), 'main');
+  try {
+    setCurrentRestaurantId('main');
+    assert.throws(() => setCurrentRestaurantId('bad/id'), /Invalid restaurant id/);
+    assert.equal(currentRestaurantId(), 'main');
+  } finally {
+    clearCurrentRestaurantId();
+  }
 });
