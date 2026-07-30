@@ -11,6 +11,7 @@
 
 import { RELEASES, pickNotices, noticeText, newestId } from './whats-new.js';
 import { alertDialog } from './confirm-dialog.js';
+import { onSession } from './firebase.js';
 
 const SEEN_KEY = 'whats-new-seen';
 
@@ -75,6 +76,31 @@ function afterSplash() {
   });
 }
 
+// Wait until a location is actually OPEN before saying anything.
+//
+// ⚠️ THIS IS NOT A NICETY. The sign-in cover is the topmost thing on the page and
+// it makes everything behind it `inert`, so a notice opened while the cover is up
+// is visible, unreachable, and sitting between the person and the sign-in form —
+// on every phone that had used the app before, which is all of them. Measured, on
+// a returning phone: the button reported `inert` and the cover on top of it.
+//
+// It is also just correct: an app you have not signed into has no business
+// telling you what changed in it.
+function afterSignIn() {
+  return new Promise(resolve => {
+    let settled = false;
+    const unsubscribe = onSession(session => {
+      if (settled || session.status !== 'ready') return;
+      settled = true;
+      resolve();
+    });
+    // onSession calls back synchronously with the current state, so this runs
+    // after `unsubscribe` exists either way.
+    if (settled) unsubscribe();
+    else queueMicrotask(() => { if (settled) unsubscribe(); });
+  });
+}
+
 async function run() {
   const seen = readSeen();
   if (seen === null) return;                 // storage unavailable — stay quiet
@@ -93,12 +119,17 @@ async function run() {
     return;
   }
 
+  await afterSignIn();
+  await afterSplash();
+
   // Recorded BEFORE the dialog opens, not after. The alternative re-shows the same
   // notice for ever if the page is closed or reloaded while it is open — and being
   // nagged by a message you have already read is worse than missing one.
+  //
+  // But AFTER the wait above, not before it: marking a notice read while it is
+  // still stuck behind the sign-in screen would throw it away unread.
   writeSeen(latest);
 
-  await afterSplash();
   await alertDialog(noticeText(notices), { title: "What's new", okLabel: 'Got it' });
 }
 
