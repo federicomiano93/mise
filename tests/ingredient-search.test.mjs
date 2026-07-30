@@ -14,7 +14,7 @@ import {
   NO_SUPPLIER_ID, NO_SUPPLIER, isNoSupplier, resolveSuppliers, orderSuppliers,
 } from '../js/orders/no-supplier.js';
 import {
-  normalizeText, letterOf, matchesQuery, flatRows, orderSummary,
+  normalizeText, letterOf, matchesQuery, flatRows, orderSummary, filterSuppliers,
 } from '../js/orders/ingredient-search.js';
 
 const SALVO = { id: 'salvo', name: 'Salvo', active: true };
@@ -106,6 +106,51 @@ test('the search looks at name, weight, brand and supplier', () => {
   assert.ok(matchesQuery(ROW, 'denny'));     // brand
   assert.ok(matchesQuery(ROW, 'BRAKES'));    // supplier, any case
   assert.ok(!matchesQuery(ROW, 'salvo'));
+});
+
+// ── filterSuppliers ──────────────────────────────────────────────────────────
+
+const CATERITE = { id: 'cat', name: 'Caterite', category: 'Dry goods' };
+const CONTINENTAL = { id: 'con', name: 'Continental wine & food ltd.', category: 'Deli' };
+const SUPPLIER_LIST = [BRAKES, CATERITE, CONTINENTAL, SALVO];
+
+test('an empty search returns every supplier, in the order given', () => {
+  assert.deepEqual(filterSuppliers(SUPPLIER_LIST, '').map(s => s.name),
+    ['Brakes', 'Caterite', 'Continental wine & food ltd.', 'Salvo']);
+  assert.deepEqual(filterSuppliers(SUPPLIER_LIST, '   ').length, 4);
+});
+
+test('it matches on the supplier name, part-way through and in any case', () => {
+  assert.deepEqual(filterSuppliers(SUPPLIER_LIST, 'ter').map(s => s.name), ['Caterite']);
+  assert.deepEqual(filterSuppliers(SUPPLIER_LIST, 'SALVO').map(s => s.name), ['Salvo']);
+});
+
+test('it matches the category too — it is written on the row, so it must be searchable', () => {
+  assert.deepEqual(filterSuppliers(SUPPLIER_LIST, 'deli').map(s => s.name),
+    ['Continental wine & food ltd.']);
+});
+
+test('"no supplier" finds the pseudo-supplier, as it does in the ingredient list', () => {
+  assert.deepEqual(filterSuppliers([...SUPPLIER_LIST, NO_SUPPLIER], 'no supp').map(s => s.name),
+    ['No supplier']);
+});
+
+test('accents are ignored on both sides', () => {
+  const accented = [{ id: 'x', name: 'Però & Figli', category: '' }];
+  assert.equal(filterSuppliers(accented, 'pero').length, 1);
+  assert.equal(filterSuppliers([{ id: 'y', name: 'Pero', category: '' }], 'però').length, 1);
+});
+
+test('no match returns nothing, and rubbish input does not throw', () => {
+  assert.deepEqual(filterSuppliers(SUPPLIER_LIST, 'zzz'), []);
+  assert.deepEqual(filterSuppliers([], 'a'), []);
+  assert.deepEqual(filterSuppliers(null, 'a'), []);
+  assert.deepEqual(filterSuppliers([{ id: 'n' }], 'a'), [], 'a supplier with no name must not crash');
+});
+
+test('it never hands back the caller\'s own array', () => {
+  const out = filterSuppliers(SUPPLIER_LIST, '');
+  assert.notEqual(out, SUPPLIER_LIST);
 });
 
 // ── flatRows ─────────────────────────────────────────────────────────────────

@@ -17,12 +17,12 @@ import { el } from './dom.js';
 import { renderNotificationSettings } from './notifications.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
+import { buildSearchBox } from './search-box.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
-const SEARCH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 
 export function buildManagement(data, actions) {
   let tab = 'suppliers';
@@ -84,20 +84,14 @@ export function buildManagement(data, actions) {
   // is repainted per keystroke (never the search box), so the input keeps focus
   // while typing; the query lives in listQuery so an external refresh() keeps it.
   function renderSearchableList({ items, addLabel, placeholder, onAdd, rowFor, emptyText, noMatchText }) {
-    const input = el('input', {
-      type: 'search', class: 'mgmt-search-input', placeholder,
-      'aria-label': placeholder, autocomplete: 'off', value: listQuery,
+    const search = buildSearchBox({
+      value: listQuery,
+      placeholder,
+      // Stored immediately so an external refresh() keeps the text; the repaint is
+      // the debounced half.
+      onInput: text => { listQuery = text; },
+      onChange: paint,
     });
-    let debounce = null;
-    input.addEventListener('input', () => {
-      listQuery = input.value;
-      clearTimeout(debounce);
-      debounce = setTimeout(paint, 140);
-    });
-    const search = el('div', { class: 'mgmt-search' }, [
-      el('span', { class: 'mgmt-search-icon', icon: SEARCH_ICON, 'aria-hidden': 'true' }),
-      input,
-    ]);
     const listEl = el('div', { class: 'mgmt-list' });
 
     function paint() {
@@ -111,7 +105,7 @@ export function buildManagement(data, actions) {
     }
 
     paint();
-    content.appendChild(search);
+    content.appendChild(search.node);
     content.appendChild(el('button', { type: 'button', class: 'mgmt-add', onClick: onAdd }, addLabel));
     content.appendChild(listEl);
   }

@@ -20,10 +20,7 @@
 import { el } from './dom.js';
 import { buildRow } from './ingredients.js';
 import { flatRows } from './ingredient-search.js';
-
-const SEARCH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
-
-const SEARCH_DEBOUNCE_MS = 140;   // same feel as the management panel's search
+import { buildSearchBox } from './search-box.js';
 
 // container: the #suppliers-list element (see rule 2 above).
 // ctx: { query, onQuery(text), onFilter(active), suggest(id, stock), entries, hooks }
@@ -37,21 +34,13 @@ export function mountIngredientList(container, ctx) {
   let query = ctx.query || '';
   let lastTotal = 0;            // remembered so the counts can refresh without a repaint
 
-  const input = el('input', {
-    type: 'search',
-    class: 'mgmt-search-input',
-    placeholder: 'Search an ingredient…',
-    'aria-label': 'Search an ingredient',
-    autocomplete: 'off',
+  const search = buildSearchBox({
     value: query,
-  });
-
-  let debounce = null;
-  input.addEventListener('input', () => {
-    query = input.value;
-    ctx.onQuery?.(query);        // the caller keeps it, so it survives a remount
-    clearTimeout(debounce);
-    debounce = setTimeout(paint, SEARCH_DEBOUNCE_MS);
+    placeholder: 'Search an ingredient…',
+    // Stored immediately so a snapshot landing mid-keystroke finds the current text;
+    // the repaint is the debounced half.
+    onInput: text => { query = text; ctx.onQuery?.(text); },
+    onChange: paint,
   });
 
   // All / In this order. A radiogroup rather than tabs: it picks how the one list is
@@ -122,10 +111,7 @@ export function mountIngredientList(container, ctx) {
     });
   }
 
-  container.appendChild(el('div', { class: 'mgmt-search' }, [
-    el('span', { class: 'mgmt-search-icon', icon: SEARCH_ICON, 'aria-hidden': 'true' }),
-    input,
-  ]));
+  container.appendChild(search.node);
   container.appendChild(filterSwitch);
   container.appendChild(count);
   container.appendChild(listEl);

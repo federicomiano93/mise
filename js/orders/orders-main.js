@@ -11,7 +11,8 @@
 
 import { watchCollection, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
-import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
+import { mountSupplierList, refreshSupplierDerived } from './suppliers.js';
+import { buildSupplierDetail } from './supplier-detail.js';
 import {
   scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
   saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
@@ -47,9 +48,11 @@ const state = {
   days: {},                     // { supplierId: 'YYYY-MM-DD' } — the day those rows were typed
   draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
   pending: [],                  // orders typed on an earlier day and never placed
-  expanded: new Set(),
+  openSupplier: null,           // the supplier whose own screen is open, or null
   view: 'suppliers',            // which of the two order views is on screen
   query: '',                    // the flat list's search text, kept OUT of the DOM (see render)
+  supplierQuery: '',            // the supplier list's search text — deliberately separate
+  supplierFilter: false,        // supplier list showing only what is being ordered
   filterIds: null,              // FROZEN Set of ingredient ids, or null for "show everything"
   loaded: { suppliers: false, ingredients: false, draft: false },
 };
@@ -57,6 +60,8 @@ const state = {
 let mgmt = null;                // open management panel handle, or null
 let pendingChecked = false;     // the unfinished-order check runs once per page load
 let flatView = null;            // mounted flat-list handle, or null when not on screen
+let cardsView = null;           // mounted supplier-list handle, or null
+let detailView = null;          // the open supplier's screen, or null
 const placing = new Set();      // suppliers whose order is being written right now
 
 // Replace state.entries contents WITHOUT changing the reference (row closures keep working).
@@ -146,12 +151,19 @@ function currentSummary() {
 
 function refreshOrderTotals() {
   refreshPlaceAllButton();
-  // Counts only — never the rows. See updateCounts in ingredient-list.js.
+  // Counts only — never the rows. See updateCounts in ingredient-list.js / suppliers.js.
   flatView?.updateCounts(currentSummary().itemCount);
+  cardsView?.updateCounts();
 }
 
+// Push the draft's values back into the inputs on screen, without rebuilding anything
+// (so nobody loses focus mid-typing).
+//
+// The selector deliberately does NOT stop at #suppliers-list: a supplier's own screen
+// is an overlay OUTSIDE that container, and scoping to it would mean a quantity typed
+// on another phone silently stopped appearing while you were inside a supplier.
 function syncInputsFromState() {
-  document.querySelectorAll('#suppliers-list .ing-row').forEach(row => {
+  document.querySelectorAll('.ing-row[data-ing]').forEach(row => {
     const entry = state.entries[row.dataset.ing] || {};
     const stock = row.querySelector('.ing-stock');
     const qty = row.querySelector('.ing-qty');
@@ -163,11 +175,12 @@ function syncInputsFromState() {
 
 // ── Rendering: order tab ──────────────────────────────────────────────────────
 //
-// Both views are drawn INSIDE #suppliers-list, and that is not a detail. orders.css
-// scopes the fix for the .ing-row name collision with the Calculator to
-// "#suppliers-list .ing-row" — a row rendered anywhere else silently falls back to
-// the Calculator's flex layout and pushes the Order box off the card on a 320px
-// phone. One container, both views.
+// Both list views are drawn INSIDE #suppliers-list, and that is not a detail.
+// orders.css scopes the fix for the .ing-row name collision with the Calculator, and
+// a row rendered outside a covered container silently falls back to the Calculator's
+// flex layout and pushes the Order box off the card on a 320px phone. (The supplier's
+// own screen is an overlay, so its list is covered by the `.ingredient-list .ing-row`
+// half of that same rule.)
 function render() {
   const container = document.getElementById('suppliers-list');
   if (!container) return;
@@ -182,23 +195,86 @@ function render() {
   refreshOrderTotals();
 
   if (!hasSomething) {
-    flatView = null;
+    dropListViews();
     renderEmptyState(container);
     return;
   }
 
   if (state.view === 'all') renderFlatList(container);
-  else renderSupplierCards(container, suppliers);
+  else renderSupplierList(container, suppliers);
+
+  renderOpenSupplier();
 }
 
-function renderSupplierCards(container, suppliers) {
-  flatView = null;              // its nodes go with the container contents below
-  renderSuppliers(container, suppliers, ingredientsBySupplier(), {
+// Both list views own nodes inside the shared container, so whenever it is wiped or
+// handed to the other view, the stale handle has to go with it.
+function dropListViews() {
+  flatView = null;
+  cardsView = null;
+}
+
+// The supplier list is MOUNTED once and then only repainted — see the note on
+// renderFlatList below; the same trap, the same answer.
+function renderSupplierList(container, suppliers) {
+  if (!cardsView) {
+    flatView = null;
+    container.textContent = '';
+    cardsView = mountSupplierList(container, {
+      query: state.supplierQuery,
+      filterActive: state.supplierFilter,
+      onQuery: q => { state.supplierQuery = q; },
+      onFilter: active => { state.supplierFilter = active; },
+      onOpen: openSupplier,
+    });
+  }
+  cardsView.repaint({
+    suppliers,
+    ingredientsBySupplier: ingredientsBySupplier(),
+    entries: state.entries,
+  });
+}
+
+// ── One supplier's own screen ─────────────────────────────────────────────────
+function openSupplier(supplierId) {
+  state.openSupplier = supplierId;
+  renderOpenSupplier();
+}
+
+function closeSupplier() {
+  state.openSupplier = null;
+  detailView?.overlay.remove();
+  detailView = null;
+}
+
+// Create the screen, or repaint the one already up. Repainting happens on every
+// suppliers/ingredients/history snapshot, exactly as the expanded card was rebuilt
+// before — keystrokes never come through here, they reach the inputs through
+// syncInputsFromState, which does not touch the DOM structure.
+function renderOpenSupplier() {
+  if (!state.openSupplier) return;
+
+  const supplier = findOrderSupplier(state.openSupplier);
+  // Deactivated or deleted while the screen was open: leave rather than show a screen
+  // for something that is no longer there.
+  if (!supplier) { closeSupplier(); return; }
+
+  const ctx = {
+    ingredients: ingredientsBySupplier()[supplier.id] || [],
     entries: state.entries,
     suggest: (id, stock) => computeSuggestion(id, stock, state.history),
-    expanded: state.expanded,
     hooks,
-  });
+    onBack: closeSupplier,
+  };
+
+  if (detailView && detailView.id === supplier.id) {
+    detailView.repaint(ctx);
+    return;
+  }
+
+  detailView?.overlay.remove();
+  const built = buildSupplierDetail(supplier, ctx);
+  detailView = { ...built, id: supplier.id };
+  document.body.appendChild(built.overlay);
 }
 
 // The flat list is MOUNTED once and then only repainted.
@@ -210,6 +286,7 @@ function renderSupplierCards(container, suppliers) {
 // state.query, so it also survives a trip through the by-supplier view.
 function renderFlatList(container) {
   if (!flatView) {
+    cardsView = null;
     container.textContent = '';
     flatView = mountIngredientList(container, {
       query: state.query,
@@ -250,7 +327,7 @@ function setView(view) {
   // invisible and surprising the operator with it on the way back.
   if (view === 'suppliers') state.filterIds = null;
   try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode — the choice just won't stick */ }
-  flatView = null;              // force a remount; the query is kept in state
+  dropListViews();              // force a remount; both queries are kept in state
   syncViewButtons();
   render();
   refreshOrderTotals();
@@ -632,6 +709,9 @@ async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {})
   // queued a draft save, and that save holds state.entries BY REFERENCE. Dropping
   // the keys before it fires is what stops it writing them back after the clear.
   forgetSupplierLocally(supplierId);
+  // Recorded, so there is nothing left on that supplier's screen — back to the list
+  // (P20: a successful save returns you to where you came from).
+  if (state.openSupplier === supplierId) closeSupplier();
   syncInputsFromState();            // also re-derives every button's enabled state
   renderReminders();
 
@@ -777,19 +857,19 @@ async function discardPending(supplierId) {
   }
 }
 
-// Open one supplier's card and bring it into view — what tapping its name in the
-// "order today" reminder does.
+// Tapping a supplier's name in the "order today" reminder: go straight into its
+// order.
 //
-// There are no cards in the flat list, so from there the tap would do nothing
-// visible at all. Switch back first: the operator asked for that supplier, and
-// the card view is where a supplier is a thing you can open.
+// The search and the "Ordering" filter are cleared first. Either of them could be
+// hiding that supplier's row, and the operator would come back from the screen to a
+// list that appears not to contain what they just opened.
 function expandSupplier(supplierId) {
   setView('suppliers');
-  state.expanded.add(supplierId);
+  state.supplierQuery = '';
+  state.supplierFilter = false;
+  dropListViews();              // remount so the cleared search is what is drawn
   render();
-  document
-    .querySelector(`.supplier-card[data-supplier="${supplierId}"]`)
-    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  openSupplier(supplierId);
 }
 
 // ── Management panel ──────────────────────────────────────────────────────────

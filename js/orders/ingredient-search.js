@@ -43,6 +43,23 @@ export function matchesQuery(row, query) {
     .some(field => normalizeText(field).includes(q));
 }
 
+// The suppliers matching what was typed, in the order they were given.
+//
+// Name and category, because those are the two things the supplier row shows — a
+// search that matches something invisible reads as a bug. Typing "no supplier" finds
+// the pseudo-supplier, the same as in the ingredient list.
+//
+// It does NOT look inside a supplier's ingredients: "where do I find Bacon" is what
+// the All-ingredients view is for, and answering it here too would make two searches
+// that behave almost-but-not-quite the same.
+export function filterSuppliers(suppliers, query) {
+  const q = normalizeText(query);
+  if (!q) return (suppliers || []).slice();
+
+  return (suppliers || []).filter(s =>
+    [s?.name, s?.category].some(field => normalizeText(field).includes(q)));
+}
+
 // Ingredients that belong to one of the given suppliers, A→Z by displayed label.
 //
 // An ingredient whose supplier is not in the list is left OUT, exactly as the
