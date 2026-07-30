@@ -175,6 +175,12 @@
   padding: 24px;
   animation: app-fade-in .12s ease-out;
 }
+/* Never taller than the screen. Without the cap a long message simply grows past
+   both edges — the backdrop centres it, so the title is clipped at the top AND the
+   OK button leaves the bottom, which makes the dialog impossible to answer. The
+   column layout is what keeps that button on screen: the title and the buttons hold
+   their size, the MESSAGE is the part that scrolls.
+   48px = the backdrop's own 24px of padding, top and bottom. */
 .app-dialog {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -182,6 +188,9 @@
   padding: 20px;
   width: 100%;
   max-width: 360px;
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow);
   animation: app-dialog-in .16s ease-out;
 }
@@ -200,8 +209,15 @@
   line-height: 1.5;
   color: var(--text);
   white-space: pre-line;
+  /* The one part allowed to scroll. min-height:0 is not optional: a flex child
+     refuses to shrink below its content without it, so the box would grow past the
+     cap above and take the buttons off screen with it — the same trap that froze
+     iOS scrolling in v185. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
-.app-dialog-actions { display: flex; gap: 10px; }
+.app-dialog-actions { display: flex; gap: 10px; flex-shrink: 0; }
 .app-dialog-btn {
   flex: 1;
   padding: 12px 16px;
