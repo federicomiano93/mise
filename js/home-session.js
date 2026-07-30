@@ -12,7 +12,7 @@
 // Log out sits here too, deliberately quiet next to the location name (P20:
 // a destructive action never competes with the thing you actually came to do).
 
-import { onSession, signOutNow, switchLocation } from './firebase.js';
+import { onSession, signOutNow, switchLocation, forgetLocation } from './firebase.js';
 import { allowedSections } from './sections.js';
 import { confirmDialog } from './confirm-dialog.js';
 
@@ -49,18 +49,21 @@ function renderSessionActions(session) {
   if (options.length > 1) {
     logoutHost.append(button('Switch location', 'session-logout', async () => {
       const other = options.filter(id => id !== session.locationId);
-      const target = other.length === 1 ? other[0] : null;
-      if (!target) { location.reload(); return; }
       const names = session.optionNames || {};
+      const cleared = 'Anything typed but not saved on this device is cleared.';
+      // One other location is unambiguous, so name it and go straight there.
+      // More than one and the app cannot pick for you: forget the remembered
+      // location so the reload comes back to the picker.
       const ok = await confirmDialog({
         title: 'Switch location?',
-        message: `Open ${names[target] || target} instead of ${session.name}?
-
-`
-          + 'Anything typed but not saved on this device is cleared.',
+        message: other.length === 1
+          ? `Open ${names[other[0]] || other[0]} instead of ${session.name}?\n\n${cleared}`
+          : `Choose a different location?\n\n${cleared}`,
         okLabel: 'Switch',
       });
-      if (ok) switchLocation(target);
+      if (!ok) return;
+      if (other.length === 1) switchLocation(other[0]);
+      else forgetLocation();
     }));
   }
 
