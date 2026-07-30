@@ -19,10 +19,31 @@ const LIST = [R3, R2, R1];   // newest first
 
 // ── pickNotices ──────────────────────────────────────────────────────────────
 
-test('a phone that has never stored a stamp is told nothing', () => {
-  assert.deepEqual(pickNotices(LIST, ''), []);
-  assert.deepEqual(pickNotices(LIST, null), []);
-  assert.deepEqual(pickNotices(LIST, undefined), []);
+test('a phone opening the app for the FIRST time is told nothing', () => {
+  // No stamp, and no sign the app has ever run here: a list of changes to an app
+  // you have never used is noise, not news.
+  assert.deepEqual(pickNotices(LIST, '', false), []);
+  assert.deepEqual(pickNotices(LIST, null, false), []);
+  assert.deepEqual(pickNotices(LIST, undefined), []);   // defaults to "not returning"
+});
+
+test('a phone that has used the app but never had the feature IS told', () => {
+  // Without this the very first release of the notices would tell nobody anything,
+  // and they would not begin until the release after that.
+  assert.deepEqual(pickNotices(LIST, '', true), [R3]);
+  assert.deepEqual(pickNotices(LIST, null, true), [R3]);
+});
+
+test('the latest note only — a returning phone never gets the whole history', () => {
+  assert.deepEqual(pickNotices(LIST, '', true), [R3]);
+  assert.equal(pickNotices(LIST, '', true).length, 1);
+});
+
+test('once a stamp exists, "returning" stops mattering', () => {
+  assert.deepEqual(pickNotices(LIST, 'r3', true), []);
+  assert.deepEqual(pickNotices(LIST, 'r3', false), []);
+  assert.deepEqual(pickNotices(LIST, 'r1', false), [R3, R2]);
+  assert.deepEqual(pickNotices(LIST, 'r1', true), [R3, R2]);
 });
 
 test('a phone already on the newest release is told nothing', () => {
@@ -46,6 +67,7 @@ test('no releases at all is quiet, not a crash', () => {
   assert.deepEqual(pickNotices([], 'r1'), []);
   assert.deepEqual(pickNotices(null, 'r1'), []);
   assert.deepEqual(pickNotices(undefined, undefined), []);
+  assert.deepEqual(pickNotices([], '', true), [], 'a returning phone with no notes is still quiet');
 });
 
 // ── newestId ─────────────────────────────────────────────────────────────────

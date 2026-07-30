@@ -37,20 +37,25 @@ export function newestId(releases = RELEASES) {
 
 // Which notices this phone has not read yet, newest first.
 //
-// Three rules, and the first is the one that is easy to get wrong:
+// `returning` answers "has this app been opened on this device before?" and is
+// consulted ONLY when there is no stamp, which is the one genuinely ambiguous case:
 //
-//   1. NOTHING ON A FIRST RUN. With no stamp stored we cannot tell a brand-new
-//      phone from one that has been here for months, so we say nothing and let the
-//      caller record the current stamp. Guessing wrong the other way greets someone
-//      opening the app for the first time with a list of changes to an app they
-//      have never seen.
-//   2. Everything missed, not just the last one. Skipping two releases while a
-//      phone sat unopened must not silently swallow the older note.
-//   3. A stamp we do not recognise (a rolled-back release, a hand-edited value)
-//      shows the latest note only — never the whole history.
-export function pickNotices(releases, seenId) {
+//   * a phone that has used the app for months and simply never had this feature —
+//     it should see the latest note, otherwise the very first release of the
+//     feature would tell nobody anything and the notices would not begin until the
+//     release after that;
+//   * a phone opening the app for the FIRST time — it must see nothing, because a
+//     list of changes to an app you have never used is noise, not news.
+//
+// The other two rules:
+//   * everything missed, not just the last one — two releases skipped while a phone
+//     sat unopened must not silently swallow the older note;
+//   * a stamp nobody recognises (a rolled-back release, a hand-edited value) shows
+//     the latest note only, never the whole history.
+export function pickNotices(releases, seenId, returning = false) {
   const list = releases || [];
-  if (!list.length || !seenId) return [];
+  if (!list.length) return [];
+  if (!seenId) return returning ? [list[0]] : [];
 
   const index = list.findIndex(r => r.id === seenId);
   if (index === -1) return [list[0]];
