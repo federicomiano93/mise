@@ -40,7 +40,7 @@ import {
   ReCaptchaV3Provider,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
 import { reconcileConfigWrite } from './calculator-config.js';
-import { currentRestaurantId, pathFor } from './restaurant.js';
+import { currentLocationId, pathFor } from './location.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -139,7 +139,7 @@ export function watchLogs(onChange) {
 // INSIDE the document (the versions array), so overwriting the doc is correct.
 export function saveLogDoc(log) {
   return authReady
-    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentRestaurantId() }))
+    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentLocationId() }))
     .catch(err => { console.error('saveLogDoc failed:', err); throw err; });
 }
 
@@ -212,7 +212,7 @@ export function saveCalculatorConfig(config) {
       const snap = await tx.get(ref);
       const server = snap.exists() ? snap.data() : null;
       const { recipes, configRev } = reconcileConfigWrite(config, server);
-      tx.set(ref, { ...config, recipes, configRev, bakery: currentRestaurantId() });
+      tx.set(ref, { ...config, recipes, configRev, bakery: currentLocationId() });
     }))
     .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }

@@ -5,17 +5,17 @@
 // never modified — we import its exported firebaseConfig and attach to the same
 // default app, so the Orders pages share the one anonymous session.
 //
-// Collections, all under the current restaurant's folder (js/restaurant.js):
-//   restaurants/{restaurant}/suppliers/{id} · …/ingredients/{id} ·
+// Collections, all under the current location's folder (js/location.js):
+//   locations/{location}/suppliers/{id} · …/ingredients/{id} ·
 //   …/drafts/{id} · …/orders-history/{id} · …/config/{id}
 //
 // Collection names stay plain strings at every call site; pathFor() is the only
 // thing that knows where they live. Every document still carries the `bakery`
-// field — now the restaurant id, matching its own path — because removing a
+// field — now the location id, matching its own path — because removing a
 // field that live documents already carry is what breaks merge writes for good.
 
 import { firebaseConfig } from '../firebase.js';
-import { currentRestaurantId, pathFor } from '../restaurant.js';
+import { currentLocationId, pathFor } from '../location.js';
 import {
   getApps,
   getApp,
@@ -46,10 +46,10 @@ const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // The id stamped on every document, in the `bakery` field. It is the same value
-// as the restaurant folder the document sits in, so the field and the path can
+// as the location folder the document sits in, so the field and the path can
 // never disagree — and the rules check exactly that.
 export function currentBakery() {
-  return currentRestaurantId();
+  return currentLocationId();
 }
 
 // Collection names, in one place so the feature modules never hardcode strings.
@@ -116,7 +116,7 @@ export async function getCollection(name) {
 }
 
 // Create or merge a document. The bakery field is always stamped server-side
-// of the client (rules also enforce that it matches the restaurant folder).
+// of the client (rules also enforce that it matches the location folder).
 export async function saveDoc(name, id, data) {
   await authReady;
   return setDoc(doc(db, pathFor(name), id), withBakery(data), { merge: true });

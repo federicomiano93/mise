@@ -299,18 +299,18 @@ async function neighbours() {
   await expectDenied('config still refuses a delete', () => deleteWrite('config/calculator'));
 }
 
-// ── The restaurant tree ──────────────────────────────────────────────────────
-// The data moved from the top of the database into restaurants/{id}/… . The
+// ── The location tree ──────────────────────────────────────────────────────
+// The data moved from the top of the database into locations/{id}/… . The
 // validation rules there were ported from the flat ones, and "ported verbatim"
 // is exactly the kind of claim that has to be tested rather than trusted — so
 // the legacy shapes that broke merge writes are re-checked at the new address.
 //
 // The rule that is NEW: `bakery` must equal the folder the document sits in, so
 // the field and the path can never drift apart.
-async function restaurantTree() {
+async function locationTree() {
   await wipe();
-  const A = 'restaurants/main';
-  const B = 'restaurants/trattoria-x';
+  const A = 'locations/main';
+  const B = 'locations/trattoria-x';
 
   await seedDoc(`${A}/suppliers/SUP_LEGACY`, FIXTURE.suppliers.SUP_LEGACY);
   await seedDoc(`${A}/drafts/current`, FIXTURE.draft);
@@ -344,10 +344,10 @@ async function restaurantTree() {
     wholeWrite(`${A}/logs/L1`, { bakery: 'main', dough: 'Focaccia', versions: [] }));
 
   // The new rule: the stamp has to name the folder it is written into.
-  await expectDenied('tenant: a supplier stamped with ANOTHER restaurant id',
+  await expectDenied('tenant: a supplier stamped with ANOTHER location id',
     () => mergeWrite(`${A}/suppliers/SUP_X`, { bakery: 'trattoria-x', name: 'X' }));
 
-  await expectDenied('tenant: an order stamped with another restaurant id',
+  await expectDenied('tenant: an order stamped with another location id',
     () => wholeWrite(`${A}/orders-history/2026-07-30_Y`, {
       bakery: 'trattoria-x', date: '2026-07-30', supplierId: 'Y', supplierName: 'Y',
       quantities: {}, stock: {}, createdAt: 'x', updatedAt: 'x',
@@ -363,20 +363,20 @@ async function restaurantTree() {
   await expectDenied('tenant: the order in progress can never be deleted',
     () => deleteWrite(`${A}/drafts/current`));
 
-  // A second restaurant is a separate folder that behaves the same way.
-  await expectAllowed('tenant: a second restaurant writes its own supplier',
+  // A second location is a separate folder that behaves the same way.
+  await expectAllowed('tenant: a second location writes its own supplier',
     () => mergeWrite(`${B}/suppliers/S1`, { bakery: 'trattoria-x', name: 'Theirs' }));
 
-  check('the two restaurants are separate documents, not one shared one',
+  check('the two locations are separate documents, not one shared one',
     (await readDoc(`${A}/suppliers/SUP_LEGACY`)) !== null
     && (await readDoc(`${B}/suppliers/SUP_LEGACY`)) === null);
 
-  // The restaurant's own document (its name and which sections it uses) decides
+  // The location's own document (its name and which sections it uses) decides
   // what the app shows and who it belongs to: the console writes it, never a client.
-  await expectDenied('tenant: the restaurant document itself is not app-writable',
+  await expectDenied('tenant: the location document itself is not app-writable',
     () => mergeWrite(A, { name: 'Renamed' }));
 
-  await expectDenied('tenant: nothing can be written outside the restaurant tree',
+  await expectDenied('tenant: nothing can be written outside the location tree',
     () => mergeWrite('nonsense/x', { a: 1 }));
 
   // ⚠️ TRANSITION ONLY. The flat collections still accept writes so the live app
@@ -391,7 +391,7 @@ async function restaurantTree() {
 await requireEmulators();
 TOKEN = await anonToken();
 
-for (const scenario of [suppliers, ingredients, drafts, history, neighbours, restaurantTree]) {
+for (const scenario of [suppliers, ingredients, drafts, history, neighbours, locationTree]) {
   await scenario();
 }
 
