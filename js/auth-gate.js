@@ -1,21 +1,21 @@
 // auth-gate.js — the door. Imported by every page that shows data.
 //
-// It covers the page until the session says a restaurant is open, and turns each
+// It covers the page until the session says a location is open, and turns each
 // session state into a screen a person can act on:
 //
 //   loading           → nothing (the splash / a blank cover, no flicker)
 //   signed-out        → sign in, with "forgot password"
-//   choose-restaurant → which restaurant am I working on
-//   no-access         → this account exists but belongs to no restaurant yet
+//   choose-location → which location am I working on
+//   no-access         → this account exists but belongs to no location yet
 //   error             → we could not check your access (offline, usually)
 //   ready             → uncover the page; if this section is not for this
-//                       restaurant, go Home instead of showing permission errors
+//                       location, go Home instead of showing permission errors
 //
 // WHY IT COVERS THE PAGE FIRST. The alternative — render the app, then hide it if
 // signed out — shows one frame of somebody's data to whoever is holding the
 // phone. The cover is in the HTML from the start and is only ever REMOVED.
 
-import { onSession, signIn, sendReset, chooseRestaurant } from './firebase.js';
+import { onSession, signIn, sendReset, chooseLocation } from './firebase.js';
 import { isSectionAllowed } from './sections.js';
 
 const HOME = 'index.html';
@@ -100,7 +100,7 @@ function showGate(build) {
 function signInScreen() {
   const card = el('div', 'auth-card');
   card.append(el('h1', 'auth-title', 'The Italian Club'));
-  card.append(el('p', 'auth-sub', 'Sign in to open your restaurant.'));
+  card.append(el('p', 'auth-sub', 'Sign in to open your location.'));
 
   const form = el('form', 'auth-form');
   form.noValidate = true;
@@ -176,7 +176,7 @@ function signInScreen() {
 
 function chooseScreen(options, names = {}) {
   const card = el('div', 'auth-card');
-  card.append(el('h1', 'auth-title', 'Choose restaurant'));
+  card.append(el('h1', 'auth-title', 'Choose location'));
   card.append(el('p', 'auth-sub', 'You have access to more than one.'));
 
   const list = el('div', 'auth-choices');
@@ -187,8 +187,8 @@ function chooseScreen(options, names = {}) {
     button.type = 'button';
     button.addEventListener('click', () => {
       list.querySelectorAll('button').forEach(b => { b.disabled = true; });
-      chooseRestaurant(id).catch(err => {
-        console.error('Could not open that restaurant:', err);
+      chooseLocation(id).catch(err => {
+        console.error('Could not open that location:', err);
         list.querySelectorAll('button').forEach(b => { b.disabled = false; });
       });
     });
@@ -222,14 +222,14 @@ onSession(session => {
       showGate(signInScreen);
       break;
 
-    case 'choose-restaurant':
+    case 'choose-location':
       showGate(() => chooseScreen(session.options, session.optionNames));
       break;
 
     case 'no-access':
       showGate(() => messageScreen(
-        'No restaurant yet',
-        'This account is not linked to a restaurant. Ask the owner to add it, then try again.',
+        'No location yet',
+        'This account is not linked to a location. Ask the owner to add it, then try again.',
       ));
       break;
 
@@ -241,10 +241,10 @@ onSession(session => {
       break;
 
     case 'ready':
-      // A restaurant that does not use this section should never sit on its
+      // A location that does not use this section should never sit on its
       // screen collecting permission errors — send it Home, where the cards it
       // does have are waiting.
-      if (pageSection && !isSectionAllowed(session.restaurant, pageSection)) {
+      if (pageSection && !isSectionAllowed(session.location, pageSection)) {
         location.replace(HOME);
         return;
       }

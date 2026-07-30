@@ -2,7 +2,7 @@
 //
 // The pair of defaults is the whole point of this file, and they deliberately
 // point in opposite directions:
-//   - a broken `sections` field must NOT empty a working restaurant's app;
+//   - a broken `sections` field must NOT empty a working location's app;
 //   - a broken `users/{uid}` document MUST mean no access at all.
 // Getting either backwards is invisible in the code and obvious in production.
 
@@ -12,13 +12,13 @@ import {
   SECTIONS,
   allowedSections,
   isSectionAllowed,
-  restaurantsOf,
-  pickRestaurant,
+  locationsOf,
+  pickLocation,
 } from '../js/sections.js';
 
 // ── Sections: default ALLOWED ────────────────────────────────────────────────
 
-test('no restaurant document: every section stays available', () => {
+test('no location document: every section stays available', () => {
   assert.deepEqual(allowedSections(null), { orders: true, calculator: true, catalogue: true });
   assert.deepEqual(allowedSections(undefined), { orders: true, calculator: true, catalogue: true });
 });
@@ -52,61 +52,61 @@ test('an unknown section name in the document is ignored, not rendered', () => {
 
 // ── Membership: default NONE ─────────────────────────────────────────────────
 
-test('no user document means no restaurants — never all of them', () => {
-  assert.deepEqual(restaurantsOf(null), []);
-  assert.deepEqual(restaurantsOf(undefined), []);
-  assert.deepEqual(restaurantsOf({}), []);
-  assert.deepEqual(restaurantsOf({ restaurants: null }), []);
+test('no user document means no locations — never all of them', () => {
+  assert.deepEqual(locationsOf(null), []);
+  assert.deepEqual(locationsOf(undefined), []);
+  assert.deepEqual(locationsOf({}), []);
+  assert.deepEqual(locationsOf({ locations: null }), []);
 });
 
-test('a corrupt restaurants field means no restaurants', () => {
+test('a corrupt locations field means no locations', () => {
   ['main', 42, ['main'], true].forEach(bad => {
-    assert.deepEqual(restaurantsOf({ restaurants: bad }), [],
-      `restaurants: ${JSON.stringify(bad)} must grant nothing`);
+    assert.deepEqual(locationsOf({ locations: bad }), [],
+      `locations: ${JSON.stringify(bad)} must grant nothing`);
   });
 });
 
 test('only entries explicitly set to true count as access', () => {
-  const doc = { restaurants: { main: true, 'trattoria-x': false, ghost: 'yes', other: 1 } };
-  assert.deepEqual(restaurantsOf(doc), ['main']);
+  const doc = { locations: { main: true, 'trattoria-x': false, ghost: 'yes', other: 1 } };
+  assert.deepEqual(locationsOf(doc), ['main']);
 });
 
-test('several restaurants come back in a stable order', () => {
-  assert.deepEqual(restaurantsOf({ restaurants: { zeta: true, alfa: true, main: true } }),
+test('several locations come back in a stable order', () => {
+  assert.deepEqual(locationsOf({ locations: { zeta: true, alfa: true, main: true } }),
     ['alfa', 'main', 'zeta']);
 });
 
-// ── Which restaurant this session opens ──────────────────────────────────────
+// ── Which location this session opens ──────────────────────────────────────
 
-test('one restaurant: straight in, no question asked', () => {
-  const out = pickRestaurant({ restaurants: { main: true } }, null);
-  assert.deepEqual(out, { status: 'ready', restaurantId: 'main', options: ['main'] });
+test('one location: straight in, no question asked', () => {
+  const out = pickLocation({ locations: { main: true } }, null);
+  assert.deepEqual(out, { status: 'ready', locationId: 'main', options: ['main'] });
 });
 
-test('two restaurants and no previous choice: ask', () => {
-  const out = pickRestaurant({ restaurants: { main: true, 'trattoria-x': true } }, null);
+test('two locations and no previous choice: ask', () => {
+  const out = pickLocation({ locations: { main: true, 'trattoria-x': true } }, null);
   assert.equal(out.status, 'choose');
   assert.deepEqual(out.options, ['main', 'trattoria-x']);
-  assert.equal(out.restaurantId, undefined);
+  assert.equal(out.locationId, undefined);
 });
 
-test('two restaurants and a remembered one: go back where you were', () => {
-  const out = pickRestaurant({ restaurants: { main: true, 'trattoria-x': true } }, 'trattoria-x');
+test('two locations and a remembered one: go back where you were', () => {
+  const out = pickLocation({ locations: { main: true, 'trattoria-x': true } }, 'trattoria-x');
   assert.equal(out.status, 'ready');
-  assert.equal(out.restaurantId, 'trattoria-x');
+  assert.equal(out.locationId, 'trattoria-x');
 });
 
-test('a remembered restaurant that is no longer yours is ignored', () => {
+test('a remembered location that is no longer yours is ignored', () => {
   // Access was taken away; a phone must not keep it alive from local storage.
-  const out = pickRestaurant({ restaurants: { main: true, 'trattoria-x': true } }, 'sold-last-year');
+  const out = pickLocation({ locations: { main: true, 'trattoria-x': true } }, 'sold-last-year');
   assert.equal(out.status, 'choose');
 
-  const single = pickRestaurant({ restaurants: { main: true } }, 'sold-last-year');
+  const single = pickLocation({ locations: { main: true } }, 'sold-last-year');
   assert.equal(single.status, 'ready');
-  assert.equal(single.restaurantId, 'main');
+  assert.equal(single.locationId, 'main');
 });
 
-test('an account with no restaurant is a named state, not a crash', () => {
-  assert.deepEqual(pickRestaurant(null, 'main'), { status: 'none', options: [] });
-  assert.deepEqual(pickRestaurant({ restaurants: {} }, null), { status: 'none', options: [] });
+test('an account with no location is a named state, not a crash', () => {
+  assert.deepEqual(pickLocation(null, 'main'), { status: 'none', options: [] });
+  assert.deepEqual(pickLocation({ locations: {} }, null), { status: 'none', options: [] });
 });

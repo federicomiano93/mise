@@ -3,10 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ═══════════════════════════════════════════════════════════════════════
-    // THE RESTAURANT TREE — restaurants/{rid}/<collection>/{id}
+    // THE LOCATION TREE — locations/{lid}/<collection>/{id}
     // ═══════════════════════════════════════════════════════════════════════
     //
-    // Every document a restaurant owns lives inside its own folder, and only the
+    // Every document a location owns lives inside its own folder, and only the
     // people listed in users/{uid} can open that folder.
     //
     // ⚠️ THIS IS THE RULESET THAT CLOSES THE DOOR. Until it is deployed, anyone
@@ -15,14 +15,14 @@ service cloud.firestore {
     // app that signs people in is live, or the running app locks itself out.
     //
     // Three separate decisions, kept separate on purpose:
-    //   member(rid)     — may this account open this restaurant at all?
-    //   sectionOn(rid)  — was this restaurant set up with this part of the app?
+    //   member(lid)     — may this account open this location at all?
+    //   sectionOn(lid)  — was this location set up with this part of the app?
     //   the field rules — is this particular document well formed?
     //
     // Only the first is a boundary between two businesses. The field validation is
     // ported verbatim from the collections as they were before the move, including
     // the retired fields, because removing one makes live documents permanently
-    // unwritable. `bakery` must equal the restaurant folder the document sits in,
+    // unwritable. `bakery` must equal the location folder the document sits in,
     // so the field and the path can never disagree.
 
     function signedIn() {
@@ -30,73 +30,73 @@ service cloud.firestore {
     }
 
     // The document payload must be stamped with the folder it is being written to.
-    function stampedFor(rid) {
-      return request.resource.data.bakery == rid;
+    function stampedFor(lid) {
+      return request.resource.data.bakery == lid;
     }
 
-    // ── Who may enter a restaurant ──────────────────────────────────────────
-    // users/{uid} lists the restaurants an account may open. It is readable only
+    // ── Who may enter a location ──────────────────────────────────────────
+    // users/{uid} lists the locations an account may open. It is readable only
     // by that account and writable by NOBODY through the app — the Firebase
     // console is the only way in. That single fact is what makes this a boundary
     // rather than a preference: no client can grant itself access to a
-    // restaurant, whatever it sends.
+    // location, whatever it sends.
     //
     // A missing users document therefore means NO access, never "all of them".
     // The .get() form with a default is used so that a missing field denies
     // quietly instead of erroring.
-    function member(rid) {
+    function member(lid) {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid))
-             .data.get('restaurants', {}).get(rid, false) == true;
+             .data.get('locations', {}).get(lid, false) == true;
     }
 
-    // ── Which parts of the app a restaurant uses ────────────────────────────
-    // The OPPOSITE default to membership, deliberately: a missing restaurant
+    // ── Which parts of the app a location uses ────────────────────────────
+    // The OPPOSITE default to membership, deliberately: a missing location
     // document, or a missing `sections` field, leaves every section ON. This is
-    // not a boundary between restaurants (a restaurant only ever sees its own
-    // data either way) — it decides which screens a restaurant was set up with,
+    // not a boundary between locations (a location only ever sees its own
+    // data either way) — it decides which screens a location was set up with,
     // and a forgotten field must not empty the app of a business that is working.
-    function sectionOn(rid, name) {
-      return !exists(/databases/$(database)/documents/restaurants/$(rid))
-        || get(/databases/$(database)/documents/restaurants/$(rid))
+    function sectionOn(lid, name) {
+      return !exists(/databases/$(database)/documents/locations/$(lid))
+        || get(/databases/$(database)/documents/locations/$(lid))
              .data.get('sections', {}).get(name, true) != false;
     }
 
-    function canUse(rid, section) {
-      return member(rid) && sectionOn(rid, section);
+    function canUse(lid, section) {
+      return member(lid) && sectionOn(lid, section);
     }
 
-    // Which restaurants an account may open. Readable only by that account, so
+    // Which locations an account may open. Readable only by that account, so
     // one person cannot enumerate another's access; writable by no client at all.
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow write: if false;
     }
 
-    match /restaurants/{rid} {
+    match /locations/{lid} {
 
-      // The restaurant's own document: its display name and which sections of the
+      // The location's own document: its display name and which sections of the
       // app it uses. Written ONLY from the Firebase console — an app that could
-      // write this could rename a restaurant or hand itself a section.
-      allow read: if member(rid);
+      // write this could rename a location or hand itself a section.
+      allow read: if member(lid);
       allow write: if false;
 
       // ── Production logs (current model) ─────────────────────────────────
       match /logs/{id} {
-        allow read: if canUse(rid, 'calculator');
-        allow create, update: if canUse(rid, 'calculator')
-          && stampedFor(rid)
+        allow read: if canUse(lid, 'calculator');
+        allow create, update: if canUse(lid, 'calculator')
+          && stampedFor(lid)
           && request.resource.data.dough is string
           && request.resource.data.versions is list;
-        allow delete: if canUse(rid, 'calculator');
+        allow delete: if canUse(lid, 'calculator');
       }
 
       // ── Production logs (legacy: one document per dough) ────────────────
       match /log/{dough} {
-        allow read: if canUse(rid, 'calculator');
+        allow read: if canUse(lid, 'calculator');
 
-        allow write: if canUse(rid, 'calculator')
+        allow write: if canUse(lid, 'calculator')
           && dough in ['focaccia', 'brioche', 'sourdough']
           && request.resource.data.keys().hasOnly(['dough', 'date', 'time', 'text'])
           && request.resource.data.dough is string
@@ -108,15 +108,15 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() < 2000;
 
-        allow delete: if canUse(rid, 'calculator')
+        allow delete: if canUse(lid, 'calculator')
           && dough in ['focaccia', 'brioche', 'sourdough'];
       }
 
       // ── Daily production log: one document per day, keyed by dough ───────
       match /daily-logs/{date} {
-        allow read: if canUse(rid, 'calculator');
+        allow read: if canUse(lid, 'calculator');
 
-        allow create, update: if canUse(rid, 'calculator')
+        allow create, update: if canUse(lid, 'calculator')
           && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
           && request.resource.data.keys().hasOnly(['focaccia', 'brioche', 'sourdough'])
           && request.resource.data.keys().size() > 0
@@ -134,10 +134,10 @@ service cloud.firestore {
       // present in production; removing it here stops every old supplier from
       // being writable, silently and permanently.
       match /suppliers/{id} {
-        allow read: if canUse(rid, 'orders');
+        allow read: if canUse(lid, 'orders');
 
-        allow create, update: if canUse(rid, 'orders')
-          && stampedFor(rid)
+        allow create, update: if canUse(lid, 'orders')
+          && stampedFor(lid)
           && request.resource.data.keys().hasOnly([
                'bakery', 'name', 'category', 'phone', 'email',
                'deliveryDays', 'orderDays', 'active', 'notifyHoursBefore'
@@ -166,17 +166,17 @@ service cloud.firestore {
               || request.resource.data.notifyHoursBefore == null
               || request.resource.data.notifyHoursBefore is number);
 
-        allow delete: if canUse(rid, 'orders');
+        allow delete: if canUse(lid, 'orders');
       }
 
       // ── Ingredients ─────────────────────────────────────────────────────
       // Also merge-written: brand/weight only arrived in v1.10.0, so an
       // ingredient untouched since then lacks them and nothing may be required.
       match /ingredients/{id} {
-        allow read: if canUse(rid, 'orders');
+        allow read: if canUse(lid, 'orders');
 
-        allow create, update: if canUse(rid, 'orders')
-          && stampedFor(rid)
+        allow create, update: if canUse(lid, 'orders')
+          && stampedFor(lid)
           && request.resource.data.keys().hasOnly([
                'bakery', 'name', 'supplierId', 'brand', 'weight',
                'category', 'unit', 'active'
@@ -202,7 +202,7 @@ service cloud.firestore {
           && (!('active' in request.resource.data)
               || request.resource.data.active is bool);
 
-        allow delete: if canUse(rid, 'orders');
+        allow delete: if canUse(lid, 'orders');
       }
 
       // ── The order in progress ───────────────────────────────────────────
@@ -211,11 +211,11 @@ service cloud.firestore {
       // the live document, so it stays listed. Delete stays denied: nothing in
       // the app deletes the draft, and clearFields would fail on a missing doc.
       match /drafts/{id} {
-        allow read: if canUse(rid, 'orders');
+        allow read: if canUse(lid, 'orders');
 
-        allow create, update: if canUse(rid, 'orders')
+        allow create, update: if canUse(lid, 'orders')
           && id == 'current'
-          && stampedFor(rid)
+          && stampedFor(lid)
           && request.resource.data.keys().hasOnly([
                'bakery', 'entries', 'days', 'updatedAt', 'weekId'
              ])
@@ -241,10 +241,10 @@ service cloud.firestore {
       // WHOLE, so fields can be required. Legacy: the retired weekly archive,
       // exactly one such document, still read and still editable.
       match /orders-history/{id} {
-        allow read: if canUse(rid, 'orders');
+        allow read: if canUse(lid, 'orders');
 
-        allow create, update: if canUse(rid, 'orders')
-          && stampedFor(rid)
+        allow create, update: if canUse(lid, 'orders')
+          && stampedFor(lid)
           && id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_.+$')
           && request.resource.data.keys().hasOnly([
                'bakery', 'date', 'supplierId', 'supplierName',
@@ -266,8 +266,8 @@ service cloud.firestore {
           && request.resource.data.updatedAt is string
           && request.resource.data.updatedAt.size() <= 64;
 
-        allow create, update: if canUse(rid, 'orders')
-          && stampedFor(rid)
+        allow create, update: if canUse(lid, 'orders')
+          && stampedFor(lid)
           && !id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_.+$')
           && request.resource.data.keys().hasOnly([
                'bakery', 'weekStart', 'date', 'quantities',
@@ -289,33 +289,33 @@ service cloud.firestore {
               || (request.resource.data.updatedAt is string
                   && request.resource.data.updatedAt.size() <= 64));
 
-        allow delete: if canUse(rid, 'orders');
+        allow delete: if canUse(lid, 'orders');
       }
 
       // ── Configuration: config/calculator and config/orders ──────────────
       // config/orders belongs to the Orders screen, config/calculator to the
       // Calculator, so each is gated by its own section.
       match /config/{doc} {
-        allow read: if member(rid)
-          && sectionOn(rid, doc == 'orders' ? 'orders' : 'calculator');
-        allow create, update: if member(rid)
-          && sectionOn(rid, doc == 'orders' ? 'orders' : 'calculator')
-          && stampedFor(rid);
+        allow read: if member(lid)
+          && sectionOn(lid, doc == 'orders' ? 'orders' : 'calculator');
+        allow create, update: if member(lid)
+          && sectionOn(lid, doc == 'orders' ? 'orders' : 'calculator')
+          && stampedFor(lid);
         allow delete: if false;
       }
 
       // ── Recipe catalogue ────────────────────────────────────────────────
       match /recipes/{id} {
-        allow read: if canUse(rid, 'catalogue');
-        allow create, update: if canUse(rid, 'catalogue')
+        allow read: if canUse(lid, 'catalogue');
+        allow create, update: if canUse(lid, 'catalogue')
           && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients'])
-          && stampedFor(rid)
+          && stampedFor(lid)
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && request.resource.data.name.size() < 200
           && request.resource.data.ingredients is list
           && request.resource.data.ingredients.size() <= 300;
-        allow delete: if canUse(rid, 'catalogue');
+        allow delete: if canUse(lid, 'catalogue');
       }
     }
 

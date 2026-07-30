@@ -7,14 +7,14 @@
 //
 // This module:
 //   1. Initializes Firebase
-//   2. Owns THE SESSION: who is signed in and which restaurant they are working
+//   2. Owns THE SESSION: who is signed in and which location they are working
 //      on, which is what decides where every Firestore path points
 //   3. Exports the log / daily-log / calculator-config helpers
 //
 // Public API consumed by the rest of the app:
 //   - sessionReady / onSession / currentSession  → every data layer and the gate
 //   - signIn / sendReset / signOutNow            → js/auth-gate.js, js/home-session.js
-//   - switchRestaurant / chooseRestaurant        → js/home-session.js, js/auth-gate.js
+//   - switchLocation / chooseLocation        → js/home-session.js, js/auth-gate.js
 //   - saveLogToFirestore(record)                 → js/log.js
 //   - deleteLogFromFirestore(dough)              → js/log.js
 //   - saveDailyEntry(entry)                      → js/log.js
@@ -47,12 +47,12 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
 import { reconcileConfigWrite } from './calculator-config.js';
 import {
-  currentRestaurantId,
+  currentLocationId,
   pathFor,
-  setCurrentRestaurantId,
-  restaurantDocPath,
-} from './restaurant.js';
-import { allowedSections, pickRestaurant, restaurantsOf } from './sections.js';
+  setCurrentLocationId,
+  locationDocPath,
+} from './location.js';
+import { allowedSections, pickLocation, locationsOf } from './sections.js';
 import { clearLocalData } from './local-data.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
@@ -116,31 +116,31 @@ if (!isLocalhost) {
 }
 
 // ── The session ───────────────────────────────────────────────────────────────
-// Who is signed in, and WHICH RESTAURANT they are working on. The app used to
+// Who is signed in, and WHICH LOCATION they are working on. The app used to
 // sign itself in anonymously, which meant anyone who knew the public address was
 // "authenticated" and the rules let them read and delete everything. Now a real
-// account signs in, and the restaurant it may enter is decided by a document
+// account signs in, and the location it may enter is decided by a document
 // only the Firebase console can write.
 //
-// ⚠️ ORDER MATTERS. The restaurant id must be set BEFORE any read or write,
+// ⚠️ ORDER MATTERS. The location id must be set BEFORE any read or write,
 // because it is what builds every Firestore path. That is why nothing in the app
 // awaits "signed in" any more — it awaits `sessionReady`, which resolves only
-// once the restaurant is known. js/restaurant.js refuses to build a path until
+// once the location is known. js/location.js refuses to build a path until
 // then, so a read that jumps the queue fails loudly instead of quietly using
 // somebody else's folder.
 //
-// States a page can be in: loading · signed-out · choose-restaurant · no-access
+// States a page can be in: loading · signed-out · choose-location · no-access
 // · error · ready. js/auth-gate.js turns each one into a screen.
 
-const ACTIVE_RESTAURANT_KEY = 'active-restaurant';
+const ACTIVE_LOCATION_KEY = 'active-location';
 
-let session = { status: 'loading', user: null, restaurantId: null, restaurant: null,
+let session = { status: 'loading', user: null, locationId: null, location: null,
                 sections: allowedSections(null), options: [], optionNames: {} };
 let userDocCache = null;
 const sessionListeners = new Set();
 
 let markSessionReady;
-// Resolves the first time a restaurant is open for business. Never rejects: a
+// Resolves the first time a location is open for business. Never rejects: a
 // signed-out app simply never resolves it, and the gate is covering the screen.
 export const sessionReady = new Promise(resolve => { markSessionReady = resolve; });
 
@@ -162,23 +162,23 @@ export function currentSession() {
   return session;
 }
 
-function readRememberedRestaurant() {
-  try { return localStorage.getItem(ACTIVE_RESTAURANT_KEY); } catch { return null; }
+function readRememberedLocation() {
+  try { return localStorage.getItem(ACTIVE_LOCATION_KEY); } catch { return null; }
 }
 
-function rememberRestaurant(id) {
-  try { localStorage.setItem(ACTIVE_RESTAURANT_KEY, id); } catch { /* private mode */ }
+function rememberLocation(id) {
+  try { localStorage.setItem(ACTIVE_LOCATION_KEY, id); } catch { /* private mode */ }
 }
 
-// The restaurant ids are database names ('main', 'trattoria-rosa'). Nobody should
+// The location ids are database names ('main', 'trattoria-rosa'). Nobody should
 // ever have to choose between those, so the picker and the switch confirmation
-// use the real names from each restaurant's own document. One small read each,
+// use the real names from each location's own document. One small read each,
 // once per sign-in; an unreadable name falls back to the id rather than to blank.
-async function readRestaurantNames(ids) {
+async function readLocationNames(ids) {
   const names = {};
   await Promise.all((ids || []).map(async id => {
     try {
-      const snap = await getDoc(doc(db, restaurantDocPath(id)));
+      const snap = await getDoc(doc(db, locationDocPath(id)));
       names[id] = (snap.exists() && snap.data().name) || id;
     } catch {
       names[id] = id;
@@ -187,30 +187,30 @@ async function readRestaurantNames(ids) {
   return names;
 }
 
-// Open a restaurant: fix the path first, then read the restaurant's own document
+// Open a location: fix the path first, then read the location's own document
 // for its name and which sections it uses.
-async function enterRestaurant(restaurantId, options, user) {
-  setCurrentRestaurantId(restaurantId);
-  let restaurant = null;
+async function enterLocation(locationId, options, user) {
+  setCurrentLocationId(locationId);
+  let location = null;
   try {
-    const snap = await getDoc(doc(db, restaurantDocPath(restaurantId)));
-    restaurant = snap.exists() ? snap.data() : null;
+    const snap = await getDoc(doc(db, locationDocPath(locationId)));
+    location = snap.exists() ? snap.data() : null;
   } catch (err) {
     // The folder can hold data before anyone writes its description document.
     // Missing description ≠ no access: sections default to all (js/sections.js).
-    console.warn('Restaurant document unavailable:', err?.message || err);
+    console.warn('Location document unavailable:', err?.message || err);
   }
-  rememberRestaurant(restaurantId);
+  rememberLocation(locationId);
   setSession({
-    status: 'ready', user, restaurantId, restaurant, options,
-    optionNames: options.length > 1 ? await readRestaurantNames(options) : {},
-    name: (restaurant && restaurant.name) || restaurantId,
-    sections: allowedSections(restaurant),
+    status: 'ready', user, locationId, location, options,
+    optionNames: options.length > 1 ? await readLocationNames(options) : {},
+    name: (location && location.name) || locationId,
+    sections: allowedSections(location),
   });
   markSessionReady(session);
 }
 
-// Which restaurants does this account have? The answer lives in users/{uid},
+// Which locations does this account have? The answer lives in users/{uid},
 // which the app can read but never write — so nobody can grant themselves access.
 async function resolveMembership(user) {
   setSession({ status: 'loading', user });
@@ -223,22 +223,22 @@ async function resolveMembership(user) {
     return;
   }
 
-  const pick = pickRestaurant(userDocCache, readRememberedRestaurant());
+  const pick = pickLocation(userDocCache, readRememberedLocation());
   if (pick.status === 'none') { setSession({ status: 'no-access', user, options: [] }); return; }
   if (pick.status === 'choose') {
     setSession({
-      status: 'choose-restaurant', user, options: pick.options,
-      optionNames: await readRestaurantNames(pick.options),
+      status: 'choose-location', user, options: pick.options,
+      optionNames: await readLocationNames(pick.options),
     });
     return;
   }
-  await enterRestaurant(pick.restaurantId, pick.options, user);
+  await enterLocation(pick.locationId, pick.options, user);
 }
 
 onAuthStateChanged(auth, user => {
   if (!user) {
     userDocCache = null;
-    setSession({ status: 'signed-out', user: null, restaurantId: null, restaurant: null,
+    setSession({ status: 'signed-out', user: null, locationId: null, location: null,
                  options: [], sections: allowedSections(null) });
     return;
   }
@@ -253,40 +253,40 @@ export function sendReset(email) {
   return sendPasswordResetEmail(auth, String(email || '').trim());
 }
 
-// Signing out wipes this device's cached copies of the restaurant's data — the
+// Signing out wipes this device's cached copies of the location's data — the
 // recipes, settings and typed quantities kept locally so the app opens instantly.
 // Leaving them would show the next person the previous one's work.
 export async function signOutNow() {
   await signOut(auth);
   clearLocalData();
-  try { localStorage.removeItem(ACTIVE_RESTAURANT_KEY); } catch { /* private mode */ }
+  try { localStorage.removeItem(ACTIVE_LOCATION_KEY); } catch { /* private mode */ }
   location.reload();
 }
 
-// Move to another of YOUR restaurants. Two deliberate choices:
-//   * the cached data of the previous restaurant is cleared first;
+// Move to another of YOUR locations. Two deliberate choices:
+//   * the cached data of the previous location is cleared first;
 //   * the page is then RELOADED rather than re-pointed. The app holds dozens of
 //     live Firestore listeners and in-memory state; unwinding them by hand is
-//     how a listener from the previous restaurant survives and quietly repaints
+//     how a listener from the previous location survives and quietly repaints
 //     the screen with the wrong data. A reload cannot leave one behind.
-export function switchRestaurant(restaurantId) {
-  if (!restaurantsOf(userDocCache).includes(restaurantId)) {
-    throw new Error(`Not your restaurant: ${restaurantId}`);
+export function switchLocation(locationId) {
+  if (!locationsOf(userDocCache).includes(locationId)) {
+    throw new Error(`Not your location: ${locationId}`);
   }
   clearLocalData();
-  rememberRestaurant(restaurantId);
+  rememberLocation(locationId);
   location.reload();
 }
 
-// Used by the "choose restaurant" screen, which has no page to reload into yet.
-export function chooseRestaurant(restaurantId) {
-  if (!restaurantsOf(userDocCache).includes(restaurantId)) {
-    throw new Error(`Not your restaurant: ${restaurantId}`);
+// Used by the "choose location" screen, which has no page to reload into yet.
+export function chooseLocation(locationId) {
+  if (!locationsOf(userDocCache).includes(locationId)) {
+    throw new Error(`Not your location: ${locationId}`);
   }
-  return enterRestaurant(restaurantId, restaurantsOf(userDocCache), session.user);
+  return enterLocation(locationId, locationsOf(userDocCache), session.user);
 }
 
-// Kept for the modules that still say `authReady`: it now means "a restaurant is
+// Kept for the modules that still say `authReady`: it now means "a location is
 // open", which is the only moment a Firestore path can be built.
 const authReady = sessionReady;
 
@@ -313,7 +313,7 @@ export function watchLogs(onChange) {
 // INSIDE the document (the versions array), so overwriting the doc is correct.
 export function saveLogDoc(log) {
   return authReady
-    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentRestaurantId() }))
+    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentLocationId() }))
     .catch(err => { console.error('saveLogDoc failed:', err); throw err; });
 }
 
@@ -386,7 +386,7 @@ export function saveCalculatorConfig(config) {
       const snap = await tx.get(ref);
       const server = snap.exists() ? snap.data() : null;
       const { recipes, configRev } = reconcileConfigWrite(config, server);
-      tx.set(ref, { ...config, recipes, configRev, bakery: currentRestaurantId() });
+      tx.set(ref, { ...config, recipes, configRev, bakery: currentLocationId() });
     }))
     .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }

@@ -43,7 +43,7 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
     onConfirm: (selected, { grouped }) => {
       const text = buildOrderMessage(
         selected.map(r => ({ supplierName: r.name, items: r.items })),
-        { grouped, restaurantName: currentSession().name });
+        { grouped, locationName: currentSession().name });
       if (!text) return;            // nothing orderable — never open an empty chat
       window.open(whatsappUrl(text), '_blank');
       callbacks.onSent?.(selected.map(r => r.id));

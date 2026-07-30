@@ -2,16 +2,16 @@
 //
 // Reuses the Firebase app and the SESSION established by js/firebase.js (the
 // single sanctioned cross-file bridge), so the catalogue shares the one
-// signed-in account, the one open restaurant, and inherits the localhost
+// signed-in account, the one open location, and inherits the localhost
 // emulator switch + App Check.
 //
-// Collection: restaurants/{restaurant}/recipes/{id} — one document per recipe
-// (scales to 500+). Every document carries the restaurant id in `bakery`, which
-// must match the folder it sits in (rules enforce it). js/restaurant.js is the
+// Collection: locations/{location}/recipes/{id} — one document per recipe
+// (scales to 500+). Every document carries the location id in `bakery`, which
+// must match the folder it sits in (rules enforce it). js/location.js is the
 // only place that knows the path.
 
 import { firebaseConfig, sessionReady } from '../firebase.js';
-import { currentRestaurantId, pathFor } from '../restaurant.js';
+import { currentLocationId, pathFor } from '../location.js';
 import {
   getApps,
   getApp,
@@ -34,7 +34,7 @@ export const db = getFirestore(app);
 
 const RECIPES = 'recipes';
 
-// Resolves once a restaurant is OPEN — not merely once someone is signed in.
+// Resolves once a location is OPEN — not merely once someone is signed in.
 // It no longer needs its own timeout: a sign-in that cannot complete is now a
 // SCREEN (js/auth-gate.js shows why), not a promise that quietly never settles
 // behind a spinner.
@@ -49,7 +49,7 @@ export function newRecipeId() {
 // Stamp the bakery id on a document payload (usageCount is local-only and never
 // written here — it lives in localStorage per device).
 function withBakery(data) {
-  return { ...data, bakery: currentRestaurantId() };
+  return { ...data, bakery: currentLocationId() };
 }
 
 // Subscribe to the whole recipes collection in real time. onChange receives an

@@ -90,14 +90,14 @@ function paintBadge(count) {
   card.appendChild(badge);
 }
 
-// Wait for a restaurant to be open before reading anything — before that there is
-// no folder to read from. And a restaurant that does not use Orders must not have
+// Wait for a location to be open before reading anything — before that there is
+// no folder to read from. And a location that does not use Orders must not have
 // its Home quietly asking for suppliers it is not allowed to see: that would be a
 // permission error in the console on every single app open.
 let started = false;
 onSession(session => {
   if (started || session.status !== 'ready') return;
-  if (!isSectionAllowed(session.restaurant, 'orders')) return;
+  if (!isSectionAllowed(session.location, 'orders')) return;
   started = true;
   showOrdersHome();
 });

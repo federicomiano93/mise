@@ -23,8 +23,8 @@ export const RELEASES = [
     points: [
       'The app now asks for an email and a password. You stay signed in — it is not every day.',
       'Forgot it? Tap "Forgot your password?" on the sign-in screen and check your email.',
-      'The Home screen shows which restaurant you are working on, above the cards.',
-      'Each restaurant sees only its own suppliers, ingredients, orders and recipes.',
+      'The Home screen shows which location you are working on, above the cards.',
+      'Each location sees only its own suppliers, ingredients, orders and recipes.',
     ],
   },
   {

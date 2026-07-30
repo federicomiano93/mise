@@ -20,14 +20,14 @@
 // The order unit (casse/box) is a private reminder on the order screen and is NOT in
 // the message — the supplier gets the number only. An empty weight is skipped.
 //
-// The name in the title is the RESTAURANT PLACING THE ORDER, passed in by the caller
+// The name in the title is the LOCATION PLACING THE ORDER, passed in by the caller
 // from the session. It used to be the constant 'The Italian Club', which was harmless
-// with one restaurant and wrong the moment there were two: a supplier would receive
-// another restaurant's order signed with this one's name. With no name the title
+// with one location and wrong the moment there were two: a supplier would receive
+// another location's order signed with this one's name. With no name the title
 // falls back to a plain '*Order*' — anonymous is recoverable, wrong is not.
 
-export function orderTitle(restaurantName) {
-  const name = String(restaurantName || '').trim();
+export function orderTitle(locationName) {
+  const name = String(locationName || '').trim();
   return name ? `*Order — ${name}*` : '*Order*';
 }
 
@@ -97,10 +97,10 @@ function flatLines(groups) {
 //
 // Returns '' when there is nothing to send, so callers can refuse rather than open
 // WhatsApp with an empty order.
-export function buildOrderMessage(groups, { grouped = true, restaurantName = '' } = {}) {
+export function buildOrderMessage(groups, { grouped = true, locationName = '' } = {}) {
   const withItems = (groups || []).filter(g => (g.items || []).length);
   if (!withItems.length) return '';
-  const title = orderTitle(restaurantName);
+  const title = orderTitle(locationName);
 
   if (grouped) return `${title}\n\n` + withItems.map(sectionFor).join('\n\n');
 

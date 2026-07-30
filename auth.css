@@ -1,7 +1,7 @@
 /* auth.css — the sign-in cover.
    Loaded by every page that shows data, in the <head>, so the cover is opaque
    from the very first paint: the app must never flash one frame of a
-   restaurant's data at whoever is holding the phone. */
+   location's data at whoever is holding the phone. */
 
 .auth-gate {
   position: fixed;
@@ -132,8 +132,8 @@
 .auth-choice:disabled { opacity: .6; cursor: default; }
 
 /* ── The session strip on the Home screen ──────────────────────────────────
-   Which restaurant you are working on, always visible: ordering for the wrong
-   restaurant is the worst mistake this app can let you make. Log out stays
+   Which location you are working on, always visible: ordering for the wrong
+   location is the worst mistake this app can let you make. Log out stays
    quiet and secondary next to it (P20: destructive actions never compete). */
 
 .session-bar {

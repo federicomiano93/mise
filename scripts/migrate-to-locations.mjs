@@ -1,9 +1,9 @@
-// migrate-to-restaurants.mjs — copy every document from the old flat collections
-// into restaurants/{id}/…
+// migrate-to-locations.mjs — copy every document from the old flat collections
+// into locations/{id}/…
 //
-//   node scripts/migrate-to-restaurants.mjs                  # emulator, DRY RUN
-//   node scripts/migrate-to-restaurants.mjs --apply          # emulator, writes
-//   node scripts/migrate-to-restaurants.mjs --apply \
+//   node scripts/migrate-to-locations.mjs                  # emulator, DRY RUN
+//   node scripts/migrate-to-locations.mjs --apply          # emulator, writes
+//   node scripts/migrate-to-locations.mjs --apply \
 //        --host=https://firestore.googleapis.com --token=<idToken>   # production
 //
 // THREE PROPERTIES THIS SCRIPT IS BUILT AROUND:
@@ -37,7 +37,7 @@ const args = new Map(
 
 const PROJECT = args.get('project') || 'bakery-app-ebf90';
 const HOST = args.get('host') || 'http://127.0.0.1:8080';
-const RESTAURANT = args.get('restaurant') || 'main';
+const LOCATION = args.get('location') || 'main';
 const TOKEN = args.get('token') || 'owner';
 const APPLY = args.has('apply');
 const FORCE = args.has('force');
@@ -78,11 +78,11 @@ const idOf = doc => doc.name.split('/').pop();
 
 function stamped(fields, collection) {
   if (!REQUIRES_STAMP.has(collection) && !('bakery' in fields)) return fields;
-  return { ...fields, bakery: { stringValue: RESTAURANT } };
+  return { ...fields, bakery: { stringValue: LOCATION } };
 }
 
 // Returns 'copied' or 'skipped'. Skipping protects the live data: once the app
-// writes to the restaurant folder, the copy is the truth and the flat original
+// writes to the location folder, the copy is the truth and the flat original
 // is history.
 async function copyDoc(collection, doc, existingById) {
   const id = idOf(doc);
@@ -94,7 +94,7 @@ async function copyDoc(collection, doc, existingById) {
   const fields = stamped(doc.fields || {}, collection);
   // A whole-document PATCH with no updateMask replaces the target completely,
   // which is what a copy should do — no leftovers from an earlier run.
-  const res = await fetch(`${BASE}/restaurants/${RESTAURANT}/${collection}/${encodeURIComponent(id)}`, {
+  const res = await fetch(`${BASE}/locations/${LOCATION}/${collection}/${encodeURIComponent(id)}`, {
     method: 'PATCH', headers, body: JSON.stringify({ fields }),
   });
   if (!res.ok) throw new Error(`${collection}/${id}: ${res.status} ${(await res.text()).slice(0, 300)}`);
@@ -103,7 +103,7 @@ async function copyDoc(collection, doc, existingById) {
 
 async function main() {
   console.log(`\nSource : ${BASE}`);
-  console.log(`Target : restaurants/${RESTAURANT}/…`);
+  console.log(`Target : locations/${LOCATION}/…`);
   console.log(`Mode   : ${APPLY ? 'APPLY (writes)' : 'DRY RUN (reads only)'}`);
   console.log(`Server : ${isEmulator ? 'LOCAL EMULATOR' : '*** PRODUCTION ***'}\n`);
 
@@ -133,7 +133,7 @@ async function main() {
     // What is already at the target, so a newer copy is never overwritten by an
     // older original (see the header: this is what makes a re-run safe).
     let existing = [];
-    try { existing = await listAll(`restaurants/${RESTAURANT}/${collection}`); } catch { /* empty */ }
+    try { existing = await listAll(`locations/${LOCATION}/${collection}`); } catch { /* empty */ }
     const existingByIdd = new Map(existing.map(d => [idOf(d), d]));
 
     let copied = 0;
@@ -150,7 +150,7 @@ async function main() {
     // Read the copies back: "the write returned 200" is not the same claim as
     // "the documents are there".
     let landed = '?';
-    try { landed = String((await listAll(`restaurants/${RESTAURANT}/${collection}`)).length); }
+    try { landed = String((await listAll(`locations/${LOCATION}/${collection}`)).length); }
     catch { /* leave as ? */ }
 
     const note = errors.length

@@ -57,8 +57,8 @@
 <body>
 
 <!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
-     paint: the app must never flash a restaurant's data at whoever is holding
-     the phone. js/auth-gate.js fills it in and removes it once a restaurant is
+     paint: the app must never flash a location's data at whoever is holding
+     the phone. js/auth-gate.js fills it in and removes it once a location is
      open. -->
 <div id="auth-gate" class="auth-gate"></div>
 
@@ -78,8 +78,8 @@
 
 <div class="scroll-area">
 
-  <!-- Which restaurant this session is working on, plus Switch / Log out.
-       Filled by js/home-session.js once a restaurant is open. -->
+  <!-- Which location this session is working on, plus Switch / Log out.
+       Filled by js/home-session.js once a location is open. -->
   <div id="session-host"></div>
 
   <!-- Once-a-day "order to place today" reminder, filled by js/home-orders-badge.js.

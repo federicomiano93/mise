@@ -13,10 +13,10 @@ import {
   whatsappUrl, sortItems,
 } from '../js/orders/order-text.js';
 
-// The restaurant placing the order. It used to be baked into the builder as a
+// The location placing the order. It used to be baked into the builder as a
 // constant; it now comes from the signed-in session, so every message test says
 // it out loud — that is the point of the change.
-const CLUB = { restaurantName: 'The Italian Club' };
+const CLUB = { locationName: 'The Italian Club' };
 
 const ingredients = [
   { id: 'i1', name: 'Bacon', weight: '2.27kg', unit: 'casse' },
@@ -236,15 +236,15 @@ test('One list rounds and ignores junk exactly as the grouped format does', () =
 });
 
 // ── Who the order is from ────────────────────────────────────────────────────
-// The title used to be a constant. With more than one restaurant that constant
-// would have signed one restaurant's order with another's name — the supplier
+// The title used to be a constant. With more than one location that constant
+// would have signed one location's order with another's name — the supplier
 // would deliver to the wrong place and nothing on screen would have looked odd.
 
-test('the title names the restaurant that is placing the order', () => {
+test('the title names the location that is placing the order', () => {
   assert.equal(orderTitle('Trattoria Rosa'), '*Order — Trattoria Rosa*');
   const text = buildOrderMessage(
     [{ supplierName: 'Bako', items: [{ name: 'Flour', weight: '25kg', qty: 1 }] }],
-    { restaurantName: 'Trattoria Rosa' });
+    { locationName: 'Trattoria Rosa' });
   assert.ok(text.startsWith('*Order — Trattoria Rosa*'));
   assert.ok(!text.includes('Italian Club'));
 });

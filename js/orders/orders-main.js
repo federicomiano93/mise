@@ -460,7 +460,7 @@ function messageFormatOption() {
 function sendMessageFor(rows, { grouped = GROUPED_BY_DEFAULT } = {}) {
   const text = buildOrderMessage(
     rows.map(r => ({ supplierName: r.name, items: r.items })),
-    { grouped, restaurantName: currentSession().name });
+    { grouped, locationName: currentSession().name });
   if (!text) {
     setStatus('Nothing to send — that order has no items.', 'warn', 4000);
     return;

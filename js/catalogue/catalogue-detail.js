@@ -153,12 +153,12 @@ export function renderDetail({ recipe, app }) {
   // so hide the whole panel. getScaledTarget stays 0 in that case too.
   if (weighableTotalGrams(recipe) <= 0) weightPanel.hidden = true;
 
-  // "Import into Calculator" WRITES the Calculator's configuration. A restaurant
+  // "Import into Calculator" WRITES the Calculator's configuration. A location
   // that does not use the Calculator is refused that write by the rules, so the
   // button would only ever produce a permission error: hide it instead.
   const importBtn = el('button', {
     class: 'cat-import-btn', type: 'button',
-    hidden: !isSectionAllowed(currentSession().restaurant, 'calculator'),
+    hidden: !isSectionAllowed(currentSession().location, 'calculator'),
     onclick: () => app.importRecipe(recipe),
   }, [
     el('span', { icon: IMPORT_SVG, 'aria-hidden': 'true' }),

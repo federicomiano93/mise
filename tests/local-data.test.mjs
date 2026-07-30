@@ -1,7 +1,7 @@
 // Unit tests for the local cache wipe (P15).
 //
 // Two failures matter here and they are opposites:
-//   - keeping a restaurant's cached data after a switch → the next restaurant
+//   - keeping a location's cached data after a switch → the next location
 //     briefly sees the previous one's recipes and settings;
 //   - clearing Firebase's own auth storage → signing in immediately signs you
 //     back out, and the app looks broken for everyone.
@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { KEEP_PREFIXES, keysToClear, clearLocalData } from '../js/local-data.js';
 
-const RESTAURANT_DATA = [
+const LOCATION_DATA = [
   'calculator-config',
   'catalogue-recipes',
   'catalogue-usage',
@@ -22,9 +22,9 @@ const RESTAURANT_DATA = [
   'qty-ING1', 'total-ING1', 'lock-ING1', 'revealed-ING1', 'extra-ING1', 'extra-unit-ING1',
 ];
 
-test('every cache holding a restaurant’s data is cleared', () => {
-  const doomed = keysToClear(RESTAURANT_DATA);
-  assert.deepEqual(doomed.sort(), [...RESTAURANT_DATA].sort());
+test('every cache holding a location’s data is cleared', () => {
+  const doomed = keysToClear(LOCATION_DATA);
+  assert.deepEqual(doomed.sort(), [...LOCATION_DATA].sort());
 });
 
 test('Firebase’s own session storage is NEVER cleared', () => {
@@ -37,7 +37,7 @@ test('Firebase’s own session storage is NEVER cleared', () => {
 });
 
 test('what belongs to nobody, or to the app itself, survives', () => {
-  const keys = ['uk-bank-holidays', 'whats-new-seen', 'lastHiddenAt', 'active-restaurant'];
+  const keys = ['uk-bank-holidays', 'whats-new-seen', 'lastHiddenAt', 'active-location'];
   assert.deepEqual(keysToClear(keys), []);
 });
 

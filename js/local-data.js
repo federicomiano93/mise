@@ -1,11 +1,11 @@
-// local-data.js — wipe this device's cached copies of a restaurant's data when
-// the session changes (log out, or switch to another restaurant).
+// local-data.js — wipe this device's cached copies of a location's data when
+// the session changes (log out, or switch to another location).
 //
 // WHY IT MATTERS. The app keeps local copies so it opens instantly and survives
 // a bad connection: the calculator's configuration, the recipe catalogue, the
 // logs, the Orders settings, and every quantity typed into the calculator. Those
-// are one restaurant's data sitting in a phone's storage. Without this, switching
-// restaurants would show the previous one's recipes and settings until the
+// are one location's data sitting in a phone's storage. Without this, switching
+// locations would show the previous one's recipes and settings until the
 // network answered — on a shared device, that is a leak between two businesses.
 //
 // THE DEFAULT IS TO CLEAR. keysToClear removes everything except an explicit keep
@@ -19,9 +19,9 @@ export const KEEP_PREFIXES = Object.freeze([
   'firebase:',            // Firebase Auth's own session — clearing it logs you back out
   'firebaseLocalStorage', // ditto (SDK fallback storage)
   'uk-bank-holidays',     // public data, belongs to nobody
-  'whats-new-seen',       // about the app version you have seen, not about a restaurant
+  'whats-new-seen',       // about the app version you have seen, not about a location
   'lastHiddenAt',         // idle-reset timer
-  'active-restaurant',    // which restaurant to open next — managed by the session itself
+  'active-location',    // which location to open next — managed by the session itself
 ]);
 
 // Given every key currently in storage, which ones must go.
