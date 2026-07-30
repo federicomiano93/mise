@@ -34,7 +34,7 @@ const ASSETS = [
   './js/whats-new.js',
   './js/whats-new-boot.js',
   './js/firebase.js',
-  './js/restaurant.js',
+  './js/location.js',
   './js/recipes.js',
   './js/calc.js',
   './js/calculator-recipe-text.js',

@@ -6,13 +6,13 @@
 // anonymous session and inherits the localhost emulator switch + App Check.
 // js/firebase.js is never modified.
 //
-// Collection: restaurants/{restaurant}/recipes/{id} — one document per recipe
-// (scales to 500+). Every document carries the restaurant id in `bakery`, which
-// must match the folder it sits in (rules enforce it). js/restaurant.js is the
+// Collection: locations/{location}/recipes/{id} — one document per recipe
+// (scales to 500+). Every document carries the location id in `bakery`, which
+// must match the folder it sits in (rules enforce it). js/location.js is the
 // only place that knows the path.
 
 import { firebaseConfig } from '../firebase.js';
-import { currentRestaurantId, pathFor } from '../restaurant.js';
+import { currentLocationId, pathFor } from '../location.js';
 import {
   getApps,
   getApp,
@@ -64,7 +64,7 @@ export function newRecipeId() {
 // Stamp the bakery id on a document payload (usageCount is local-only and never
 // written here — it lives in localStorage per device).
 function withBakery(data) {
-  return { ...data, bakery: currentRestaurantId() };
+  return { ...data, bakery: currentLocationId() };
 }
 
 // Subscribe to the whole recipes collection in real time. onChange receives an

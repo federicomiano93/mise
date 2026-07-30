@@ -41,7 +41,7 @@ import {
   initializeAppCheck,
   ReCaptchaV3Provider,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
-import { currentRestaurantId, pathFor } from './restaurant.js';
+import { currentLocationId, pathFor } from './location.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -135,7 +135,7 @@ export function watchLogs(onChange) {
 
 export function saveLogDoc(log) {
   return authReady
-    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentRestaurantId() }))
+    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentLocationId() }))
     .catch(err => { console.error('saveLogDoc failed:', err); throw err; });
 }
 
@@ -209,7 +209,7 @@ export function watchCalculatorConfig(onChange) {
 // forward-compatibility with a future per-bakery split, like the orders system.
 export function saveCalculatorConfig(config) {
   return authReady
-    .then(() => setDoc(doc(db, pathFor('config'), 'calculator'), { ...config, bakery: currentRestaurantId() }))
+    .then(() => setDoc(doc(db, pathFor('config'), 'calculator'), { ...config, bakery: currentLocationId() }))
     .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }
 
