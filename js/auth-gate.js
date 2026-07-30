@@ -74,6 +74,13 @@ function gateHost() {
 // screen reader. Hiding it visually is not enough: Tab would still walk into it,
 // and a screen reader would happily read out the app to someone who has not
 // signed in. `inert` takes a whole subtree out of play in one attribute.
+//
+// ⚠️ It takes out EVERYTHING that is not the cover, dialogs included. That is
+// correct — the cover is the topmost modal and nothing may sit in front of it —
+// but it means nothing else may open a dialog while it is up: the dialog would be
+// visible, unreachable, and in the way of signing in. js/whats-new-boot.js waits
+// for a location to be open for exactly this reason. Anything else that wants to
+// interrupt must do the same.
 function setBehindInert(inert) {
   Array.from(document.body.children).forEach(child => {
     if (child.id === 'auth-gate') return;
