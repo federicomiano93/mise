@@ -15,7 +15,7 @@
 // signed out — shows one frame of somebody's data to whoever is holding the
 // phone. The cover is in the HTML from the start and is only ever REMOVED.
 
-import { onSession, signIn, sendReset, chooseLocation } from './firebase.js';
+import { onSession, signIn, sendReset, chooseLocation, signOutNow } from './firebase.js';
 import { isSectionAllowed } from './sections.js';
 
 const HOME = 'index.html';
@@ -81,9 +81,16 @@ function gateHost() {
 // visible, unreachable, and in the way of signing in. js/whats-new-boot.js waits
 // for a location to be open for exactly this reason. Anything else that wants to
 // interrupt must do the same.
+// The "New version available" banner is the ONE exception. It sits above the
+// cover by design (z-index 9999 vs 9000) and all it does is reload the page —
+// and a phone stuck on one of these screens is exactly the phone that most needs
+// to be able to take a new version. Switching it off with everything else turned
+// the cover into a trap: visible update, untappable.
+const ALWAYS_REACHABLE = ['sw-update-host', 'auth-gate'];
+
 function setBehindInert(inert) {
   Array.from(document.body.children).forEach(child => {
-    if (child.id === 'auth-gate') return;
+    if (ALWAYS_REACHABLE.includes(child.id)) return;
     if (inert) child.setAttribute('inert', '');
     else child.removeAttribute('inert');
   });
@@ -206,14 +213,30 @@ function chooseScreen(options, names = {}) {
   return card;
 }
 
-function messageScreen(title, body) {
+// A screen with one button that reloads into the same screen is a dead end. Every
+// message screen therefore also offers the way OUT — signing out and coming back
+// to the form — and names the account it is talking about, so "ask the owner to
+// add it" is a request someone can actually act on instead of a riddle.
+function messageScreen(title, body, { account = '' } = {}) {
   const card = el('div', 'auth-card');
   card.append(el('h1', 'auth-title', title));
   card.append(el('p', 'auth-sub', body));
+
+  if (account) {
+    const who = el('p', 'auth-account', account);
+    card.append(who);
+  }
+
   const retry = el('button', 'auth-btn', 'Try again');
   retry.type = 'button';
   retry.addEventListener('click', () => location.reload());
   card.append(retry);
+
+  const other = el('button', 'auth-link', 'Sign in with a different account');
+  other.type = 'button';
+  other.addEventListener('click', () => { signOutNow(); });
+  card.append(other);
+
   return card;
 }
 
@@ -237,6 +260,7 @@ onSession(session => {
       showGate(() => messageScreen(
         'No location yet',
         'This account is not linked to a location. Ask the owner to add it, then try again.',
+        { account: session.user?.email || session.user?.uid || '' },
       ));
       break;
 
@@ -244,6 +268,7 @@ onSession(session => {
       showGate(() => messageScreen(
         'Could not check your access',
         'This usually means no connection. Check it and try again.',
+        { account: session.user?.email || '' },
       ));
       break;
 
