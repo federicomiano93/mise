@@ -48,11 +48,18 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="auth.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="orders.css">
 <title>Orders — The Italian Club</title>
 </head>
-<body>
+<body data-section="orders">
+<!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
+     paint: the app must never flash a location's data at whoever is holding
+     the phone. js/auth-gate.js fills it in and removes it once a location is
+     open. -->
+<div id="auth-gate" class="auth-gate"></div>
+
 
 <header class="orders-header">
   <a class="orders-icon-btn" href="index.html" aria-label="Back">
@@ -123,6 +130,7 @@
      events). Fixed to the bottom so it stays visible whatever the scroll. -->
 <p class="orders-offline" id="orders-offline" role="status" hidden>You're offline — reconnect to load and save orders.</p>
 
+<script type="module" src="js/auth-gate.js"></script>
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>
 <script type="module" src="js/orders/boot.js"></script>

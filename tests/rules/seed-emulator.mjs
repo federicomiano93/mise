@@ -192,17 +192,54 @@ export const FIXTURE = {
   },
 };
 
-export async function seedAll() {
+// Plant the Orders data INSIDE a location's folder — which is where the app
+// reads it. Seeding the old top-level collections would leave the app showing an
+// empty screen while the seeder claimed success.
+export async function seedAll(location = 'main') {
+  const at = path => `locations/${location}/${path}`;
+  const stamp = data => ({ ...data, bakery: location });
   for (const [id, data] of Object.entries(FIXTURE.suppliers)) {
-    await seedDoc(`suppliers/${id}`, data);
+    await seedDoc(at(`suppliers/${id}`), stamp(data));
   }
   for (const [id, data] of Object.entries(FIXTURE.ingredients)) {
-    await seedDoc(`ingredients/${id}`, data);
+    await seedDoc(at(`ingredients/${id}`), stamp(data));
   }
-  await seedDoc('drafts/current', FIXTURE.draft);
+  await seedDoc(at('drafts/current'), stamp(FIXTURE.draft));
   for (const [id, data] of Object.entries(FIXTURE.history)) {
-    await seedDoc(`orders-history/${id}`, data);
+    await seedDoc(at(`orders-history/${id}`), stamp(data));
   }
+}
+
+// An account that can actually sign in, plus the document that decides what it
+// may open. Without one, the app stops at its own sign-in screen and none of the
+// seeded data is reachable — so seeding without it is seeding nothing.
+const AUTH_BASE = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts';
+
+// ⚠️ MUST BE RE-RUNNABLE. wipe() empties Firestore but NOT the Auth emulator, so
+// the second run of this seeder finds the accounts already there. Signing up
+// again fails with EMAIL_EXISTS, and if that were simply an error the seeder
+// would stop half way: locations present, access documents missing — which on
+// screen looks exactly like "the login is broken", for an hour, until you work
+// out that it was the seeder. So: create it, or sign in to the one that exists.
+export async function seedAccount(email, password, locations) {
+  const post = async (op, extra = {}) => {
+    const res = await fetch(`${AUTH_BASE}:${op}?key=fake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, returnSecureToken: true, ...extra }),
+    });
+    return res.json();
+  };
+
+  let body = await post('signUp');
+  if (!body.localId && body.error?.message?.includes('EMAIL_EXISTS')) {
+    body = await post('signInWithPassword');
+  }
+  if (!body.localId) {
+    throw new Error(`Could not seed ${email}: ${JSON.stringify(body).slice(0, 200)}`);
+  }
+  await seedDoc(`users/${body.localId}`, { locations });
+  return body.localId;
 }
 
 // Only run when invoked directly, so the harness can import the helpers.
@@ -212,12 +249,47 @@ export async function seedAll() {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   await requireEmulators();
   await wipe();
-  await seedAll();
-  console.log(
-    'Seeded the emulator:\n' +
-    '  2 suppliers  (SUP_LEGACY has notifyHoursBefore and NO orderDays)\n' +
-    '  3 ingredients (ING_LEGACY has no brand/weight)\n' +
-    '  drafts/current (carries the retired weekId, 1 row stamped 2026-07-20)\n' +
-    '  2 orders-history records (2026-W28 legacy + 2026-07-20_SUP_MODERN)\n',
-  );
+
+  // Two locations, so "each one sees only its own" can be checked by eye and
+  // not only asserted in a test.
+  await seedAll('bakery');
+  await seedDoc('locations/bakery', { name: 'The Italian Club Bakery' });
+  await seedDoc('locations/bakery/config/calculator',
+    { bakery: 'bakery', configRev: 1, clients: [], recipes: [] });
+  await seedDoc('locations/bakery/recipes/CAT_1',
+    { bakery: 'bakery', name: 'Sourdough', ingredients: [] });
+
+  await seedDoc('locations/trattoria-rosa', {
+    name: 'Trattoria Rosa',
+    sections: { orders: true, calculator: false, catalogue: false },
+  });
+  await seedDoc('locations/trattoria-rosa/suppliers/SUP_ROSA', {
+    bakery: 'trattoria-rosa', name: 'Rosa Fresh Fish', category: 'Fish',
+    deliveryDays: ['Monday'], orderDays: ['Sunday'], active: true,
+  });
+  await seedDoc('locations/trattoria-rosa/ingredients/ING_ROSA', {
+    bakery: 'trattoria-rosa', name: 'Sea bass', supplierId: 'SUP_ROSA',
+    brand: '', weight: '1kg', category: 'Fish', unit: '', active: true,
+  });
+
+  const PASSWORD = 'club1234';
+  await seedAccount('club@club.test', PASSWORD, { bakery: true });
+  await seedAccount('rosa@club.test', PASSWORD, { 'trattoria-rosa': true });
+  await seedAccount('owner@club.test', PASSWORD, { bakery: true, 'trattoria-rosa': true });
+  await seedAccount('nobody@club.test', PASSWORD, {});
+
+  console.log(`Seeded the emulator:
+  locations/bakery — The Italian Club Bakery, every section
+    2 suppliers  (SUP_LEGACY has notifyHoursBefore and NO orderDays)
+    3 ingredients (ING_LEGACY has no brand/weight)
+    drafts/current (carries the retired weekId, 1 row stamped 2026-07-20)
+    2 orders-history records (2026-W28 legacy + 2026-07-20_SUP_MODERN)
+  locations/trattoria-rosa — Orders only, its own supplier + ingredient
+
+  Sign in with any of these (password: ${PASSWORD}):
+    club@club.test    → The Italian Club Bakery
+    rosa@club.test    → Trattoria Rosa (Orders only)
+    owner@club.test   → both, so the location picker appears
+    nobody@club.test  → an account with no location
+`);
 }

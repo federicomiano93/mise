@@ -15,9 +15,11 @@
 // instead of falling back to a default: a loud failure on one screen is a
 // nuisance, a quiet write into shared space is a data leak.
 //
-// Today currentLocationId() is fixed to 'main' (the Italian Club). The login
-// step replaces that with the location the signed-in user belongs to; nothing
-// else in the app has to change, because nothing else knows the path.
+// The location is NOT known when the page loads: it comes from the signed-in
+// account (js/firebase.js sets it once users/{uid} has been read). Until then
+// pathFor() THROWS. That is deliberate — a default would mean a read firing
+// before sign-in quietly used somebody else's folder, and the data would look
+// perfectly normal on screen. Failing is recoverable; guessing is not.
 
 // The location this app has always served: The Italian Club Bakery. The id says
 // what the place IS, because the next one to join is a restaurant and 'main' vs
@@ -34,7 +36,7 @@ export function isValidLocationId(id) {
   return typeof id === 'string' && VALID_ID.test(id);
 }
 
-// 'suppliers' → 'locations/main/suppliers'. Throws rather than guessing.
+// 'suppliers' → 'locations/bakery/suppliers'. Throws rather than guessing.
 export function buildPath(locationId, collectionName) {
   if (!isValidLocationId(locationId)) {
     throw new Error(`Invalid location id: ${JSON.stringify(locationId)}`);
@@ -53,10 +55,19 @@ export function locationDocPath(locationId) {
   return `locations/${locationId}`;
 }
 
-let current = DEFAULT_LOCATION_ID;
+let current = null;
 
 export function currentLocationId() {
   return current;
+}
+
+export function isLocationSet() {
+  return current !== null;
+}
+
+// Only for tests and for signing out: puts the module back to "no location".
+export function clearCurrentLocationId() {
+  current = null;
 }
 
 // Set once, at startup, before any read or write. Switching locations inside a
@@ -74,5 +85,10 @@ export function setCurrentLocationId(id) {
 // The path every data layer uses. Collection names stay plain strings at the
 // call sites; only this file knows where they actually live.
 export function pathFor(collectionName) {
+  if (current === null) {
+    throw new Error(
+      `No location is open yet — ${collectionName} was read before sign-in completed. ` +
+      'Await sessionReady (js/firebase.js) before touching Firestore.');
+  }
   return buildPath(current, collectionName);
 }

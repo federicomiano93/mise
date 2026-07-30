@@ -49,11 +49,18 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="auth.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="orders.css">
 <title>The Italian Club</title>
 </head>
 <body>
+
+<!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
+     paint: the app must never flash a location's data at whoever is holding
+     the phone. js/auth-gate.js fills it in and removes it once a location is
+     open. -->
+<div id="auth-gate" class="auth-gate"></div>
 
 <!-- Splash overlay: shown instantly on open, faded out by boot.js once ready.
      Styles live in orders.css and hide logic in js/orders/boot.js (CSP forbids
@@ -71,13 +78,17 @@
 
 <div class="scroll-area">
 
+  <!-- Which location this session is working on, plus Switch / Log out.
+       Filled by js/home-session.js once a location is open. -->
+  <div id="session-host"></div>
+
   <!-- Once-a-day "order to place today" reminder, filled by js/home-orders-badge.js.
        Empty (and hidden) when no order is due or it has already shown today. -->
   <div id="home-reminder"></div>
 
   <nav class="home-grid" aria-label="Main sections">
 
-    <a class="home-card" href="calculator.html">
+    <a class="home-card" href="calculator.html" data-section="calculator">
       <span class="home-card-icon" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="5" y="3" width="14" height="18" rx="2"/>
@@ -88,7 +99,7 @@
       <span class="home-card-sub">Dough scaling</span>
     </a>
 
-    <a class="home-card" href="catalogue.html">
+    <a class="home-card" href="catalogue.html" data-section="catalogue">
       <span class="home-card-icon" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15.5H6.5A2.5 2.5 0 0 0 4 21z"/>
@@ -100,7 +111,7 @@
       <span class="home-card-sub">Recipes &amp; kg scaling</span>
     </a>
 
-    <a class="home-card" href="orders.html">
+    <a class="home-card" href="orders.html" data-section="orders">
       <span class="home-card-icon" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 4h6a1 1 0 0 1 1 1v0a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v0a1 1 0 0 1 1-1z"/>
@@ -116,11 +127,13 @@
   <div id="install-host" class="install-host"></div>
 </div>
 
+<script type="module" src="js/auth-gate.js"></script>
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/orders/boot.js"></script>
 <!-- "What's new" after an update. Home only, and it waits for boot.js above to
      take the splash down before it opens. -->
 <script type="module" src="js/whats-new-boot.js"></script>
+<script type="module" src="js/home-session.js"></script>
 <script type="module" src="js/home-orders-badge.js"></script>
 <script type="module" src="js/hold-to-zoom.js"></script>
 <script src="js/install.js"></script>

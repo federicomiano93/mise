@@ -23,14 +23,17 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
   getAuth,
-  signInAnonymously,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
   connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   setDoc,
   deleteDoc,
   onSnapshot,
@@ -41,7 +44,14 @@ import {
   initializeAppCheck,
   ReCaptchaV3Provider,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
-import { currentLocationId, pathFor } from './location.js';
+import {
+  currentLocationId,
+  pathFor,
+  setCurrentLocationId,
+  locationDocPath,
+} from './location.js';
+import { allowedSections, pickLocation, locationsOf } from './sections.js';
+import { clearLocalData } from './local-data.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -105,19 +115,180 @@ if (!isLocalhost) {
   }
 }
 
-// Firestore Security Rules require an authenticated user (request.auth != null),
-// so we sign in anonymously and only start reading once auth is ready.
-signInAnonymously(auth).catch(err => {
-  console.error('Anonymous sign-in failed:', err);
+// ── The session ───────────────────────────────────────────────────────────────
+// Who is signed in, and WHICH LOCATION they are working on. The app used to
+// sign itself in anonymously, which meant anyone who knew the public address was
+// "authenticated" and the rules let them read and delete everything. Now a real
+// account signs in, and the location it may enter is decided by a document
+// only the Firebase console can write.
+//
+// ⚠️ ORDER MATTERS. The location id must be set BEFORE any read or write,
+// because it is what builds every Firestore path. That is why nothing in the app
+// awaits "signed in" any more — it awaits `sessionReady`, which resolves only
+// once the location is known. js/location.js refuses to build a path until
+// then, so a read that jumps the queue fails loudly instead of quietly using
+// somebody else's folder.
+//
+// States a page can be in: loading · signed-out · choose-location · no-access
+// · error · ready. js/auth-gate.js turns each one into a screen.
+
+const ACTIVE_LOCATION_KEY = 'active-location';
+
+let session = { status: 'loading', user: null, locationId: null, location: null,
+                sections: allowedSections(null), options: [], optionNames: {} };
+let userDocCache = null;
+const sessionListeners = new Set();
+
+let markSessionReady;
+// Resolves the first time a location is open for business. Never rejects: a
+// signed-out app simply never resolves it, and the gate is covering the screen.
+export const sessionReady = new Promise(resolve => { markSessionReady = resolve; });
+
+function setSession(next) {
+  session = { ...session, ...next };
+  sessionListeners.forEach(cb => {
+    try { cb(session); } catch (err) { console.error('Session listener failed:', err); }
+  });
+}
+
+// Subscribe to session changes. Calls back immediately with the current state.
+export function onSession(callback) {
+  sessionListeners.add(callback);
+  callback(session);
+  return () => sessionListeners.delete(callback);
+}
+
+export function currentSession() {
+  return session;
+}
+
+function readRememberedLocation() {
+  try { return localStorage.getItem(ACTIVE_LOCATION_KEY); } catch { return null; }
+}
+
+function rememberLocation(id) {
+  try { localStorage.setItem(ACTIVE_LOCATION_KEY, id); } catch { /* private mode */ }
+}
+
+// The location ids are database names ('main', 'trattoria-rosa'). Nobody should
+// ever have to choose between those, so the picker and the switch confirmation
+// use the real names from each location's own document. One small read each,
+// once per sign-in; an unreadable name falls back to the id rather than to blank.
+async function readLocationNames(ids) {
+  const names = {};
+  await Promise.all((ids || []).map(async id => {
+    try {
+      const snap = await getDoc(doc(db, locationDocPath(id)));
+      names[id] = (snap.exists() && snap.data().name) || id;
+    } catch {
+      names[id] = id;
+    }
+  }));
+  return names;
+}
+
+// Open a location: fix the path first, then read the location's own document
+// for its name and which sections it uses.
+async function enterLocation(locationId, options, user) {
+  setCurrentLocationId(locationId);
+  let location = null;
+  try {
+    const snap = await getDoc(doc(db, locationDocPath(locationId)));
+    location = snap.exists() ? snap.data() : null;
+  } catch (err) {
+    // The folder can hold data before anyone writes its description document.
+    // Missing description ≠ no access: sections default to all (js/sections.js).
+    console.warn('Location document unavailable:', err?.message || err);
+  }
+  rememberLocation(locationId);
+  setSession({
+    status: 'ready', user, locationId, location, options,
+    optionNames: options.length > 1 ? await readLocationNames(options) : {},
+    name: (location && location.name) || locationId,
+    sections: allowedSections(location),
+  });
+  markSessionReady(session);
+}
+
+// Which locations does this account have? The answer lives in users/{uid},
+// which the app can read but never write — so nobody can grant themselves access.
+async function resolveMembership(user) {
+  setSession({ status: 'loading', user });
+  try {
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    userDocCache = snap.exists() ? snap.data() : null;
+  } catch (err) {
+    console.error('Could not read the access document:', err);
+    setSession({ status: 'error', user, error: 'network' });
+    return;
+  }
+
+  const pick = pickLocation(userDocCache, readRememberedLocation());
+  if (pick.status === 'none') { setSession({ status: 'no-access', user, options: [] }); return; }
+  if (pick.status === 'choose') {
+    setSession({
+      status: 'choose-location', user, options: pick.options,
+      optionNames: await readLocationNames(pick.options),
+    });
+    return;
+  }
+  await enterLocation(pick.locationId, pick.options, user);
+}
+
+onAuthStateChanged(auth, user => {
+  if (!user) {
+    userDocCache = null;
+    setSession({ status: 'signed-out', user: null, locationId: null, location: null,
+                 options: [], sections: allowedSections(null) });
+    return;
+  }
+  resolveMembership(user);
 });
 
-// Resolves once an authenticated user exists. Config read/write awaits this so
-// it never hits Firestore before request.auth is set (rules would reject it).
-const authReady = new Promise(resolve => {
-  const unsub = onAuthStateChanged(auth, user => {
-    if (user) { unsub(); resolve(user); }
-  });
-});
+export function signIn(email, password) {
+  return signInWithEmailAndPassword(auth, String(email || '').trim(), String(password || ''));
+}
+
+export function sendReset(email) {
+  return sendPasswordResetEmail(auth, String(email || '').trim());
+}
+
+// Signing out wipes this device's cached copies of the location's data — the
+// recipes, settings and typed quantities kept locally so the app opens instantly.
+// Leaving them would show the next person the previous one's work.
+export async function signOutNow() {
+  await signOut(auth);
+  clearLocalData();
+  try { localStorage.removeItem(ACTIVE_LOCATION_KEY); } catch { /* private mode */ }
+  location.reload();
+}
+
+// Move to another of YOUR locations. Two deliberate choices:
+//   * the cached data of the previous location is cleared first;
+//   * the page is then RELOADED rather than re-pointed. The app holds dozens of
+//     live Firestore listeners and in-memory state; unwinding them by hand is
+//     how a listener from the previous location survives and quietly repaints
+//     the screen with the wrong data. A reload cannot leave one behind.
+export function switchLocation(locationId) {
+  if (!locationsOf(userDocCache).includes(locationId)) {
+    throw new Error(`Not your location: ${locationId}`);
+  }
+  clearLocalData();
+  rememberLocation(locationId);
+  location.reload();
+}
+
+// Used by the "choose location" screen, which has no page to reload into yet.
+export function chooseLocation(locationId) {
+  if (!locationsOf(userDocCache).includes(locationId)) {
+    throw new Error(`Not your location: ${locationId}`);
+  }
+  return enterLocation(locationId, locationsOf(userDocCache), session.user);
+}
+
+// Kept for the modules that still say `authReady`: it now means "a location is
+// open", which is the only moment a Firestore path can be built.
+const authReady = sessionReady;
 
 // ── Logs collection (new model) ───────────────────────────────────────────────
 // Each log is its OWN document logs/{id} with an append-only version chain (see

@@ -17,6 +17,8 @@
 
 import { getCollection } from './orders/firebase-orders.js';
 import { computeAlerts, maybeNotify, isReminderDue } from './orders/notifications.js';
+import { onSession } from './firebase.js';
+import { isSectionAllowed } from './sections.js';
 
 // Per-device record of the last day the reminder was shown ('YYYY-MM-DD').
 const REMINDER_KEY = 'orders-reminder-date';
@@ -88,4 +90,14 @@ function paintBadge(count) {
   card.appendChild(badge);
 }
 
-showOrdersHome();
+// Wait for a location to be open before reading anything — before that there is
+// no folder to read from. And a location that does not use Orders must not have
+// its Home quietly asking for suppliers it is not allowed to see: that would be a
+// permission error in the console on every single app open.
+let started = false;
+onSession(session => {
+  if (started || session.status !== 'ready') return;
+  if (!isSectionAllowed(session.location, 'orders')) return;
+  started = true;
+  showOrdersHome();
+});
