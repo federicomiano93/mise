@@ -33,8 +33,10 @@ const FOOTPRINTS = [
   'logs-cache',
   'catalogue-recipes',
   'uk-bank-holidays',     // the bank-holiday calendar the Orders alerts use
-  'orders-view',
 ];
+// Anything listed here must be a key the app STILL writes: a dead one is a footprint
+// that can never be found. 'orders-view' was dropped when the Orders view stopped
+// being remembered.
 
 // Has this app been opened on this device before?
 //

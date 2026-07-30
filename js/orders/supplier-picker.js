@@ -64,16 +64,22 @@ function buildFormatSwitch({ grouped, onChange }) {
 
 // rows:     [{ id, name, items: [...] }] — `items` is opaque here, only counted and
 //           handed back; whoever passes it decides what it means.
-// options:  { title, actionLabel, emptyText, danger?, format? }
-//           format: { grouped, onChange(grouped) } — present only on the flows that
-//           SEND a message. "Order placed" writes to History and sends nothing, so it
-//           must not offer a message format.
+// options:  { title, actionLabel, emptyText, danger?, format?, preselect? }
+//           format:    { grouped } — present only on the flows that SEND a message.
+//                      "Order placed" writes to History and sends nothing, so it must
+//                      not offer a message format.
+//           preselect: whether every row starts ticked. Default true.
 // callbacks:{ onBack, onConfirm(selectedRows, { grouped }) }
 //
-// Every row starts ticked: the common case is "yes, all of them", and the checkboxes
-// are there so the uncommon case is possible, not so the common one is laborious.
+// PRESELECT, and why it differs per flow (Federico, 30 Jul 2026). Recording is "I have
+// finished, file all of it", so "Order placed" still opens with everything ticked. The
+// two SEND screens open with nothing ticked: a message goes to one chat, and choosing
+// who it is for should be a decision rather than the default. "Select all suppliers"
+// keeps "send everything" one tap away.
 export function buildSupplierPicker(rows, options, callbacks) {
-  const { title, actionLabel, emptyText, danger = false, format = null } = options;
+  const {
+    title, actionLabel, emptyText, danger = false, format = null, preselect = true,
+  } = options;
   const formatSwitch = format ? buildFormatSwitch(format) : null;
 
   const scroll = el('div', { class: 'preview-scroll' });
@@ -99,7 +105,7 @@ export function buildSupplierPicker(rows, options, callbacks) {
     actionBtn.disabled = true;
   } else {
     selectAllInput = el('input', { type: 'checkbox' });
-    selectAllInput.checked = true;
+    selectAllInput.checked = preselect;
     selectAllInput.addEventListener('change', () => {
       checks.forEach(c => { c.input.checked = selectAllInput.checked; });
       sync();
@@ -110,7 +116,7 @@ export function buildSupplierPicker(rows, options, callbacks) {
 
     rows.forEach(row => {
       const input = el('input', { type: 'checkbox' });
-      input.checked = true;
+      input.checked = preselect;
       input.addEventListener('change', sync);
       checks.push({ row, input });
       scroll.appendChild(el('label', { class: 'send-supplier-row' }, [
@@ -122,6 +128,12 @@ export function buildSupplierPicker(rows, options, callbacks) {
       ]));
     });
   }
+
+  // Derive the button's state from the ticks NOW, not only on the first change.
+  // It used to be created enabled and only corrected inside sync(), which was fine
+  // while every row started ticked — but with nothing ticked it would sit there
+  // looking ready and do nothing when tapped.
+  sync();
 
   actionBtn.addEventListener('click', () => {
     const selected = checks.filter(c => c.input.checked).map(c => c.row);

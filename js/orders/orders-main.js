@@ -37,8 +37,6 @@ import { resolveSuppliers, orderSuppliers } from './no-supplier.js';
 import { mountIngredientList } from './ingredient-list.js';
 import { orderSummary } from './ingredient-search.js';
 
-const VIEW_KEY = 'orders-view';           // 'suppliers' | 'all' — remembered between visits
-const MSG_FORMAT_KEY = 'orders-message-format';   // 'grouped' | 'flat'
 
 const state = {
   suppliers: [],
@@ -326,7 +324,6 @@ function setView(view) {
   // show everything, so leaving for them drops it rather than hiding it somewhere
   // invisible and surprising the operator with it on the way back.
   if (view === 'suppliers') state.filterIds = null;
-  try { localStorage.setItem(VIEW_KEY, view); } catch { /* private mode — the choice just won't stick */ }
   dropListViews();              // force a remount; both queries are kept in state
   syncViewButtons();
   render();
@@ -343,12 +340,11 @@ function syncViewButtons() {
   });
 }
 
+// The view is NOT remembered between visits (Federico, 30 Jul 2026): opening the app
+// always lands on By supplier. It does persist across a trip to the History tab and
+// back, because that is one session of work and moving the screen under someone
+// mid-task is worse than a forgotten preference.
 function setupViewSwitch() {
-  try {
-    const saved = localStorage.getItem(VIEW_KEY);
-    if (saved === 'all' || saved === 'suppliers') state.view = saved;
-  } catch { /* private mode — fall back to the default view */ }
-
   document.getElementById('view-by-supplier')?.addEventListener('click', () => setView('suppliers'));
   document.getElementById('view-all-ingredients')?.addEventListener('click', () => setView('all'));
   syncViewButtons();
@@ -408,28 +404,24 @@ function recordToRow(record) {
   };
 }
 
-// ── The message format, remembered ────────────────────────────────────────────
+// ── The message format ────────────────────────────────────────────────────────
 //
-// Every send path reads the SAME stored choice — the draft send, a re-send of one
-// recorded order, a whole day re-sent. One rule, not three: a supplier must not
-// receive a differently-shaped message depending on which button it left by.
+// Every send screen opens on "By supplier" (Federico, 30 Jul 2026). The choice is NOT
+// remembered: "One list" is a shopping list for yourself and does not say who sells
+// what, so a supplier must never receive it because of something chosen days earlier.
+// Picking it is per send, deliberately.
 //
-// All localStorage for this screen lives here on purpose, so the pure modules stay
-// pure and testable.
-function messageIsGrouped() {
-  try { return localStorage.getItem(MSG_FORMAT_KEY) !== 'flat'; } catch { return true; }
-}
+// The one send that has no screen — re-sending a single recorded order from History —
+// is therefore always By supplier, which is the format a supplier should get anyway.
+const GROUPED_BY_DEFAULT = true;
 
-function rememberMessageFormat(grouped) {
-  try { localStorage.setItem(MSG_FORMAT_KEY, grouped ? 'grouped' : 'flat'); } catch { /* private mode */ }
-}
-
-// The option handed to any screen that offers the choice.
+// The option handed to any screen that offers the choice. No onChange: nothing to
+// store, the picker hands the chosen value straight to onConfirm.
 function messageFormatOption() {
-  return { grouped: messageIsGrouped(), onChange: rememberMessageFormat };
+  return { grouped: GROUPED_BY_DEFAULT };
 }
 
-function sendMessageFor(rows, { grouped = messageIsGrouped() } = {}) {
+function sendMessageFor(rows, { grouped = GROUPED_BY_DEFAULT } = {}) {
   const text = buildOrderMessage(
     rows.map(r => ({ supplierName: r.name, items: r.items })), { grouped });
   if (!text) {
@@ -439,8 +431,8 @@ function sendMessageFor(rows, { grouped = messageIsGrouped() } = {}) {
   window.open(whatsappUrl(text), '_blank');
 }
 
-// One recorded order, straight out — no tick-list to wade through for a single card.
-// There is nothing to choose here either: it uses the format already chosen.
+// One recorded order, straight out — no tick-list to wade through for a single card,
+// and so no format chooser either: it goes out By supplier.
 function sendRecord(record) {
   sendMessageFor([recordToRow(record)]);
 }
@@ -454,6 +446,7 @@ function openSendDayScreen(date, records) {
     actionLabel: 'Send on WhatsApp',
     emptyText: 'Nothing to send for that day.',
     format: messageFormatOption(),
+    preselect: false,           // same reason as the draft send
   }, {
     onBack: () => overlay.remove(),
     onConfirm: (selected, { grouped }) => { overlay.remove(); sendMessageFor(selected, { grouped }); },

@@ -35,6 +35,8 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
     actionLabel: 'Send on WhatsApp',
     emptyText: 'No items in this order yet. Add quantities first.',
     format,
+    // A message goes to one chat: who it is for is a decision, not a default.
+    preselect: false,
   }, {
     onBack: () => callbacks.onBack(),
     onConfirm: (selected, { grouped }) => {
