@@ -35,7 +35,6 @@ import { renderTodayOrders, renderPending } from './reminder-view.js';
 import { resolveSuppliers, orderSuppliers } from './no-supplier.js';
 import { mountIngredientList } from './ingredient-list.js';
 import { orderSummary } from './ingredient-search.js';
-import { itemsLabel } from './supplier-picker.js';
 
 const VIEW_KEY = 'orders-view';           // 'suppliers' | 'all' — remembered between visits
 const MSG_FORMAT_KEY = 'orders-message-format';   // 'grouped' | 'flat'
@@ -51,7 +50,6 @@ const state = {
   expanded: new Set(),
   view: 'suppliers',            // which of the two order views is on screen
   query: '',                    // the flat list's search text, kept OUT of the DOM (see render)
-  tab: 'order',                 // 'order' | 'history' — the summary bar belongs to Order only
   filterIds: null,              // FROZEN Set of ingredient ids, or null for "show everything"
   loaded: { suppliers: false, ingredients: false, draft: false },
 };
@@ -147,11 +145,9 @@ function currentSummary() {
 }
 
 function refreshOrderTotals() {
-  const summary = currentSummary();
   refreshPlaceAllButton();
-  refreshSummaryBar(summary);
   // Counts only — never the rows. See updateCounts in ingredient-list.js.
-  flatView?.updateCounts(summary.itemCount);
+  flatView?.updateCounts(currentSummary().itemCount);
 }
 
 function syncInputsFromState() {
@@ -297,54 +293,6 @@ function setOrderFilter(active) {
   const changed = Boolean(state.filterIds) !== Boolean(next);
   state.filterIds = next;
   if (changed || active) render();     // re-entering refreshes the frozen set
-}
-
-// Tapping the summary bar: go to the flat list and show only what is being ordered.
-// From the card view that means switching first — the filter has no meaning on cards,
-// which always list everything a supplier sells.
-function openOrderSummary() {
-  setView('all');                       // returns early when already there
-  state.filterIds = new Set(currentSummary().ids);
-  render();
-  document.getElementById('suppliers-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// The bar itself: a readout of the whole order and the way into that filtered list.
-// Order tab only — there is no draft to summarise on the History tab.
-function refreshSummaryBar(summary = currentSummary()) {
-  const bar = document.getElementById('order-summary-bar');
-  const text = document.getElementById('order-summary-text');
-  if (!bar || !text) return;
-
-  const { itemCount, supplierCount } = summary;
-  const show = state.tab === 'order' && itemCount > 0;
-  bar.hidden = !show;
-  if (show) {
-    text.textContent =
-      `${itemsLabel(itemCount)} · ${supplierCount} supplier${supplierCount === 1 ? '' : 's'}`;
-  }
-  syncBottomStrip();
-}
-
-// The fixed strip at the bottom covers the end of the page. Measure what it actually
-// occupies — the offline notice may be stacked in there too, and its text wraps on a
-// narrow screen — and pad the scroll area by exactly that, or the last row of the
-// list ends up permanently underneath it.
-function syncBottomStrip() {
-  const strip = document.getElementById('orders-bottom');
-  const scroll = document.querySelector('.scroll-area');
-  if (!strip || !scroll) return;
-
-  const visible = [...strip.children].some(child => !child.hidden);
-  strip.classList.toggle('visible', visible);
-
-  const height = visible ? Math.round(strip.getBoundingClientRect().height) : 0;
-  scroll.style.paddingBottom = `calc(24px + var(--safe-bot) + ${height}px)`;
-
-  // Tell the app-wide "new version — tap to update" banner how much of the bottom
-  // edge is already taken. It lives at z-index 9999, so without this it would land on
-  // top of the summary bar and eat every tap aimed at it (tokens.css).
-  document.documentElement.style.setProperty('--bottom-bar-h', `${height}px`);
 }
 
 // ── Rendering: history tab ────────────────────────────────────────────────────
@@ -878,10 +826,6 @@ function setupTabs() {
         document.getElementById(t.btn)?.classList.toggle('active', t.btn === btn);
         document.getElementById(t.panel)?.classList.toggle('active', t.panel === panel);
       });
-      // The summary bar describes the order being typed, so it has no business
-      // sitting over the History tab.
-      state.tab = panel === 'tab-history' ? 'history' : 'order';
-      refreshSummaryBar();
     });
   });
 }
@@ -923,9 +867,7 @@ function clearStatusIf(text) {
 function setupOfflineIndicator() {
   const bar = document.getElementById('orders-offline');
   if (!bar) return;
-  // It shares the fixed bottom strip with the summary bar, so appearing or vanishing
-  // changes how much of the page is covered — re-measure both times.
-  const sync = () => { bar.hidden = navigator.onLine; syncBottomStrip(); };
+  const sync = () => { bar.hidden = navigator.onLine; };
   sync();
   window.addEventListener('online', sync);
   window.addEventListener('offline', sync);
@@ -949,7 +891,6 @@ async function init() {
   });
 
   document.getElementById('place-all-btn')?.addEventListener('click', openPlaceAllScreen);
-  document.getElementById('order-summary-bar')?.addEventListener('click', openOrderSummary);
 
   const settingsBtn = document.getElementById('settings-footer-btn');
   if (settingsBtn) {
