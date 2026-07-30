@@ -40,6 +40,7 @@ import {
   ReCaptchaV3Provider,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
 import { reconcileConfigWrite } from './calculator-config.js';
+import { currentRestaurantId, pathFor } from './restaurant.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -126,7 +127,7 @@ const authReady = new Promise(resolve => {
 export function watchLogs(onChange) {
   authReady.then(() => {
     onSnapshot(
-      collection(db, 'logs'),
+      collection(db, pathFor('logs')),
       snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => { console.error('Logs listener failed:', err); },
     );
@@ -138,14 +139,14 @@ export function watchLogs(onChange) {
 // INSIDE the document (the versions array), so overwriting the doc is correct.
 export function saveLogDoc(log) {
   return authReady
-    .then(() => setDoc(doc(db, 'logs', log.id), { ...log, bakery: 'main' }))
+    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentRestaurantId() }))
     .catch(err => { console.error('saveLogDoc failed:', err); throw err; });
 }
 
 // Delete one whole log document (the user explicitly deleted that log).
 export function deleteLogDoc(id) {
   return authReady
-    .then(() => deleteDoc(doc(db, 'logs', String(id))))
+    .then(() => deleteDoc(doc(db, pathFor('logs'), String(id))))
     .catch(err => { console.error('deleteLogDoc failed:', err); throw err; });
 }
 
@@ -153,7 +154,7 @@ export function deleteLogDoc(id) {
 // whether anything already exists before importing the old records).
 export function getLogsOnce() {
   return authReady
-    .then(() => getDocs(collection(db, 'logs')))
+    .then(() => getDocs(collection(db, pathFor('logs'))))
     .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
     .catch(err => { console.error('getLogsOnce failed:', err); return []; });
 }
@@ -162,7 +163,7 @@ export function getLogsOnce() {
 // migration to convert legacy records into the new model without losing them.
 export function readOldLogsOnce() {
   return authReady
-    .then(() => getDocs(collection(db, 'log')))
+    .then(() => getDocs(collection(db, pathFor('log'))))
     .then(snap => snap.docs.map(d => d.data()))
     .catch(err => { console.error('readOldLogsOnce failed:', err); return []; });
 }
@@ -174,7 +175,7 @@ export function readOldLogsOnce() {
 export function saveDailyEntry(entry) {
   const key = entry.dough.toLowerCase();
   return setDoc(
-    doc(db, 'daily-logs', entry.date_iso),
+    doc(db, pathFor('daily-logs'), entry.date_iso),
     { [key]: entry },
     { merge: true }
   ).catch(err => { console.error('saveDailyEntry failed:', err); });
@@ -190,7 +191,7 @@ export function saveDailyEntry(entry) {
 export function watchCalculatorConfig(onChange) {
   authReady.then(() => {
     onSnapshot(
-      doc(db, 'config', 'calculator'),
+      doc(db, pathFor('config'), 'calculator'),
       snap => onChange(snap.exists() ? snap.data() : null),
       err => { console.error('Config listener failed:', err); },
     );
@@ -205,13 +206,13 @@ export function watchCalculatorConfig(onChange) {
 // Normal edits (including deleting a recipe) are unaffected: with no concurrent
 // writer the rev matches and nothing extra is merged. bakery is stamped as before.
 export function saveCalculatorConfig(config) {
-  const ref = doc(db, 'config', 'calculator');
+  const ref = doc(db, pathFor('config'), 'calculator');
   return authReady
     .then(() => runTransaction(db, async (tx) => {
       const snap = await tx.get(ref);
       const server = snap.exists() ? snap.data() : null;
       const { recipes, configRev } = reconcileConfigWrite(config, server);
-      tx.set(ref, { ...config, recipes, configRev, bakery: 'main' });
+      tx.set(ref, { ...config, recipes, configRev, bakery: currentRestaurantId() });
     }))
     .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }

@@ -6,10 +6,13 @@
 // anonymous session and inherits the localhost emulator switch + App Check.
 // js/firebase.js is never modified.
 //
-// Collection: recipes/{id} — one document per recipe (scales to 500+). Every
-// document carries bakery: "main" (rules enforce it).
+// Collection: restaurants/{restaurant}/recipes/{id} — one document per recipe
+// (scales to 500+). Every document carries the restaurant id in `bakery`, which
+// must match the folder it sits in (rules enforce it). js/restaurant.js is the
+// only place that knows the path.
 
 import { firebaseConfig } from '../firebase.js';
+import { currentRestaurantId, pathFor } from '../restaurant.js';
 import {
   getApps,
   getApp,
@@ -35,7 +38,6 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 export const db = getFirestore(app);
 
-export const BAKERY = 'main';
 const RECIPES = 'recipes';
 
 // Resolves once anonymous auth is ready. Firestore rules require
@@ -56,13 +58,13 @@ export const authReady = new Promise((resolve, reject) => {
 // A new client-side document id (no write). Lets a brand-new recipe be shown
 // locally BEFORE the network write, so saving works instantly and offline.
 export function newRecipeId() {
-  return doc(collection(db, RECIPES)).id;
+  return doc(collection(db, pathFor(RECIPES))).id;
 }
 
 // Stamp the bakery id on a document payload (usageCount is local-only and never
 // written here — it lives in localStorage per device).
 function withBakery(data) {
-  return { ...data, bakery: BAKERY };
+  return { ...data, bakery: currentRestaurantId() };
 }
 
 // Subscribe to the whole recipes collection in real time. onChange receives an
@@ -73,7 +75,7 @@ function withBakery(data) {
 export async function watchRecipes(onChange, onError) {
   await authReady;
   return onSnapshot(
-    collection(db, RECIPES),
+    collection(db, pathFor(RECIPES)),
     snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
     err => { console.error('watchRecipes failed:', err); if (onError) onError(err); },
   );
@@ -82,13 +84,13 @@ export async function watchRecipes(onChange, onError) {
 // Create or merge a recipe document at a known id (id is generated client-side).
 export async function saveRecipeDoc(id, data) {
   await authReady;
-  return setDoc(doc(db, RECIPES, id), withBakery(data), { merge: true });
+  return setDoc(doc(db, pathFor(RECIPES), id), withBakery(data), { merge: true });
 }
 
 // Delete a recipe document.
 export async function removeRecipeDoc(id) {
   await authReady;
-  return deleteDoc(doc(db, RECIPES, id));
+  return deleteDoc(doc(db, pathFor(RECIPES), id));
 }
 
 // Read the shared config/calculator document once (or null if it doesn't exist).
@@ -96,7 +98,7 @@ export async function removeRecipeDoc(id) {
 // Calculator before deleting it (so we can warn). Never writes.
 export async function getCalculatorConfig() {
   await authReady;
-  const snap = await getDoc(doc(db, 'config', 'calculator'));
+  const snap = await getDoc(doc(db, pathFor('config'), 'calculator'));
   return snap.exists() ? snap.data() : null;
 }
 
@@ -107,7 +109,7 @@ export async function getCalculatorConfig() {
 // (runTransaction re-reads and retries on conflict). Returns whatever applyFn built.
 export async function updateConfigInTransaction(applyFn) {
   await authReady;
-  const ref = doc(db, 'config', 'calculator');
+  const ref = doc(db, pathFor('config'), 'calculator');
   let built;
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
