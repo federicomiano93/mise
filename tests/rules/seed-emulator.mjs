@@ -246,12 +246,14 @@ export async function seedAccount(email, password, locations) {
 // pathToFileURL, not a hand-built string: on Windows a path is "C:\...", whose file
 // URL is "file:///C:/..." with THREE slashes — a hand-rolled `file://${path}` never
 // matches and the script silently does nothing.
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await requireEmulators();
-  await wipe();
+// The whole demo world: two locations, their descriptions, and accounts that can
+// sign in. Exported because the rules harness wipes the database and has to put
+// it back — otherwise `npm run test:rules` silently leaves an emulator where the
+// app cannot get past its own sign-in screen, and the next person to drive it by
+// hand spends twenty minutes debugging a login that was never broken.
+export const DEMO_PASSWORD = 'club1234';
 
-  // Two locations, so "each one sees only its own" can be checked by eye and
-  // not only asserted in a test.
+export async function seedDemoWorld() {
   await seedAll('bakery');
   await seedDoc('locations/bakery', { name: 'The Italian Club Bakery' });
   await seedDoc('locations/bakery/config/calculator',
@@ -272,11 +274,16 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     brand: '', weight: '1kg', category: 'Fish', unit: '', active: true,
   });
 
-  const PASSWORD = 'club1234';
-  await seedAccount('club@club.test', PASSWORD, { bakery: true });
-  await seedAccount('rosa@club.test', PASSWORD, { 'trattoria-rosa': true });
-  await seedAccount('owner@club.test', PASSWORD, { bakery: true, 'trattoria-rosa': true });
-  await seedAccount('nobody@club.test', PASSWORD, {});
+  await seedAccount('club@club.test', DEMO_PASSWORD, { bakery: true });
+  await seedAccount('rosa@club.test', DEMO_PASSWORD, { 'trattoria-rosa': true });
+  await seedAccount('owner@club.test', DEMO_PASSWORD, { bakery: true, 'trattoria-rosa': true });
+  await seedAccount('nobody@club.test', DEMO_PASSWORD, {});
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await requireEmulators();
+  await wipe();
+  await seedDemoWorld();
 
   console.log(`Seeded the emulator:
   locations/bakery — The Italian Club Bakery, every section
@@ -286,7 +293,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     2 orders-history records (2026-W28 legacy + 2026-07-20_SUP_MODERN)
   locations/trattoria-rosa — Orders only, its own supplier + ingredient
 
-  Sign in with any of these (password: ${PASSWORD}):
+  Sign in with any of these (password: ${DEMO_PASSWORD}):
     club@club.test    → The Italian Club Bakery
     rosa@club.test    → Trattoria Rosa (Orders only)
     owner@club.test   → both, so the location picker appears

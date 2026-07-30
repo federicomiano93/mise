@@ -17,6 +17,7 @@ import { allowedSections } from './sections.js';
 import { confirmDialog } from './confirm-dialog.js';
 
 const host = document.getElementById('session-host');
+const logoutHost = document.getElementById('session-logout-host');
 
 function button(label, className, onClick) {
   const node = document.createElement('button');
@@ -68,7 +69,16 @@ function renderSessionBar(session) {
     }));
   }
 
-  bar.append(button('Log out', 'session-action session-action--quiet', async () => {
+  host.append(bar);
+}
+
+// Deliberately NOT in the bar above. Logging out is rare, mildly destructive
+// (everything cached on this device is cleared) and nobody opens the app to do
+// it — so it sits at the bottom, after the cards, in quiet type.
+function renderLogOut() {
+  if (!logoutHost) return;
+  logoutHost.textContent = '';
+  logoutHost.append(button('Log out', 'session-logout', async () => {
     const ok = await confirmDialog({
       title: 'Log out?',
       message: 'You will need your email and password to get back in.',
@@ -77,12 +87,11 @@ function renderSessionBar(session) {
     });
     if (ok) signOutNow();
   }));
-
-  host.append(bar);
 }
 
 onSession(session => {
   if (session.status !== 'ready') return;
   filterCards(session.location);
   renderSessionBar(session);
+  renderLogOut();
 });
