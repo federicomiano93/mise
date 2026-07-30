@@ -50,6 +50,31 @@ test('an unknown section name in the document is ignored, not rendered', () => {
   assert.deepEqual(Object.keys(out), [...SECTIONS]);
 });
 
+// ── Sections: a name typed with stray spaces still counts ────────────────────
+//
+// Straight from production (30 July 2026): the restaurant's document was saved
+// with `sections ` and `calculator `, spaces that are invisible in the Firebase
+// console. The app found no field, defaulted every section ON, and showed three
+// cards to a location set up for one — with nothing anywhere saying why.
+
+test('a trailing space in the sections field name does not silently void it', () => {
+  const out = allowedSections({ 'sections ': { orders: true, calculator: false, catalogue: false } });
+  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false });
+});
+
+test('a trailing space in a section name does not silently void it', () => {
+  const out = allowedSections({ sections: { orders: true, 'calculator ': false, ' catalogue': false } });
+  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false });
+});
+
+test('the exact name always wins over a spaced one, so it is never ambiguous', () => {
+  const doc = { sections: { calculator: false }, 'sections ': { calculator: true } };
+  assert.equal(allowedSections(doc).calculator, false);
+
+  const inner = { sections: { 'calculator ': true, calculator: false } };
+  assert.equal(allowedSections(inner).calculator, false);
+});
+
 // ── Membership: default NONE ─────────────────────────────────────────────────
 
 test('no user document means no locations — never all of them', () => {
@@ -69,6 +94,21 @@ test('a corrupt locations field means no locations', () => {
 test('only entries explicitly set to true count as access', () => {
   const doc = { locations: { main: true, 'trattoria-x': false, ghost: 'yes', other: 1 } };
   assert.deepEqual(locationsOf(doc), ['main']);
+});
+
+// The asymmetry with allowedSections is deliberate, and this test is what stops
+// somebody "fixing" it later: firestore.rules reads this same map and does NOT
+// forgive a stray space. Forgiving one here would open the app on a location the
+// database then refuses on every read — permission errors everywhere instead of
+// one honest "no access".
+test('a location id typed with a space grants nothing — unlike sections', () => {
+  assert.deepEqual(locationsOf({ locations: { 'restaurant ': true } }), []);
+  assert.deepEqual(locationsOf({ 'locations ': { restaurant: true } }), []);
+});
+
+test('an unusable id is dropped, so sign-in says "no access" instead of throwing', () => {
+  const doc = { locations: { 'bakery/../secret': true, '': true, 'a b': true, bakery: true } };
+  assert.deepEqual(locationsOf(doc), ['bakery']);
 });
 
 test('several locations come back in a stable order', () => {

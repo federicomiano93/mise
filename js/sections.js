@@ -9,7 +9,26 @@
 // without a browser or a database. The defaults below are deliberate and they
 // point in OPPOSITE directions, for a reason given at each one.
 
+import { isValidLocationId } from './location.js';
+
 export const SECTIONS = Object.freeze(['orders', 'calculator', 'catalogue']);
+
+// Read a field by name, accepting a name typed with stray spaces around it.
+//
+// WHY THIS EXISTS. These documents are typed by hand in the Firebase console, and
+// a trailing space is INVISIBLE there — `sections ` renders almost exactly like
+// `sections` but is a different field. It cost half an hour on 30 July 2026: the
+// restaurant had `sections ` and `calculator `, so the app found no field at all
+// and — correctly, per the default below — switched every section on. The screen
+// simply disagreed with the document and nothing said why.
+//
+// An exact match always wins, so a document with both names is not ambiguous.
+function fieldNamed(obj, wanted) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return undefined;
+  if (Object.prototype.hasOwnProperty.call(obj, wanted)) return obj[wanted];
+  const loose = Object.keys(obj).find(key => key.trim() === wanted);
+  return loose === undefined ? undefined : obj[loose];
+}
 
 // Which sections a location uses.
 //
@@ -19,10 +38,10 @@ export const SECTIONS = Object.freeze(['orders', 'calculator', 'catalogue']);
 // leaks nothing: a location only ever sees its OWN data, so an extra section
 // shows an extra EMPTY screen. Only an explicit `false` hides one.
 export function allowedSections(locationDoc) {
-  const raw = locationDoc && typeof locationDoc === 'object' ? locationDoc.sections : null;
+  const raw = fieldNamed(locationDoc, 'sections');
   const map = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
   const out = {};
-  SECTIONS.forEach(name => { out[name] = map[name] !== false; });
+  SECTIONS.forEach(name => { out[name] = fieldNamed(map, name) !== false; });
   return out;
 }
 
@@ -38,10 +57,26 @@ export function isSectionAllowed(locationDoc, name) {
 // an account that sees empty screens until the document is created, which is a
 // two-minute fix in the console; the alternative would be a stranger's account
 // walking into a location.
+//
+// ⚠️ AND IT DELIBERATELY DOES NOT USE fieldNamed(). A location id typed with a
+// stray space is refused here, even though allowedSections above forgives one.
+// The reason is that firestore.rules reads this same document and does NOT
+// forgive: being kinder than the rules would open the app on a location the
+// database then refuses on every single read — permission errors everywhere
+// instead of one honest "no access". Where the app and the rules must agree, the
+// app matches the rules exactly.
+//
+// Ids that could never name a real folder are DROPPED rather than passed on. A
+// hand-typed `restaurant ` used to travel all the way to buildPath, which throws
+// on it — so one stray space in this document crashed the sign-in instead of
+// producing the honest, recoverable "no location yet". Dropping is not
+// forgiveness: the id still grants nothing, it just fails gracefully.
 export function locationsOf(userDoc) {
   const raw = userDoc && typeof userDoc === 'object' ? userDoc.locations : null;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
-  return Object.keys(raw).filter(id => raw[id] === true).sort();
+  return Object.keys(raw)
+    .filter(id => raw[id] === true && isValidLocationId(id))
+    .sort();
 }
 
 // Decide what happens right after a successful sign-in.
