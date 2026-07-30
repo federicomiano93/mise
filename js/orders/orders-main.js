@@ -10,6 +10,7 @@
 // not under today.
 
 import { watchCollection, watchDoc, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
+import { currentSession } from '../firebase.js';
 import { el, groupBy } from './dom.js';
 import { mountSupplierList, refreshSupplierDerived } from './suppliers.js';
 import { buildSupplierDetail } from './supplier-detail.js';
@@ -458,7 +459,8 @@ function messageFormatOption() {
 
 function sendMessageFor(rows, { grouped = GROUPED_BY_DEFAULT } = {}) {
   const text = buildOrderMessage(
-    rows.map(r => ({ supplierName: r.name, items: r.items })), { grouped });
+    rows.map(r => ({ supplierName: r.name, items: r.items })),
+    { grouped, restaurantName: currentSession().name });
   if (!text) {
     setStatus('Nothing to send — that order has no items.', 'warn', 4000);
     return;

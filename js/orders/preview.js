@@ -15,6 +15,7 @@
 
 import { buildSupplierPicker } from './supplier-picker.js';
 import { buildOrderMessage, whatsappUrl } from './order-text.js';
+import { currentSession } from '../firebase.js';
 
 // suppliers: array; ingredientsBySupplier: { supplierId: [ingredient] };
 // entries: { ingredientId: { qty, stock } }; callbacks: { onBack, onSent };
@@ -41,7 +42,8 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
     onBack: () => callbacks.onBack(),
     onConfirm: (selected, { grouped }) => {
       const text = buildOrderMessage(
-        selected.map(r => ({ supplierName: r.name, items: r.items })), { grouped });
+        selected.map(r => ({ supplierName: r.name, items: r.items })),
+        { grouped, restaurantName: currentSession().name });
       if (!text) return;            // nothing orderable — never open an empty chat
       window.open(whatsappUrl(text), '_blank');
       callbacks.onSent?.(selected.map(r => r.id));

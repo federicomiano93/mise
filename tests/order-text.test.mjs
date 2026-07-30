@@ -9,9 +9,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildOrderMessage, itemsFromQuantities, indexById, itemLabel, whatsappUrl,
-  sortItems,
+  buildOrderMessage, orderTitle, itemsFromQuantities, indexById, itemLabel,
+  whatsappUrl, sortItems,
 } from '../js/orders/order-text.js';
+
+// The restaurant placing the order. It used to be baked into the builder as a
+// constant; it now comes from the signed-in session, so every message test says
+// it out loud — that is the point of the change.
+const CLUB = { restaurantName: 'The Italian Club' };
 
 const ingredients = [
   { id: 'i1', name: 'Bacon', weight: '2.27kg', unit: 'casse' },
@@ -25,7 +30,7 @@ test('the message keeps the format the app has always sent', () => {
       { name: 'Bacon', weight: '2.27kg', qty: 5 },
       { name: 'Mozzarella', weight: '1kg', qty: 2 },
     ] },
-  ]);
+  ], CLUB);
   assert.equal(text,
     '*Order — The Italian Club*\n\n' +
     '*Brava Fresh*\n' +
@@ -37,7 +42,7 @@ test('several suppliers are separated by a blank line', () => {
   const text = buildOrderMessage([
     { supplierName: 'Bako', items: [{ name: 'Flour', weight: '25kg', qty: 4 }] },
     { supplierName: 'Salvo', items: [{ name: 'Olives', weight: '', qty: 1 }] },
-  ]);
+  ], CLUB);
   assert.equal(text,
     '*Order — The Italian Club*\n\n' +
     '*Bako*\n- Flour 25kg: 4\n\n' +
@@ -52,7 +57,7 @@ test('an empty weight is skipped, leaving no double space', () => {
 test('the order unit never reaches the supplier — only the number', () => {
   const text = buildOrderMessage([
     { supplierName: 'S', items: [{ name: 'Bacon', weight: '2.27kg', qty: 3 }] },
-  ]);
+  ], CLUB);
   assert.ok(!text.includes('casse'), 'the order unit is a private reminder');
   assert.ok(text.includes('- Bacon 2.27kg: 3'));
 });
@@ -61,7 +66,7 @@ test('a supplier with no items is dropped, and an empty order builds no message'
   const text = buildOrderMessage([
     { supplierName: 'Empty', items: [] },
     { supplierName: 'Real', items: [{ name: 'Flour', weight: '', qty: 2 }] },
-  ]);
+  ], CLUB);
   assert.ok(!text.includes('Empty'));
   assert.equal(buildOrderMessage([{ supplierName: 'Empty', items: [] }]), '');
   assert.equal(buildOrderMessage([]), '');
@@ -74,14 +79,14 @@ test('a history record produces the same message as the draft did', () => {
   const fromHistory = buildOrderMessage([{
     supplierName: 'Brava Fresh',
     items: itemsFromQuantities({ i1: 5, i2: 2 }, byId),
-  }]);
+  }], CLUB);
   const fromDraft = buildOrderMessage([{
     supplierName: 'Brava Fresh',
     items: [
       { name: 'Bacon', weight: '2.27kg', qty: 5 },
       { name: 'Mozzarella', weight: '1kg', qty: 2 },
     ],
-  }]);
+  }], CLUB);
   assert.equal(fromHistory, fromDraft,
     're-sending a placed order must read exactly like the original');
 });
@@ -127,7 +132,7 @@ test('the builder sorts the lines itself, whatever order the caller passes', () 
       { name: 'Mozzarella', weight: '1kg', qty: 2 },
       { name: 'Bacon', weight: '2.27kg', qty: 5 },
     ],
-  }]);
+  }], CLUB);
   assert.equal(shuffled,
     '*Order — The Italian Club*\n\n*S*\n- Bacon 2.27kg: 5\n- Mozzarella 1kg: 2');
 });
@@ -151,7 +156,7 @@ const THREE_SUPPLIERS = [
 ];
 
 test('One list drops every supplier heading and sorts the whole order A-Z', () => {
-  assert.equal(buildOrderMessage(THREE_SUPPLIERS, { grouped: false }),
+  assert.equal(buildOrderMessage(THREE_SUPPLIERS, { grouped: false, ...CLUB }),
     '*Order — The Italian Club*\n\n' +
     '- Bacon 2.27kg: 4\n' +
     '- Baking Paper: 2\n' +
@@ -166,9 +171,9 @@ test('the By supplier format is byte-identical with or without the option', () =
     '*Brakes*\n- Bacon 2.27kg: 4\n\n' +
     '*Salvo*\n- Mozzarella 5kg: 2\n\n' +
     '*No supplier*\n- Baking Paper: 2';
-  assert.equal(buildOrderMessage(THREE_SUPPLIERS), golden);
-  assert.equal(buildOrderMessage(THREE_SUPPLIERS, {}), golden);
-  assert.equal(buildOrderMessage(THREE_SUPPLIERS, { grouped: true }), golden);
+  assert.equal(buildOrderMessage(THREE_SUPPLIERS, CLUB), golden);
+  assert.equal(buildOrderMessage(THREE_SUPPLIERS, { ...CLUB }), golden);
+  assert.equal(buildOrderMessage(THREE_SUPPLIERS, { grouped: true, ...CLUB }), golden);
 });
 
 test('One list adds up two lines carrying the same label', () => {
@@ -176,7 +181,7 @@ test('One list adds up two lines carrying the same label', () => {
   const text = buildOrderMessage([
     { supplierName: 'Bako', items: [{ name: 'Flour', weight: '25kg', qty: 4 }] },
     { supplierName: 'Salvo', items: [{ name: 'Flour', weight: '25kg', qty: 3 }] },
-  ], { grouped: false });
+  ], { grouped: false, ...CLUB });
   assert.equal(text, '*Order — The Italian Club*\n\n- Flour 25kg: 7');
 });
 
@@ -184,7 +189,7 @@ test('…while the By supplier format keeps them apart, one line per supplier', 
   const text = buildOrderMessage([
     { supplierName: 'Bako', items: [{ name: 'Flour', weight: '25kg', qty: 4 }] },
     { supplierName: 'Salvo', items: [{ name: 'Flour', weight: '25kg', qty: 3 }] },
-  ]);
+  ], CLUB);
   assert.equal(text,
     '*Order — The Italian Club*\n\n*Bako*\n- Flour 25kg: 4\n\n*Salvo*\n- Flour 25kg: 3');
 });
@@ -195,7 +200,7 @@ test('One list distinguishes two weights of the same product', () => {
       { name: 'Flour', weight: '25kg', qty: 1 },
       { name: 'Flour', weight: '1kg', qty: 2 },
     ] },
-  ], { grouped: false });
+  ], { grouped: false, ...CLUB });
   assert.equal(text, '*Order — The Italian Club*\n\n- Flour 1kg: 2\n- Flour 25kg: 1');
 });
 
@@ -205,13 +210,13 @@ test('One list never sends a line worth nothing', () => {
       { name: 'Bacon', weight: '', qty: 0 },
       { name: 'Flour', weight: '', qty: 3 },
     ] },
-  ], { grouped: false });
+  ], { grouped: false, ...CLUB });
   assert.equal(text, '*Order — The Italian Club*\n\n- Flour: 3');
 });
 
 test('One list with nothing to send builds no message at all', () => {
-  assert.equal(buildOrderMessage([], { grouped: false }), '');
-  assert.equal(buildOrderMessage(null, { grouped: false }), '');
+  assert.equal(buildOrderMessage([], { grouped: false, ...CLUB }), '');
+  assert.equal(buildOrderMessage(null, { grouped: false, ...CLUB }), '');
   assert.equal(buildOrderMessage(
     [{ supplierName: 'S', items: [{ name: 'x', weight: '', qty: 0 }] }],
     { grouped: false },
@@ -226,6 +231,29 @@ test('One list rounds and ignores junk exactly as the grouped format does', () =
       { name: 'Dates', weight: '', qty: -5 },
       { name: 'Eggs', weight: '', qty: 1 },
     ] },
-  ], { grouped: false });
+  ], { grouped: false, ...CLUB });
   assert.equal(text, '*Order — The Italian Club*\n\n- Bacon: 2\n- Eggs: 1');
+});
+
+// ── Who the order is from ────────────────────────────────────────────────────
+// The title used to be a constant. With more than one restaurant that constant
+// would have signed one restaurant's order with another's name — the supplier
+// would deliver to the wrong place and nothing on screen would have looked odd.
+
+test('the title names the restaurant that is placing the order', () => {
+  assert.equal(orderTitle('Trattoria Rosa'), '*Order — Trattoria Rosa*');
+  const text = buildOrderMessage(
+    [{ supplierName: 'Bako', items: [{ name: 'Flour', weight: '25kg', qty: 1 }] }],
+    { restaurantName: 'Trattoria Rosa' });
+  assert.ok(text.startsWith('*Order — Trattoria Rosa*'));
+  assert.ok(!text.includes('Italian Club'));
+});
+
+test('with no name the order goes out anonymous rather than wrongly signed', () => {
+  ['', '   ', null, undefined].forEach(missing => {
+    assert.equal(orderTitle(missing), '*Order*', `${JSON.stringify(missing)} must not invent a name`);
+  });
+  const text = buildOrderMessage(
+    [{ supplierName: 'Bako', items: [{ name: 'Flour', weight: '25kg', qty: 1 }] }]);
+  assert.ok(text.startsWith('*Order*\n'));
 });
