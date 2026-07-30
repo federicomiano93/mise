@@ -32,6 +32,21 @@ service cloud.firestore {
       return request.resource.data.bakery == rid;
     }
 
+    // Which restaurants an account may open. Readable ONLY by that account, and
+    // writable by no client at all — the Firebase console is the only way in, so
+    // nobody can grant themselves a restaurant.
+    //
+    // Deployed AHEAD of the sign-in release on purpose. The app that signs people
+    // in has to read this document to know where to go; without this rule it would
+    // meet a refusal and show "could not check your access" to everyone for the
+    // few minutes between the app going live and the final rules being deployed.
+    // Adding the permission early costs nothing (no document exists yet) and
+    // removes the window entirely.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if false;
+    }
+
     match /restaurants/{rid} {
 
       // The restaurant's own document: its display name and which sections of the
