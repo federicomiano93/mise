@@ -41,6 +41,7 @@ import {
   initializeAppCheck,
   ReCaptchaV3Provider,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
+import { currentRestaurantId, pathFor } from './restaurant.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -125,7 +126,7 @@ const authReady = new Promise(resolve => {
 export function watchLogs(onChange) {
   authReady.then(() => {
     onSnapshot(
-      collection(db, 'logs'),
+      collection(db, pathFor('logs')),
       snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => { console.error('Logs listener failed:', err); },
     );
@@ -134,26 +135,26 @@ export function watchLogs(onChange) {
 
 export function saveLogDoc(log) {
   return authReady
-    .then(() => setDoc(doc(db, 'logs', log.id), { ...log, bakery: 'main' }))
+    .then(() => setDoc(doc(db, pathFor('logs'), log.id), { ...log, bakery: currentRestaurantId() }))
     .catch(err => { console.error('saveLogDoc failed:', err); throw err; });
 }
 
 export function deleteLogDoc(id) {
   return authReady
-    .then(() => deleteDoc(doc(db, 'logs', String(id))))
+    .then(() => deleteDoc(doc(db, pathFor('logs'), String(id))))
     .catch(err => { console.error('deleteLogDoc failed:', err); throw err; });
 }
 
 export function getLogsOnce() {
   return authReady
-    .then(() => getDocs(collection(db, 'logs')))
+    .then(() => getDocs(collection(db, pathFor('logs'))))
     .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
     .catch(err => { console.error('getLogsOnce failed:', err); return []; });
 }
 
 export function readOldLogsOnce() {
   return authReady
-    .then(() => getDocs(collection(db, 'log')))
+    .then(() => getDocs(collection(db, pathFor('log'))))
     .then(snap => snap.docs.map(d => d.data()))
     .catch(err => { console.error('readOldLogsOnce failed:', err); return []; });
 }
@@ -165,7 +166,7 @@ export function readOldLogsOnce() {
 export function saveDailyEntry(entry) {
   const key = entry.dough.toLowerCase();
   return setDoc(
-    doc(db, 'daily-logs', entry.date_iso),
+    doc(db, pathFor('daily-logs'), entry.date_iso),
     { [key]: entry },
     { merge: true }
   ).catch(err => { console.error('saveDailyEntry failed:', err); });
@@ -197,7 +198,7 @@ export function saveDailyEntry(entry) {
 export function watchCalculatorConfig(onChange) {
   authReady.then(() => {
     onSnapshot(
-      doc(db, 'config', 'calculator'),
+      doc(db, pathFor('config'), 'calculator'),
       snap => onChange(snap.exists() ? snap.data() : null),
       err => { console.error('Config listener failed:', err); },
     );
@@ -208,7 +209,7 @@ export function watchCalculatorConfig(onChange) {
 // forward-compatibility with a future per-bakery split, like the orders system.
 export function saveCalculatorConfig(config) {
   return authReady
-    .then(() => setDoc(doc(db, 'config', 'calculator'), { ...config, bakery: 'main' }))
+    .then(() => setDoc(doc(db, pathFor('config'), 'calculator'), { ...config, bakery: currentRestaurantId() }))
     .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }
 

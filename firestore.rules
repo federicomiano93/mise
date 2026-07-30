@@ -2,6 +2,285 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // THE RESTAURANT TREE — restaurants/{rid}/<collection>/{id}
+    // ═══════════════════════════════════════════════════════════════════════
+    //
+    // Every document a restaurant owns lives inside its own folder. The old flat
+    // collections further down are the SAME data at its previous address, kept
+    // readable and writable only until the migration is done and verified.
+    //
+    // ⚠️ WHAT THIS RULESET DOES NOT DO YET: it still allows any authenticated
+    // client, exactly like the flat rules below — that is today's security level,
+    // neither better nor worse, because the app still signs in anonymously. The
+    // membership check (only people listed in users/{uid} may enter a restaurant)
+    // arrives with the login screen, and THAT is the step that closes read access.
+    // Deploying this file changes where data may be written, not who may write it.
+    //
+    // The validation rules below are ported verbatim from the flat collections,
+    // with one deliberate change: `bakery` must equal the restaurant folder the
+    // document sits in, so the field and the path can never disagree. For the
+    // Italian Club that folder is 'main', which is what its documents already
+    // carry — so the migrated copies satisfy this on day one.
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // The document payload must be stamped with the folder it is being written to.
+    function stampedFor(rid) {
+      return request.resource.data.bakery == rid;
+    }
+
+    match /restaurants/{rid} {
+
+      // The restaurant's own document: its display name and which sections of the
+      // app it uses. Written ONLY from the Firebase console — an app that could
+      // write this could rename or re-scope a restaurant.
+      allow read: if signedIn();
+      allow write: if false;
+
+      // ── Production logs (current model) ─────────────────────────────────
+      match /logs/{id} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && stampedFor(rid)
+          && request.resource.data.dough is string
+          && request.resource.data.versions is list;
+        allow delete: if signedIn();
+      }
+
+      // ── Production logs (legacy: one document per dough) ────────────────
+      match /log/{dough} {
+        allow read: if signedIn();
+
+        allow write: if signedIn()
+          && dough in ['focaccia', 'brioche', 'sourdough']
+          && request.resource.data.keys().hasOnly(['dough', 'date', 'time', 'text'])
+          && request.resource.data.dough is string
+          && request.resource.data.dough in ['Focaccia', 'Brioche', 'Sourdough']
+          && request.resource.data.date is string
+          && request.resource.data.date.size() < 50
+          && request.resource.data.time is string
+          && request.resource.data.time.size() < 10
+          && request.resource.data.text is string
+          && request.resource.data.text.size() < 2000;
+
+        allow delete: if signedIn()
+          && dough in ['focaccia', 'brioche', 'sourdough'];
+      }
+
+      // ── Daily production log: one document per day, keyed by dough ───────
+      match /daily-logs/{date} {
+        allow read: if signedIn();
+
+        allow create, update: if signedIn()
+          && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.keys().hasOnly(['focaccia', 'brioche', 'sourdough'])
+          && request.resource.data.keys().size() > 0
+          && (!('focaccia' in request.resource.data) || request.resource.data.focaccia is map)
+          && (!('brioche' in request.resource.data) || request.resource.data.brioche is map)
+          && (!('sourdough' in request.resource.data) || request.resource.data.sourdough is map);
+
+        allow delete: if false;
+      }
+
+      // ── Suppliers ───────────────────────────────────────────────────────
+      // Written with setDoc(merge) — request.resource.data is the FULL MERGED
+      // document, so every field a live document was ever given must be listed
+      // and NOTHING may be required. `notifyHoursBefore` is retired but still
+      // present in production; removing it here stops every old supplier from
+      // being writable, silently and permanently.
+      match /suppliers/{id} {
+        allow read: if signedIn();
+
+        allow create, update: if signedIn()
+          && stampedFor(rid)
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'name', 'category', 'phone', 'email',
+               'deliveryDays', 'orderDays', 'active', 'notifyHoursBefore'
+             ])
+          && (!('name' in request.resource.data)
+              || (request.resource.data.name is string
+                  && request.resource.data.name.size() <= 200))
+          && (!('category' in request.resource.data)
+              || (request.resource.data.category is string
+                  && request.resource.data.category.size() <= 200))
+          && (!('phone' in request.resource.data)
+              || (request.resource.data.phone is string
+                  && request.resource.data.phone.size() <= 40))
+          && (!('email' in request.resource.data)
+              || (request.resource.data.email is string
+                  && request.resource.data.email.size() <= 320))
+          && (!('deliveryDays' in request.resource.data)
+              || (request.resource.data.deliveryDays is list
+                  && request.resource.data.deliveryDays.size() <= 7))
+          && (!('orderDays' in request.resource.data)
+              || (request.resource.data.orderDays is list
+                  && request.resource.data.orderDays.size() <= 7))
+          && (!('active' in request.resource.data)
+              || request.resource.data.active is bool)
+          && (!('notifyHoursBefore' in request.resource.data)
+              || request.resource.data.notifyHoursBefore == null
+              || request.resource.data.notifyHoursBefore is number);
+
+        allow delete: if signedIn();
+      }
+
+      // ── Ingredients ─────────────────────────────────────────────────────
+      // Also merge-written: brand/weight only arrived in v1.10.0, so an
+      // ingredient untouched since then lacks them and nothing may be required.
+      match /ingredients/{id} {
+        allow read: if signedIn();
+
+        allow create, update: if signedIn()
+          && stampedFor(rid)
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'name', 'supplierId', 'brand', 'weight',
+               'category', 'unit', 'active'
+             ])
+          && (!('name' in request.resource.data)
+              || (request.resource.data.name is string
+                  && request.resource.data.name.size() <= 200))
+          && (!('supplierId' in request.resource.data)
+              || (request.resource.data.supplierId is string
+                  && request.resource.data.supplierId.size() <= 200))
+          && (!('brand' in request.resource.data)
+              || (request.resource.data.brand is string
+                  && request.resource.data.brand.size() <= 200))
+          && (!('weight' in request.resource.data)
+              || (request.resource.data.weight is string
+                  && request.resource.data.weight.size() <= 100))
+          && (!('category' in request.resource.data)
+              || (request.resource.data.category is string
+                  && request.resource.data.category.size() <= 200))
+          && (!('unit' in request.resource.data)
+              || (request.resource.data.unit is string
+                  && request.resource.data.unit.size() <= 100))
+          && (!('active' in request.resource.data)
+              || request.resource.data.active is bool);
+
+        allow delete: if signedIn();
+      }
+
+      // ── The order in progress ───────────────────────────────────────────
+      // One document, drafts/current, merge-written on every keystroke and
+      // cleared per supplier with deleteField. `weekId` is retired but still on
+      // the live document, so it stays listed. Delete stays denied: nothing in
+      // the app deletes the draft, and clearFields would fail on a missing doc.
+      match /drafts/{id} {
+        allow read: if signedIn();
+
+        allow create, update: if signedIn()
+          && id == 'current'
+          && stampedFor(rid)
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'entries', 'days', 'updatedAt', 'weekId'
+             ])
+          && (!('entries' in request.resource.data)
+              || (request.resource.data.entries is map
+                  && request.resource.data.entries.size() <= 2000))
+          && (!('days' in request.resource.data)
+              || (request.resource.data.days is map
+                  && request.resource.data.days.size() <= 200))
+          && (!('updatedAt' in request.resource.data)
+              || (request.resource.data.updatedAt is string
+                  && request.resource.data.updatedAt.size() <= 64))
+          && (!('weekId' in request.resource.data)
+              || (request.resource.data.weekId is string
+                  && request.resource.data.weekId.size() <= 32));
+
+        allow delete: if false;
+      }
+
+      // ── Order history ───────────────────────────────────────────────────
+      // Two allow statements, ORed by Firestore; the document id decides which
+      // applies. Current model: one doc per day per supplier, always written
+      // WHOLE, so fields can be required. Legacy: the retired weekly archive,
+      // exactly one such document, still read and still editable.
+      match /orders-history/{id} {
+        allow read: if signedIn();
+
+        allow create, update: if signedIn()
+          && stampedFor(rid)
+          && id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_.+$')
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'date', 'supplierId', 'supplierName',
+               'quantities', 'stock', 'createdAt', 'updatedAt'
+             ])
+          && request.resource.data.date is string
+          && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.supplierId is string
+          && request.resource.data.supplierId.size() > 0
+          && request.resource.data.supplierId.size() <= 200
+          && request.resource.data.supplierName is string
+          && request.resource.data.supplierName.size() <= 200
+          && request.resource.data.quantities is map
+          && request.resource.data.quantities.size() <= 500
+          && request.resource.data.stock is map
+          && request.resource.data.stock.size() <= 500
+          && request.resource.data.createdAt is string
+          && request.resource.data.createdAt.size() <= 64
+          && request.resource.data.updatedAt is string
+          && request.resource.data.updatedAt.size() <= 64;
+
+        allow create, update: if signedIn()
+          && stampedFor(rid)
+          && !id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_.+$')
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'weekStart', 'date', 'quantities',
+               'stock', 'createdAt', 'updatedAt'
+             ])
+          && request.resource.data.weekStart is string
+          && request.resource.data.weekStart.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && (!('date' in request.resource.data)
+              || (request.resource.data.date is string
+                  && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+          && request.resource.data.quantities is map
+          && request.resource.data.quantities.size() <= 500
+          && request.resource.data.stock is map
+          && request.resource.data.stock.size() <= 500
+          && (!('createdAt' in request.resource.data)
+              || (request.resource.data.createdAt is string
+                  && request.resource.data.createdAt.size() <= 64))
+          && (!('updatedAt' in request.resource.data)
+              || (request.resource.data.updatedAt is string
+                  && request.resource.data.updatedAt.size() <= 64));
+
+        allow delete: if signedIn();
+      }
+
+      // ── Configuration: config/calculator and config/orders ──────────────
+      match /config/{doc} {
+        allow read: if signedIn();
+        allow create, update: if signedIn() && stampedFor(rid);
+        allow delete: if false;
+      }
+
+      // ── Recipe catalogue ────────────────────────────────────────────────
+      match /recipes/{id} {
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients'])
+          && stampedFor(rid)
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() < 200
+          && request.resource.data.ingredients is list
+          && request.resource.data.ingredients.size() <= 300;
+        allow delete: if signedIn();
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LEGACY FLAT COLLECTIONS — the same data at its previous address.
+    // ═══════════════════════════════════════════════════════════════════════
+    // Unchanged below this line. They stay fully writable for ONE transition
+    // only: the live app still uses them until the release that moves it into
+    // the restaurant folder above. The migration reads from here and writes
+    // there, so both must be reachable at the same time, once.
+    // Next step freezes them to read-only; the step after removes them.
+
     // Current-session log: one document per dough type, overwritten on each confirm.
     // Shared across the bakery team (any authenticated client reads the same log).
     // NOTE: with Anonymous Auth this means any authenticated client can read it.

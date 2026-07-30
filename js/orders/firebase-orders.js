@@ -5,11 +5,17 @@
 // never modified — we import its exported firebaseConfig and attach to the same
 // default app, so the Orders pages share the one anonymous session.
 //
-// Collections (every document carries bakery: "main", forward-compatible with a
-// future per-bakery split):
-//   suppliers/{id} · ingredients/{id} · drafts/{id} · orders-history/{id}
+// Collections, all under the current restaurant's folder (js/restaurant.js):
+//   restaurants/{restaurant}/suppliers/{id} · …/ingredients/{id} ·
+//   …/drafts/{id} · …/orders-history/{id} · …/config/{id}
+//
+// Collection names stay plain strings at every call site; pathFor() is the only
+// thing that knows where they live. Every document still carries the `bakery`
+// field — now the restaurant id, matching its own path — because removing a
+// field that live documents already carry is what breaks merge writes for good.
 
 import { firebaseConfig } from '../firebase.js';
+import { currentRestaurantId, pathFor } from '../restaurant.js';
 import {
   getApps,
   getApp,
@@ -39,9 +45,12 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 export const db = getFirestore(app);
 
-// Bakery id stamped on every document. Hardcoded for now; becomes dynamic when
-// real authentication and per-bakery isolation land.
-export const BAKERY = 'main';
+// The id stamped on every document, in the `bakery` field. It is the same value
+// as the restaurant folder the document sits in, so the field and the path can
+// never disagree — and the rules check exactly that.
+export function currentBakery() {
+  return currentRestaurantId();
+}
 
 // Collection names, in one place so the feature modules never hardcode strings.
 export const COLLECTIONS = {
@@ -68,7 +77,7 @@ export const authReady = new Promise(resolve => {
 
 // Stamp the current bakery id on a document payload.
 function withBakery(data) {
-  return { ...data, bakery: BAKERY };
+  return { ...data, bakery: currentBakery() };
 }
 
 // Subscribe to a collection in real time. onChange receives an array of
@@ -76,7 +85,7 @@ function withBakery(data) {
 export async function watchCollection(name, onChange) {
   await authReady;
   return onSnapshot(
-    collection(db, name),
+    collection(db, pathFor(name)),
     snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
     err => console.error(`watchCollection(${name}) failed:`, err),
   );
@@ -102,15 +111,15 @@ export async function watchCollection(name, onChange) {
 // One-off read of a collection. Returns an array of { id, ...data }.
 export async function getCollection(name) {
   await authReady;
-  const snap = await getDocs(collection(db, name));
+  const snap = await getDocs(collection(db, pathFor(name)));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 // Create or merge a document. The bakery field is always stamped server-side
-// of the client (rules also enforce bakery == 'main').
+// of the client (rules also enforce that it matches the restaurant folder).
 export async function saveDoc(name, id, data) {
   await authReady;
-  return setDoc(doc(db, name, id), withBakery(data), { merge: true });
+  return setDoc(doc(db, pathFor(name), id), withBakery(data), { merge: true });
 }
 
 // Overwrite a document WHOLE — no merge. saveDoc's { merge: true } deep-merges
@@ -119,7 +128,7 @@ export async function saveDoc(name, id, data) {
 // is wrong. Use saveDoc when you are patching, this when you are replacing.
 export async function replaceDoc(name, id, data) {
   await authReady;
-  return setDoc(doc(db, name, id), withBakery(data));
+  return setDoc(doc(db, pathFor(name), id), withBakery(data));
 }
 
 // Remove specific fields — including keys inside a map ('entries.<ingredientId>')
@@ -131,9 +140,9 @@ export async function replaceDoc(name, id, data) {
 // named keys, so concurrent edits elsewhere in the document survive.
 export async function clearFields(name, id, paths, patch = {}) {
   await authReady;
-  const update = { ...patch, bakery: BAKERY };
+  const update = { ...patch, bakery: currentBakery() };
   paths.forEach(path => { update[path] = deleteField(); });
-  return updateDoc(doc(db, name, id), update);
+  return updateDoc(doc(db, pathFor(name), id), update);
 }
 
 // Read-modify-write a single document atomically. `updater` receives the current
@@ -142,7 +151,7 @@ export async function clearFields(name, id, paths, patch = {}) {
 // add up correctly even if two people tap at once.
 export async function transactDoc(name, id, updater) {
   await authReady;
-  const ref = doc(db, name, id);
+  const ref = doc(db, pathFor(name), id);
   return runTransaction(db, async tx => {
     const snap = await tx.get(ref);
     const existing = snap.exists() ? { id: snap.id, ...snap.data() } : null;
@@ -156,7 +165,7 @@ export async function transactDoc(name, id, updater) {
 // Create a document with an auto-generated id. Returns the new id.
 export async function createDoc(name, data) {
   await authReady;
-  const ref = await addDoc(collection(db, name), withBakery(data));
+  const ref = await addDoc(collection(db, pathFor(name)), withBakery(data));
   return ref.id;
 }
 
@@ -164,13 +173,13 @@ export async function createDoc(name, data) {
 // and — since orders became correctable — orders-history.
 export async function removeDoc(name, id) {
   await authReady;
-  return deleteDoc(doc(db, name, id));
+  return deleteDoc(doc(db, pathFor(name), id));
 }
 
 // One-off read of a single document. Returns { id, ...data } or null.
 export async function getDocOnce(name, id) {
   await authReady;
-  const snap = await getDoc(doc(db, name, id));
+  const snap = await getDoc(doc(db, pathFor(name), id));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
@@ -179,7 +188,7 @@ export async function getDocOnce(name, id) {
 export async function watchDoc(name, id, onChange) {
   await authReady;
   return onSnapshot(
-    doc(db, name, id),
+    doc(db, pathFor(name), id),
     snap => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
     err => console.error(`watchDoc(${name}/${id}) failed:`, err),
   );
