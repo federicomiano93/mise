@@ -299,11 +299,99 @@ async function neighbours() {
   await expectDenied('config still refuses a delete', () => deleteWrite('config/calculator'));
 }
 
+// ── The restaurant tree ──────────────────────────────────────────────────────
+// The data moved from the top of the database into restaurants/{id}/… . The
+// validation rules there were ported from the flat ones, and "ported verbatim"
+// is exactly the kind of claim that has to be tested rather than trusted — so
+// the legacy shapes that broke merge writes are re-checked at the new address.
+//
+// The rule that is NEW: `bakery` must equal the folder the document sits in, so
+// the field and the path can never drift apart.
+async function restaurantTree() {
+  await wipe();
+  const A = 'restaurants/main';
+  const B = 'restaurants/trattoria-x';
+
+  await seedDoc(`${A}/suppliers/SUP_LEGACY`, FIXTURE.suppliers.SUP_LEGACY);
+  await seedDoc(`${A}/drafts/current`, FIXTURE.draft);
+  await seedDoc(`${A}/orders-history/2026-W28`, FIXTURE.history['2026-W28']);
+
+  // The legacy shapes must stay writable at the new address too.
+  await expectAllowed('tenant: Deactivate a pre-6-Jul supplier (retired field, no orderDays)',
+    () => mergeWrite(`${A}/suppliers/SUP_LEGACY`, { active: false, bakery: 'main' }));
+
+  await expectAllowed('tenant: draft autosave with the retired weekId still on the document',
+    () => mergeWrite(`${A}/drafts/current`, { entries: { ING: 3 }, bakery: 'main' }));
+
+  await expectAllowed('tenant: the legacy weekly history record stays editable',
+    () => wholeWrite(`${A}/orders-history/2026-W28`, {
+      bakery: 'main', weekStart: '2026-07-06', quantities: {}, stock: {},
+    }));
+
+  await expectAllowed('tenant: a normal daily order is recorded',
+    () => wholeWrite(`${A}/orders-history/2026-07-30_SUP`, {
+      bakery: 'main', date: '2026-07-30', supplierId: 'SUP', supplierName: 'S',
+      quantities: {}, stock: {}, createdAt: 'x', updatedAt: 'x',
+    }));
+
+  await expectAllowed('tenant: config/orders is written like any other config',
+    () => mergeWrite(`${A}/config/orders`, { bakery: 'main', showStock: false }));
+
+  await expectAllowed('tenant: a recipe is saved', () =>
+    wholeWrite(`${A}/recipes/r1`, { bakery: 'main', name: 'Focaccia', ingredients: [] }));
+
+  await expectAllowed('tenant: a production log is saved', () =>
+    wholeWrite(`${A}/logs/L1`, { bakery: 'main', dough: 'Focaccia', versions: [] }));
+
+  // The new rule: the stamp has to name the folder it is written into.
+  await expectDenied('tenant: a supplier stamped with ANOTHER restaurant id',
+    () => mergeWrite(`${A}/suppliers/SUP_X`, { bakery: 'trattoria-x', name: 'X' }));
+
+  await expectDenied('tenant: an order stamped with another restaurant id',
+    () => wholeWrite(`${A}/orders-history/2026-07-30_Y`, {
+      bakery: 'trattoria-x', date: '2026-07-30', supplierId: 'Y', supplierName: 'Y',
+      quantities: {}, stock: {}, createdAt: 'x', updatedAt: 'x',
+    }));
+
+  // Field validation is genuinely in force here, not just at the old address.
+  await expectDenied('tenant: an unknown field on a supplier',
+    () => mergeWrite(`${A}/suppliers/SUP_Y`, { bakery: 'main', name: 'Y', sneaky: 'x' }));
+
+  await expectDenied('tenant: a draft other than drafts/current',
+    () => mergeWrite(`${A}/drafts/other`, { bakery: 'main', entries: {} }));
+
+  await expectDenied('tenant: the order in progress can never be deleted',
+    () => deleteWrite(`${A}/drafts/current`));
+
+  // A second restaurant is a separate folder that behaves the same way.
+  await expectAllowed('tenant: a second restaurant writes its own supplier',
+    () => mergeWrite(`${B}/suppliers/S1`, { bakery: 'trattoria-x', name: 'Theirs' }));
+
+  check('the two restaurants are separate documents, not one shared one',
+    (await readDoc(`${A}/suppliers/SUP_LEGACY`)) !== null
+    && (await readDoc(`${B}/suppliers/SUP_LEGACY`)) === null);
+
+  // The restaurant's own document (its name and which sections it uses) decides
+  // what the app shows and who it belongs to: the console writes it, never a client.
+  await expectDenied('tenant: the restaurant document itself is not app-writable',
+    () => mergeWrite(A, { name: 'Renamed' }));
+
+  await expectDenied('tenant: nothing can be written outside the restaurant tree',
+    () => mergeWrite('nonsense/x', { a: 1 }));
+
+  // ⚠️ TRANSITION ONLY. The flat collections still accept writes so the live app
+  // keeps working until the release that moves it into the tree above. The next
+  // rules change freezes them to read-only — when it does, this expectation flips
+  // to expectDenied, and that flip is the proof the freeze actually happened.
+  await expectAllowed('transition: the old flat collections are still writable',
+    () => mergeWrite('suppliers/SUP_FLAT', { bakery: 'main', name: 'Old address' }));
+}
+
 // ── Run ──────────────────────────────────────────────────────────────────────
 await requireEmulators();
 TOKEN = await anonToken();
 
-for (const scenario of [suppliers, ingredients, drafts, history, neighbours]) {
+for (const scenario of [suppliers, ingredients, drafts, history, neighbours, restaurantTree]) {
   await scenario();
 }
 
