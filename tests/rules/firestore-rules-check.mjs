@@ -503,11 +503,12 @@ for (const scenario of [suppliers, ingredients, drafts, history, neighbours,
   await scenario();
 }
 
-// Leave the emulator holding realistic data, so driving the app by hand right after
-// a test run needs no extra step.
+// Leave the emulator holding a world the app can actually be DRIVEN in — data,
+// locations AND accounts. Restoring only the data would leave a database where
+// no account can sign in, which looks exactly like a broken login.
 await wipe();
-const { seedAll } = await import('./seed-emulator.mjs');
-await seedAll();
+const { seedDemoWorld } = await import('./seed-emulator.mjs');
+await seedDemoWorld();
 
 console.log(`\n${passed} checks passed, ${failures.length} failed.`);
 if (failures.length) {

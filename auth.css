@@ -174,4 +174,24 @@
 }
 
 .session-action:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
-.session-action--quiet { color: var(--text-3); }
+
+/* Bottom of the Home, after everything else. Quiet on purpose: no border, no
+   fill, third-level text — present for whoever needs it, invisible to whoever
+   does not. Still a full-height tap target, because "discreet" must not mean
+   "hard to hit". */
+.session-logout {
+  display: block;
+  margin: 28px auto 8px;
+  padding: 12px 16px;
+  min-height: 44px;
+  font: inherit;
+  font-size: .85rem;
+  background: none;
+  border: 0;
+  color: var(--text-3);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.session-logout:hover { color: var(--text-2); }
+.session-logout:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
