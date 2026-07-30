@@ -242,6 +242,24 @@ onAuthStateChanged(auth, user => {
                  options: [], sections: allowedSections(null) });
     return;
   }
+
+  // ⚠️ A LEFTOVER ANONYMOUS SESSION IS NOT A SIGNED-IN PERSON.
+  //
+  // Before this release the app signed itself in anonymously, and that session is
+  // still sitting in the browser's storage on every phone that has used the app.
+  // Treated as a sign-in it belongs to no account, so it resolves to no location
+  // and parks the phone on "No location yet" — WITHOUT ever showing the sign-in
+  // form, because as far as the app is concerned somebody is already in. Every
+  // existing phone would have hit that, and the way out is not discoverable.
+  //
+  // Nothing uses anonymous auth any more, so the only correct reading of one is
+  // "stale": drop it, which brings us back through here with no user and shows
+  // the form.
+  if (user.isAnonymous) {
+    signOut(auth).catch(err => console.error('Could not clear the old session:', err));
+    return;
+  }
+
   resolveMembership(user);
 });
 

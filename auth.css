@@ -113,6 +113,14 @@
 .auth-status--good { color: var(--brand); }
 .auth-status--busy { color: var(--text-2); }
 
+.auth-account {
+  margin: -8px 0 18px;
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  color: var(--text-3);
+  word-break: break-all;
+}
+
 .auth-choices { display: flex; flex-direction: column; gap: 10px; }
 
 .auth-choice {
