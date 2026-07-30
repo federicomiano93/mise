@@ -30,10 +30,13 @@ export function buildManagement(data, actions) {
   let listQuery = ''; // search text for the current list (Suppliers / Ingredients)
 
   const content = el('div', { class: 'mgmt-scroll' });
+  // Three tabs, not four: measured on a phone, the bar is already full at three (the
+  // longest label wants 81px and has 78). So the settings that are not a list live
+  // together under "General" instead of getting a tab each.
   const tabBar = el('nav', { class: 'tab-bar' }, [
     tabButton('Suppliers', 'suppliers'),
     tabButton('Ingredients', 'ingredients'),
-    tabButton('Alerts', 'notifications'),
+    tabButton('General', 'general'),
   ]);
 
   // The header button is a context-aware Back arrow (matches the app's drill-in
@@ -68,15 +71,48 @@ export function buildManagement(data, actions) {
     content.textContent = '';
     if (view.type === 'supplierForm') content.appendChild(supplierForm(view.item));
     else if (view.type === 'ingredientForm') content.appendChild(ingredientForm(view.item));
-    else if (tab === 'notifications') renderNotifications();
+    else if (tab === 'general') renderGeneral();
     else if (tab === 'suppliers') renderSupplierList();
     else renderIngredientList();
   }
 
-  function renderNotifications() {
+  // Everything that is a setting rather than a list: how the order screen looks, then
+  // the alerts.
+  function renderGeneral() {
+    content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Order screen' }));
+    content.appendChild(buildStockToggle());
+
+    content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Alerts' }));
     const box = el('div', { class: 'mgmt-notif' });
     content.appendChild(box);
     renderNotificationSettings(box);
+  }
+
+  // Show or hide the Stock box on every order row, for EVERY phone (it is stored in
+  // Firestore, not on this device). Applied on the tap, like the notification control
+  // above it — there is nothing to lose by getting it wrong, and one more tap undoes it.
+  function buildStockToggle() {
+    const cb = el('input', { type: 'checkbox' });
+    cb.checked = data.ordersConfig().showStock;
+
+    cb.addEventListener('change', async () => {
+      const wanted = cb.checked;
+      cb.disabled = true;
+      try {
+        await actions.saveOrdersConfig(wanted);
+      } catch (err) {
+        cb.checked = !wanted;          // put the box back to what is actually stored
+        await reportFailure('save', 'Show stock', err);
+      } finally {
+        cb.disabled = false;
+      }
+    });
+
+    return el('div', { class: 'mgmt-field' }, [
+      el('label', { class: 'mgmt-toggle' }, [cb, el('span', { text: 'Show the Stock box on order rows' })]),
+      el('p', { class: 'notif-note', text:
+        'Turn this off if you do not count what is left before ordering. Suggested quantities keep working: with no stock entered they become your usual order amount.' }),
+    ]);
   }
 
   // ── Lists ─────────────────────────────────────────────────────────────────

@@ -49,6 +49,10 @@ export const COLLECTIONS = {
   ingredients: 'ingredients',
   drafts: 'drafts',
   history: 'orders-history',
+  // Shared with the Calculator, which keeps config/calculator here. Orders uses
+  // config/orders. The rules match /config/{doc} generically, so this needed no
+  // change to firestore.rules.
+  config: 'config',
 };
 
 // Resolves once anonymous auth is ready. Firestore rules require

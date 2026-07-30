@@ -9,7 +9,7 @@
 // on, so an order left unmarked overnight is filed under the day it was written,
 // not under today.
 
-import { watchCollection, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
+import { watchCollection, watchDoc, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { mountSupplierList, refreshSupplierDerived } from './suppliers.js';
 import { buildSupplierDetail } from './supplier-detail.js';
@@ -34,6 +34,7 @@ import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
 import { todayOrders, pendingSuppliers } from './reminders.js';
 import { renderTodayOrders, renderPending } from './reminder-view.js';
 import { resolveSuppliers, orderSuppliers } from './no-supplier.js';
+import { normalizeOrdersConfig } from './orders-config.js';
 import { mountIngredientList } from './ingredient-list.js';
 import { orderSummary } from './ingredient-search.js';
 
@@ -57,6 +58,7 @@ const state = {
 
 let mgmt = null;                // open management panel handle, or null
 let pendingChecked = false;     // the unfinished-order check runs once per page load
+let ordersConfig = { showStock: true };   // config/orders, mirrored locally — see below
 let flatView = null;            // mounted flat-list handle, or null when not on screen
 let cardsView = null;           // mounted supplier-list handle, or null
 let detailView = null;          // the open supplier's screen, or null
@@ -89,6 +91,39 @@ const hooks = {
     placeOrder(supplierId);
   },
 };
+
+// ── Orders settings (config/orders) ───────────────────────────────────────────
+//
+// LOCAL-FIRST (P20). The cached copy is applied synchronously as the screen starts, so
+// a bakery that has turned Stock off never sees it flash into view and disappear again;
+// the Firestore listener then corrects it and keeps every phone in step. Same shape the
+// Calculator uses for config/calculator.
+const CONFIG_KEY = 'orders-config';
+
+function readCachedConfig() {
+  try {
+    return normalizeOrdersConfig(JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null'));
+  } catch {
+    return normalizeOrdersConfig(null);
+  }
+}
+
+function applyOrdersConfig(config) {
+  ordersConfig = config;
+  // A class on <body>, not a rebuild: the rows are built by one shared function used by
+  // three screens, and hiding a field is a matter of appearance, not of structure. It
+  // also means the stored stock values stay exactly where they are.
+  document.body.classList.toggle('hide-stock', !config.showStock);
+}
+
+function watchOrdersConfig() {
+  return watchDoc(COLLECTIONS.config, 'orders', doc => {
+    const config = normalizeOrdersConfig(doc);
+    try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch { /* private mode */ }
+    applyOrdersConfig(config);
+    mgmt?.refresh();
+  });
+}
 
 // ── The supplier lens ─────────────────────────────────────────────────────────
 //
@@ -869,9 +904,14 @@ function expandSupplier(supplierId) {
 function openManagement() {
   if (mgmt) return;
   mgmt = buildManagement(
-    { suppliers: () => state.suppliers, ingredients: () => state.ingredients },
+    {
+      suppliers: () => state.suppliers,
+      ingredients: () => state.ingredients,
+      ordersConfig: () => ordersConfig,
+    },
     {
       onClose: () => { mgmt.overlay.remove(); mgmt = null; },
+      saveOrdersConfig: showStock => saveDoc(COLLECTIONS.config, 'orders', { showStock }),
       saveSupplier: (id, payload) =>
         id ? saveDoc(COLLECTIONS.suppliers, id, payload) : createDoc(COLLECTIONS.suppliers, payload),
       saveIngredient: (id, payload) =>
@@ -948,6 +988,10 @@ function setupOfflineIndicator() {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
+  // Before anything is drawn: the cached setting decides whether the Stock box is on
+  // the rows at all, and applying it late would show a column then snatch it away.
+  applyOrdersConfig(readCachedConfig());
+
   setupTabs();
   setupViewSwitch();
   document.getElementById('orders-wa-btn')?.addEventListener('click', openSendScreen);
@@ -980,6 +1024,8 @@ async function init() {
   // Refresh the official UK bank-holiday calendar (cached for offline; used by
   // the alerts). Fire-and-forget — failure falls back to the cached list.
   refreshBankHolidays().then(list => { console.log(`Bank holidays loaded: ${list.length} dates`); showAlerts(); });
+
+  watchOrdersConfig();
 
   // Real-time draft: restores exact state on open and keeps staff in sync.
   watchDraft(draft => {

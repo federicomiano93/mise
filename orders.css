@@ -366,6 +366,13 @@
   margin: 0 0 8px 2px;
 }
 
+/* Hiding the Stock box (Settings → General). A class on <body> rather than a different
+   row: one shared function builds the rows for the flat list, a supplier's screen AND
+   the History editor, so this covers all three at once and the stored stock values are
+   left untouched — turning it back on brings them straight back.
+   With one field left, .ing-fields' space-between simply leaves Order on the left. */
+body.hide-stock .stock-field { display: none; }
+
 /* Order on the LEFT, Stock on the RIGHT, pushed to the two edges of the row; each
    column centres its label over its input. No +/- steppers (they overflowed on
    phones). The order unit (e.g. "casse") sits next to the Order box — a fixed
@@ -643,6 +650,32 @@ input.ing-stock {
 }
 .mgmt-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
 .mgmt-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 20px 12px; font-family: 'DM Mono', monospace; }
+
+/* Section heading inside the General tab, which holds more than one setting. */
+.mgmt-section-title {
+  margin: 4px 0 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.mgmt-section-title + * { margin-top: 0; }
+.mgmt-notif + .mgmt-section-title,
+.mgmt-field + .mgmt-section-title { margin-top: 20px; }
+
+/* A labelled on/off row. Icon-and-text alignment rule: this is a flex row, so the
+   box and its label sit on the same centre line instead of the text baseline. */
+.mgmt-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  color: var(--text);
+  cursor: pointer;
+}
+.mgmt-toggle input { flex-shrink: 0; width: 18px; height: 18px; accent-color: var(--accent); }
 
 .mgmt-add {
   width: 100%;
