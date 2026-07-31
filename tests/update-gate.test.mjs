@@ -125,3 +125,36 @@ test('storage being unavailable never blocks the app or throws', () => {
   assert.doesNotThrow(() => resetAttempts(broken));
   assert.equal(readAttempts(undefined), 0);
 });
+
+// ── The Calculator's own overlays (found by driving the app, 31 Jul 2026) ────
+//
+// Confirming a dough opens #day-modal ("Save this dough for: Today / Tomorrow").
+// The gate used to appear straight over it, throwing the confirmation away
+// half-done — and the same was true of Settings, the recipe editor and every log
+// screen. None of them is an .app-dialog: the Calculator has its own shell.
+
+test('the day chooser raised by Confirm counts as busy', () => {
+  assert.equal(isBusy(screenWith('[id$="-modal"].visible')), true);
+});
+
+test("the Calculator's overlays count as busy", () => {
+  assert.equal(isBusy(screenWith('[id$="-overlay"].visible')), true);
+});
+
+test('a tick-list waiting for a choice counts as busy', () => {
+  assert.equal(isBusy(screenWith('.preview-overlay')), true);
+});
+
+test('EVERY selector for a statically declared element demands .visible', () => {
+  // The trap this guards: the Calculator declares its sixteen overlays in the HTML
+  // and merely hides them, so they are in the document from page load. A selector
+  // matching them by id alone would make the app look permanently busy and the
+  // gate would never appear again — the exact opposite failure, and a silent one.
+  BUSY_SELECTORS
+    .filter(selector => selector.includes('[id'))
+    .forEach(selector => {
+      assert.ok(selector.includes('.visible'),
+        `${selector} matches elements that exist while hidden — it must require .visible`);
+    });
+  assert.ok(BUSY_SELECTORS.length >= 7, 'the Calculator selectors must not be dropped');
+});
