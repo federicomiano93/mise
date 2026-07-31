@@ -15,7 +15,9 @@
 
 import { el, groupBy } from './dom.js';
 import { dayLabel } from './day.js';
-import { groupHistoryByDay, isLegacyRecord, splitHistoryByAge, countRecords } from './archive.js';
+import {
+  groupHistoryByDay, isLegacyRecord, splitHistoryByAge, countRecords, recordedName,
+} from './archive.js';
 import { isNoSupplier } from './no-supplier.js';
 
 // Whether the operator has asked to see past the recent window. Kept for the life of
@@ -162,10 +164,10 @@ function cardActions(record, callbacks) {
 }
 
 // The rows of one record: "name weight … qty unit", by name.
-function itemRows(quantities, ingById) {
+function itemRows(quantities, ingById, names) {
   return Object.keys(quantities || {})
     .map(id => ({
-      name: [ingById[id]?.name || id, ingById[id]?.weight].filter(Boolean).join(' '),
+      name: recordedName(id, ingById, names),
       unit: ingById[id]?.unit || '',
       qty: quantities[id],
     }))
@@ -179,7 +181,7 @@ function itemRows(quantities, ingById) {
 // One order: one supplier, one day.
 function buildOrderCard(record, ingById, callbacks) {
   const count = Object.keys(record.quantities || {}).length;
-  const rows = itemRows(record.quantities, ingById);
+  const rows = itemRows(record.quantities, ingById, record.names);
 
   const body = el('div', { class: 'history-body' }, [
     ...(rows.length ? rows : [el('p', { class: 'history-empty', text: 'No items recorded.' })]),
@@ -201,7 +203,7 @@ function buildLegacyCard(record, supById, ingById, callbacks) {
   const bySupplier = groupBy(
     Object.keys(quantities).map(id => ({
       supplierId: ingById[id]?.supplierId || 'unknown',
-      name: [ingById[id]?.name || id, ingById[id]?.weight].filter(Boolean).join(' '),
+      name: recordedName(id, ingById, record.names),
       unit: ingById[id]?.unit || '',
       qty: quantities[id],
     })),

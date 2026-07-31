@@ -304,10 +304,31 @@ async function history() {
   await expectDenied('a date written the British way',
     () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN', { ...modern, date: '24/07/2026' }));
 
+  // ── names: the labels frozen into the record ───────────────────────────────
+  //
+  // Rules reach every phone the instant they deploy; code arrives per device. So the
+  // field has to be OPTIONAL in both directions at once: a phone on the new version
+  // writes it, a phone still on the old one does not, and both must be able to record
+  // an order for as long as the rollout takes.
+  await expectAllowed('an order carrying the names it was placed under',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, names: { ING_MODERN: 'Bacon 2.27kg' } }));
+  await expectAllowed('an order from a phone that has not updated yet (no names)',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN', modern));
+  await expectDenied('names sent as a list instead of a map',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, names: ['Bacon'] }));
+  await expectDenied('names sent as a string',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, names: 'Bacon' }));
+
   // The two allow statements must not OR into a hole: a weekly-shaped payload has to
   // stay out of the daily ids.
   await expectDenied('a legacy-shaped payload smuggled under a current-model id',
     () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN', legacyPayload));
+  await expectDenied('names smuggled onto a legacy weekly record',
+    () => wholeWrite('locations/main/orders-history/2026-W28',
+      { ...legacyPayload, names: { ING_LEGACY: 'Type 00 Flour' } }));
 
   await expectAllowed('delete a recorded order',
     () => deleteWrite('locations/main/orders-history/2026-07-24_SUP_MODERN'));

@@ -97,9 +97,23 @@ test('items are sorted by their displayed label, not by id', () => {
   assert.deepEqual(items.map(i => i.name), ['Bacon', 'Loose apples', 'Mozzarella']);
 });
 
-test('an ingredient deleted since the order falls back to its id, never vanishes', () => {
+test('an ingredient deleted since the order keeps the name it was ordered under', () => {
+  // The record froze the label when the order was placed, so re-sending it still
+  // tells the supplier what to bring.
+  const items = itemsFromQuantities({ gone: 3 }, indexById(ingredients), { gone: 'Ricotta 1.5kg' });
+  assert.deepEqual(items, [{ name: 'Ricotta 1.5kg', weight: '', qty: 3 }]);
+});
+
+test('an order recorded before names were kept says so, never sends a raw id', () => {
+  // Every record written before this feature has no `names`. "gone: 3" in a WhatsApp
+  // message is worse than useless to a supplier — it looks like a product code.
   const items = itemsFromQuantities({ gone: 3 }, indexById(ingredients));
-  assert.deepEqual(items, [{ name: 'gone', weight: '', qty: 3 }]);
+  assert.deepEqual(items, [{ name: 'Deleted ingredient', weight: '', qty: 3 }]);
+});
+
+test('a live ingredient always wins over the frozen name — a rename shows through', () => {
+  const items = itemsFromQuantities({ i1: 2 }, indexById(ingredients), { i1: 'Old name' });
+  assert.deepEqual(items, [{ name: 'Bacon', weight: '2.27kg', qty: 2 }]);
 });
 
 test('zero and junk quantities are dropped, never sent to a supplier', () => {

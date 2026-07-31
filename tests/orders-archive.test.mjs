@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import {
   historyDocId, isLegacyRecord, recordDate, ingredientsOf, supplierHasItems,
   buildSupplierArchive, mergeArchives, groupHistoryByDay, splitHistoryByAge, countRecords,
+  recordedName, ingredientLabel,
 } from '../js/orders/archive.js';
 
 const SALVO = { id: 'salvo', name: 'Salvo' };
@@ -266,4 +267,60 @@ test('the button counts ORDERS, not days', () => {
   assert.equal(countRecords([]), 0);
   assert.equal(countRecords(null), 0);
   assert.equal(countRecords([{ date: '2026-07-01' }]), 0);
+});
+
+// ── Names frozen into the record ─────────────────────────────────────────────
+//
+// Before this, a past order resolved its item names from the CURRENT ingredient
+// list, so deleting an ingredient turned its own order into a row of raw document
+// ids — and History exists to answer "what did I order", which an id cannot.
+
+test('an order records what each item was called that day', () => {
+  const ingredients = [{ id: 'flour', name: 'Flour uniqua blue', weight: '25kg', supplierId: 'salvo' }];
+  const record = buildSupplierArchive({
+    supplier: SALVO, ingredients,
+    entries: { flour: { qty: 4, stock: 1 } },
+    date: '2026-07-13', now: NOW,
+  });
+  assert.deepEqual(record.names, { flour: 'Flour uniqua blue 25kg' });
+});
+
+test('only ORDERED items are named — the same rows quantities holds', () => {
+  const record = buildSupplierArchive({
+    supplier: SALVO, ingredients: INGREDIENTS,
+    entries: { flour: { qty: 4, stock: 1 }, semola: { qty: 0, stock: 9 } },
+    date: '2026-07-13', now: NOW,
+  });
+  assert.deepEqual(Object.keys(record.names), Object.keys(record.quantities));
+});
+
+test('a second order the same day ADDS names instead of replacing them', () => {
+  // The forgotten-items write only names what IT adds; replacing would strip the
+  // names off the rows placed earlier in the day.
+  const existing = { quantities: { flour: 4 }, stock: {}, names: { flour: 'Flour 25kg' } };
+  const incoming = { quantities: { semola: 2 }, stock: {}, names: { semola: 'Semola 5kg' } };
+  assert.deepEqual(mergeArchives(existing, incoming).names,
+    { flour: 'Flour 25kg', semola: 'Semola 5kg' });
+});
+
+test('a phone on the old version sending no names cannot erase the stored ones', () => {
+  const existing = { quantities: { flour: 4 }, stock: {}, names: { flour: 'Flour 25kg' } };
+  const incoming = { quantities: { flour: 1 }, stock: {} };   // pre-update phone
+  assert.deepEqual(mergeArchives(existing, incoming).names, { flour: 'Flour 25kg' });
+});
+
+test('the live ingredient wins, then the frozen name, then an honest placeholder', () => {
+  const byId = { flour: { id: 'flour', name: 'Flour uniqua blue', weight: '25kg' } };
+  assert.equal(recordedName('flour', byId, { flour: 'Old label' }), 'Flour uniqua blue 25kg');
+  assert.equal(recordedName('gone', byId, { gone: 'Ricotta 1.5kg' }), 'Ricotta 1.5kg');
+  assert.equal(recordedName('gone', byId, {}), 'Deleted ingredient');
+  assert.equal(recordedName('gone', byId, undefined), 'Deleted ingredient');
+  assert.equal(recordedName('gone', byId, { gone: '   ' }), 'Deleted ingredient');
+  assert.equal(recordedName('gone', byId, { gone: 42 }), 'Deleted ingredient');
+});
+
+test('ingredientLabel joins name and weight, and copes with either missing', () => {
+  assert.equal(ingredientLabel({ name: 'Bacon', weight: '2.27kg' }), 'Bacon 2.27kg');
+  assert.equal(ingredientLabel({ name: 'Loose apples' }), 'Loose apples');
+  assert.equal(ingredientLabel(undefined), '');
 });

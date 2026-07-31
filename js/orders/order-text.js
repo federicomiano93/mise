@@ -113,17 +113,26 @@ export function buildOrderMessage(groups, { grouped = true, locationName = '' } 
 // the CURRENT ingredient list — the same lens history.js uses on screen, so what the
 // supplier reads matches what the operator sees.
 //
-// An ingredient deleted since the order was placed falls back to its id rather than
-// vanishing from its own order: a short line of nonsense is recoverable, a silently
-// missing line is not. Rows with a quantity of 0 are dropped — there is no such thing
-// as ordering none of something.
-export function itemsFromQuantities(quantities, ingredientsById) {
+// An ingredient deleted since the order was placed falls back to the name FROZEN into
+// the record (`names`), and only then to a placeholder — never to its document id,
+// which would send a supplier a line like "Fdx92kQ1: 4". It never vanishes from its
+// own order either: a wrong-looking line is recoverable, a silently missing one is
+// not. Rows with a quantity of 0 are dropped — there is no such thing as ordering
+// none of something.
+//
+// Same order of preference as recordedName (archive.js); name and weight stay
+// SEPARATE fields here because the message composes them itself, and a frozen name
+// already carries its weight.
+export function itemsFromQuantities(quantities, ingredientsById, names) {
   return Object.keys(quantities || {})
-    .map(id => ({
-      name: ingredientsById?.[id]?.name || id,
-      weight: ingredientsById?.[id]?.weight || '',
-      qty: num(quantities[id]),
-    }))
+    .map(id => {
+      const live = ingredientsById?.[id];
+      return {
+        name: live?.name || names?.[id] || 'Deleted ingredient',
+        weight: (live && live.weight) || '',
+        qty: num(quantities[id]),
+      };
+    })
     .filter(it => it.qty > 0)
     .sort((a, b) => itemLabel(a.name, a.weight).localeCompare(itemLabel(b.name, b.weight)));
 }
