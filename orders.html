@@ -111,6 +111,11 @@
     </div>
     <div id="suppliers-list"></div>
     <button class="btn-primary" id="place-all-btn" type="button" hidden>Order placed…</button>
+    <!-- Start the order again. Shows from ONE supplier up, unlike the button above:
+         in the flat list there are no per-supplier cards, so without it a single
+         supplier could not be cleared at all. Quiet by design (P20) — it throws
+         work away and must never compete with the green button. -->
+    <button class="clear-all-btn" id="clear-all-btn" type="button" hidden>Clear quantities…</button>
   </section>
 
   <!-- HISTORY -->

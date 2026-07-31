@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import {
   historyDocId, isLegacyRecord, recordDate, ingredientsOf, supplierHasItems,
   buildSupplierArchive, mergeArchives, groupHistoryByDay, splitHistoryByAge, countRecords,
+  quantityPathsFor,
   recordedName, ingredientLabel,
 } from '../js/orders/archive.js';
 
@@ -323,4 +324,58 @@ test('ingredientLabel joins name and weight, and copes with either missing', () 
   assert.equal(ingredientLabel({ name: 'Bacon', weight: '2.27kg' }), 'Bacon 2.27kg');
   assert.equal(ingredientLabel({ name: 'Loose apples' }), 'Loose apples');
   assert.equal(ingredientLabel(undefined), '');
+});
+
+// ── Clearing what has been typed, without recording an order ─────────────────
+//
+// Two promises are made to the operator on the confirmation, and both live or die
+// here:
+//   * the STOCK readings stay — counting the shelves is work already done;
+//   * nothing recorded is touched — this builds draft paths only, and there is a
+//     test below that says so in as many words.
+
+test('clearing takes the quantity and leaves the stock reading', () => {
+  const paths = quantityPathsFor(['salvo'], INGREDIENTS);
+  assert.ok(paths.includes('entries.flour.qty'));
+  assert.ok(!paths.includes('entries.flour'), 'the whole row must not be removed');
+  assert.ok(!paths.some(p => p.endsWith('.stock')), 'no stock reading may be cleared');
+});
+
+test('the day stamp goes with the quantities', () => {
+  // With nothing left to order, "these rows were typed on Monday" describes nothing.
+  assert.ok(quantityPathsFor(['salvo'], INGREDIENTS).includes('days.salvo'));
+});
+
+test('a deactivated product is cleared too', () => {
+  // Invisible on screen but still in the document: skipping it would leave a
+  // quantity nobody can see or remove.
+  assert.ok(quantityPathsFor(['salvo'], INGREDIENTS).includes('entries.oldbag.qty'));
+});
+
+test('only the chosen suppliers are touched', () => {
+  const paths = quantityPathsFor(['salvo'], INGREDIENTS);
+  assert.ok(!paths.some(p => p.includes('nutella')), "Bako's row must survive");
+  assert.ok(!paths.includes('days.bako'));
+});
+
+test('several suppliers come back as ONE list, for one write', () => {
+  const paths = quantityPathsFor(['salvo', 'bako'], INGREDIENTS);
+  assert.ok(paths.includes('entries.flour.qty'));
+  assert.ok(paths.includes('entries.nutella.qty'));
+  assert.ok(paths.includes('days.salvo'));
+  assert.ok(paths.includes('days.bako'));
+});
+
+test('NOTHING in the list can reach the order history', () => {
+  // The guarantee Federico asked for, pinned: every path is inside the draft.
+  const paths = quantityPathsFor(['salvo', 'bako'], INGREDIENTS);
+  paths.forEach(p => {
+    assert.ok(/^(entries|days)\./.test(p), `unexpected path: ${p}`);
+  });
+});
+
+test('nothing to clear produces nothing', () => {
+  assert.deepEqual(quantityPathsFor([], INGREDIENTS), []);
+  assert.deepEqual(quantityPathsFor(null, INGREDIENTS), []);
+  assert.deepEqual(quantityPathsFor(['salvo'], []), ['days.salvo']);
 });
