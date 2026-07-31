@@ -33,6 +33,8 @@ import {
   deleteField,
   onSnapshot,
   runTransaction,
+  query,
+  where,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Reuse the default app if firebase.js already created it; otherwise create it.
@@ -100,6 +102,26 @@ export async function watchCollection(name, onChange) {
 export async function getCollection(name) {
   await authReady;
   const snap = await getDocs(collection(db, pathFor(name)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// The orders recorded on ONE day. Used by the Home screen, which only needs to know
+// what has already been placed today.
+//
+// Deliberately a WHERE query rather than getCollection('orders-history'): the Home is
+// opened many times a day on every phone, and reading the whole archive there would
+// bill for the entire order history each time — a cost that grows for ever while the
+// answer needed is always one day wide (P14). An equality filter on a single field
+// needs no composite index, so this works with no console setup.
+//
+// The legacy weekly record carries `weekStart` instead of `date` and therefore never
+// matches. That is correct here: it is from July 2026 and can never be "placed today".
+export async function getHistoryForDay(date) {
+  await authReady;
+  const snap = await getDocs(query(
+    collection(db, pathFor(COLLECTIONS.history)),
+    where('date', '==', date),
+  ));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 

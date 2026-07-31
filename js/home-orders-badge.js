@@ -6,17 +6,19 @@
 //      then stays hidden for the rest of that day (no nagging on every app open),
 //      plus the matching browser notification, also once a day.
 //
-// Best-effort and lightweight: ONE small suppliers read on Home load, then the
-// pure computeAlerts (reused from the Orders feature) runs against the cached
-// bank-holiday list. Nothing shows offline or on any error.
+// Best-effort and lightweight: on Home load, the suppliers plus TODAY's orders only
+// (a one-day query, never the whole archive — see getHistoryForDay), then the pure
+// computeAlerts (reused from the Orders feature) runs against the cached bank-holiday
+// list. Nothing shows offline or on any error.
 //
 // Home is the shared landing screen — the ONE sanctioned place a feature signal
 // may surface outside its own folder (see the modularity note in the project docs).
 // It reuses the Orders data layer + pure alert engine, so there is no duplicated
 // logic to drift out of sync.
 
-import { getCollection } from './orders/firebase-orders.js';
+import { getCollection, getHistoryForDay } from './orders/firebase-orders.js';
 import { computeAlerts, maybeNotify, isReminderDue } from './orders/notifications.js';
+import { suppliersStillToOrder } from './orders/reminders.js';
 import { onSession } from './firebase.js';
 import { isSectionAllowed } from './sections.js';
 
@@ -32,10 +34,22 @@ function todayISO() {
 
 async function showOrdersHome() {
   try {
-    const suppliers = await getCollection('suppliers');
+    const today = todayISO();
+    const [suppliers, todayHistory] = await Promise.all([
+      getCollection('suppliers'),
+      getHistoryForDay(today),
+    ]);
+
+    // Count what is STILL to order, not what the calendar says is due. The badge used
+    // to say "3" all day even after all three orders had gone out, so the one number
+    // on the Home screen contradicted the Orders screen, which ticks them off — and a
+    // reminder that stays lit after you have done the job is a reminder people learn
+    // to ignore.
+    const stillToOrder = suppliersStillToOrder(suppliers, todayHistory, today);
+
     // Only the primary "place the order" alert drives the Home — holiday/conflict
     // notices are informational and stay on the Orders page.
-    const orderAlert = computeAlerts(suppliers).find(a => a.kind === 'order');
+    const orderAlert = computeAlerts(stillToOrder).find(a => a.kind === 'order');
     if (!orderAlert) return;
 
     paintBadge(orderAlert.items.length);   // persistent count on the card
