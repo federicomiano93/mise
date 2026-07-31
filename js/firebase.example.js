@@ -51,7 +51,7 @@ import {
   locationDocPath,
 } from './location.js';
 import { allowedSections, pickLocation, locationsOf } from './sections.js';
-import { clearLocalData } from './local-data.js';
+import { clearLocalData, shouldClearLocalData } from './local-data.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -190,6 +190,18 @@ async function readLocationNames(ids) {
 // Open a location: fix the path first, then read the location's own document
 // for its name and which sections it uses.
 async function enterLocation(locationId, options, user) {
+  // ⚠️ BEFORE ANYTHING READS ANYTHING. Signing out and switching location both wipe
+  // this device's cached copies, but a phone can reach the sign-in form without
+  // passing through either — an expired or revoked session, or the leftover
+  // anonymous session this file discards on sight. Whoever signs in next would open
+  // their own location with the PREVIOUS one's recipes, settings and typed
+  // quantities on screen until the network replaced them, and offline they would
+  // stay. Asking again here is the only place that catches those.
+  //
+  // It must come before rememberLocation() below, which is what the answer is
+  // compared against — after it, the check would compare the value with itself.
+  if (shouldClearLocalData(readRememberedLocation(), locationId)) clearLocalData();
+
   setCurrentLocationId(locationId);
   let location = null;
   try {

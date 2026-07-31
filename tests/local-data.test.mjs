@@ -8,7 +8,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { KEEP_PREFIXES, keysToClear, clearLocalData } from '../js/local-data.js';
+import {
+  KEEP_PREFIXES, keysToClear, clearLocalData, shouldClearLocalData,
+} from '../js/local-data.js';
 
 const LOCATION_DATA = [
   'calculator-config',
@@ -77,4 +79,54 @@ test('storage being unavailable is survivable, not a crash', () => {
   Object.defineProperty(hostile, 'anything', { get() { throw new Error('blocked'); } });
   assert.equal(clearLocalData(null), 0);
   assert.doesNotThrow(() => clearLocalData(hostile));
+});
+
+// ── Clearing on the way IN, not only on the way out ──────────────────────────
+//
+// Signing out and switching location both wipe the cache, but a phone can reach the
+// sign-in form without passing through either: a session that expires or is revoked,
+// and the leftover anonymous session the app discards on sight. Whoever signs in next
+// would open their own location with the previous one's data on screen. This is the
+// check that catches those — and the one that must NOT fire when nothing changed.
+
+test('opening a DIFFERENT location clears this device first', () => {
+  assert.equal(shouldClearLocalData('bakery', 'restaurant'), true);
+  assert.equal(shouldClearLocalData('restaurant', 'bakery'), true);
+});
+
+test('opening the SAME location keeps the cache', () => {
+  // The cache belongs to the LOCATION, not to the person. Two people from the same
+  // venue sharing a phone must find the app ready, not emptied — and clearing here
+  // would slow every single sign-in for no gain.
+  assert.equal(shouldClearLocalData('bakery', 'bakery'), false);
+});
+
+test('nothing remembered clears: a fresh install, or a phone from the pre-login app', () => {
+  // The old single-venue app never wrote this key, so `null` is exactly the phone
+  // whose cache could otherwise leak into a venue it never belonged to.
+  assert.equal(shouldClearLocalData(null, 'restaurant'), true);
+  assert.equal(shouldClearLocalData(undefined, 'bakery'), true);
+  assert.equal(shouldClearLocalData('', 'bakery'), true);
+});
+
+test('nothing being opened decides nothing', () => {
+  // Guard against a caller with no location: clearing on a non-event would wipe a
+  // working phone for free.
+  assert.equal(shouldClearLocalData('bakery', null), false);
+  assert.equal(shouldClearLocalData('bakery', undefined), false);
+  assert.equal(shouldClearLocalData('bakery', ''), false);
+  assert.equal(shouldClearLocalData(null, null), false);
+});
+
+test('the wipe that follows never touches the sign-in itself', () => {
+  // Belt and braces with the KEEP_PREFIXES tests above: if entering a location
+  // cleared Firebase's own storage, the sign-in that just happened would be undone.
+  const storage = {
+    'firebase:authUser:abc': 'session',
+    'firebaseLocalStorageDb': 'session',
+    'active-location': 'restaurant',
+    'calculator-config': '{}',
+  };
+  const gone = keysToClear(Object.keys(storage));
+  assert.deepEqual(gone, ['calculator-config']);
 });

@@ -30,6 +30,30 @@ export function keysToClear(allKeys, keepPrefixes = KEEP_PREFIXES) {
     typeof key === 'string' && !keepPrefixes.some(prefix => key.startsWith(prefix)));
 }
 
+// Does OPENING a location have to wipe this device's cache first?
+//
+// Clearing on the way OUT (sign out, switch location) is not enough on its own: a
+// phone can reach the sign-in form without ever passing through those. A session
+// that expires or is revoked, and the leftover ANONYMOUS session that firebase.js
+// discards by itself, both land on the form with the previous location's recipes,
+// settings and typed quantities still in storage. Whoever signs in next would see
+// them until the network replaced them — and offline they would simply stay.
+//
+// So the question is asked again on the way IN, where it can be answered from the
+// only fact that matters: is the location being opened the one this cache belongs to?
+//
+// SAME location → KEEP. The cache belongs to the LOCATION, not to the person: two
+// people from the same venue sharing a phone must find the app ready, not emptied.
+// Nothing is gained by clearing there, and instant start-up is lost.
+//
+// Nothing remembered (a fresh install, or a phone coming from the pre-login app that
+// never wrote this key) → CLEAR. Harmless when storage is empty, and it is exactly
+// the case where an old single-venue cache could otherwise leak into a new venue.
+export function shouldClearLocalData(remembered, opening) {
+  if (!opening) return false;         // nothing is being opened; nothing to decide
+  return remembered !== opening;
+}
+
 // Apply it to real storage. Returns how many keys were removed.
 export function clearLocalData(storage = globalThis.localStorage) {
   if (!storage) return 0;
