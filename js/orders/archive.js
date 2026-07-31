@@ -10,6 +10,8 @@
 // merged) stay readable by both the history view and the suggestion engine, so
 // nothing had to be migrated.
 
+import { toISODate, addDays, isBefore } from './day.js';
+
 const num = v => Math.max(0, Math.round(Number(v) || 0));
 
 export function historyDocId(date, supplierId) {
@@ -97,6 +99,40 @@ export function mergeArchives(existing, incoming) {
     createdAt: existing.createdAt || incoming.createdAt,
     updatedAt: incoming.updatedAt,
   };
+}
+
+// Split day sections (the output of groupHistoryByDay) into the ones History shows
+// straight away and the ones parked behind "Show older orders".
+//
+// This HIDES, it never deletes: `older` is returned, not dropped, and the suggestion
+// engine reads the raw records rather than this split — so narrowing the window can
+// never change a suggested quantity. That separation is the whole safety of the
+// feature: an ingredient ordered weekly needs 4 past orders before suggestions turn
+// on (suggestions.js), which a 15-day window would never accumulate.
+//
+// The window INCLUDES today: 15 days means today and the 14 before it. The boundary
+// is computed once with addDays (DST-safe — see day.js), and the per-record test is a
+// string compare on "YYYY-MM-DD", which is exact.
+//
+// An unusable window shows EVERYTHING rather than nothing: normalizeOrdersConfig has
+// already applied the default, so anything wrong reaching here means the assumption
+// failed somewhere, and the safe failure is a long list, never an empty one.
+export function splitHistoryByAge(days, historyDays, now = new Date()) {
+  const list = days || [];
+  const window = Math.floor(Number(historyDays));
+  if (!Number.isFinite(window) || window < 1) return { recent: list, older: [] };
+
+  const cutoff = toISODate(addDays(now, -(window - 1)));
+  return {
+    recent: list.filter(d => !isBefore(d.date, cutoff)),
+    older: list.filter(d => isBefore(d.date, cutoff)),
+  };
+}
+
+// How many ORDERS sit in a set of day sections — what "Show older orders (N)" counts.
+// Days are the sections; the operator thinks in orders.
+export function countRecords(days) {
+  return (days || []).reduce((total, d) => total + (d.records?.length || 0), 0);
 }
 
 // Group history records into day sections, most recent day first, and within a

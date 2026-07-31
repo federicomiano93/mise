@@ -81,6 +81,7 @@ export function buildManagement(data, actions) {
   function renderGeneral() {
     content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Order screen' }));
     content.appendChild(buildStockToggle());
+    content.appendChild(buildHistoryDaysField());
 
     content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Alerts' }));
     const box = el('div', { class: 'mgmt-notif' });
@@ -99,7 +100,7 @@ export function buildManagement(data, actions) {
       const wanted = cb.checked;
       cb.disabled = true;
       try {
-        await actions.saveOrdersConfig(wanted);
+        await actions.saveOrdersConfig({ showStock: wanted });
       } catch (err) {
         cb.checked = !wanted;          // put the box back to what is actually stored
         await reportFailure('save', 'Show stock', err);
@@ -112,6 +113,52 @@ export function buildManagement(data, actions) {
       el('label', { class: 'mgmt-toggle' }, [cb, el('span', { text: 'Show the Stock box on order rows' })]),
       el('p', { class: 'notif-note', text:
         'Turn this off if you do not count what is left before ordering. Suggested quantities keep working: with no stock entered they become your usual order amount.' }),
+    ]);
+  }
+
+  // How far back the History tab reaches before asking. The app is mostly used by
+  // kitchen staff, who need this week's orders rather than last month's — but this
+  // HIDES and never deletes, which is why the note under it says so out loud.
+  //
+  // Saved on `change` (blur or Enter), not on every keystroke: typing "20" passes
+  // through "2", and saving that would push a 2-day window onto every phone in the
+  // bakery for as long as it takes to type the second digit.
+  function buildHistoryDaysField() {
+    const input = el('input', {
+      type: 'number', min: '1', max: '365', inputmode: 'numeric',
+      class: 'mgmt-input', id: 'history-days-input',
+    });
+    input.value = String(data.ordersConfig().historyDays);
+
+    input.addEventListener('change', async () => {
+      const stored = data.ordersConfig().historyDays;
+      const wanted = Math.floor(Number(input.value));
+      // Refuse rather than store: an empty box or a 0 would render an EMPTY History,
+      // which reads as "the orders have been deleted" — the one impression this
+      // feature must never give.
+      if (!Number.isFinite(wanted) || wanted < 1 || wanted > 365) {
+        input.value = String(stored);
+        return;
+      }
+      if (wanted === stored) return;
+
+      input.disabled = true;
+      try {
+        await actions.saveOrdersConfig({ historyDays: wanted });
+      } catch (err) {
+        input.value = String(stored);   // put the box back to what is actually stored
+        await reportFailure('save', 'Days of history', err);
+      } finally {
+        input.disabled = false;
+      }
+    });
+
+    return el('div', { class: 'mgmt-field' }, [
+      el('label', { class: 'mgmt-field-label', for: 'history-days-input',
+        text: 'Days of past orders shown in History' }),
+      el('div', { class: 'mgmt-days-row' }, [input, el('span', { text: 'days' })]),
+      el('p', { class: 'notif-note', text:
+        'Older orders are never deleted — they stay one tap away under "Show older orders", and suggested quantities keep learning from all of them.' }),
     ]);
   }
 

@@ -15,8 +15,20 @@
 
 import { el, groupBy } from './dom.js';
 import { dayLabel } from './day.js';
-import { groupHistoryByDay, isLegacyRecord } from './archive.js';
+import { groupHistoryByDay, isLegacyRecord, splitHistoryByAge, countRecords } from './archive.js';
 import { isNoSupplier } from './no-supplier.js';
+
+// Whether the operator has asked to see past the recent window. Kept for the life of
+// the page on purpose: this view is repainted on EVERY Firestore snapshot, so without
+// it another phone recording an order would silently fold the old orders away again
+// under the finger of whoever was reading them.
+let showingOlder = false;
+
+// The window the list was last painted with. Changing the setting is a deliberate
+// statement about how much to show, so it must WIN over an earlier "show me
+// everything" — otherwise Settings appears to do nothing until the app is reloaded,
+// which is precisely what someone adjusting the number is watching for.
+let lastWindow = null;
 
 const PENCIL_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
@@ -40,7 +52,8 @@ function supplierHeading(supplierId, supById) {
 }
 
 // callbacks: { onEdit(record), onSend(record), onSendDay(date, records) }
-export function renderHistory(container, history, suppliers, ingredients, callbacks = {}) {
+// options:   { historyDays, now } — how many days to show at a glance, see archive.js
+export function renderHistory(container, history, suppliers, ingredients, callbacks = {}, options = {}) {
   if (!container) return;
   container.textContent = '';
 
@@ -54,14 +67,52 @@ export function renderHistory(container, history, suppliers, ingredients, callba
   const supById = indexById(suppliers);
   const ingById = indexById(ingredients);
 
-  days.forEach(({ date, records }) => {
+  const appendDay = ({ date, records }) => {
     container.appendChild(dayHeader(date, records, callbacks));
     records.forEach(record => container.appendChild(
       isLegacyRecord(record)
         ? buildLegacyCard(record, supById, ingById, callbacks)
         : buildOrderCard(record, ingById, callbacks),
     ));
-  });
+  };
+
+  if (options.historyDays !== lastWindow) {
+    lastWindow = options.historyDays;
+    showingOlder = false;
+  }
+
+  const { recent, older } = splitHistoryByAge(days, options.historyDays, options.now);
+
+  (showingOlder ? days : recent).forEach(appendDay);
+
+  if (!older.length || showingOlder) return;
+
+  // The note and the button live in ONE element so revealing the old orders takes the
+  // note with it. Left behind, "No orders in the last day" would sit above the orders
+  // it just said were not there.
+  const foot = el('div', { class: 'history-older' });
+  // Nothing recent but plenty older: say so, or the screen reads as "the orders are
+  // gone" with a lone button under it.
+  if (!recent.length) {
+    foot.appendChild(el('p', { class: 'history-empty', text:
+      `No orders in the last ${dayCount(options.historyDays)}.` }));
+  }
+  foot.appendChild(olderButton(older, appendDay, foot));
+  container.appendChild(foot);
+}
+
+// Reveal the orders older than the window. They are already in memory — the whole
+// collection is read when the app opens — so this fetches nothing and cannot fail.
+function olderButton(older, appendDay, foot) {
+  return el('button', {
+    type: 'button',
+    class: 'history-older-btn',
+    onClick: () => {
+      showingOlder = true;
+      foot.remove();
+      older.forEach(appendDay);
+    },
+  }, [`Show older orders (${countRecords(older)})`]);
 }
 
 // The day heading, with a "Send all" beside it once there is more than one order to
@@ -182,6 +233,12 @@ function buildLegacyCard(record, supById, ingById, callbacks) {
 
 function itemsLabel(count) {
   return `${count} item${count === 1 ? '' : 's'}`;
+}
+
+// "1 day" / "15 days" — a window of one is a legal setting, and "the last 1 days"
+// reads like a bug to the person who typed it.
+function dayCount(days) {
+  return `${days} day${days === 1 ? '' : 's'}`;
 }
 
 function collapsibleHead(title, meta, body) {

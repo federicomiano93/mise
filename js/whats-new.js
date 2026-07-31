@@ -18,6 +18,15 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-07-31-history-window',
+    title: 'Orders',
+    points: [
+      'History opens on the last 15 days, so this week\'s orders are the ones on screen.',
+      'Nothing has been deleted: tap "Show older orders" at the bottom of the list.',
+      'Change how far back it opens in Settings → General.',
+    ],
+  },
+  {
     id: '2026-07-30-sign-in',
     title: 'Sign in',
     points: [
