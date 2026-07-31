@@ -8,18 +8,42 @@
 // was phones stuck on stale versions with no way to know (the recurring
 // "I see the app, they don't see my changes" bug).
 //
-// The flow now follows the standard PWA update-prompt pattern:
+// The flow follows the standard PWA update-prompt pattern:
 //   1. A new sw.js installs in the background and WAITS (no self-activation).
-//   2. This module detects the waiting worker and shows a banner.
+//   2. This module detects the waiting worker and says so.
 //   3. The user taps → we message the worker to take over → one reload → fresh.
-// The page is never reloaded under the user's fingers without a tap (P20:
-// never lose in-progress work).
+//
+// UPDATING IS NOW COMPULSORY (31 Jul 2026). The banner alone could be ignored for
+// ever, and being months behind is not untidiness: rules reach every device the
+// instant they deploy while code arrives one device at a time, so an old phone can
+// end up with an app that disagrees with the database about what is allowed (it
+// happened in v1.11.0). So the banner is now only the first, gentle signal — a
+// modal that cannot be dismissed follows.
+//
+// Two deliberate softenings, both Federico's call, both about a kitchen mid-service:
+//   * the modal WAITS while something is half-done (a dialog open, a form being
+//     typed into) — see BUSY_SELECTORS in update-gate.js;
+//   * after two failed attempts it offers a quiet way to carry on, and asks again
+//     next time the app is opened.
+// The decision itself is pure and tested in js/update-gate.js; this file is only
+// the screen.
 //
 // Update checks run when the page loads, whenever the app returns to the
 // foreground (the case that matters for an installed PWA on a phone), and on a
 // slow interval as a fallback for a tablet left open all day.
 
+import {
+  updateGateState, isBusy, readAttempts, bumpAttempts, resetAttempts,
+} from './update-gate.js';
+
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
+// A keystroke may have queued the Orders draft autosave (800ms debounce). Reloading
+// the instant the worker takes over could beat it; a second's grace cannot.
+const RELOAD_GRACE_MS = 1000;
+// If the takeover stalls (e.g. the waiting worker was already gone), reload anyway.
+const TAKEOVER_TIMEOUT_MS = 4000;
+
+let dismissed = false;   // "carry on" chosen — for THIS page only, by design
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -36,13 +60,17 @@ function watchForUpdates(reg) {
   // on its own — nothing to announce.
   const isUpdate = () => !!navigator.serviceWorker.controller;
 
-  if (reg.waiting && isUpdate()) showBanner(reg);
+  // Nothing waiting means the last update actually landed: forget any failed
+  // attempts, so the next one starts from a clean slate.
+  if (!reg.waiting) resetAttempts();
+
+  if (reg.waiting && isUpdate()) announce(reg);
 
   reg.addEventListener('updatefound', () => {
     const incoming = reg.installing;
     if (!incoming) return;
     incoming.addEventListener('statechange', () => {
-      if (incoming.state === 'installed' && isUpdate()) showBanner(reg);
+      if (incoming.state === 'installed' && isUpdate()) announce(reg);
     });
   });
 
@@ -51,6 +79,37 @@ function watchForUpdates(reg) {
     if (document.visibilityState === 'visible') check();
   });
   setInterval(check, CHECK_INTERVAL_MS);
+}
+
+// The banner first (it is instant and unobtrusive), then the modal as soon as the
+// operator is not in the middle of something.
+function announce(reg) {
+  showBanner(reg);
+  scheduleGate(reg);
+}
+
+// Take over and reload. Shared by the banner and the modal so there is ONE update
+// path — the part that was already working and is not worth reinventing.
+function applyUpdate(reg, button) {
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Updating…';
+  }
+  bumpAttempts();
+
+  // Reload ONLY once the new worker has taken control, and only because the
+  // user asked — an unguarded controllerchange reload can fire on first
+  // install (clients.claim) and would yank the page out from under the user.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    setTimeout(() => window.location.reload(), RELOAD_GRACE_MS);
+  }, { once: true });
+
+  if (reg.waiting) {
+    reg.waiting.postMessage({ action: 'skipWaiting' });
+    setTimeout(() => window.location.reload(), TAKEOVER_TIMEOUT_MS);
+  } else {
+    setTimeout(() => window.location.reload(), RELOAD_GRACE_MS);
+  }
 }
 
 // The banner is built here (not in each page's HTML) so no page can ship
@@ -70,24 +129,107 @@ function showBanner(reg) {
   host.appendChild(banner);
   document.body.appendChild(host);
 
-  banner.addEventListener('click', () => {
-    banner.disabled = true;
-    banner.textContent = 'Updating…';
+  banner.addEventListener('click', () => applyUpdate(reg, banner));
+}
 
-    // Reload ONLY once the new worker has taken control, and only because the
-    // user asked — an unguarded controllerchange reload can fire on first
-    // install (clients.claim) and would yank the page out from under the user.
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
-    }, { once: true });
+// Show the modal the moment nothing is half-done. While something IS half-done we
+// wait on a MutationObserver rather than a timer: the screen changing is exactly
+// the event we are waiting for, and polling a kitchen tablet every second for
+// hours is waste.
+function scheduleGate(reg) {
+  if (document.getElementById('sw-update-gate')) return;
+  let observer = null;
 
-    if (reg.waiting) {
-      reg.waiting.postMessage({ action: 'skipWaiting' });
-      // Safety net: if the takeover stalls (e.g. the waiting worker was already
-      // gone), a plain reload still picks up the new version.
-      setTimeout(() => window.location.reload(), 4000);
-    } else {
-      window.location.reload();
+  const attempt = () => {
+    if (dismissed) { observer?.disconnect(); return true; }
+    const state = updateGateState({
+      waiting: true,
+      busy: isBusy(document),
+      attempts: readAttempts(),
+    });
+    if (state === 'hidden') return false;      // busy — try again when the DOM changes
+    observer?.disconnect();
+    showGate(reg, state === 'blocking-with-escape');
+    return true;
+  };
+
+  if (attempt()) return;
+  observer = new MutationObserver(attempt);
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// The modal itself. Reuses the .app-dialog styles rather than confirmDialog(),
+// because that component offers Escape and a Cancel button — both of which are
+// precisely what must not exist here.
+function showGate(reg, withEscape) {
+  if (document.getElementById('sw-update-gate')) return;
+  document.getElementById('sw-update-host')?.remove();   // the banner has done its job
+
+  const title = document.createElement('h2');
+  title.className = 'app-dialog-title';
+  title.id = 'sw-update-gate-title';
+  title.textContent = 'Update the app to carry on';
+
+  const message = document.createElement('p');
+  message.className = 'app-dialog-msg';
+  message.textContent = withEscape
+    ? 'The update did not go through. Trying again is worth it — everyone needs to be on the same version. Anything you have typed is already saved.'
+    : 'A new version is ready and takes a moment to install. Anything you have typed is already saved.';
+
+  const updateBtn = document.createElement('button');
+  updateBtn.type = 'button';
+  updateBtn.className = 'app-dialog-btn app-dialog-btn-solid';
+  updateBtn.textContent = withEscape ? 'Try again' : 'Update now';
+  updateBtn.addEventListener('click', () => applyUpdate(reg, updateBtn));
+
+  const actions = document.createElement('div');
+  actions.className = 'app-dialog-actions';
+
+  // The seatbelt: only after two failed attempts, and deliberately the quiet
+  // button. A kitchen mid-service must never be left with an app it cannot use.
+  if (withEscape) {
+    const carryOn = document.createElement('button');
+    carryOn.type = 'button';
+    carryOn.className = 'app-dialog-btn app-dialog-btn-ghost';
+    carryOn.textContent = 'Continue without updating';
+    carryOn.addEventListener('click', () => {
+      dismissed = true;
+      gate.remove();
+      showBanner(reg);        // still visible, still one tap away
+    });
+    actions.appendChild(carryOn);
+  }
+  actions.appendChild(updateBtn);
+
+  const panel = document.createElement('div');
+  panel.className = 'app-dialog';
+  panel.append(title, message, actions);
+
+  const gate = document.createElement('div');
+  gate.id = 'sw-update-gate';
+  gate.className = 'app-dialog-backdrop';
+  gate.setAttribute('role', 'alertdialog');
+  gate.setAttribute('aria-modal', 'true');
+  gate.setAttribute('aria-labelledby', 'sw-update-gate-title');
+  gate.appendChild(panel);
+
+  // Keep the keyboard inside the modal, and swallow Escape — there is no dismissing
+  // this except through one of its buttons (P18: it must still be operable by
+  // keyboard, it just must not be escapable).
+  gate.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); return; }
+    if (event.key !== 'Tab') return;
+    const focusable = [...gate.querySelectorAll('button:not([disabled])')];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const moving = event.shiftKey ? first : last;
+    if (document.activeElement === moving) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
     }
   });
+
+  document.body.appendChild(gate);
+  updateBtn.focus();
 }
