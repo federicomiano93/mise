@@ -15,17 +15,35 @@ import { ingredientsOf, supplierHasItems } from './archive.js';
 
 const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''));
 
+// The suppliers an order was already recorded for on `today`.
+//
+// One definition of "already ordered", used by the Orders screen (which ticks them
+// off) AND by the Home badge (which must not count them). Two copies of this would
+// drift, and the drift would show as the Home nagging about an order the Orders
+// screen has already ticked off.
+export function placedOn(history, today) {
+  return new Set(
+    (history || [])
+      .filter(r => r.date === today && r.supplierId)
+      .map(r => r.supplierId),
+  );
+}
+
+// The suppliers still waiting for an order today: everything except what has already
+// been recorded. Left deliberately unfiltered by weekday — the caller decides whether
+// it cares about order days (computeAlerts does).
+export function suppliersStillToOrder(suppliers, history, today) {
+  const placed = placedOn(history, today);
+  return (suppliers || []).filter(s => !placed.has(s.id));
+}
+
 // Suppliers whose ORDER day is today → [{ supplier, placed }], sorted by name.
 // `placed` is true once an order for that supplier exists under today's date.
 export function todayOrders({ suppliers, history, today }) {
   if (!today) return [];
   const weekday = weekdayOf(today);
 
-  const placed = new Set(
-    (history || [])
-      .filter(r => r.date === today && r.supplierId)
-      .map(r => r.supplierId),
-  );
+  const placed = placedOn(history, today);
 
   return (suppliers || [])
     .filter(s => s.active !== false && (s.orderDays || []).includes(weekday))
