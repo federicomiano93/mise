@@ -169,6 +169,11 @@
   padding: 24px;
   animation: app-fade-in .12s ease-out;
 }
+/* The compulsory-update modal (js/sw-update.js) borrows the dialog above and sits
+   one layer higher still. It never appears while a dialog is open — it waits — but
+   if one were raised afterwards, the update gate is the thing that must stay on top:
+   it is the only screen in the app with no way out except its own button. */
+#sw-update-gate { z-index: 10001; }
 /* Never taller than the screen. Without the cap a long message simply grows past
    both edges — the backdrop centres it, so the title is clipped at the top AND the
    OK button leaves the bottom, which makes the dialog impossible to answer. The
