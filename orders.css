@@ -39,7 +39,7 @@
   padding: 0 7px;
   border-radius: 12px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-brand);
   font-size: 13px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
@@ -78,16 +78,16 @@
 /* ── Orders header (back · title · settings) ──────────────────────────────── */
 .orders-header { gap: 12px; }
 .orders-header-title { flex: 1; text-align: center; }
-.orders-header-title h1 { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
-.orders-header-title p { font-size: 11px; color: rgba(255, 255, 255, 0.72); margin-top: 1px; font-family: 'DM Mono', monospace; }
+.orders-header-title h1 { font-size: 18px; font-weight: 600; color: var(--on-brand); letter-spacing: -0.3px; }
+.orders-header-title p { font-size: 11px; color: var(--on-brand-soft); margin-top: 1px; font-family: 'DM Mono', monospace; }
 
 .orders-icon-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
-  color: #fff;
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
+  color: var(--on-brand);
   cursor: pointer;
   flex-shrink: 0;
   display: flex;
@@ -96,8 +96,8 @@
   padding: 0;
   text-decoration: none;
 }
-.orders-icon-btn:hover { background: rgba(255, 255, 255, 0.24); }
-.orders-icon-btn:active { background: rgba(255, 255, 255, 0.28); }
+.orders-icon-btn:hover { background: var(--rim-bg-hover); }
+.orders-icon-btn:active { background: var(--rim-bg-active); }
 /* On-brand ring: the app's default green focus ring (--accent-2) is green-on-green
    here, i.e. invisible. Keyboard focus must be visible on the header too (P18). */
 .orders-icon-btn:focus-visible,
@@ -522,12 +522,12 @@ input.ing-stock {
   font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--on-brand);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(45, 80, 22, 0.25);
+  box-shadow: var(--shadow-brand);
 }
 .btn-primary { transition: transform .06s ease; }
-.btn-primary:active { background: #1e3810; box-shadow: none; transform: scale(.97); }
+.btn-primary:active { background: var(--brand-press); box-shadow: none; transform: scale(.97); }
 .btn-primary:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
 .btn-secondary {
   padding: 14px 18px;
@@ -1016,7 +1016,7 @@ input.ing-stock {
   transition: transform .06s ease;
 }
 .pending-btn:active { transform: scale(.97); }
-.pending-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pending-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-brand); }
 /* Destructive, so it stays quiet and never competes with the other two. */
 .pending-btn.danger { flex: 0 0 auto; background: transparent; border-color: transparent; color: var(--error); font-weight: 500; }
 
@@ -1056,13 +1056,13 @@ a.home-reminder {
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--on-brand);
   font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
 }
-.install-btn:active { background: #1e3810; }
+.install-btn:active { background: var(--brand-press); }
 .install-tip {
   font-size: 13px;
   color: var(--text2);
@@ -1089,7 +1089,7 @@ a.home-reminder {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: var(--surface);
   opacity: 1;
   transition: opacity 0.45s ease;
 }

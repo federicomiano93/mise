@@ -58,14 +58,14 @@ body {
 .cat-header-slot { display: flex; align-items: center; justify-content: center; }
 .cat-icon-btn {
   appearance: none;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
   color: inherit;
   width: 36px; height: 36px; border-radius: 50%; cursor: pointer; flex: none;
   display: flex; align-items: center; justify-content: center; text-decoration: none;
 }
-.cat-icon-btn:hover { background: rgba(255, 255, 255, 0.24); }
-.cat-icon-btn:active { background: rgba(255, 255, 255, 0.28); }
+.cat-icon-btn:hover { background: var(--rim-bg-hover); }
+.cat-icon-btn:active { background: var(--rim-bg-active); }
 /* On-brand ring: the app's default green focus ring is invisible on the green header. */
 .cat-icon-btn:focus-visible { outline: 2px solid var(--cat-brand-ink); outline-offset: 2px; }
 .cat-icon-btn[hidden] { display: none; }

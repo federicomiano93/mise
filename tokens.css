@@ -71,47 +71,100 @@
 
 :root {
   /* ── Ground & surfaces ───────────────────────────────────────────────── */
-  --bg:        #EFEBE1;   /* page background (warm neutral ground) */
-  --surface:   #FFFFFF;   /* raised surfaces: cards, inputs, modals */
-  --surface-2: #F7F4EC;   /* recessed / tinted surfaces */
-  --border:    #E2DDD0;   /* hairline borders & dividers */
+  --bg:        #F4EDE0;   /* page background (warm neutral ground) */
+  --surface:   #FFFDF7;   /* raised surfaces: cards, inputs, modals */
+  --surface-2: #F9F5EC;   /* recessed / tinted surfaces */
+  --border:    #E6DECB;   /* hairline borders & dividers */
 
-  /* ── Text (three levels) ─────────────────────────────────────────────── */
-  --text:   #1B2114;      /* primary text */
-  --text-2: #626955;      /* secondary / muted text */
-  --text-3: #78736B;      /* third level: units, timestamps, fine print */
+  /* ── Text (five levels) ──────────────────────────────────────────────────
+     Three were enough while every label was sentence case. The restyle adds
+     two roles that had no colour of their own: the small uppercase mono
+     labels that head each block, and placeholder text inside a field. */
+  --text:   #1F2416;      /* primary text */
+  --text-2: #5E6650;      /* secondary / muted text */
+  --text-3: #7C7566;      /* third level: units, timestamps, fine print */
+  --text-4: #8B8474;      /* small uppercase mono labels */
+  --text-5: #B3AB99;      /* placeholder text */
 
   /* ── Greens (two, distinct) ──────────────────────────────────────────── */
-  --brand:    #2D5016;    /* primary: headers, buttons, primary actions */
-  --brand-2:  #3E6B1F;    /* hover / lighter brand */
-  --on-brand: #F3F5EE;    /* text & icons on a brand-green surface */
-  --accent-2: #4C7A26;    /* interaction accent: focus rings, links, highlights */
+  --brand:       #2E4A1B;   /* primary: headers, buttons, primary actions */
+  --brand-2:     #4C6B2A;   /* hover / lighter brand */
+  --brand-press: #1E3810;   /* pressed: a primary button held down */
+  --on-brand:    #F5F1E4;   /* text & icons on a brand-green surface */
+  --accent-2:    #4C7A26;   /* interaction accent: focus rings, links, highlights */
 
   /* Pale brand tint — result cards, chips, badges, active-row backgrounds. */
-  --accent-light: #E8F0E0;
+  --accent-light: #E9EFDF;
+
+  /* On a green header, text and rims are the on-brand tone at reduced
+     strength. Kept as pure white for now: the restyle re-cuts the header in
+     Phase 2, and changing these here would shift every header before the
+     screens that own them have been touched. */
+  --on-brand-soft:   rgba(255,255,255,.72);  /* header subtitle */
+  --on-brand-dim:    rgba(255,255,255,.3);   /* a Save button with nothing to save */
+  --on-brand-strong: rgba(255,255,255,.8);   /* the same button once it has */
+
+  /* The translucent rim of the round 36px icon buttons in every header.
+     Written by hand in three stylesheets before this; one definition now. */
+  --rim-bg:        rgba(255,255,255,.15);
+  --rim-bg-hover:  rgba(255,255,255,.24);
+  --rim-bg-active: rgba(255,255,255,.28);
+  --rim-border:    rgba(255,255,255,.35);
+
+  /* ── Crust accent ────────────────────────────────────────────────────────
+     New with the restyle: the warm counterpoint to the green, for the active
+     field and the update banner. NOT named --accent: style.css already
+     defines --accent as an alias of --brand, and being the later stylesheet
+     it would silently win. Applied from Phase 2 onwards. */
+  --crust:     #C4713C;   /* border of the active field, update banner */
+  --crust-ink: #8A4A22;   /* links and secondary actions */
+  --crust-bg:  #FFF6EC;   /* the pale fill behind --crust */
 
   /* ── Semantic status colours ─────────────────────────────────────────── */
-  --danger:       #a23b2f;   /* the one destructive red (delete, invalid) */
+  --danger:       #A24A38;   /* the one destructive red (delete, invalid) */
 
   --warn:         #7A5200;   /* warning / amber text (holidays, yeast) */
-  --warn-bg:      #FBF3DE;   /* warning background */
-  --warn-border:  #EAD9A8;   /* warning border */
+  --warn-bg:      #F8E9D6;   /* warning background */
+  --warn-border:  #EBD2B4;   /* warning border */
 
   --error:        #8B3A0F;   /* error / conflict text (alerts, offline) */
-  --error-bg:     #FBE9E7;   /* error / conflict background */
+  --error-bg:     #FBE9E3;   /* error / conflict background */
   --error-border: #E6B7AE;   /* error / conflict border */
+
+  /* The slate "Edit" button — deliberately NOT green, so a tab that is locked
+     never reads as a fresh Confirm. It has no counterpart in the palette. */
+  --slate:       #5A6B7A;
+  --slate-press: #44525E;
+
+  /* WhatsApp's own brand green. A third party's colour: it is named here so
+     it stops being copied by hand, but the restyle does not get to change it. */
+  --whatsapp:       #25D366;
+  --whatsapp-press: #1DA851;
 
   /* ── Elevation ───────────────────────────────────────────────────────── */
   --shadow: 0 1px 2px rgba(27,33,20,.06), 0 8px 24px rgba(27,33,20,.07);
+  --shadow-card:  0 1px 2px rgba(0,0,0,.04);      /* barely-raised card */
+  --shadow-sheet: 0 8px 20px rgba(0,0,0,.22);     /* bottom sheet */
+  --shadow-brand: 0 2px 8px rgba(45,80,22,.25);   /* under a primary button */
+  --shadow-slate: 0 2px 8px rgba(40,55,70,.25);   /* under the Edit button */
+
+  /* Behind a modal or a bottom sheet. */
+  --scrim: rgba(0,0,0,.45);
 
   /* ── Radius ──────────────────────────────────────────────────────────── */
-  --radius:    16px;   /* base: cards, panels, modals */
-  --radius-sm: 10px;   /* smaller: buttons, fields, chips */
+  --radius:      16px;   /* base: cards, panels, modals */
+  --radius-sm:   12px;   /* smaller: buttons, fields, chips */
+  --radius-pill: 999px;  /* chips and segmented controls */
 
   /* ── Type ────────────────────────────────────────────────────────────── */
   --font:       'Manrope', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-round: 'Manrope', system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono:  'DM Mono', ui-monospace, "Cascadia Mono", Menlo, monospace;
+  /* Screen titles from Phase 2. Instrument Serif is NOT self-hosted yet and
+     the CSP is font-src 'self', so until its .woff2 ships in ./fonts/ and in
+     the service worker's ASSETS this resolves to Georgia. Declared here, not
+     yet applied anywhere. */
+  --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 }
 
 /* ── Update banner (js/sw-update.js) ─────────────────────────────────────
@@ -162,7 +215,7 @@
      stay clickable behind it — least of all the banner, whose tap reloads the page
      and would destroy the very unsaved edits the dialog is guarding. */
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -231,7 +284,7 @@
 .app-dialog-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
 .app-dialog-btn-ghost { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
 .app-dialog-btn-solid { background: var(--brand); border: 0; color: var(--on-brand); }
-.app-dialog-btn-danger { background: var(--danger); border: 0; color: #fff; }
+.app-dialog-btn-danger { background: var(--danger); border: 0; color: var(--on-brand); }
 
 @keyframes app-fade-in { from { opacity: 0; } }
 @keyframes app-dialog-in { from { opacity: 0; transform: scale(.96); } }
