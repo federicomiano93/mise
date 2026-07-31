@@ -55,6 +55,15 @@ export function refreshSupplierDerived(supplier, ingredients, entries) {
 
   const placeBtn = document.getElementById(`place-btn-${supplier.id}`);
   if (placeBtn) placeBtn.disabled = filled === 0;
+
+  // "Clear quantities" is HIDDEN rather than disabled: with nothing typed there is
+  // nothing to start again, and a permanently dead red button under the green one is
+  // just noise. Hiding works here only because tokens.css forces
+  // `[hidden] { display: none !important }` — .supplier-clear-btn's own
+  // `display: block` would otherwise beat the browser's rule and paint a button every
+  // script on the page believed was gone.
+  const clearBtn = document.getElementById(`clear-btn-${supplier.id}`);
+  if (clearBtn) clearBtn.hidden = filled === 0;
 }
 
 // container: #suppliers-list.

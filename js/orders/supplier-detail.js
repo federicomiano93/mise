@@ -64,15 +64,25 @@ export function buildSupplierDetail(supplier, ctx) {
     placeBtn.disabled = filled === 0;
     body.appendChild(placeBtn);
 
-    // "I have got this wrong, start again." Only worth showing once there is
-    // something to clear, and deliberately a quiet text button under the green one:
-    // it throws away typing, so it must never look like the main action (P20).
-    if (filled > 0 && hooks.onClear) {
-      body.appendChild(el('button', {
+    // "I have got this wrong, start again." Deliberately a quiet text button under
+    // the green one: it throws away typing, so it must never look like the main
+    // action (P20). Shown only once there is something to clear.
+    //
+    // ⚠️ BUILT ALWAYS, HIDDEN WHEN EMPTY — never built conditionally. This function
+    // runs on a snapshot, not on a keystroke (typing must not rebuild the field being
+    // typed into), so a button that only EXISTS when something is filled cannot
+    // appear as the first quantity is typed: there is no element for
+    // refreshSupplierDerived to reveal. It waited for the next snapshot from
+    // Firestore, which is why it looked like it came and went at random.
+    if (hooks.onClear) {
+      const clearBtn = el('button', {
         type: 'button',
         class: 'supplier-clear-btn',
+        id: `clear-btn-${supplier.id}`,
         onClick: () => hooks.onClear(supplier.id),
-      }, 'Clear quantities'));
+      }, 'Clear quantities');
+      clearBtn.hidden = filled === 0;
+      body.appendChild(clearBtn);
     }
   }
 
