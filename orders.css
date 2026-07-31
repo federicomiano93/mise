@@ -394,6 +394,10 @@ input.ing-stock {
 .ing-suggestion:empty { display: none; }
 .ing-suggestion { margin-top: 8px; font-size: 12px; font-family: 'DM Mono', monospace; }
 .ing-suggestion.active { color: var(--accent); }
+/* A quantity that looks like a typing mistake. Danger red and bold, because it has
+   to be noticed at a glance on the row you are typing into — but still the same
+   small line, not a banner: it is a question, not a refusal. */
+.ing-suggestion.warn { color: var(--danger); font-weight: 600; }
 
 /* Empty state inside a supplier with no ingredients (was the stuck "Loading…"). */
 .ing-empty { font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace; padding: 4px 0; }

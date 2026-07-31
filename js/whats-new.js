@@ -18,6 +18,15 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-07-31-unusual-quantity',
+    title: 'Orders',
+    points: [
+      'Type a quantity far above what you usually order and the row says so, in red.',
+      'Recording that order asks you to confirm, listing what looks like an extra digit.',
+      'It stays quiet on an ingredient ordered fewer than four times: there is no usual amount yet.',
+    ],
+  },
+  {
     id: '2026-07-31-history-window',
     title: 'Orders',
     points: [
