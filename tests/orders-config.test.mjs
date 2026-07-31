@@ -8,22 +8,22 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeOrdersConfig } from '../js/orders/orders-config.js';
+import { normalizeOrdersConfig, DEFAULT_HISTORY_DAYS } from '../js/orders/orders-config.js';
 
 test('no document yet: Stock is shown', () => {
   // config/orders does not exist until someone changes the setting for the first time.
-  assert.deepEqual(normalizeOrdersConfig(null), { showStock: true });
-  assert.deepEqual(normalizeOrdersConfig(undefined), { showStock: true });
+  assert.equal(normalizeOrdersConfig(null).showStock, true);
+  assert.equal(normalizeOrdersConfig(undefined).showStock, true);
 });
 
 test('a document without the field: Stock is shown', () => {
-  assert.deepEqual(normalizeOrdersConfig({}), { showStock: true });
-  assert.deepEqual(normalizeOrdersConfig({ bakery: 'main' }), { showStock: true });
+  assert.equal(normalizeOrdersConfig({}).showStock, true);
+  assert.equal(normalizeOrdersConfig({ bakery: 'main' }).showStock, true);
 });
 
 test('only an explicit false hides it', () => {
-  assert.deepEqual(normalizeOrdersConfig({ showStock: false }), { showStock: false });
-  assert.deepEqual(normalizeOrdersConfig({ showStock: true }), { showStock: true });
+  assert.equal(normalizeOrdersConfig({ showStock: false }).showStock, false);
+  assert.equal(normalizeOrdersConfig({ showStock: true }).showStock, true);
 });
 
 test('a corrupt value leaves the screen alone rather than emptying it', () => {
@@ -37,5 +37,48 @@ test('a corrupt value leaves the screen alone rather than emptying it', () => {
 
 test('it returns only the keys the screen uses, whatever else the document carries', () => {
   const out = normalizeOrdersConfig({ bakery: 'main', showStock: false, somethingElse: 42 });
-  assert.deepEqual(Object.keys(out), ['showStock']);
+  assert.deepEqual(Object.keys(out), ['showStock', 'historyDays']);
+});
+
+// ── How many days of past orders History shows ───────────────────────────────
+//
+// The failure that matters here is the opposite of the Stock one: this setting can
+// only ever HIDE orders behind a button, so the danger is a value that hides them
+// ALL. An empty History reads as "our orders have been deleted" — and the promise of
+// this feature is precisely that nothing is deleted.
+
+test('no document yet, or no field: the default window', () => {
+  assert.equal(normalizeOrdersConfig(null).historyDays, DEFAULT_HISTORY_DAYS);
+  assert.equal(normalizeOrdersConfig({}).historyDays, DEFAULT_HISTORY_DAYS);
+  assert.equal(normalizeOrdersConfig({ showStock: false }).historyDays, DEFAULT_HISTORY_DAYS);
+});
+
+test('the default is 15 days', () => {
+  // Pinned: this is the number Federico asked for, and the note under the field in
+  // Settings quotes it. Changing it is a product decision, not a refactor.
+  assert.equal(DEFAULT_HISTORY_DAYS, 15);
+});
+
+test('a stored number is used as given', () => {
+  assert.equal(normalizeOrdersConfig({ historyDays: 7 }).historyDays, 7);
+  assert.equal(normalizeOrdersConfig({ historyDays: 1 }).historyDays, 1);
+  assert.equal(normalizeOrdersConfig({ historyDays: 90 }).historyDays, 90);
+});
+
+test('a number typed into an input arrives as a string, and still works', () => {
+  assert.equal(normalizeOrdersConfig({ historyDays: '30' }).historyDays, 30);
+  assert.equal(normalizeOrdersConfig({ historyDays: 15.8 }).historyDays, 15);
+});
+
+test('nothing usable can produce an empty History', () => {
+  // Every one of these must fall back to the default rather than to 0 days.
+  [0, -1, -99, NaN, Infinity, '', ' ', 'abc', null, undefined, {}, [], true, false]
+    .forEach(bad => {
+      assert.equal(normalizeOrdersConfig({ historyDays: bad }).historyDays, DEFAULT_HISTORY_DAYS,
+        `historyDays: ${JSON.stringify(bad)} must fall back to the default`);
+    });
+});
+
+test('an absurd window is capped rather than trusted', () => {
+  assert.equal(normalizeOrdersConfig({ historyDays: 100000 }).historyDays, 365);
 });

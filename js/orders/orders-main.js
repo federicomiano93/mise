@@ -59,7 +59,7 @@ const state = {
 
 let mgmt = null;                // open management panel handle, or null
 let pendingChecked = false;     // the unfinished-order check runs once per page load
-let ordersConfig = { showStock: true };   // config/orders, mirrored locally — see below
+let ordersConfig = normalizeOrdersConfig(null);   // config/orders, mirrored locally — see below
 let flatView = null;            // mounted flat-list handle, or null when not on screen
 let cardsView = null;           // mounted supplier-list handle, or null
 let detailView = null;          // the open supplier's screen, or null
@@ -122,6 +122,9 @@ function watchOrdersConfig() {
     const config = normalizeOrdersConfig(doc);
     try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch { /* private mode */ }
     applyOrdersConfig(config);
+    // The window may have just changed — on this phone or on another one. Stock is a
+    // <body> class and needs no repaint; how many days History shows does.
+    renderHistory();
     mgmt?.refresh();
   });
 }
@@ -420,6 +423,9 @@ function renderHistory() {
     // "No supplier" rather than "Unknown supplier". Names are unaffected either way.
     orderIngredients(),
     { onEdit: openHistoryEditor, onSend: sendRecord, onSendDay: openSendDayScreen },
+    // Only what is SHOWN is narrowed. state.history stays whole, so the suggestion
+    // engine (which needs 4+ past orders of an ingredient) is untouched by this.
+    { historyDays: ordersConfig.historyDays },
   );
 }
 
@@ -913,7 +919,10 @@ function openManagement() {
     },
     {
       onClose: () => { mgmt.overlay.remove(); mgmt = null; },
-      saveOrdersConfig: showStock => saveDoc(COLLECTIONS.config, 'orders', { showStock }),
+      // Takes a PATCH, not one flag: config/orders now holds two settings and saveDoc
+      // merges, so writing `{ showStock }` alone would leave historyDays untouched —
+      // but only as long as every caller keeps passing just what it changed.
+      saveOrdersConfig: patch => saveDoc(COLLECTIONS.config, 'orders', patch),
       saveSupplier: (id, payload) =>
         id ? saveDoc(COLLECTIONS.suppliers, id, payload) : createDoc(COLLECTIONS.suppliers, payload),
       saveIngredient: (id, payload) =>

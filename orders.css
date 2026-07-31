@@ -571,6 +571,24 @@ input.ing-stock {
    above "Edit order" would read as a separator between two unrelated things. */
 .history-send-btn + .history-edit-btn { border-top: none; margin-top: 2px; }
 
+/* The way back to everything older than the History window. Deliberately quiet: the
+   orders are still there, this is not an action anyone has to take. */
+.history-older-btn {
+  width: 100%;
+  margin: 18px 0 4px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 60ms ease;
+}
+.history-older-btn:active { transform: scale(.97); }
+
 /* ── History editor overlay ───────────────────────────────────────────────── */
 .hist-edit-save { width: auto; padding: 0 10px; font-size: 15px; font-weight: 600; }
 .hist-edit-what {
@@ -724,7 +742,11 @@ input.ing-stock {
 .mgmt-form-title { font-size: 17px; font-weight: 600; color: var(--text); }
 .mgmt-field { display: flex; flex-direction: column; gap: 6px; }
 .mgmt-field-label { font-size: 12px; color: var(--text2); font-weight: 500; }
-.mgmt-form .mgmt-input {
+/* The input styling is scoped to .mgmt-form, so any field OUTSIDE a form (the General
+   tab's settings) has to be named here too — otherwise it renders as a bare browser
+   input in the middle of a styled panel. */
+.mgmt-form .mgmt-input,
+.mgmt-days-row .mgmt-input {
   width: 100%;
   padding: 11px 12px;
   border: 1.5px solid var(--border);
@@ -736,7 +758,14 @@ input.ing-stock {
   min-height: 44px;
   text-align: left;
 }
-.mgmt-form .mgmt-input:focus { outline: none; border-color: var(--accent); }
+.mgmt-form .mgmt-input:focus,
+.mgmt-days-row .mgmt-input:focus { outline: none; border-color: var(--accent); }
+
+/* A number and its unit on one line. The box is sized for three digits — full width
+   would read as a text field and invite a sentence. */
+.mgmt-days-row { display: flex; align-items: center; gap: 8px; }
+.mgmt-days-row .mgmt-input { width: 92px; font-variant-numeric: tabular-nums; }
+.mgmt-days-row span { font-size: 14px; color: var(--text2); }
 .day-checks { display: flex; flex-wrap: wrap; gap: 8px; }
 .day-check {
   display: flex;

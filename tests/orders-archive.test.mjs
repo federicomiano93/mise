@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   historyDocId, isLegacyRecord, recordDate, ingredientsOf, supplierHasItems,
-  buildSupplierArchive, mergeArchives, groupHistoryByDay,
+  buildSupplierArchive, mergeArchives, groupHistoryByDay, splitHistoryByAge, countRecords,
 } from '../js/orders/archive.js';
 
 const SALVO = { id: 'salvo', name: 'Salvo' };
@@ -184,4 +184,86 @@ test('the legacy record sorts as the newest record of its own year, and no furth
   assert.ok('2027-01-05_salvo' > '2026-W28');
   // Which is why History cannot rely on the window alone to keep old records
   // reachable: it also loads older pages on demand (loadOlderHistory).
+});
+
+// ── The History window: hiding old orders, never losing them ─────────────────
+//
+// The app is used mostly by kitchen staff, who need this week's orders rather than
+// last month's. What must never break:
+//   - the window is counted in DAYS and includes today (15 days = today + 14);
+//   - an unusable window shows EVERYTHING — the failure mode of an empty History
+//     ("our orders are gone") is far worse than a long list;
+//   - what falls outside is RETURNED as `older`, not dropped, because it is put
+//     behind a button and still feeds the suggestion engine.
+
+const WINDOW_DAYS = [
+  { date: '2026-07-31', records: [{ supplierId: 'salvo' }] },
+  { date: '2026-07-17', records: [{ supplierId: 'bako' }] },
+  { date: '2026-07-16', records: [{ supplierId: 'salvo' }, { supplierId: 'bako' }] },
+  { date: '2026-07-09', records: [{ weekStart: '2026-07-09' }] },
+];
+const WINDOW_NOW = new Date('2026-07-31T09:00:00');
+
+test('a 15-day window keeps today and the 14 days before it', () => {
+  const { recent, older } = splitHistoryByAge(WINDOW_DAYS, 15, WINDOW_NOW);
+  assert.deepEqual(recent.map(d => d.date), ['2026-07-31', '2026-07-17']);
+  assert.deepEqual(older.map(d => d.date), ['2026-07-16', '2026-07-09']);
+});
+
+test('the boundary day is INSIDE the window', () => {
+  // "The last 15 days" means the whole fortnight, not 14 days and a bit.
+  const { recent } = splitHistoryByAge([{ date: '2026-07-17', records: [1] }], 15, WINDOW_NOW);
+  assert.equal(recent.length, 1);
+  const { older } = splitHistoryByAge([{ date: '2026-07-16', records: [1] }], 15, WINDOW_NOW);
+  assert.equal(older.length, 1);
+});
+
+test('a one-day window is today only', () => {
+  const { recent, older } = splitHistoryByAge(WINDOW_DAYS, 1, WINDOW_NOW);
+  assert.deepEqual(recent.map(d => d.date), ['2026-07-31']);
+  assert.equal(older.length, 3);
+});
+
+test('an unusable window hides NOTHING', () => {
+  // normalizeOrdersConfig applies the default before this is called, so anything
+  // wrong arriving here means an assumption failed upstream. Show everything.
+  [0, -5, NaN, undefined, null, 'abc'].forEach(bad => {
+    const { recent, older } = splitHistoryByAge(WINDOW_DAYS, bad, WINDOW_NOW);
+    assert.equal(recent.length, WINDOW_DAYS.length, `window ${String(bad)} must show everything`);
+    assert.equal(older.length, 0);
+  });
+});
+
+test('nothing recent: everything is older, and nothing is lost', () => {
+  const { recent, older } = splitHistoryByAge(WINDOW_DAYS, 15, new Date('2026-09-01T09:00:00'));
+  assert.equal(recent.length, 0);
+  assert.equal(older.length, WINDOW_DAYS.length);
+});
+
+test('the legacy weekly record is placed by its own day like any other', () => {
+  const { older } = splitHistoryByAge(WINDOW_DAYS, 15, WINDOW_NOW);
+  assert.ok(older.some(d => d.date === '2026-07-09'));
+});
+
+test('the window is counted in calendar days, not 24-hour blocks (DST)', () => {
+  // British clocks go back on 25 Oct 2026. Adding 7 * 86 400 000 ms across that
+  // night lands an hour early and would push the boundary onto the previous day.
+  const days = [{ date: '2026-10-26', records: [1] }, { date: '2026-10-25', records: [1] }];
+  const { recent, older } = splitHistoryByAge(days, 7, new Date('2026-11-01T12:00:00'));
+  assert.deepEqual(recent.map(d => d.date), ['2026-10-26']);
+  assert.deepEqual(older.map(d => d.date), ['2026-10-25']);
+});
+
+test('empty input is handled without throwing', () => {
+  assert.deepEqual(splitHistoryByAge(null, 15, WINDOW_NOW), { recent: [], older: [] });
+  assert.deepEqual(splitHistoryByAge([], 15, WINDOW_NOW), { recent: [], older: [] });
+});
+
+test('the button counts ORDERS, not days', () => {
+  // Three records across two days: the operator thinks in orders.
+  const { older } = splitHistoryByAge(WINDOW_DAYS, 15, WINDOW_NOW);
+  assert.equal(countRecords(older), 3);
+  assert.equal(countRecords([]), 0);
+  assert.equal(countRecords(null), 0);
+  assert.equal(countRecords([{ date: '2026-07-01' }]), 0);
 });
