@@ -1,8 +1,9 @@
 // suppliers.js — the supplier LIST on the Order tab.
 //
-// A plain list of rows, one per supplier: name, category · delivery days, how many
-// items are already typed for them, and a chevron. Tapping a row opens that
-// supplier's own screen (supplier-detail.js).
+// A plain list of rows, one per supplier: a list icon, then name, category · delivery
+// days, how many items are already typed for them, and a chevron. Tapping the row
+// opens that supplier's ORDER (supplier-detail.js); tapping the icon opens the
+// read-only list of what it sells (supplier-items.js).
 //
 // It used to be collapsible cards that expanded in place. The app's own rule is
 // "list → detail, one level at a time, with a Back arrow that steps up" — Catalogue,
@@ -28,6 +29,10 @@ const DAY_SHORT = {
 
 const CHEVRON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+
+// "See what this supplier sells" — a list, not an eye: what it opens IS a list.
+const LIST_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>';
 
 // How many of a supplier's products have a quantity entered.
 export function supplierStats(ingredients, entries) {
@@ -67,7 +72,8 @@ export function refreshSupplierDerived(supplier, ingredients, entries) {
 }
 
 // container: #suppliers-list.
-// ctx: { query, filterActive, onQuery(text), onFilter(active), onOpen(supplierId) }
+// ctx: { query, filterActive, onQuery(text), onFilter(active), onOpen(supplierId),
+//        onView(supplierId) }
 // -> { repaint({ suppliers, ingredientsBySupplier, entries }) }
 export function mountSupplierList(container, ctx) {
   let data = { suppliers: [], ingredientsBySupplier: {}, entries: {} };
@@ -161,6 +167,13 @@ export function mountSupplierList(container, ctx) {
   };
 }
 
+// TWO buttons, not one with something clickable inside it.
+//
+// ⚠️ The row used to BE the <button>. A second button nested in it is invalid HTML
+// and, in practice, a tap on the inner one runs the outer one's handler too — so the
+// list icon would open the ORDER as well as the list. The row is therefore a plain
+// container holding two siblings: the wide one opens the order, the narrow one opens
+// the read-only list.
 function buildSupplierRow(supplier, data, ctx) {
   const days = (supplier.deliveryDays || []).map(d => DAY_SHORT[d] || d).join(', ');
   const { filled } = supplierStats(data.ingredientsBySupplier[supplier.id] || [], data.entries);
@@ -169,10 +182,9 @@ function buildSupplierRow(supplier, data, ctx) {
     filled ? itemsLabel(filled) : '');
   count.hidden = filled === 0;
 
-  return el('button', {
+  const open = el('button', {
     type: 'button',
-    class: 'supplier-row',
-    dataset: { supplier: supplier.id },
+    class: 'supplier-row-open',
     onClick: () => ctx.onOpen?.(supplier.id),
   }, [
     el('div', { class: 'supplier-row-main' }, [
@@ -182,4 +194,19 @@ function buildSupplierRow(supplier, data, ctx) {
     count,
     el('span', { class: 'supplier-row-chevron', icon: CHEVRON_SVG, 'aria-hidden': 'true' }),
   ]);
+
+  // An icon on its own says nothing to a screen reader, and "list" would not say
+  // WHOSE list — hence the supplier's name in the label (P18).
+  const view = el('button', {
+    type: 'button',
+    class: 'supplier-row-view',
+    'aria-label': `Ingredients from ${supplier.name}`,
+    icon: LIST_SVG,
+    onClick: () => ctx.onView?.(supplier.id),
+  });
+
+  return el('div', {
+    class: 'supplier-row',
+    dataset: { supplier: supplier.id },
+  }, [view, open]);
 }
