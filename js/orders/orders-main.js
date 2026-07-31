@@ -23,7 +23,7 @@ import { buildSupplierPicker } from './supplier-picker.js';
 import { renderHistory as renderHistoryView } from './history.js';
 import { buildHistoryEditor } from './history-edit.js';
 import { buildManagement, isAdmin } from './management.js';
-import { computeSuggestion } from './suggestions.js';
+import { computeSuggestion, unusualQuantities } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
 import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
@@ -298,7 +298,7 @@ function renderOpenSupplier() {
   const ctx = {
     ingredients: ingredientsBySupplier()[supplier.id] || [],
     entries: state.entries,
-    suggest: (id, stock) => computeSuggestion(id, stock, state.history),
+    suggest: suggestFor,
     hooks,
     onBack: closeSupplier,
   };
@@ -329,7 +329,7 @@ function renderFlatList(container) {
       query: state.query,
       onQuery: q => { state.query = q; },
       onFilter: setOrderFilter,
-      suggest: (id, stock) => computeSuggestion(id, stock, state.history),
+      suggest: suggestFor,
       entries: state.entries,
       hooks,
     });
@@ -777,15 +777,47 @@ function confirmPlacement(supplier, date) {
   const when = dayPhrase(date);
   const already = state.history.some(h => h.id === historyDocId(date, supplier.id));
 
-  const message = already
+  const base = already
     ? `An order for ${supplier.name} is already recorded ${when}. These items will be ADDED to it.\n\nSend the order on WhatsApp first — recording it clears the rows.`
     : `Record ${supplier.name}'s order ${when}?\n\nSend the order on WhatsApp first — recording it clears the rows.`;
 
+  const odd = unusualRowsFor(supplier.id);
+
   return confirmDialog({
     title: already ? `Add to ${supplier.name}'s order` : `${supplier.name} — order placed`,
-    message,
+    message: odd.length ? `${unusualWarning(odd)}\n\n${base}` : base,
     okLabel: already ? 'Add to it' : 'Order placed',
+    // Recording is what turns the rows into an order, and this is the last screen
+    // before it. A red button on a quantity worth a second look is the difference
+    // between catching an extra digit and phoning a supplier to unpick it.
+    danger: odd.length > 0,
   });
+}
+
+// The suggestion engine bound to the history currently in memory. ONE definition,
+// shared by every row on every screen and by the unusual-quantity check, so the
+// number a row shows and the number the confirmation quotes are the same number.
+function suggestFor(id, stock) {
+  return computeSuggestion(id, stock, state.history);
+}
+
+// The rows of this supplier's order that look like a typing mistake. One lens for
+// the row hint and for the confirmation: they must never disagree about what counts
+// as odd, or the dialog would warn about a row showing no warning.
+function unusualRowsFor(supplierId) {
+  return unusualQuantities(
+    ingredientsOf(supplierId, orderIngredients()),
+    state.entries,
+    suggestFor,
+  );
+}
+
+function unusualWarning(rows) {
+  const lines = rows.map(r => `• ${r.name}: ${r.qty} (usually about ${r.usual})`);
+  const head = rows.length === 1
+    ? 'This quantity is much higher than usual:'
+    : 'These quantities are much higher than usual:';
+  return `${head}\n${lines.join('\n')}\n\nCheck it is not an extra digit.`;
 }
 
 // ── Reminders (today's orders / an order left from an earlier day) ────────────

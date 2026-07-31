@@ -10,6 +10,7 @@
 // `suggest(ingredientId, stock)` returns the suggestion engine result.
 
 import { el, groupBy } from './dom.js';
+import { isUnusualQuantity } from './suggestions.js';
 
 // How many of a supplier's ingredients already have a quantity entered — used to
 // paint the progress bar correctly on first render (before any typing), so a
@@ -96,9 +97,20 @@ export function buildRow(ing, supplier, suggest, entries, hooks, { meta = '' } =
 
   // Show the "Suggested: X" hint only when history has produced an active
   // suggestion; otherwise leave the line empty (no "available in N orders" noise).
+  //
+  // The one thing that outranks the suggestion on that line is a quantity that looks
+  // like a typing mistake (300 for 30). It takes the line over rather than adding a
+  // second one: the row is 273px on a 320px phone and has no space for another, and
+  // "Suggested: 8" sitting beside "much more than usual" would be saying the same
+  // thing twice anyway.
   function updateHint() {
     const result = suggest(ing.id, entryFor(entries, ing.id).stock || 0);
-    if (result.active) {
+    const qty = entryFor(entries, ing.id).qty || 0;
+
+    if (result.active && isUnusualQuantity(qty, result.par)) {
+      hint.textContent = `Much more than usual (about ${result.par})`;
+      hint.className = 'ing-suggestion warn';
+    } else if (result.active) {
       hint.textContent = `Suggested: ${result.suggestion}`;
       hint.className = 'ing-suggestion active';
     } else {
@@ -113,8 +125,12 @@ export function buildRow(ing, supplier, suggest, entries, hooks, { meta = '' } =
     const result = updateHint();
     if (result.active) setQty(result.suggestion); // auto-fill the suggested order (also autosaves)
     else hooks.afterChange(supplier.id);           // still autosave the stock value
+    updateHint();                                  // the auto-filled qty may itself be worth a word
   });
-  qtyInput.addEventListener('input', () => setQty(qtyInput.value, true));
+  qtyInput.addEventListener('input', () => {
+    setQty(qtyInput.value, true);
+    updateHint();   // the warning has to appear as the extra digit is typed
+  });
 
   // "name weight" (e.g. "Bacon 2.27kg"); the order unit (e.g. "casse") sits next
   // to the Order box, not by the name. Both are skipped when empty.

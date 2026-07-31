@@ -65,3 +65,50 @@ export function computeSuggestion(ingredientId, currentStock, history) {
 
   return { active: true, suggestion, par: Math.round(par) };
 }
+
+// ── Is this quantity a slip of the finger? ───────────────────────────────────
+//
+// The mistake being caught is a missing or extra digit — 300 where 30 was meant —
+// which an upper limit cannot catch: any cap high enough to allow a real bulk order
+// is high enough to let 300 through. What DOES catch it is the app's own memory of
+// how much of that ingredient is normally ordered.
+//
+// Two conditions, both needed:
+//   * FACTOR — several times the usual amount. A typed digit multiplies by ten, so
+//     four times over is comfortably past anything routine while leaving room for a
+//     genuinely big week.
+//   * MARGIN — and at least this much more in absolute terms. Without it, an
+//     ingredient usually ordered 1 or 2 at a time would flag 8, which is an ordinary
+//     Saturday, and a warning that cries wolf is one people tap through.
+//
+// Silent when there is no par yet (fewer than 4 past orders): with no idea what
+// "usual" means for this ingredient, there is nothing honest to warn about.
+export const UNUSUAL_FACTOR = 4;
+export const UNUSUAL_MARGIN = 10;
+
+export function isUnusualQuantity(qty, par) {
+  const q = num(qty);
+  const p = num(par);
+  if (!q || !p) return false;
+  return q >= Math.max(p * UNUSUAL_FACTOR, p + UNUSUAL_MARGIN);
+}
+
+// Every row of an order that looks like a typing mistake →
+// [{ id, name, qty, usual }], biggest surprise first.
+//
+// `suggest` is the same lookup the rows use (ingredientId, stock) → { active, par },
+// injected rather than imported so this stays pure and the caller keeps ONE source of
+// par. Stock is irrelevant to the question and is passed as 0: "did you mean to order
+// this much" does not depend on what is on the shelf.
+export function unusualQuantities(ingredients, entries, suggest) {
+  return (ingredients || [])
+    .map(ing => {
+      const qty = num(entries?.[ing.id]?.qty);
+      if (!qty) return null;
+      const result = suggest(ing.id, 0);
+      if (!result?.active || !isUnusualQuantity(qty, result.par)) return null;
+      return { id: ing.id, name: ing.name || ing.id, qty, usual: result.par };
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.qty / b.usual) - (a.qty / a.usual));
+}
