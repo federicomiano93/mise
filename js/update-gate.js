@@ -26,11 +26,28 @@ export const MAX_ATTEMPTS = 2;
 // Typing a QUANTITY is deliberately absent. The order draft autosaves every 800ms,
 // so a reload loses nothing — and treating every keystroke as "busy" on a screen
 // that is nothing but number fields would mean the gate never appears at all.
+//
+// ⚠️ EVERY SELECTOR HERE MUST MATCH ONLY WHAT IS ON SCREEN. The Orders and Catalogue
+// entries are built and removed as they are used, so being in the document IS being
+// visible. The CALCULATOR is the opposite: its sixteen overlays and modals are
+// declared in calculator.html and merely hidden, so they are in the document from
+// the moment the page loads — matching them by id alone would make the app look
+// permanently busy and the gate would never appear at all. They are shown by adding
+// `.visible` (one convention, used by every one of them), so that class is what the
+// selectors below key on. A new selector for a statically declared element MUST
+// carry the same qualifier.
 export const BUSY_SELECTORS = Object.freeze([
-  '.app-dialog-backdrop',   // a confirm/alert dialog is open
-  '.mgmt-form',             // adding or editing a supplier / ingredient
-  '.hist-edit-list',        // correcting a recorded order
-  '.cat-editor',            // writing a recipe
+  '.app-dialog-backdrop',       // a confirm/alert dialog is open
+  '.mgmt-form',                 // adding or editing a supplier / ingredient
+  '.hist-edit-list',            // correcting a recorded order
+  '.cat-editor',                // writing a recipe
+  '.preview-overlay',           // a tick-list waiting for a choice
+  // The Calculator's own screens: Settings, the recipe editor, the log editors,
+  // and the "Save this dough for: Today / Tomorrow" chooser raised by Confirm.
+  // Found by driving the app: confirming a dough opens #day-modal, and the gate
+  // used to appear straight over it, throwing away the confirmation half-done.
+  '[id$="-overlay"].visible',
+  '[id$="-modal"].visible',
 ]);
 
 // Is the operator in the middle of something? `root` is a document or element —
