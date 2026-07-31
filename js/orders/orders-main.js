@@ -16,7 +16,7 @@ import { mountSupplierList, refreshSupplierDerived } from './suppliers.js';
 import { buildSupplierDetail } from './supplier-detail.js';
 import {
   scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
-  saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
+  clearQuantities, saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
 } from './draft.js';
 import { buildSendScreen } from './preview.js';
 import { buildSupplierPicker } from './supplier-picker.js';
@@ -90,6 +90,9 @@ const hooks = {
   },
   onPlaced(supplierId) {
     placeOrder(supplierId);
+  },
+  onClear(supplierId) {
+    clearQuantitiesFor([supplierId]);
   },
 };
 
@@ -188,6 +191,7 @@ function currentSummary() {
 
 function refreshOrderTotals() {
   refreshPlaceAllButton();
+  refreshClearAllButton();
   // Counts only — never the rows. See updateCounts in ingredient-list.js / suppliers.js.
   flatView?.updateCounts(currentSummary().itemCount);
   cardsView?.updateCounts();
@@ -765,6 +769,116 @@ async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {})
   return true;
 }
 
+// ── Clearing what has been typed, WITHOUT recording an order ──────────────────
+//
+// "Start this order again". Everything here is about the two promises made on the
+// confirmation: the STOCK readings stay, and nothing already recorded is touched.
+
+// Drop the quantities from the in-memory draft first, keeping the readings, so the
+// screen clears immediately — and so a debounced save already in flight cannot
+// resurrect them: it holds state.entries BY REFERENCE, so removing the keys before
+// it fires is what stops it writing them back. Same reasoning as
+// forgetSupplierLocally above, which is why they sit together.
+function forgetQuantitiesLocally(supplierIds) {
+  const ingredients = orderIngredients();
+  supplierIds.forEach(supplierId => {
+    ingredientsOf(supplierId, ingredients, { activeOnly: false }).forEach(ing => {
+      const entry = state.entries[ing.id];
+      if (!entry) return;
+      delete entry.qty;
+      // Nothing ordered and nothing on the shelf is not a row at all — and it
+      // matches what Firestore does when the last key of a map is deleted.
+      if (!(Number(entry.stock) > 0)) delete state.entries[ing.id];
+    });
+    delete state.days[supplierId];
+  });
+}
+
+function confirmClear(supplierIds) {
+  const names = supplierIds.map(id => findOrderSupplier(id)?.name).filter(Boolean);
+  const who = names.length === 1 ? names[0]
+    : names.length <= 3 ? names.join(', ')
+    : `${names.length} suppliers`;
+
+  return confirmDialog({
+    title: 'Clear quantities',
+    message: `Clear everything typed for ${who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.`,
+    okLabel: 'Clear',
+    danger: true,
+  });
+}
+
+// ONE path for both entry points — the single supplier's screen and the tick-list —
+// so the two can never end up behaving differently.
+async function clearQuantitiesFor(supplierIds) {
+  const ids = (supplierIds || []).filter(Boolean);
+  if (!ids.length) return false;
+
+  // No offline persistence: the write would never resolve and the tap would hang.
+  if (!navigator.onLine) {
+    setStatus("You're offline — reconnect to clear these quantities.", 'error', 6000);
+    return false;
+  }
+  if (!await confirmClear(ids)) return false;
+
+  const ingredients = orderIngredients();
+  // A keystroke from the last 800ms is still in the debounce timer — possibly for
+  // another supplier. Write it before clearing, or it comes back on the next snapshot.
+  try {
+    await flushDraftSave();
+  } catch (err) {
+    console.error('Flushing the draft before clearing failed:', err);
+  }
+
+  forgetQuantitiesLocally(ids);
+  if (state.openSupplier && ids.includes(state.openSupplier)) closeSupplier();
+  syncInputsFromState();
+  renderReminders();
+
+  try {
+    await clearQuantities(ids, ingredients);
+    setStatus(ids.length === 1
+      ? 'Quantities cleared ✓'
+      : `Quantities cleared for ${ids.length} suppliers ✓`, 'ok', 4000);
+    return true;
+  } catch (err) {
+    console.error('Clearing quantities failed:', err);
+    // The screen is already clear but the database is not, and no snapshot will
+    // correct that (nothing changed remotely). Say so plainly rather than leaving
+    // the two quietly disagreeing.
+    setStatus('Could not clear them — reload the page to see what is really saved.', 'error');
+    return false;
+  }
+}
+
+// The same tick-list as "Order placed…", so clearing several is reviewed rather
+// than blind. Nothing is ticked to start with: this throws work away.
+function openClearScreen() {
+  const overlay = buildSupplierPicker(suppliersWithItems(), {
+    title: 'Clear quantities',
+    actionLabel: 'Clear',
+    emptyText: 'Nothing typed yet.',
+    danger: true,
+    preselect: false,
+  }, {
+    onBack: () => overlay.remove(),
+    onConfirm: rows => {
+      overlay.remove();
+      clearQuantitiesFor(rows.map(r => r.id));
+    },
+  });
+  document.body.appendChild(overlay);
+}
+
+// Unlike "Order placed…", this shows from ONE supplier up in both views: in the
+// flat list there are no per-supplier cards, so without it there would be no way
+// to clear a single supplier at all.
+function refreshClearAllButton() {
+  const btn = document.getElementById('clear-all-btn');
+  if (!btn) return;
+  btn.hidden = suppliersWithItems().length < 1;
+}
+
 // Grey the button out while its order is being written, so what the operator sees
 // matches the guard above. Re-enabling is never done by hand: refreshAllSuppliers
 // derives it from the rows, so a cleared supplier's button stays correctly dead.
@@ -1051,6 +1165,7 @@ async function init() {
   });
 
   document.getElementById('place-all-btn')?.addEventListener('click', openPlaceAllScreen);
+  document.getElementById('clear-all-btn')?.addEventListener('click', openClearScreen);
 
   const settingsBtn = document.getElementById('settings-footer-btn');
   if (settingsBtn) {

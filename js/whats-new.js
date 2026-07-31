@@ -18,6 +18,15 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-07-31-clear-quantities',
+    title: 'Orders',
+    points: [
+      'Start an order again: "Clear quantities" inside a supplier, or at the bottom of the Order tab to pick several.',
+      'What you counted on the shelves stays — only the amounts to order are cleared.',
+      'Orders already recorded in History are never touched.',
+    ],
+  },
+  {
     id: '2026-07-31-unusual-quantity',
     title: 'Orders',
     points: [

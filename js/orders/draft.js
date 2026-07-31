@@ -17,7 +17,7 @@ import {
   saveDoc, watchDoc, clearFields, transactDoc, replaceDoc, removeDoc, COLLECTIONS,
 } from './firebase-orders.js';
 import {
-  buildSupplierArchive, mergeArchives, historyDocId, ingredientsOf,
+  buildSupplierArchive, mergeArchives, historyDocId, ingredientsOf, quantityPathsFor,
 } from './archive.js';
 
 const DRAFT_ID = 'current';
@@ -115,6 +115,28 @@ export function clearSupplier(supplierId, ingredients) {
   const paths = ingredientsOf(supplierId, ingredients, { activeOnly: false })
     .map(ing => `entries.${ing.id}`);
   paths.push(`days.${supplierId}`);
+
+  return clearFields(COLLECTIONS.drafts, DRAFT_ID, paths, {
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+// Throw away the quantities typed for one or more suppliers WITHOUT recording an
+// order — the "start this order again" button.
+//
+// Deliberately NOT clearSupplier: that removes the whole row because the order has
+// just been archived and the reading went with it. Here nothing is being recorded,
+// so only `qty` goes and the STOCK reading stays: the shelves were counted, and
+// that work should not have to be repeated.
+//
+// One write for every supplier chosen (see quantityPathsFor), so there is no moment
+// where half the list is cleared — and clearFields only touches the named paths, so
+// whatever another phone is typing for a supplier NOT in the list survives.
+//
+// ⚠️ orders-history is not touched. Nothing recorded is undone by this.
+export function clearQuantities(supplierIds, ingredients) {
+  const paths = quantityPathsFor(supplierIds, ingredients);
+  if (!paths.length) return Promise.resolve();
 
   return clearFields(COLLECTIONS.drafts, DRAFT_ID, paths, {
     updatedAt: new Date().toISOString(),

@@ -63,6 +63,17 @@ export function buildSupplierDetail(supplier, ctx) {
     ]);
     placeBtn.disabled = filled === 0;
     body.appendChild(placeBtn);
+
+    // "I have got this wrong, start again." Only worth showing once there is
+    // something to clear, and deliberately a quiet text button under the green one:
+    // it throws away typing, so it must never look like the main action (P20).
+    if (filled > 0 && hooks.onClear) {
+      body.appendChild(el('button', {
+        type: 'button',
+        class: 'supplier-clear-btn',
+        onClick: () => hooks.onClear(supplier.id),
+      }, 'Clear quantities'));
+    }
   }
 
   repaint(ctx);

@@ -109,6 +109,37 @@ export function recordedName(id, ingredientsById, names) {
   return typeof stored === 'string' && stored.trim() ? stored.trim() : 'Deleted ingredient';
 }
 
+// The draft fields to delete when the operator throws away what they have typed
+// for one or more suppliers, WITHOUT recording an order.
+//
+// Two things make this different from clearSupplier above, and both were asked for:
+//   * only `entries.<id>.qty` goes, never the whole row — so the STOCK reading
+//     survives. Counting the shelves is work already done, and starting the order
+//     again should not mean counting them again.
+//   * several suppliers in one list, so the whole thing is ONE Firestore write with
+//     no half-cleared state in between (P14 as well: one operation, not N).
+//
+// The day stamp goes with the quantities: `days.<supplierId>` records when those
+// rows were typed, and with nothing left to order it would describe nothing.
+//
+// ⚠️ NOTHING HERE TOUCHES orders-history. Clearing the draft is not the same as
+// deleting an order: anything already recorded stays recorded, and the suggestion
+// engine — which reads only the history — is unaffected.
+//
+// ⚠️ Uses the UNFILTERED ingredient list, exactly like clearSupplier: a quantity
+// left on a since-deactivated product is invisible on screen but still in the
+// document, and skipping it would leave a row nobody can see or clear.
+export function quantityPathsFor(supplierIds, ingredients) {
+  const ids = (supplierIds || []).filter(Boolean);
+  const paths = [];
+  ids.forEach(supplierId => {
+    ingredientsOf(supplierId, ingredients, { activeOnly: false })
+      .forEach(ing => paths.push(`entries.${ing.id}.qty`));
+    paths.push(`days.${supplierId}`);
+  });
+  return paths;
+}
+
 // Two orders to the same supplier on the same day are ONE order: the second is
 // "I forgot a couple of things", so quantities ADD UP rather than replace (which
 // would silently destroy the first order — the rows are cleared after archiving,

@@ -402,6 +402,28 @@ input.ing-stock {
 /* Empty state inside a supplier with no ingredients (was the stuck "Loading…"). */
 .ing-empty { font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace; padding: 4px 0; }
 
+/* Throwing away what has been typed. Both of these are deliberately quiet — a
+   text button in danger red, never a filled one: the action destroys work and must
+   not sit next to "Order placed" looking like an equal choice (P20). */
+.clear-all-btn,
+.supplier-clear-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 60ms ease;
+}
+.clear-all-btn:active,
+.supplier-clear-btn:active { transform: scale(.97); }
+
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn-primary {
   width: 100%;
