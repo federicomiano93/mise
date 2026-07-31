@@ -197,22 +197,61 @@
    other full-screen part of Orders already worked that way.
    The item count replaces the old "unplaced order" dot: same signal, and it says how
    much rather than just "something". */
+/* ⚠️ The row is a CONTAINER, not a button. It holds two buttons: the wide one opens
+   the order, the narrow one on the left opens the read-only product list. A button
+   nested inside a button is invalid HTML and fires both handlers on one tap — the
+   icon would open the order as well as the list. */
 .supplier-row {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px;
   margin-bottom: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+/* The wide half. Keeps the row's original 14px padding on three sides; on the left
+   there is none, because the icon button beside it already provides that gap out of
+   its own width. */
+.supplier-row-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 14px 0;
+  background: transparent;
+  border: none;
   border-radius: var(--radius);
   cursor: pointer;
   text-align: left;
   font-family: 'Manrope', sans-serif;
   transition: transform 0.06s ease;
 }
-.supplier-row:active { transform: scale(0.99); }
+.supplier-row-open:active { transform: scale(0.99); }
+/* The narrow half: "show me what this supplier sells". Quiet by default — a secondary
+   action must not compete with the row's main one.
+   ⚠️ 36px WIDE, not 44: on a 282px phone every pixel here comes off the supplier's
+   NAME, and 44 pushed a long name from two lines onto three (measured). 36 is the
+   width the app's other icon buttons already use, and the 44px HEIGHT costs nothing
+   because the row is taller than that anyway — so the target stays comfortable in the
+   direction that has room to spare. */
+.supplier-row-view {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 44px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text3);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.06s ease;
+}
+.supplier-row-view:hover { background: var(--surface2); color: var(--accent); }
+.supplier-row-view:active { transform: scale(0.94); }
 .supplier-row-main { flex: 1; min-width: 0; }
 .supplier-name { display: block; font-size: 16px; font-weight: 600; color: var(--text); }
 .supplier-meta { display: block; font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
@@ -243,6 +282,54 @@
   overflow-y: auto;
   padding: 14px 16px calc(24px + var(--safe-bot));
 }
+
+/* ── What a supplier sells, read-only ──────────────────────────────────────────
+   Deliberately NOT the .preview-overlay class it resembles: that one is listed in
+   update-gate.js as "the operator is busy", which would postpone a compulsory update
+   for as long as this list stayed open. Nothing here can be lost, so nothing here
+   should hold an update back. */
+.supplier-items {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.supplier-items-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* The safe-area inset has to be here, on the scrolling element — see the long note
+     on .orders-offline. On a desktop it is 0, so this cannot be checked by looking. */
+  padding: 14px 16px calc(24px + var(--safe-bot));
+}
+.supplier-items-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 14px 8px;
+}
+/* One product per line: what it is called on the left, how it is ordered on the
+   right. No input, no control — the whole point of the screen. */
+.supplier-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.supplier-item:last-child { border-bottom: none; }
+.supplier-item-name { font-size: 16px; font-weight: 500; color: var(--text); min-width: 0; }
+.supplier-item-unit {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+}
+/* The first heading needs no gap above it: it is the first thing in the card. */
+.supplier-items-list > .ing-category:first-child { margin-top: 6px; }
 
 /* The History cards still collapse in place, so their chevron and head stay. */
 .supplier-card {

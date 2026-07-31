@@ -18,6 +18,15 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-07-31-supplier-ingredient-list',
+    title: 'Orders',
+    points: [
+      'Tap the list icon beside a supplier to see everything you buy from them.',
+      'It is a list to look at: no boxes, so nothing can be typed into an order by accident.',
+      'Tapping the rest of the row still opens the order, as before.',
+    ],
+  },
+  {
     id: '2026-07-31-clear-quantities',
     title: 'Orders',
     points: [

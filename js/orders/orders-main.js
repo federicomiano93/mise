@@ -14,6 +14,7 @@ import { currentSession } from '../firebase.js';
 import { el, groupBy } from './dom.js';
 import { mountSupplierList, refreshSupplierDerived } from './suppliers.js';
 import { buildSupplierDetail } from './supplier-detail.js';
+import { buildSupplierItems } from './supplier-items.js';
 import {
   scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
   clearQuantities, saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
@@ -49,6 +50,7 @@ const state = {
   draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
   pending: [],                  // orders typed on an earlier day and never placed
   openSupplier: null,           // the supplier whose own screen is open, or null
+  viewingSupplier: null,        // the supplier whose read-only product list is open
   view: 'suppliers',            // which of the two order views is on screen
   query: '',                    // the flat list's search text, kept OUT of the DOM (see render)
   supplierQuery: '',            // the supplier list's search text — deliberately separate
@@ -63,6 +65,7 @@ let ordersConfig = normalizeOrdersConfig(null);   // config/orders, mirrored loc
 let flatView = null;            // mounted flat-list handle, or null when not on screen
 let cardsView = null;           // mounted supplier-list handle, or null
 let detailView = null;          // the open supplier's screen, or null
+let itemsView = null;           // the open read-only product list, or null
 const placing = new Set();      // suppliers whose order is being written right now
 
 // Replace state.entries contents WITHOUT changing the reference (row closures keep working).
@@ -245,6 +248,7 @@ function render() {
   else renderSupplierList(container, suppliers);
 
   renderOpenSupplier();
+  renderSupplierItems();
 }
 
 // Both list views own nodes inside the shared container, so whenever it is wiped or
@@ -266,6 +270,7 @@ function renderSupplierList(container, suppliers) {
       onQuery: q => { state.supplierQuery = q; },
       onFilter: active => { state.supplierFilter = active; },
       onOpen: openSupplier,
+      onView: openSupplierItems,
     });
   }
   cardsView.repaint({
@@ -277,6 +282,7 @@ function renderSupplierList(container, suppliers) {
 
 // ── One supplier's own screen ─────────────────────────────────────────────────
 function openSupplier(supplierId) {
+  closeSupplierItems();         // two full-screen screens must never stack up
   state.openSupplier = supplierId;
   renderOpenSupplier();
 }
@@ -315,6 +321,47 @@ function renderOpenSupplier() {
   detailView?.overlay.remove();
   const built = buildSupplierDetail(supplier, ctx);
   detailView = { ...built, id: supplier.id };
+  document.body.appendChild(built.overlay);
+}
+
+// ── What a supplier sells, to look at ─────────────────────────────────────────
+//
+// The same shape as the order screen above, on purpose: opened from the list,
+// repainted on every snapshot, and closed by itself if the supplier goes away. It
+// writes NOTHING — which is the whole point of it, and why it can be opened in the
+// middle of an order without a thought.
+function openSupplierItems(supplierId) {
+  closeSupplier();
+  state.viewingSupplier = supplierId;
+  renderSupplierItems();
+}
+
+function closeSupplierItems() {
+  state.viewingSupplier = null;
+  itemsView?.overlay.remove();
+  itemsView = null;
+}
+
+function renderSupplierItems() {
+  if (!state.viewingSupplier) return;
+
+  const supplier = findOrderSupplier(state.viewingSupplier);
+  // Deactivated or deleted while the list was open: leave, rather than keep showing
+  // a screen for something that is no longer there.
+  if (!supplier) { closeSupplierItems(); return; }
+
+  // The SAME lens the order screen uses — never state.ingredients raw, or a product
+  // left without a supplier would appear on one screen and not the other.
+  const ingredients = ingredientsBySupplier()[supplier.id] || [];
+
+  if (itemsView && itemsView.id === supplier.id) {
+    itemsView.repaint(ingredients);
+    return;
+  }
+
+  itemsView?.overlay.remove();
+  const built = buildSupplierItems(supplier, ingredients, { onBack: closeSupplierItems });
+  itemsView = { ...built, id: supplier.id };
   document.body.appendChild(built.overlay);
 }
 
