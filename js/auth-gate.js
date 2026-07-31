@@ -149,6 +149,18 @@ function signInScreen() {
   form.append(emailLabel, email, passLabel, password, submit, status, forgot);
   card.append(form);
 
+  // How to install the app — the ONE place it is reachable from.
+  //
+  // The guide (install-guide.html) is a standalone page with no link anywhere in
+  // the app, so the only way to reach it is to remember the address. In practice
+  // that means the link people get sent is the APP's, and whoever receives it lands
+  // on exactly this screen: signed out, with no hint that instructions exist and no
+  // idea they are supposed to "Add to Home Screen" first. An <a>, not a button:
+  // it navigates, and the browser should treat it as such (P18).
+  const guide = el('a', 'auth-link auth-guide-link', 'How to install the app');
+  guide.href = 'install-guide.html';
+  card.append(guide);
+
   const setStatus = (text, kind = 'bad') => {
     status.textContent = text;
     status.className = `auth-status auth-status--${kind}`;

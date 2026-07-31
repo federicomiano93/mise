@@ -95,6 +95,17 @@
   margin-top: 4px;
 }
 
+/* The install guide, for someone who was sent the app's address and has never
+   installed it. Quieter than "Forgot your password?" — that one rescues a person
+   who is stuck mid-task; this one is for the first time only. Its own block so it
+   sits under the form rather than beside the password link. */
+.auth-guide-link {
+  display: block;
+  margin-top: 10px;
+  color: var(--text2);
+  text-align: center;
+}
+
 .auth-status {
   margin: 14px 0 0;
   font-size: .9rem;
