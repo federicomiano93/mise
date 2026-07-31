@@ -55,13 +55,17 @@ export function supplierHasItems(supplierId, ingredients, entries) {
 export function buildSupplierArchive({ supplier, ingredients, entries, date, now = new Date() }) {
   const quantities = {};
   const stock = {};
+  const names = {};
 
   ingredientsOf(supplier.id, ingredients).forEach(ing => {
     const entry = entries?.[ing.id];
     if (!entry) return;
     const qty = num(entry.qty);
     const onHand = num(entry.stock);
-    if (qty > 0) quantities[ing.id] = qty;
+    if (qty > 0) {
+      quantities[ing.id] = qty;
+      names[ing.id] = ingredientLabel(ing);
+    }
     if (qty > 0 || onHand > 0) stock[ing.id] = onHand;
   });
 
@@ -74,9 +78,35 @@ export function buildSupplierArchive({ supplier, ingredients, entries, date, now
     supplierName: supplier.name || '',
     quantities,
     stock,
+    // What each item was CALLED on the day. The screen prefers the live ingredient
+    // (a rename should show through everywhere), so this is only read once the
+    // ingredient is gone — and then it is the only thing standing between a past
+    // order and a row of raw document ids. Same reasoning as supplierName, which has
+    // been frozen into the record since the per-day model.
+    names,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+}
+
+// The label an order shows for an ingredient: "Bacon 2.27kg". One definition, so a
+// name frozen into a record matches what the live row would have shown.
+export function ingredientLabel(ing) {
+  return [ing?.name, ing?.weight].filter(Boolean).join(' ');
+}
+
+// What a PAST order calls one of its items, in order of preference:
+//   1. the ingredient as it is called NOW — a rename must show through everywhere;
+//   2. the name frozen into the record when the order was placed;
+//   3. an honest placeholder.
+// Never the raw document id, which is what the screen used to fall back to: an order
+// reading "Fdx92kQ1: 4" tells nobody what was bought, and the whole point of History
+// is answering exactly that.
+export function recordedName(id, ingredientsById, names) {
+  const live = ingredientLabel(ingredientsById?.[id]);
+  if (live) return live;
+  const stored = names?.[id];
+  return typeof stored === 'string' && stored.trim() ? stored.trim() : 'Deleted ingredient';
 }
 
 // Two orders to the same supplier on the same day are ONE order: the second is
@@ -96,6 +126,11 @@ export function mergeArchives(existing, incoming) {
     ...incoming,
     quantities,
     stock: { ...(existing.stock || {}), ...(incoming.stock || {}) },
+    // Keep every name the record has ever carried. The incoming write only names the
+    // items IT adds, so replacing rather than merging would strip the names off the
+    // rows placed earlier in the day — and a phone still on the previous version
+    // sends no names at all, which must not erase the ones already stored.
+    names: { ...(existing.names || {}), ...(incoming.names || {}) },
     createdAt: existing.createdAt || incoming.createdAt,
     updatedAt: incoming.updatedAt,
   };

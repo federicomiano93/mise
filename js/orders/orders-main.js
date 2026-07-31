@@ -442,7 +442,7 @@ function recordToRow(record) {
   return {
     id: record.id,
     name: record.supplierName || 'Order',
-    items: itemsFromQuantities(record.quantities, indexById(state.ingredients)),
+    items: itemsFromQuantities(record.quantities, indexById(state.ingredients), record.names),
   };
 }
 

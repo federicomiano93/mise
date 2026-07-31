@@ -14,7 +14,7 @@
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { dayLabel, dayPhrase, spellDay } from './day.js';
-import { isLegacyRecord, recordDate } from './archive.js';
+import { isLegacyRecord, recordDate, recordedName } from './archive.js';
 
 const BACK_ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -38,12 +38,13 @@ export function buildHistoryEditor(record, ingredients, actions) {
   const quantities = record.quantities || {};
   const stock = record.stock || {};
 
-  // One row per ORDERED item. An ingredient deleted since then still shows, by id,
-  // rather than vanishing from its own order.
+  // One row per ORDERED item. An ingredient deleted since then still shows — under
+  // the name the order was placed with, or "Deleted ingredient" for an order recorded
+  // before names were kept — rather than vanishing from its own order.
   const rows = Object.keys(quantities)
     .map(id => ({
       id,
-      name: [ingById[id]?.name || id, ingById[id]?.weight].filter(Boolean).join(' '),
+      name: recordedName(id, ingById, record.names),
       unit: ingById[id]?.unit || '',
       qty: num(quantities[id]),
       stock: num(stock[id]),
