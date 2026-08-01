@@ -659,3 +659,60 @@ test('a missing name still falls back, and nothing throws on junk', () => {
   assert.equal(getProductById(norm, 'p1').name, 'Product');
   assert.equal(getClientById(norm, 'c1').name, 'Client');
 });
+
+// ── Pausing a product (B2) ────────────────────────────────────────────────────
+// A client that stops ordering something for a while should not have to delete it and
+// rebuild it later. A paused product keeps everything and simply leaves the calculator.
+
+const paused = (over = {}) => ({
+  clients: [{ id: 'c1', name: 'A', products: [
+    { id: 'p1', name: 'Pizzas',    recipeId: 'focaccia', weight: 201, kind: 'number', ...over },
+    { id: 'p2', name: 'Focaccias', recipeId: 'focaccia', weight: 181, kind: 'number' },
+  ] }],
+});
+
+test('a paused product has no row and adds no dough', () => {
+  const config = normalizeConfig(paused({ active: false }));
+  assert.deepEqual(getTabProducts(config, 'focaccia').map(p => p.id), ['p2']);
+  const q = { [pairId('c1', 'p1')]: 100, [pairId('c1', 'p2')]: 2 };
+  assert.equal(computeTarget(config, 'focaccia', qtyFrom(q)), 2 * 181, 'the paused 100 is ignored');
+});
+
+test('a product with NO active field is active — every document in production lacks it', () => {
+  const config = normalizeConfig(paused());
+  assert.deepEqual(getTabProducts(config, 'focaccia').map(p => p.id), ['p1', 'p2']);
+  assert.equal(getProductById(config, 'p1').active, true);
+});
+
+test('pausing survives a save-and-reload round trip', () => {
+  const once = normalizeConfig(paused({ active: false }));
+  const twice = normalizeConfig(JSON.parse(JSON.stringify(once)));
+  assert.equal(getProductById(twice, 'p1').active, false);
+  assert.deepEqual(getTabProducts(twice, 'focaccia').map(p => p.id), ['p2']);
+});
+
+test('a paused product keeps its settings, ready to come back untouched', () => {
+  const config = normalizeConfig(paused({ active: false, kind: 'dropdown', crate: { show: true, perBox: 24 } }));
+  const p = getProductById(config, 'p1');
+  assert.equal(p.name, 'Pizzas');
+  assert.equal(p.weight, 201);
+  assert.equal(p.kind, 'dropdown');
+  assert.deepEqual(p.crate, { show: true, perBox: 24 });
+});
+
+test('the divisor ignores a paused product but KEEPS its tick for when it returns', () => {
+  const raw = paused({ active: false });
+  raw.divisorIncluded = { focaccia: ['p1', 'p2'] };
+  const config = normalizeConfig(raw);
+  assert.deepEqual(getDivisorIncluded(config, 'focaccia'), ['p1', 'p2'], 'the tick survives');
+  assert.deepEqual(getDivisorProducts(config, 'focaccia').map(p => p.id), ['p2'], 'but it does not split');
+  const q = { [pairId('c1', 'p1')]: 10, [pairId('c1', 'p2')]: 3 };
+  assert.equal(divisorTotal(config, 'focaccia', qtyFrom(q)), 3 * 181);
+});
+
+test('a paused product still blocks deleting the recipe it belongs to', () => {
+  // getProducts is what the recipe editor counts; a paused product is still a product,
+  // or deleting its recipe would leave it homeless.
+  const config = normalizeConfig(paused({ active: false }));
+  assert.equal(getProducts(config).filter(p => p.recipeId === 'focaccia').length, 2);
+});

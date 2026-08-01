@@ -737,6 +737,22 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   font-weight: 700;
 }
 .cp-prod-card-row { display: flex; align-items: center; gap: 8px; }
+/* A paused product: still here, still editable, but out of the calculator. Dimmed so it
+   reads as switched off while scrolling, with a tag that says so in words — colour alone
+   is not a message (P18). Tokens only; no colour is written by hand here. */
+.cp-prod-card-paused { opacity: 0.62; }
+.cp-paused-tag {
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+  font-size: var(--text-4, 10px);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text3);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
 /* Read-only product name in the Products view (not an input — no border/field look). */
 .cp-prod-ro-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); }
 .cp-prod-dough {

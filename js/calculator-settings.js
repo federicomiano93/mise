@@ -19,7 +19,7 @@
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   WEIGHT_MIN, WEIGHT_MAX, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
-  getRecipes, getRecipeById, getIngredients,
+  getRecipes, getRecipeById, getIngredients, pairId,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
@@ -139,6 +139,7 @@ async function saveClients() {
   if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
+    forgetPausedQuantities();
     showErrors = false;
     dirty = false;
     updateSaveBtn();
@@ -147,6 +148,22 @@ async function saveClients() {
     renderEditor();
   } catch (e) {
     alertDialog('Could not save. Check your connection and try again.');
+  }
+}
+
+// Drop the typed quantity of every paused product.
+//
+// ⚠️ Quantities live for days — only "Reset all fields" clears them, and that clears
+// only the rows it can SEE. A paused product has no row, so its number would become
+// unreachable and then reappear inside a real dough on the day it is switched back on,
+// with no warning. Idempotent, so it needs no before/after comparison.
+function forgetPausedQuantities() {
+  for (const client of clients()) {
+    for (const product of (client.products || [])) {
+      if (product && product.active === false) {
+        try { localStorage.removeItem('qty-' + pairId(client.id, product.id)); } catch (e) {}
+      }
+    }
   }
 }
 
@@ -275,6 +292,8 @@ function renderClientDetail(ci) {
 // its unit weight, how the quantity is typed, and the optional crate box. Everything a
 // product is now lives here — there is no separate catalogue screen to visit first.
 function productCard(client, product, pi) {
+  const paused = product.active === false;
+
   const del = deleteIcon('Remove product', () => {
     client.products.splice(pi, 1);
     markDirty();
@@ -289,7 +308,10 @@ function productCard(client, product, pi) {
     markDirty();
   });
 
-  const children = [el('div', { class: 'cp-prod-card-head' }, [nameInput, del])];
+  const head = [nameInput];
+  if (paused) head.push(el('span', { class: 'cp-paused-tag' }, 'Paused'));
+  head.push(del);
+  const children = [el('div', { class: 'cp-prod-card-head' }, head)];
 
   // Recipe. A product whose recipe was deleted is re-homed onto the first one, so the
   // select always shows something real rather than an empty box.
@@ -343,7 +365,18 @@ function productCard(client, product, pi) {
     children.push(el('div', { class: 'cp-prod-card-row' }, crateRow));
   }
 
-  return el('div', { class: 'cp-prod-card' }, children);
+  // Pause instead of delete: the product stays here with its recipe, weight, type and
+  // crate, but leaves the calculator until it is switched back on.
+  const activeToggle = el('input', { type: 'checkbox' });
+  activeToggle.checked = !paused;
+  activeToggle.addEventListener('change', () => {
+    product.active = activeToggle.checked;
+    markDirty();
+    renderEditor();
+  });
+  children.push(el('label', { class: 'cp-crate-label' }, [activeToggle, el('span', {}, 'Active')]));
+
+  return el('div', { class: 'cp-prod-card' + (paused ? ' cp-prod-card-paused' : '') }, children);
 }
 
 // ── Ingredients registry (separate Settings screen) ───────────────────────────

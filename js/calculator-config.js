@@ -410,6 +410,10 @@ export function getTabProducts(config, recipeId) {
     if (!client || !Array.isArray(client.products)) continue;
     for (const product of client.products) {
       if (!product || product.recipeId !== recipeId) continue;
+      // A paused product keeps its settings but leaves the calculator entirely: no row,
+      // no dough, no divisor, no log. This is the ONE place that decides it — every
+      // consumer builds its rows from here.
+      if (product.active === false) continue;
       out.push({
         id: product.id,
         qtyId: pairId(client.id, product.id),
@@ -544,6 +548,11 @@ function normalizeProduct(p) {
     weight: clampWeight(p.weight),
     kind: normalizeKind(p.kind),
     crate: normalizeCrate(p.crate),
+    // Paused: kept in the client's list but out of the calculator until it comes back.
+    // ⚠️ Missing means ACTIVE. No document in production carries this field, and a
+    // default of "paused" would empty every tab at once. Same convention as `visible`
+    // on recipes and `active` on the Orders suppliers.
+    active: p.active !== false,
   };
 }
 
