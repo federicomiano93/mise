@@ -522,19 +522,6 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
    underneath (z-index 510) so "back" simply reveals it again. */
 #cp-overlay { z-index: 520; }
 
-#cp-save-btn {
-  background: none;
-  border: 1.5px solid var(--on-brand-dim);
-  border-radius: var(--radius-sm);
-  color: var(--on-brand-dim);
-  font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 5px 14px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-#cp-save-btn.dirty { color: var(--on-brand); border-color: var(--on-brand-strong); }
 
 .settings-menu { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 .settings-menu-btn {
@@ -1002,22 +989,6 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   padding: 0;
 }
 .overlay-home-btn:active { background: var(--rim-bg-active); }
-#recipe-save-btn {
-  background: none;
-  border: 1.5px solid var(--on-brand-dim);
-  border-radius: var(--radius-sm);
-  color: var(--on-brand-dim);
-  font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 5px 14px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-#recipe-save-btn.dirty {
-  color: var(--on-brand);
-  border-color: var(--on-brand-strong);
-}
 .recipe-scroll {
   flex: 1;
   overflow-y: auto;
@@ -1403,12 +1374,6 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
 #logedit-overlay { z-index: 550; }
 #loghistory-overlay { z-index: 545; }
 .overlay-home-spacer { margin-left: auto; width: 36px; }
-#logedit-save-btn {
-  background: none; border: 1.5px solid var(--on-brand-dim); border-radius: var(--radius-sm);
-  color: var(--on-brand-dim); font-family: 'Manrope', sans-serif; font-size: 13px;
-  padding: 7px 14px; cursor: pointer;
-}
-#logedit-save-btn.dirty { color: var(--on-brand); border-color: var(--on-brand-strong); }
 #logview-content, #logedit-content, #loghistory-content { padding: 14px 16px; }
 
 /* Read-only view header. */

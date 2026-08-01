@@ -21,7 +21,6 @@ let state = null; // { recipeId, forDay, items[], totalInput } or null when clos
 export function openLogAdd() {
   state = { recipeId: null, forDay: null, items: [], totalInput: 0 };
   render();
-  updateSaveBtn();
   document.getElementById('logadd-overlay').classList.add('visible');
 }
 
@@ -48,15 +47,6 @@ function loadRecipe(id) {
     crate: p.crate || { show: false, perBox: 20 }, qty: 0,
   })) : [];
   render();
-  updateSaveBtn();
-}
-
-function updateSaveBtn() {
-  const b = document.getElementById('logadd-save-btn');
-  if (!b) return;
-  const ready = !!(state && state.recipeId && state.forDay);
-  b.disabled = !ready;
-  b.classList.toggle('dirty', ready);
 }
 
 function render() {
@@ -91,7 +81,7 @@ function render() {
   const dayChoices = el('div', { class: 'logday-choices' });
   for (const d of ['today', 'tomorrow']) {
     const btn = el('button', { class: 'logday-choice' + (state.forDay === d ? ' selected' : ''), type: 'button' }, d === 'today' ? 'Today' : 'Tomorrow');
-    btn.addEventListener('click', () => { state.forDay = d; render(); updateSaveBtn(); });
+    btn.addEventListener('click', () => { state.forDay = d; render(); });
     dayChoices.appendChild(btn);
   }
   c.appendChild(dayChoices);
@@ -153,4 +143,3 @@ async function commit() {
 
 // ── Wiring (elements exist in calculator.html) ────────────────────────────────
 document.querySelector('.logadd-back-btn').addEventListener('click', () => close(false));
-document.getElementById('logadd-save-btn').addEventListener('click', commit);

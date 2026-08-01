@@ -67,16 +67,12 @@ export function openLogEdit(logId) {
   working = { logId, dough: log.dough, recipeId: tab, tab, recipe, items, occasional, calculatedBy: v.calculatedBy || '' };
   dirty = false;
   render();
-  updateSaveBtn();
   document.getElementById('logedit-overlay').classList.add('visible');
 }
 
-function updateSaveBtn() {
-  const b = document.getElementById('logedit-save-btn');
-  b.disabled = !dirty;
-  b.classList.toggle('dirty', dirty);
-}
-function markDirty() { dirty = true; updateSaveBtn(); }
+// `dirty` no longer drives a button — "Save changes" at the bottom is always
+// pressable — but it still raises the unsaved-changes question on the way out.
+function markDirty() { dirty = true; }
 
 function render() {
   const c = document.getElementById('logedit-content');
@@ -155,7 +151,6 @@ async function save() {
 
   appendAndSave(working.logId, version);
   dirty = false;
-  updateSaveBtn();
   closeEdit(true);
 }
 
@@ -230,5 +225,4 @@ function openHistoryVersion(i) {
 
 // ── Wiring ────────────────────────────────────────────────────────────────────
 document.querySelector('.logedit-back-btn').addEventListener('click', () => closeEdit(false));
-document.getElementById('logedit-save-btn').addEventListener('click', save);
 document.querySelector('.loghistory-back-btn').addEventListener('click', closeHistory);

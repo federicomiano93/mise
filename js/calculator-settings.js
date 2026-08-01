@@ -77,7 +77,6 @@ function openClients() {
   showErrors = false;
   dirty = false;
   renderEditor();
-  updateSaveBtn();
   show('cp-overlay');
 }
 
@@ -108,13 +107,9 @@ async function goHomeFromClients() {
   window.location.href = 'index.html';
 }
 
-function markDirty() { dirty = true; updateSaveBtn(); }
-
-function updateSaveBtn() {
-  const btn = document.getElementById('cp-save-btn');
-  btn.disabled = !dirty;
-  btn.classList.toggle('dirty', dirty);
-}
+// `dirty` no longer drives a button — the green Save at the bottom is always
+// pressable — but it is still what asks "Discard unsaved changes?" on the way out.
+function markDirty() { dirty = true; }
 
 // The index of the first client that is invalid (a blank name, or a product with no
 // name), or null if every client and product is complete.
@@ -142,7 +137,6 @@ async function saveClients() {
     forgetPausedQuantities();
     showErrors = false;
     dirty = false;
-    updateSaveBtn();
     freshlyAdded = false;
     activeClient = null;
     renderEditor();
@@ -213,13 +207,17 @@ function renderClientList() {
 
   const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add client');
   add.addEventListener('click', () => {
-    clients().push({ id: genId('c'), name: '', items: [] });
+    clients().push({ id: genId('c'), name: '', products: [] });
     markDirty();
     freshlyAdded = true;
     activeClient = clients().length - 1;
     renderEditor();
   });
   content.appendChild(add);
+
+  // ⚠️ The list is savable in its own right: dragging a client to reorder marks
+  // changes, and with the header Save gone this is the only way to keep a reorder.
+  content.appendChild(saveBottomButton(saveClients));
 }
 
 function clientBox(client, ci) {
@@ -577,4 +575,3 @@ document.getElementById('open-whatsapp-btn').addEventListener('click', openWhats
 document.getElementById('open-recipes-btn').addEventListener('click', openRecipes);
 document.querySelector('.cp-back-btn').addEventListener('click', closeClients);
 document.getElementById('cp-home-btn').addEventListener('click', goHomeFromClients);
-document.getElementById('cp-save-btn').addEventListener('click', saveClients);
