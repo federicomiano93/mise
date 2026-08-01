@@ -15,6 +15,23 @@
    The venue's own name is the largest type in the app, with "HOME" as a small
    mono label above it. column-reverse puts the label first without moving the
    <h1> off the top of the document, which is what a screen reader announces. */
+/* ── Home layout ──────────────────────────────────────────────────────────
+   "Switch location" and "Log out" belong at the bottom of the screen, not stuck
+   under the last card with a wide gap beneath them. A column here plus an auto
+   top margin on the last block puts them there when there is room to spare, and
+   does nothing when there is not — so the day this screen carries six cards
+   instead of three, the two links simply follow the list and are reached by
+   scrolling, rather than sitting fixed on top of it. That also keeps Log out the
+   quiet, rare action it is meant to be (P20).
+   Scoped to the Home: .scroll-area is shared with the Calculator and Orders.
+   The buttons' own styling stays in auth.css, next to the rest of the session UI. */
+.home-scroll { display: flex; flex-direction: column; }
+/* Load-bearing. In a column flex container the children SHRINK to fit rather
+   than overflowing, so without this a long list would be squashed instead of
+   scrolling — precisely the "one day there will be more cards" case. */
+.home-scroll > * { flex-shrink: 0; }
+#session-logout-host { margin-top: auto; }
+
 .home-header { position: relative; }
 /* A short crust rule fading out to the right, under the venue name. Decorative
    only, so it is drawn from CSS and never announced. */
