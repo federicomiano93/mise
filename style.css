@@ -1266,12 +1266,18 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   margin-bottom: 3px;
 }
 .log-item strong { color: var(--accent); font-weight: 700; }
+/* The card itself has no padding (its body is a full-bleed button), so this row has to
+   carry its own — otherwise History and the bin sit flush against the card edges while
+   everything above them is inset, and there is no air underneath.
+   ⚠️ The inset must come from MARGIN, not padding: a border-top is drawn on the outside
+   of the padding box, so padding alone would leave the divider spanning the whole card
+   while the buttons moved in. */
 .log-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
+  margin: 14px 16px 0;
+  padding: 12px 0 16px;
   border-top: 1px solid var(--border);
 }
 /* Delete sits at the far right (low-key, separated from History/Edit on the left). */
