@@ -734,8 +734,8 @@ input.cp-prod-weight {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-bottom: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
   box-shadow: var(--shadow-card);
 }
 /* One product = one card, laid out as a single column with real space between its rows.
@@ -758,6 +758,36 @@ input.cp-prod-weight {
 /* Every control in a card is the same height, and a comfortable target for a thumb. */
 .cp-prod-card-row > select,
 .cp-prod-card-row > input:not([type="checkbox"]) { min-height: 40px; }
+
+/* ── A product's four fields: label | field | unit ──────────────────────────────
+   A three-column grid, so every label starts on one line and every field starts AND
+   ends on another, whether or not that row carries a unit. The unit column is always
+   there, empty on the rows that have none.
+   ⚠️ Its own class, NOT the shared .cp-prod-card-row: the recipe editor uses that one
+   for two-cell rows, and a three-column grid would drop its grams field into the label
+   column. */
+.cp-field-row {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr) 14px;
+  align-items: center;
+  gap: 10px;
+}
+.cp-field-label { font-size: 13px; color: var(--text2); }
+.cp-field-suffix { font-size: 13px; color: var(--text2); text-align: left; }
+/* The field fills its column. ⚠️ This has to out-specify input.cp-prod-weight's own
+   width (0,1,1), which is why it names both the row and the element. */
+.cp-field-row > select,
+.cp-field-row > input { width: 100%; min-height: 42px; }
+
+/* The checkbox rows read as a group rather than as a labelled field, so they stay flex
+   and simply sit on the same left edge as the labels. */
+.cp-check-row { display: flex; align-items: center; gap: 8px; }
+.cp-check-row > input[type="number"] { width: 84px; min-height: 42px; flex-shrink: 0; }
+
+/* Delete lives alone at the bottom right, away from everything that edits, so it can
+   never be hit while reaching for a field (P20). */
+.cp-prod-card-foot { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.cp-prod-card-foot .cp-paused-tag { margin-right: auto; }
 /* A paused product: still here, still editable, but out of the calculator. Dimmed so it
    reads as switched off while scrolling, with a tag that says so in words — colour alone
    is not a message (P18). Tokens only; no colour is written by hand here. */

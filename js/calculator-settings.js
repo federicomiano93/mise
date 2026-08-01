@@ -286,18 +286,30 @@ function renderClientDetail(ci) {
   content.appendChild(saveBottomButton(saveClients));
 }
 
-// One product of this client, described in full: its name, the recipe it belongs to,
-// its unit weight, how the quantity is typed, and the optional crate box. Everything a
-// product is now lives here — there is no separate catalogue screen to visit first.
+// One product of this client, described in full: name, the recipe it belongs to, its
+// unit weight, how the quantity is typed, and the optional crate box. Everything a
+// product is lives here — there is no separate catalogue screen to visit first.
+//
+// The four editable fields are laid out as a GRID — a label column, a field column and
+// a narrow unit column — so every label starts on one line and every field starts and
+// ends on another. ⚠️ It uses its own `cp-field-row` class rather than the shared
+// `cp-prod-card-row`: the recipe editor uses that one for two-cell rows, and a
+// three-column grid would put its grams field in the label column.
+function fieldRow(labelText, control, suffix) {
+  return el('div', { class: 'cp-field-row' }, [
+    el('span', { class: 'cp-field-label' }, labelText),
+    control,
+    // Always present, even when empty, so the field column ends on the same x on
+    // every row whether or not that row has a unit.
+    el('span', { class: 'cp-field-suffix' }, suffix || ''),
+  ]);
+}
+
 function productCard(client, product, pi) {
   const paused = product.active === false;
+  const rows = [];
 
-  const del = deleteIcon('Remove product', () => {
-    client.products.splice(pi, 1);
-    markDirty();
-    renderEditor();
-  });
-
+  // Name.
   const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: product.name || '', placeholder: 'Product name' });
   if (showErrors && isBlank(product.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => {
@@ -305,11 +317,7 @@ function productCard(client, product, pi) {
     nameInput.classList.remove('cp-invalid');
     markDirty();
   });
-
-  const head = [nameInput];
-  if (paused) head.push(el('span', { class: 'cp-paused-tag' }, 'Paused'));
-  head.push(del);
-  const children = [el('div', { class: 'cp-prod-card-head' }, head)];
+  rows.push(fieldRow('Name', nameInput));
 
   // Recipe. A product whose recipe was deleted is re-homed onto the first one, so the
   // select always shows something real rather than an empty box.
@@ -320,26 +328,25 @@ function productCard(client, product, pi) {
   if (!known && recipes[0]) product.recipeId = recipes[0].id;
   recipeSel.value = product.recipeId;
   recipeSel.addEventListener('change', () => { product.recipeId = recipeSel.value; markDirty(); });
-  children.push(el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Recipe'), recipeSel]));
+  rows.push(fieldRow('Recipe', recipeSel));
 
+  // Weight.
   const weight = el('input', {
     class: 'cp-prod-weight', type: 'number', min: String(WEIGHT_MIN), max: String(WEIGHT_MAX),
-    step: '1', value: String(product.weight), inputmode: 'numeric',
+    step: '1', value: String(product.weight), inputmode: 'numeric', 'aria-label': 'Weight in grams',
   });
   weight.addEventListener('input', () => { product.weight = +weight.value || 0; markDirty(); });
-  children.push(el('div', { class: 'cp-prod-card-row' }, [
-    el('span', { class: 'cp-unit' }, 'Weight'), weight, el('span', { class: 'cp-unit' }, 'g'),
-  ]));
+  rows.push(fieldRow('Weight', weight, 'g'));
 
   if (product.kind === 'kg') {
     // Legacy kg product: quantity entered in kilograms; no type/crate options.
-    children.push(el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-kg-note' }, 'kg')]));
+    rows.push(fieldRow('Type', el('span', { class: 'cp-kg-note' }, 'kg')));
   } else {
     const type = el('select', { class: 'cp-prod-dough', 'aria-label': 'Quantity type' });
     for (const k of ['number', 'dropdown']) type.appendChild(el('option', { value: k }, TYPE_LABELS[k]));
     type.value = product.kind === 'dropdown' ? 'dropdown' : 'number';
     type.addEventListener('change', () => { product.kind = type.value; markDirty(); });
-    children.push(el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Type'), type]));
+    rows.push(fieldRow('Type', type));
 
     if (!product.crate || typeof product.crate !== 'object') product.crate = { show: false, perBox: 20 };
     const crateToggle = el('input', { type: 'checkbox' });
@@ -355,12 +362,12 @@ function productCard(client, product, pi) {
     if (product.crate.show) {
       const perBoxInput = el('input', {
         class: 'cp-prod-weight', type: 'number', min: '1', max: '1000', step: '1',
-        value: String(product.crate.perBox || 20), inputmode: 'numeric',
+        value: String(product.crate.perBox || 20), inputmode: 'numeric', 'aria-label': 'Pieces per crate',
       });
       perBoxInput.addEventListener('input', () => { product.crate.perBox = +perBoxInput.value || 0; markDirty(); });
-      crateRow.push(perBoxInput, el('span', { class: 'cp-unit' }, 'pz'));
+      crateRow.push(perBoxInput, el('span', { class: 'cp-field-suffix' }, 'pz'));
     }
-    children.push(el('div', { class: 'cp-prod-card-row' }, crateRow));
+    rows.push(el('div', { class: 'cp-check-row' }, crateRow));
   }
 
   // Pause instead of delete: the product stays here with its recipe, weight, type and
@@ -372,9 +379,22 @@ function productCard(client, product, pi) {
     markDirty();
     renderEditor();
   });
-  children.push(el('label', { class: 'cp-crate-label' }, [activeToggle, el('span', {}, 'Active')]));
+  rows.push(el('div', { class: 'cp-check-row' }, [
+    el('label', { class: 'cp-crate-label' }, [activeToggle, el('span', {}, 'Active')]),
+  ]));
 
-  return el('div', { class: 'cp-prod-card' + (paused ? ' cp-prod-card-paused' : '') }, children);
+  // Delete sits alone at the bottom right, away from everything that edits — a small
+  // icon that never competes with Save (P20).
+  const foot = [];
+  if (paused) foot.push(el('span', { class: 'cp-paused-tag' }, 'Paused'));
+  foot.push(deleteIcon('Remove product', () => {
+    client.products.splice(pi, 1);
+    markDirty();
+    renderEditor();
+  }));
+  rows.push(el('div', { class: 'cp-prod-card-foot' }, foot));
+
+  return el('div', { class: 'cp-prod-card' + (paused ? ' cp-prod-card-paused' : '') }, rows);
 }
 
 
