@@ -75,6 +75,8 @@ function currentTarget() {
 // ── Address-book product pool (unique by name) ─────────────────────────────────
 // The WhatsApp message uses only the product name, so the picker shows each distinct
 // name once, keeping the first product that bears it as the representative to store.
+// Products now belong to their client, so this walks every client's list — two clients
+// ordering the same thing still offer that name once.
 function uniqueProducts() {
   const seen = new Set();
   const out = [];

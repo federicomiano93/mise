@@ -40,20 +40,79 @@ test('filterVisibleLogs: dough match is case-insensitive', () => {
 });
 
 // ── filterVisibleLogs: retention ──────────────────────────────────────────────
-test('filterVisibleLogs: a log older than the window is hidden', () => {
-  const out = filterVisibleLogs([log('Focaccia', 25)], { visibility: {}, retentionHours: 24, nowMs: NOW });
-  assert.equal(out.length, 0);
+// The window runs from the END of the work day the dough is FOR (work days roll over at
+// 4am), not from the moment the log was written. Times below are LOCAL and explicit,
+// because "N hours ago" cannot express "the day it is for".
+const at = (y, m, d, hh, mm = 0) => new Date(y, m - 1, d, hh, mm, 0, 0).getTime();
+const made = (whenMs, forDay = 'today', dough = 'Focaccia') =>
+  ({ id: dough + '-' + whenMs, dough, forDay, createdAtMs: whenMs });
+const shown = (logs, hours, nowMs) => filterVisibleLogs(logs, { visibility: {}, retentionHours: hours, nowMs }).length;
+
+test('a dough made for TOMORROW is still listed all through tomorrow', () => {
+  const l = [made(at(2026, 8, 1, 9, 0), 'tomorrow')];
+  // The old rule counted 24h from writing, so it vanished at 09:00 on the 2nd —
+  // the morning of the very day it was needed.
+  assert.equal(shown(l, 24, at(2026, 8, 2, 9, 30)), 1, 'still there mid-morning');
+  assert.equal(shown(l, 24, at(2026, 8, 2, 22, 0)), 1, 'still there that evening');
 });
 
-test('filterVisibleLogs: a log within the window is kept', () => {
-  const out = filterVisibleLogs([log('Focaccia', 23)], { visibility: {}, retentionHours: 24, nowMs: NOW });
-  assert.equal(out.length, 1);
+test('...and goes once that day is over plus the window', () => {
+  const l = [made(at(2026, 8, 1, 9, 0), 'tomorrow')];
+  // work day 2 Aug ends at 04:00 on the 3rd; +24h = 04:00 on the 4th
+  assert.equal(shown(l, 24, at(2026, 8, 4, 3, 59)), 1);
+  assert.equal(shown(l, 24, at(2026, 8, 4, 4, 1)), 0);
 });
 
-test('filterVisibleLogs: 48h window keeps a 30h-old log that 24h would hide', () => {
-  const old = [log('Focaccia', 30)];
-  assert.equal(filterVisibleLogs(old, { visibility: {}, retentionHours: 24, nowMs: NOW }).length, 0);
-  assert.equal(filterVisibleLogs(old, { visibility: {}, retentionHours: 48, nowMs: NOW }).length, 1);
+test('a dough made at 22:00 for today does NOT vanish at midnight', () => {
+  const l = [made(at(2026, 8, 1, 22, 0), 'today')];
+  assert.equal(shown(l, 24, at(2026, 8, 2, 0, 30)), 1, 'half past midnight, same night shift');
+  assert.equal(shown(l, 24, at(2026, 8, 2, 3, 30)), 1, 'still before the 4am rollover');
+});
+
+test('a dough made for today is gone the day after, once the window runs out', () => {
+  const l = [made(at(2026, 8, 1, 9, 0), 'today')];
+  // work day 1 Aug ends at 04:00 on the 2nd; +24h = 04:00 on the 3rd
+  assert.equal(shown(l, 24, at(2026, 8, 3, 3, 59)), 1);
+  assert.equal(shown(l, 24, at(2026, 8, 3, 4, 1)), 0);
+});
+
+test('48 hours keeps what 24 hours hides', () => {
+  const l = [made(at(2026, 8, 1, 9, 0), 'today')];
+  const when = at(2026, 8, 3, 12, 0);
+  assert.equal(shown(l, 24, when), 0);
+  assert.equal(shown(l, 48, when), 1);
+});
+
+test('no log lives SHORTER than it used to', () => {
+  // The old rule was createdAt + window. The new anchor (end of the target work day)
+  // is never earlier than the moment of writing, so every log lives at least as long.
+  const hours = 24;
+  for (const [h, forDay] of [[0, 'today'], [3, 'today'], [9, 'today'], [22, 'today'], [9, 'tomorrow']]) {
+    const createdAtMs = at(2026, 8, 1, h, 0);
+    const oldExpiry = createdAtMs + hours * HOUR;
+    assert.equal(
+      shown([made(createdAtMs, forDay)], hours, oldExpiry),
+      1,
+      `a log made at ${h}:00 for ${forDay} was still visible under the old rule and must remain so`,
+    );
+  }
+});
+
+test('the clock change does not shift the day', () => {
+  // BST ends 25 Oct 2026: that Sunday is 25 hours long. A dough made on the Saturday
+  // for the Sunday must behave exactly like any other pair of days.
+  const l = [made(at(2026, 10, 24, 9, 0), 'tomorrow')];
+  assert.equal(shown(l, 24, at(2026, 10, 25, 20, 0)), 1, 'visible all through the long day');
+  assert.equal(shown(l, 24, at(2026, 10, 26, 3, 59)), 1);
+  assert.equal(shown(l, 24, at(2026, 10, 27, 4, 1)), 0);
+});
+
+test('a log with no usable creation time is hidden, as before', () => {
+  assert.equal(shown([{ id: 'x', dough: 'Focaccia', createdAtMs: 0 }], 24, NOW), 0);
+});
+
+test('a zero/absent window means no expiry at all', () => {
+  assert.equal(shown([made(at(2020, 1, 1, 9, 0))], 0, at(2026, 8, 1, 9, 0)), 1);
 });
 
 test('filterVisibleLogs: tolerates a missing/garbage list', () => {
@@ -104,11 +163,16 @@ test('getLogRetentionForDough: falls back to the legacy global, then the default
 });
 
 test('filterVisibleLogs: a per-dough retention map applies the right window to each dough', () => {
-  const logs = [log('Focaccia', 30), log('Brioche', 30)];
+  // Both made on 1 Aug for that day, so both anchor on 04:00 of the 2nd: brioche's 24h
+  // runs out at 04:00 on the 3rd, focaccia's 48h only at 04:00 on the 4th.
+  const logs = [
+    made(at(2026, 8, 1, 9, 0), 'today', 'Focaccia'),
+    made(at(2026, 8, 1, 9, 0), 'today', 'Brioche'),
+  ];
   const out = filterVisibleLogs(logs, {
     visibility: {},
-    retentionHours: { focaccia: 48, brioche: 24 }, // focaccia keeps 30h, brioche hides it
-    nowMs: NOW,
+    retentionHours: { focaccia: 48, brioche: 24 },
+    nowMs: at(2026, 8, 3, 12, 0),
   });
   assert.deepEqual(out.map(l => l.dough), ['Focaccia']);
 });

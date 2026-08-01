@@ -17,6 +17,9 @@ import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirect
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
 import { alertDialog } from './confirm-dialog.js';
+import { getLogs } from './log-store.js';
+import { latestVersion } from './log-model.js';
+import { prefillFromLogs, prefillNote } from './calculator-order-prefill.js';
 
 // The resolved client entries we are sending: [{ client, products }]. The order
 // message heading is the chosen list's title.
@@ -116,9 +119,20 @@ function renderOrderModal() {
   document.getElementById('loaf-modal-title').textContent = selectedTitle || 'Order';
   const body = document.getElementById('loaf-order-body');
   body.textContent = '';
+
+  // Fill in what has already been calculated and logged, rather than making the same
+  // numbers be typed twice. ⚠️ The note below is what makes this acceptable at all:
+  // the numbers must never appear as if from nowhere (see calculator-order-prefill.js).
+  const prefilled = prefillFromLogs(selectedEntries, getLogs(), latestVersion);
+  body.appendChild(el('p', { class: 'order-prefill-note' }, prefillNote(Object.keys(prefilled).length)));
+
   selectedEntries.forEach((entry, ei) => {
     const rows = entry.products.map(p => {
-      const input = el('input', { type: 'number', id: inputId(ei, p.id), class: 'order-qty-input', value: '0', min: '0', inputmode: 'numeric' });
+      const start = prefilled[ei + '|' + p.id];
+      const input = el('input', {
+        type: 'number', id: inputId(ei, p.id), class: 'order-qty-input',
+        value: String(start === undefined ? 0 : start), min: '0', inputmode: 'numeric',
+      });
       // Same focus/blur convenience as the calculator fields: tapping a 0 clears
       // it, leaving it empty restores 0.
       input.addEventListener('focus', function() {

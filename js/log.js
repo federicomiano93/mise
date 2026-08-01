@@ -12,7 +12,7 @@ import {
 import { logTimestamp } from './log-time.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
-import { buildSheet, buildLogText, latestVersion, filterVisibleLogs, confirmTarget, dayLabel } from './log-model.js';
+import { buildSheet, buildLogText, latestVersion, filterVisibleLogs, confirmTarget, dayLabel, recipeSnapshot } from './log-model.js';
 import { getLogs, getLogById, createAndSave, appendAndSave, genLogId, deleteLog } from './log-store.js';
 import { renderOrder, renderVersion } from './log-view.js';
 import { openLogEdit, openLogHistory } from './log-edit.js';
@@ -119,13 +119,14 @@ function commitLog() {
   // a deleted linked log falls back to create (confirmTarget handles that edge case).
   const lock = getLock(tab);
   const action = confirmTarget({ linkedId: lock.logId, linkedExists: !!getLogById(lock.logId) });
+  const frozenRecipe = recipeSnapshot(recipe); // the doses used TODAY, kept with the log
   let logId = lock.logId;
   if (action === 'update') {
-    const version = { calculatedBy: '', at, kind: 'edit', items, occasional: [], sheet, text };
+    const version = { calculatedBy: '', at, kind: 'edit', items, occasional: [], sheet, text, recipe: frozenRecipe };
     appendAndSave(lock.logId, version, pendingDay);
   } else {
     logId = genLogId();
-    const version = { calculatedBy: '', at, kind: 'create', items, occasional: [], sheet, text };
+    const version = { calculatedBy: '', at, kind: 'create', items, occasional: [], sheet, text, recipe: frozenRecipe };
     createAndSave({ id: logId, dough: recipe.name, recipeId: tab, forDay: pendingDay, version, createdAtMs: Date.now(), origin: 'calculator' });
   }
   saveDailyEntry(buildDailyEntry(tab, sheet, at)); // keep the production archive too

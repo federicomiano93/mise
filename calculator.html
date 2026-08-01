@@ -132,19 +132,11 @@
     <div class="settings-menu">
       <button id="open-clients-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Clients</span>
-        <span class="settings-menu-sub">Add or rename clients and edit their products</span>
-      </button>
-      <button id="open-products-btn" class="settings-menu-btn">
-        <span class="settings-menu-title">Products</span>
-        <span class="settings-menu-sub">Add, rename or delete products and set their recipe and weight</span>
+        <span class="settings-menu-sub">Clients and the products each one orders</span>
       </button>
       <button id="open-recipes-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Recipes</span>
         <span class="settings-menu-sub">Add, edit or delete recipes; pick which show as tabs</span>
-      </button>
-      <button id="open-ingredients-btn" class="settings-menu-btn">
-        <span class="settings-menu-title">Ingredients</span>
-        <span class="settings-menu-sub">The master list of ingredient names used in recipes</span>
       </button>
       <button id="open-whatsapp-btn" class="settings-menu-btn">
         <span class="settings-menu-title">WhatsApp</span>
@@ -229,38 +221,9 @@
     <button class="overlay-home-btn" id="cp-home-btn" type="button" aria-label="Home">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
     </button>
-    <button id="cp-save-btn" disabled>Save</button>
   </div>
   <div class="recipe-scroll">
     <div id="cp-content"></div>
-  </div>
-</div>
-
-<div id="products-overlay">
-  <div class="recipe-overlay-header">
-    <button class="products-back-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <span class="recipe-overlay-title">Products</span>
-    <button class="overlay-home-btn" id="products-home-btn" type="button" aria-label="Home">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
-    </button>
-    <button id="products-save-btn" disabled>Save</button>
-  </div>
-  <div class="recipe-scroll">
-    <div id="products-content"></div>
-  </div>
-</div>
-
-<div id="ingredients-overlay">
-  <div class="recipe-overlay-header">
-    <button class="ingredients-back-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-    <span class="recipe-overlay-title">Ingredients</span>
-    <button class="overlay-home-btn" id="ingredients-home-btn" type="button" aria-label="Home">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
-    </button>
-    <button id="ingredients-save-btn" disabled>Save</button>
-  </div>
-  <div class="recipe-scroll">
-    <div id="ingredients-content"></div>
   </div>
 </div>
 
@@ -336,7 +299,6 @@
   <div class="recipe-overlay-header">
     <button class="logedit-back-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
     <span class="recipe-overlay-title">Edit log</span>
-    <button id="logedit-save-btn" disabled>Save</button>
   </div>
   <div class="recipe-scroll"><div id="logedit-content"></div></div>
 </div>
@@ -346,7 +308,6 @@
   <div class="recipe-overlay-header">
     <button class="logadd-back-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
     <span class="recipe-overlay-title">Add log</span>
-    <button id="logadd-save-btn" disabled>Save</button>
   </div>
   <div class="recipe-scroll"><div id="logadd-content"></div></div>
 </div>

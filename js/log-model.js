@@ -156,6 +156,72 @@ export function buildLogText(items, occasional, extra) {
   return lines.join('\n');
 }
 
+// ── Freezing what a log was made with ─────────────────────────────────────────
+
+// A compact copy of the recipe a log was calculated with, stored on the version so a
+// later edit rebuilds the sheet with the doses of THAT day rather than today's.
+//
+// ⚠️ These are exactly the fields buildSheet and recipeSpec read. If buildSheet ever
+// starts reading another one, add it here too or the freeze quietly loses a piece.
+export function recipeSnapshot(recipe) {
+  if (!recipe || typeof recipe !== 'object') return null;
+  const baseline = Number(recipe.baselinePct);
+  return {
+    id: String(recipe.id || ''),
+    name: safeDough(recipe.name),
+    logic: recipe.logic || 'orders',
+    ingredients: (Array.isArray(recipe.ingredients) ? recipe.ingredients : [])
+      .map(ing => ({ key: String(ing.key || ''), label: String(ing.label || ''), grams: num(ing.grams) })),
+    leaveningKey: recipe.leaveningKey || null,
+    leaveningDefaultPct: num(recipe.leaveningDefaultPct),
+    baselinePct: Number.isFinite(baseline) ? baseline : null,
+  };
+}
+
+// A row's identity inside a log: the client it belongs to plus the product. The same
+// product ordered by two clients is two independent rows.
+const rowKey = (clientName, id) => String(clientName || '') + '|' + String(id || '');
+
+// The rows the log-edit screen must show: everything the log SAVED, verbatim (its own
+// name, weight, kind, crate and quantity), followed by the products that exist today
+// and were not in it, at zero.
+//
+// Rebuilding the rows from today's config instead — which is what the screen used to do
+// — silently dropped the line of a deleted product, renamed the ones that had been
+// renamed, and recomputed the dough with a changed weight. A saved log must be able to
+// gain a row, never to lose or rewrite one.
+export function editRows(savedItems, currentRows) {
+  const out = [];
+  const seen = new Set();
+
+  for (const it of (Array.isArray(savedItems) ? savedItems : [])) {
+    if (!it) continue;
+    const key = rowKey(it.clientName, it.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id: it.id,
+      name: it.name,
+      clientName: it.clientName,
+      weightG: num(it.weightG),
+      kind: it.kind,
+      // Logs written before crate boxes existed carry no crate at all.
+      crate: (it.crate && typeof it.crate === 'object') ? it.crate : { show: false, perBox: 20 },
+      qty: num(it.qty),
+    });
+  }
+
+  for (const row of (Array.isArray(currentRows) ? currentRows : [])) {
+    if (!row) continue;
+    const key = rowKey(row.clientName, row.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...row, qty: 0 });
+  }
+
+  return out;
+}
+
 // ── Log lifecycle (append-only) ───────────────────────────────────────────────
 
 // A brand-new log with its first version. Each Confirm makes a NEW log — it never
@@ -247,11 +313,38 @@ export function migrateOldLogs(records, makeId, baseMs = 0) {
   return out;
 }
 
-// Filter logs for the app's Log LIST only: keep a log when its dough type is visible
-// AND it is still within the retention window (created no more than retentionHours
-// ago). DISPLAY-only — the database keeps every log; this never deletes anything.
-// Pure (nowMs is passed in) so it can be unit-tested. `visibility` is keyed by the
-// lowercase dough name (focaccia/brioche/sourdough); a missing key counts as visible.
+// ── The work day (shared by the retention window) ─────────────────────────────
+// A bakery's day does not end at midnight: a dough calculated at 23:30 and looked at
+// again at 00:30 is the same night's work. So the day rolls over at 4am.
+export const DAY_START_HOUR = 4;
+
+// Which work day a moment belongs to, as a comparable integer.
+// ⚠️ Built from the Y/M/D components rather than by dividing the timestamp: on the day
+// the clocks change a day lasts 23 or 25 hours, and dividing shifts the date by one.
+export function workDayIndex(ms) {
+  const d = new Date(num(ms));
+  d.setHours(d.getHours() - DAY_START_HOUR);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+}
+
+// The moment a work day ends: 4am on the morning after it. Built with the LOCAL Date
+// constructor, so it lands on the real local 4am even across a clock change.
+function workDayEndMs(index) {
+  const utc = new Date((index + 1) * 86400000);
+  return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate(), DAY_START_HOUR, 0, 0, 0).getTime();
+}
+
+// Filter logs for the app's Log LIST only: keep a log when its dough type is visible AND
+// it is still within the retention window. DISPLAY-only — the database keeps every log;
+// this never deletes anything. Pure (nowMs is passed in) so it can be unit-tested.
+// `visibility` is keyed by the lowercase recipe id / dough name; a missing key counts as
+// visible.
+//
+// ⚠️ The window is counted from the END OF THE WORK DAY THE DOUGH IS FOR, not from when
+// the log was written. A dough is often made for the NEXT day, and counting from writing
+// made it vanish on the morning of the very day it was needed: made at 09:00 for
+// tomorrow, gone at 09:00 tomorrow, so whoever came in at 10 could not find it.
+// Counting from the target day can only ever make a log live LONGER than before.
 export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, nowMs = 0 } = {}) {
   const list = Array.isArray(logs) ? logs : [];
   // retentionHours may be a single number (applies to every dough) OR a per-dough
@@ -264,8 +357,10 @@ export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, 
     const key = String((log && (log.recipeId || log.dough)) || '').toLowerCase();
     if (visibility[key] === false) return false;
     const windowMs = Math.max(0, hoursFor(key)) * 3600 * 1000;
-    if (windowMs > 0 && num(nowMs) - num(log && log.createdAtMs) > windowMs) return false;
-    return true;
+    if (windowMs <= 0) return true;
+    const madeOn = workDayIndex(num(log && log.createdAtMs));
+    const forDay = safeForDay(log && log.forDay) === 'tomorrow' ? 1 : 0;
+    return num(nowMs) <= workDayEndMs(madeOn + forDay) + windowMs;
   });
 }
 
@@ -277,14 +372,24 @@ export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, 
 // when forDay is 'tomorrow') and name it relative to the current day.
 //
 // Pure (nowMs is passed in) so it is unit-testable. Returns { text, tone }; tone
-// drives the badge colour ('today' | 'tomorrow' | 'past').
+// drives the badge colour ('today' | 'tomorrow' | 'past'). Days are WORK days
+// (workDayIndex above), so a dough made at 23:30 and read at 00:30 is still "Today":
+// same night's work.
 
-// Calendar-day number in LOCAL time. Built from the Y/M/D components rather than
-// dividing the timestamp, so a DST change (which makes a day 23 or 25 hours long)
-// cannot shift a date by one.
-function localDayIndex(ms) {
-  const d = new Date(num(ms));
-  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+// A day, named relative to now. Beyond ±1 the log is normally already out of the
+// retention window, but a clock change or a long-lived tab can still surface one —
+// name it plainly instead of showing a wrong "Today".
+function dayName(diff) {
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  if (diff > 1) return 'In ' + diff + ' days';
+  return -diff + ' days ago';
+}
+
+function toneFor(diff) {
+  if (diff === 0) return 'today';
+  return diff > 0 ? 'tomorrow' : 'past';
 }
 
 export function dayLabel(log, nowMs) {
@@ -299,17 +404,21 @@ export function dayLabel(log, nowMs) {
       : { text: 'Today', tone: 'today' };
   }
 
-  const target = localDayIndex(createdAtMs) + (forDay === 'tomorrow' ? 1 : 0);
-  const diff = target - localDayIndex(nowMs);
+  const today = workDayIndex(nowMs);
+  const made = workDayIndex(createdAtMs) - today;
+  const target = made + (forDay === 'tomorrow' ? 1 : 0);
 
-  if (diff === 0) return { text: 'Today', tone: 'today' };
-  if (diff === 1) return { text: 'Tomorrow', tone: 'tomorrow' };
-  if (diff === -1) return { text: 'Yesterday', tone: 'past' };
-  // Beyond ±1 day the log is normally already out of the 24/48h retention window,
-  // but a clock change or a long-lived tab can still surface one — name it plainly
-  // instead of showing a wrong "Today".
-  if (diff > 1) return { text: 'In ' + diff + ' days', tone: 'tomorrow' };
-  return { text: -diff + ' days ago', tone: 'past' };
+  // The badge names the day the dough was MADE, and adds the day it is FOR whenever
+  // the two differ. It used to name only the target, so a dough made yesterday for
+  // today read "Today" — and whoever picked up the log believed it had just been made.
+  const text = made === target
+    ? dayName(made)
+    : dayName(made) + ' for ' + dayName(target).toLowerCase();
+
+  // The colour still follows the day the dough is FOR: it answers "do I need this
+  // now?", while the words tell the story. A dough for today stays green even when it
+  // was made yesterday.
+  return { text, tone: toneFor(target) };
 }
 
 // Sort logs for display: newest first by creation time, with a stable id tiebreak.

@@ -388,13 +388,22 @@ export function readOldLogsOnce() {
 // keyed by dough type so confirming one dough never overwrites the others.
 // Re-confirming the same dough on the same day updates its sub-entry (merge).
 // entry = buildDailyEntry(...) from js/log.js (includes entry.dough + entry.date_iso)
+//
+// ⚠️ pathFor() must be called INSIDE the authReady chain, like every other function
+// here. It THROWS while no location is open, and this one is called straight from
+// commitLog() — a synchronous throw there skipped the three lines that follow it, so
+// Confirm saved the log but never revealed the recipe or locked the tab, and tapping
+// again made a duplicate. Today the opaque auth gate makes that window unreachable by
+// a finger; that is a guard elsewhere, not a reason to build the path early.
 export function saveDailyEntry(entry) {
   const key = entry.dough.toLowerCase();
-  return setDoc(
-    doc(db, pathFor('daily-logs'), entry.date_iso),
-    { [key]: entry },
-    { merge: true }
-  ).catch(err => { console.error('saveDailyEntry failed:', err); });
+  return authReady
+    .then(() => setDoc(
+      doc(db, pathFor('daily-logs'), entry.date_iso),
+      { [key]: entry },
+      { merge: true }
+    ))
+    .catch(err => { console.error('saveDailyEntry failed:', err); });
 }
 
 // ── Calculator configuration (clients / products / weights) ──────────────────
@@ -422,9 +431,12 @@ export function watchCalculatorConfig(onChange) {
 // Normal edits (including deleting a recipe) are unaffected: with no concurrent
 // writer the rev matches and nothing extra is merged. bakery is stamped as before.
 export function saveCalculatorConfig(config) {
-  const ref = doc(db, pathFor('config'), 'calculator');
+  // Same rule as saveDailyEntry: resolve the path INSIDE the chain. Built here it
+  // would throw before the caller ever gets a promise, so the error could not be
+  // caught and reported by the .catch below.
   return authReady
     .then(() => runTransaction(db, async (tx) => {
+      const ref = doc(db, pathFor('config'), 'calculator');
       const snap = await tx.get(ref);
       const server = snap.exists() ? snap.data() : null;
       const { recipes, configRev } = reconcileConfigWrite(config, server);

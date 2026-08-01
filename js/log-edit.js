@@ -17,7 +17,7 @@ import { getConfig } from './calculator-config-store.js';
 import { getTabProducts, getDivisorIncluded, getRecipes, getRecipeById } from './calculator-config.js';
 import { logTimestamp } from './log-time.js';
 import { confirmDiscard } from './calculator-confirm.js';
-import { buildSheet, buildLogText, latestVersion } from './log-model.js';
+import { buildSheet, buildLogText, latestVersion, recipeSnapshot, editRows } from './log-model.js';
 import { getLogById, appendAndSave, restoreAndSave } from './log-store.js';
 import { renderVersion } from './log-view.js';
 import { qtyRow } from './log-qty.js';
@@ -45,15 +45,17 @@ export function openLogEdit(logId) {
   const v = latestVersion(log) || {};
   const tab = resolveRecipeId(log);
 
-  // ALL current products of this recipe (so products added since the log appear too),
-  // prefilled with the saved quantities by (client, product) pair.
-  const pairKey = (clientName, id) => (clientName || '') + '|' + id;
-  const savedQty = new Map((v.items || []).map(it => [pairKey(it.clientName, it.id), num(it.qty)]));
-  const items = getTabProducts(getConfig(), tab).map(p => ({
+  // What the log SAVED comes first and verbatim; the products added to those clients
+  // since then follow at zero, so a log can gain a row but never lose or rewrite one.
+  const items = editRows(v.items, getTabProducts(getConfig(), tab).map(p => ({
     id: p.id, name: p.name, clientName: p.clientName, weightG: p.weight, kind: p.kind,
     crate: p.crate || { show: false, perBox: 20 },
-    qty: savedQty.has(pairKey(p.clientName, p.id)) ? savedQty.get(pairKey(p.clientName, p.id)) : 0,
-  }));
+  })));
+
+  // The recipe this log was calculated with. Logs written before the freeze existed
+  // have none, and fall back to today's — without that fallback they would stop being
+  // editable altogether.
+  const recipe = v.recipe || getRecipeById(getConfig(), tab);
   const occasional = (v.occasional || []).map(o => ({
     name: o.name || '',
     products: (o.products || []).map(p => ({
@@ -62,19 +64,15 @@ export function openLogEdit(logId) {
     })),
   }));
 
-  working = { logId, dough: log.dough, recipeId: tab, tab, items, occasional, calculatedBy: v.calculatedBy || '' };
+  working = { logId, dough: log.dough, recipeId: tab, tab, recipe, items, occasional, calculatedBy: v.calculatedBy || '' };
   dirty = false;
   render();
-  updateSaveBtn();
   document.getElementById('logedit-overlay').classList.add('visible');
 }
 
-function updateSaveBtn() {
-  const b = document.getElementById('logedit-save-btn');
-  b.disabled = !dirty;
-  b.classList.toggle('dirty', dirty);
-}
-function markDirty() { dirty = true; updateSaveBtn(); }
+// `dirty` no longer drives a button — "Save changes" at the bottom is always
+// pressable — but it still raises the unsaved-changes question on the way out.
+function markDirty() { dirty = true; }
 
 function render() {
   const c = document.getElementById('logedit-content');
@@ -134,8 +132,9 @@ async function save() {
   });
 
   // Keep leavening / extra / total / divisor from the previous version (this screen
-  // edits quantities only); recompute the sheet faithfully for the new quantities.
-  const recipe = getRecipeById(getConfig(), working.recipeId);
+  // edits quantities only); recompute the sheet faithfully for the new quantities,
+  // using the recipe the log was MADE with, not today's.
+  const recipe = working.recipe;
   const prevSheet = (latestVersion(getLogById(working.logId)) || {}).sheet;
   const leaveningPct = prevSheet && prevSheet.param ? prevSheet.param.value : (recipe ? recipe.leaveningDefaultPct : 0);
   const extraG = prevSheet ? num(prevSheet.extra_g) : 0;
@@ -145,11 +144,13 @@ async function save() {
   const sheet = buildSheet({ recipe, items: items.concat(occLines), extraGrams: extraG, totalInput, leaveningPct, divisor });
   const extra = { grams: extraG, value: extraG, unit: 'g' };
   const text = buildLogText(items, occClean, extra);
-  const version = { calculatedBy: (working.calculatedBy || '').trim(), at: logTimestamp(), kind: 'edit', items, occasional: occClean, sheet, text };
+  const version = {
+    calculatedBy: (working.calculatedBy || '').trim(), at: logTimestamp(), kind: 'edit',
+    items, occasional: occClean, sheet, text, recipe: recipeSnapshot(recipe),
+  };
 
   appendAndSave(working.logId, version);
   dirty = false;
-  updateSaveBtn();
   closeEdit(true);
 }
 
@@ -224,5 +225,4 @@ function openHistoryVersion(i) {
 
 // ── Wiring ────────────────────────────────────────────────────────────────────
 document.querySelector('.logedit-back-btn').addEventListener('click', () => closeEdit(false));
-document.getElementById('logedit-save-btn').addEventListener('click', save);
 document.querySelector('.loghistory-back-btn').addEventListener('click', closeHistory);
