@@ -358,26 +358,37 @@ export function readOldLogsOnce() {
 // keyed by dough type so confirming one dough never overwrites the others.
 // Re-confirming the same dough on the same day updates its sub-entry (merge).
 // entry = buildDailyEntry(...) from js/log.js (includes entry.dough + entry.date_iso)
+//
+// ⚠️ pathFor() belongs INSIDE the authReady chain, like every other function here.
+// It THROWS while no location is open, and this one is called straight from
+// commitLog() — a synchronous throw there skips the lines that follow it, so the log
+// is saved but the recipe is never revealed and the tab never locked.
 export function saveDailyEntry(entry) {
   const key = entry.dough.toLowerCase();
-  return setDoc(
-    doc(db, pathFor('daily-logs'), entry.date_iso),
-    { [key]: entry },
-    { merge: true }
-  ).catch(err => { console.error('saveDailyEntry failed:', err); });
+  return authReady
+    .then(() => setDoc(
+      doc(db, pathFor('daily-logs'), entry.date_iso),
+      { [key]: entry },
+      { merge: true }
+    ))
+    .catch(err => { console.error('saveDailyEntry failed:', err); });
 }
 
 // ── Calculator configuration (single client address book) ────────────────────
 // One shared document: config/calculator. Shared across the team like the log,
 // under Anonymous Auth. Shape:
-//   { clients: [ { id, name, products: [ { id, name, dough, weight, kind,
+//   { clients: [ { id, name, products: [ { id, name, recipeId, weight, kind, active,
 //                    crate: { show: bool, perBox: number } } ] } ],
 //     whatsappLists: [ { id, title,
 //                        clients: [ { clientId, products: [productId, ...] } ] } ],
-//     extraDough:      { focaccia: bool, brioche: bool, sourdough: bool },
-//     divisorIncluded: { focaccia: [ids], brioche: [ids], sourdough: [ids] } }
-// Each product knows its dough (focaccia|brioche|sourdough); the dough tabs are
-// filtered views of `clients`. product.kind is the input widget: number|dropdown|kg.
+//     extraDough:      { <recipeId>: bool, ... },
+//     divisorIncluded: { <recipeId>: [productIds], ... } }
+// A product belongs to the CLIENT that orders it — there is no shared catalogue. Two
+// clients ordering the same thing hold independent copies (which may share an id, from
+// the migration off the old catalogue: divisor ticks, WhatsApp lists, saved log rows
+// and typed quantities all key by it). Each product names its recipe; the recipe tabs
+// are filtered views of `clients`. product.kind is the input widget: number|dropdown|kg.
+// product.active === false parks it: kept here, out of the calculator.
 // product.crate optionally shows a per-product "crate box" (how many crates the order
 // fills) bound to the product, not its name. `whatsappLists` are INDEPENDENT WhatsApp
 // order lists, decoupled from the dough tabs: each list groups client entries, and an
