@@ -64,6 +64,21 @@ function restoreQty(recipeId) {
   });
 }
 
+// The leavening knob is persisted exactly like the quantities. Without this the panel
+// is rebuilt at the recipe's DEFAULT percentage on every load while the quantities
+// survive, so a confirmed recipe silently recomputes: 0.80% yeast came back as 0.65%
+// and the sheet on screen showed less yeast than the one that was confirmed and logged.
+function saveParam(recipeId) {
+  const e = document.getElementById(recipeId + '-param');
+  if (e) localStorage.setItem('param-' + recipeId, e.value);
+}
+function restoreParam(recipeId) {
+  const e = document.getElementById(recipeId + '-param');
+  if (!e) return;
+  const val = localStorage.getItem('param-' + recipeId);
+  if (val !== null) e.value = val;
+}
+
 // Number-field UX: clear a leading 0 on focus, restore 0 (and recalc) on blur.
 function wireNumberUX(e, recipeId) {
   e.addEventListener('focus', function () {
@@ -91,13 +106,13 @@ function wireRecipe(recipe) {
   // Leavening knob.
   const param = document.getElementById(id + '-param');
   if (param) {
-    param.addEventListener('input', () => calc(id));
+    param.addEventListener('input', () => { calc(id); saveParam(id); });
     param.addEventListener('focus', function () {
       if (this.value === '0' || this.value === '') this.value = '';
       else this.select();
     });
     param.addEventListener('blur', function () {
-      if (this.value === '' || isNaN(parseFloat(this.value))) { this.value = String(recipe.leaveningDefaultPct); calc(id); }
+      if (this.value === '' || isNaN(parseFloat(this.value))) { this.value = String(recipe.leaveningDefaultPct); calc(id); saveParam(id); }
     });
   }
 
@@ -168,6 +183,7 @@ function renderAll() {
     if (ordersEl) renderTab(getConfig(), r.id, ordersEl);
     wireRecipe(r);
     restoreQty(r.id);
+    restoreParam(r.id);
     buildDivisorBox(r.id);
     restoreRevealed(r.id);
     restoreLock(r.id);
@@ -197,6 +213,9 @@ async function resetTab(recipeId) {
   const divSel = document.getElementById(recipeId + '-divisor-div');
   if (divSel) divSel.value = '0';
   clearQty(recipeId);
+  // The knob is put back to the recipe's default above, so the stored value has to go
+  // too — otherwise the next load would restore the percentage the reset just undid.
+  localStorage.removeItem('param-' + recipeId);
   localStorage.removeItem('total-' + recipeId);
   const extraUnit = document.getElementById(recipeId + '-extra-unit');
   if (extraUnit) extraUnit.value = 'kg';
