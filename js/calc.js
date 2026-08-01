@@ -92,7 +92,12 @@ export function applyTabState(id) {
   const ready = recipeReady(recipe);
   const root = document.getElementById('tab-' + id);
   if (root) {
-    root.querySelectorAll('input[type="number"], select.qty-select, select.extra-unit-select, select.divisor-select')
+    // The divisor is deliberately NOT in this list. Locking exists so the confirmed
+    // quantities cannot drift away from the log that was saved from them; the divisor
+    // is not a quantity, it is a display-only crate split that touches neither the
+    // recipe nor the log. Disabling it protected nothing and killed it at the one
+    // moment it is useful — recipe in hand, dough made, now split it into crates.
+    root.querySelectorAll('input[type="number"], select.qty-select, select.extra-unit-select')
       .forEach(elm => { elm.disabled = locked; });
   }
   const dayBox = document.getElementById(id + '-day-confirm');
