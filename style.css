@@ -665,6 +665,15 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   appearance: textfield;
 }
 .cp-unit, .cp-kg-note { font-size: 13px; color: var(--text2); flex-shrink: 0; }
+/* ⚠️ input[type="number"] has specificity (0,1,1) — an attribute selector counts as a
+   class — so the plain .cp-prod-weight above (0,1,0) LOST to it, and this field was
+   silently drawn at the calculator's size: 80px wide, 46px tall, 18px type. Naming the
+   element raises this to (0,1,1) and, coming later in the file, it wins. */
+input.cp-prod-weight {
+  width: 84px;
+  padding: 8px 10px;
+  font-size: 15px;
+}
 .cp-add-prod {
   margin-top: 8px;
   background: none;
@@ -729,7 +738,12 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   margin-bottom: 12px;
   box-shadow: var(--shadow-card);
 }
-.cp-prod-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+/* One product = one card, laid out as a single column with real space between its rows.
+   Measured before this at 390px: the rows TOUCHED (0px apart), their controls began at
+   three different x (67.7 / 79.8 / 81.3 — nothing lined up), and the weight field was
+   drawn 46px tall at 18px next to neighbours 36px tall at 13px. */
+.cp-prod-card { display: flex; flex-direction: column; gap: 10px; }
+.cp-prod-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 0; }
 .cp-prod-card-head .cp-prod-name {
   flex: 1;
   min-width: 0;
@@ -737,6 +751,13 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   font-weight: 700;
 }
 .cp-prod-card-row { display: flex; align-items: center; gap: 8px; }
+/* A fixed label column, so Recipe / Weight / Type all begin on the same x. Only the
+   FIRST .cp-unit of a row is a label; a trailing one ("g", "pz") stays as wide as its
+   own text. */
+.cp-prod-card-row > .cp-unit:first-child { flex: 0 0 56px; }
+/* Every control in a card is the same height, and a comfortable target for a thumb. */
+.cp-prod-card-row > select,
+.cp-prod-card-row > input:not([type="checkbox"]) { min-height: 40px; }
 /* A paused product: still here, still editable, but out of the calculator. Dimmed so it
    reads as switched off while scrolling, with a tag that says so in words — colour alone
    is not a message (P18). Tokens only; no colour is written by hand here. */
@@ -905,7 +926,22 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
 .divisor-clear-btn:active { background: var(--surface2); }
 
 /* Crate-box toggle in a product card: checkbox + "Crate box" label, inline. */
-.cp-crate-label { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+/* ⚠️ This used to be flex:1, so the <label> stretched across the whole row and tapping
+   the empty space far to the right of the word toggled the checkbox. It now shrinks to
+   its own content — the box and its word, which is what a label should cover — while
+   margin-right:auto still pushes whatever follows (the pieces field) to the right edge.
+   Deliberately NOT reduced to the 20px box alone: the word is part of the target, and
+   taking it away would make the thing harder to hit, not easier. */
+.cp-crate-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  margin-right: auto;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
 .cp-crate-label input { width: 20px; height: 20px; accent-color: var(--accent); flex-shrink: 0; }
 .extra-toggle-row {
   display: flex;
