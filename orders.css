@@ -11,22 +11,46 @@
   padding: 18px 16px calc(24px + var(--safe-bot));
 }
 
+/* ── Home header ──────────────────────────────────────────────────────────
+   The venue's own name is the largest type in the app, with "HOME" as a small
+   mono label above it. column-reverse puts the label first without moving the
+   <h1> off the top of the document, which is what a screen reader announces. */
+.home-header { position: relative; }
+/* A short crust rule fading out to the right, under the venue name. Decorative
+   only, so it is drawn from CSS and never announced. */
+.home-header::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 10px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--crust) 0%, transparent 70%);
+}
+.home-header > div { display: flex; flex-direction: column-reverse; }
+.home-header h1 { font-size: 30px; line-height: 1.05; }
+.home-header p { margin: 0 0 4px; letter-spacing: 0.18em; }
+
+/* The card is a 96px icon panel with the text beside it. The icon is taken out
+   of the flow so its panel fills the full height of the card whatever the text
+   does; the left padding is the panel's width plus its own gutter. */
 .home-card {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 20px;
+  border-radius: 20px;
+  overflow: hidden;
+  padding: 18px 20px 18px 116px;
   text-decoration: none;
   color: var(--text);
-  min-height: 130px;
-  justify-content: center;
-  box-shadow: var(--shadow);
-  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  min-height: 104px;
+  transition: transform 0.12s, border-color 0.12s;
 }
 /* Count badge shown on the Orders card when an order is due to be placed today
    (added by js/home-orders-badge.js; absent otherwise). */
@@ -39,7 +63,7 @@
   padding: 0 7px;
   border-radius: 12px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-brand);
   font-size: 13px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
@@ -50,44 +74,59 @@
 .home-card:active {
   transform: scale(0.985);
   border-color: var(--accent);
-  box-shadow: var(--shadow);
 }
 .home-card-icon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 96px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--accent-light);
   color: var(--accent);
-  margin-bottom: 6px;
+  margin: 0;
 }
 .home-card-title {
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 600;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
   color: var(--text);
 }
 .home-card-sub {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text3);
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Orders header (back · title · settings) ──────────────────────────────── */
 .orders-header { gap: 12px; }
 .orders-header-title { flex: 1; text-align: center; }
-.orders-header-title h1 { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
-.orders-header-title p { font-size: 11px; color: rgba(255, 255, 255, 0.72); margin-top: 1px; font-family: 'DM Mono', monospace; }
+.orders-header-title h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--on-brand);
+  letter-spacing: 0;
+}
+.orders-header-title p {
+  font-size: 10px;
+  color: var(--on-brand-soft);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
 .orders-icon-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
-  color: #fff;
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
+  color: var(--on-brand);
   cursor: pointer;
   flex-shrink: 0;
   display: flex;
@@ -96,8 +135,8 @@
   padding: 0;
   text-decoration: none;
 }
-.orders-icon-btn:hover { background: rgba(255, 255, 255, 0.24); }
-.orders-icon-btn:active { background: rgba(255, 255, 255, 0.28); }
+.orders-icon-btn:hover { background: var(--rim-bg-hover); }
+.orders-icon-btn:active { background: var(--rim-bg-active); }
 /* On-brand ring: the app's default green focus ring (--accent-2) is green-on-green
    here, i.e. invisible. Keyboard focus must be visible on the header too (P18). */
 .orders-icon-btn:focus-visible,
@@ -148,7 +187,16 @@
 }
 
 /* ── Empty state / seed (test scaffolding) ────────────────────────────────── */
-.empty-state { text-align: center; padding: 40px 20px; }
+/* Empty state — a dashed outline says "nothing here yet" without looking like
+   a card that failed to load. Same block for "No past orders yet." and
+   "No logs yet." */
+.empty-state {
+  text-align: center;
+  padding: 28px 20px;
+  background: var(--surface);
+  border: 1px dashed var(--warn-border);
+  border-radius: 18px;
+}
 .empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .empty-sub { font-size: 14px; color: var(--text3); line-height: 1.5; }
 
@@ -163,10 +211,10 @@
   display: flex;
   gap: 4px;
   padding: 4px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
 }
 /* Kept even though tokens.css now enforces [hidden] app-wide: it states the intent
    locally, next to the display:flex that would otherwise fight it. */
@@ -177,19 +225,19 @@
    doubles the height of the control and looks broken. */
 .view-switch-btn {
   flex: 1;
-  padding: 10px 6px;
+  padding: 8px 6px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text2);
+  color: var(--text-4);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, transform 0.06s ease;
 }
 .view-switch-btn:active { transform: scale(0.97); }
-.view-switch-btn.active { background: var(--surface); color: var(--accent); }
+.view-switch-btn.active { background: var(--accent-light); color: var(--accent); }
 
 /* ── Supplier list row ─────────────────────────────────────────────────────────
    One row per supplier; tapping it opens that supplier's own screen. This replaced
@@ -205,7 +253,7 @@
   width: 100%;
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -257,12 +305,12 @@
 .supplier-meta { display: block; font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
 .supplier-row-count {
   flex-shrink: 0;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
   background: var(--accent-light);
   color: var(--accent);
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 500;
 }
 .supplier-row-chevron { display: flex; align-items: center; color: var(--text3); flex-shrink: 0; }
@@ -514,29 +562,29 @@ input.ing-stock {
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn-primary {
   width: 100%;
-  padding: 16px;
+  padding: 15px;
   margin-top: 16px;
   background: var(--accent);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--on-brand);
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(45, 80, 22, 0.25);
 }
 .btn-primary { transition: transform .06s ease; }
-.btn-primary:active { background: #1e3810; box-shadow: none; transform: scale(.97); }
+.btn-primary:active { background: var(--brand-press); box-shadow: none; transform: scale(.97); }
 .btn-primary:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
 .btn-secondary {
-  padding: 14px 18px;
-  background: var(--surface);
+  padding: 12px 18px;
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: 'Manrope', sans-serif;
-  font-size: 15px;
-  color: var(--text2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -770,14 +818,21 @@ input.ing-stock {
 }
 .mgmt-search-input {
   width: 100%;
-  padding: 11px 12px 11px 38px;
+  padding: 12px 14px 12px 40px;
   font-size: 15px;
   font-family: 'Manrope', sans-serif;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   outline: none;
+}
+.mgmt-search-input::placeholder { color: var(--text-5); }
+/* The field takes the crust accent while it is being typed into — the one place
+   in the app where the warm accent marks "this is where you are". */
+.mgmt-search-input:focus {
+  border-color: var(--crust);
+  background: var(--crust-bg);
 }
 .mgmt-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
 .mgmt-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 20px 12px; font-family: 'DM Mono', monospace; }
@@ -1016,7 +1071,7 @@ input.ing-stock {
   transition: transform .06s ease;
 }
 .pending-btn:active { transform: scale(.97); }
-.pending-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pending-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-brand); }
 /* Destructive, so it stays quiet and never competes with the other two. */
 .pending-btn.danger { flex: 0 0 auto; background: transparent; border-color: transparent; color: var(--error); font-weight: 500; }
 
@@ -1056,13 +1111,13 @@ a.home-reminder {
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--on-brand);
   font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
 }
-.install-btn:active { background: #1e3810; }
+.install-btn:active { background: var(--brand-press); }
 .install-tip {
   font-size: 13px;
   color: var(--text2);
@@ -1089,7 +1144,7 @@ a.home-reminder {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
+  background: var(--surface);
   opacity: 1;
   transition: opacity 0.45s ease;
 }

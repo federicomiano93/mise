@@ -47,25 +47,43 @@ body {
   height: 100dvh;
 }
 
-/* Header */
+/* Header
+   The restyle rounds the bottom corners, so the warm ground shows at the two
+   corners and the green reads as a panel rather than a band. The top padding
+   still carries the status-bar inset: the mockup's flat 60px is the iOS frame
+   drawn by the prototype, not a value to copy. */
 header {
   background: var(--accent);
-  padding: calc(14px + var(--safe-top)) 16px 14px;
+  padding: calc(14px + var(--safe-top)) 16px 20px;
+  border-radius: 0 0 26px 26px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
 }
-header h1 { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
-header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font-family: 'DM Mono', monospace; }
+header h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--on-brand);
+  letter-spacing: 0;
+}
+header p {
+  font-size: 10px;
+  color: var(--on-brand-soft);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
 #header-wa-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  border: 1.5px solid rgba(255,255,255,0.35);
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
   cursor: pointer;
   flex-shrink: 0;
   display: flex;
@@ -78,27 +96,34 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
    which the page CSP (style-src 'self') blocks. Use this class instead. */
 .is-hidden { display: none !important; }
 
-/* Tab bar */
+/* Tab bar — segmented pills, not an underline. Shared with the Orders screen
+   and the management panel, which use the same two classes. */
 .tab-bar {
   display: flex;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  background: transparent;
+  padding: 14px 16px 4px;
   flex-shrink: 0;
 }
 .tab {
   flex: 1;
-  padding: 12px 8px;
+  padding: 9px 8px;
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
+  border: 1px solid var(--border);
+  border-radius: 11px;
   font-family: 'Manrope', sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text2);
   cursor: pointer;
   transition: all 0.15s;
 }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-brand);
+  font-weight: 600;
+}
 
 /* Scroll area */
 .scroll-area {
@@ -118,12 +143,12 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
 /* Labels */
 .section-label {
   font-size: 10px;
-  font-weight: 600;
-  color: var(--text3);
+  font-weight: 500;
+  color: var(--text-4);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 18px 0 8px;
-  font-family: 'DM Mono', monospace;
+  margin: 20px 2px 8px;
+  font-family: var(--font-mono);
 }
 .section-label:first-child { margin-top: 0; }
 
@@ -131,20 +156,19 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-bottom: 10px;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 12px;
 }
+/* The client's own name, set as a name rather than as a label: sentence case,
+   no rule under it. The uppercase treatment now belongs to .section-label,
+   which is the only place the restyle uses it. */
 .card-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 6px;
+  color: var(--text);
+  margin-bottom: 10px;
   font-family: 'Manrope', sans-serif;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--accent-light);
 }
 
 /* Product rows */
@@ -190,7 +214,9 @@ input[type="number"] {
   /* Bigger tap target */
   min-height: 40px;
 }
-input[type="number"]:focus { outline: none; border-color: var(--accent); background: #fff; }
+/* The field being typed into takes the crust accent. It is the one signal in the
+   restyle that is not green, which is exactly why it reads as "you are here". */
+input[type="number"]:focus { outline: none; border-color: var(--crust); background: var(--crust-bg); }
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 /* Locked after Confirm — visibly greyed until the user taps Edit */
@@ -215,7 +241,7 @@ select.qty-select {
   -webkit-appearance: none;
   appearance: none;
 }
-select.qty-select:focus { outline: none; border-color: var(--accent); background: #fff; }
+select.qty-select:focus { outline: none; border-color: var(--crust); background: var(--crust-bg); }
 
 .crate-count {
   font-size: 36px;
@@ -239,10 +265,11 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .param-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--accent-light);
-  border-radius: var(--radius-sm);
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   margin-bottom: 10px;
 }
 .param-label { flex: 1; font-size: 13px; color: var(--accent); font-weight: 500; }
@@ -253,13 +280,17 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 14px 16px;
   margin-top: 12px;
-  background: var(--surface);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius);
 }
-.extra-dough-label { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.extra-dough-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--crust-ink); }
+.extra-dough-row input[type="number"], .extra-dough-row .extra-unit-select {
+  background: var(--surface);
+  border-color: var(--warn-border);
+}
 .extra-dough-row .qty-group { width: auto; gap: 6px; }
 .extra-dough-row input[type="number"] { width: 70px; }
 .extra-unit-select {
@@ -279,12 +310,12 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .result-block.visible { display: block; }
 
 .result-card {
-  background: var(--accent-light);
-  border-radius: var(--radius);
-  padding: 20px 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
   color: var(--text);
   min-height: 80vh;
-  box-shadow: var(--shadow);
 }
 .result-header {
   display: flex;
@@ -293,7 +324,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
-.result-header h3 { font-size: 20px; font-weight: 700; }
+.result-header h3 { font-family: var(--font-display); font-size: 22px; font-weight: 400; }
 .result-badge { display: none; }
 
 .ing-row {
@@ -318,9 +349,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   align-items: center;
   padding: 12px 0 16px;
 }
-.total-dough-label { font-size: 13px; font-weight: 600; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.04em; }
-.total-dough-val { font-size: 26px; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
-.total-dough-unit { font-size: 13px; color: var(--text3); margin-left: 2px; }
+.total-dough-label { font-size: 15px; font-weight: 700; color: var(--text); }
+.total-dough-val { font-size: 26px; font-weight: 500; color: var(--accent); font-family: var(--font-mono); }
+.total-dough-unit { font-size: 13px; color: var(--text-4); margin-left: 2px; font-family: var(--font-mono); }
 
 /* Crate boxes: one card per product that opted into a crate count, built by calc.js
    inside the result block. .crate-boxes is just the stacking wrapper. */
@@ -395,29 +426,36 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .summary-item .s-unit { font-size: 13px; color: var(--text3); margin-left: 2px; }
 #s-div { font-size: 13px; line-height: 1.4; }
 
-/* Reset button */
+/* Reset button — de-emphasised to a plain underlined label (P20: a destructive
+   action must never compete with Save/Confirm). Kept at 44px of height so it
+   stays a comfortable tap target despite losing its box. */
 .reset-btn {
-  width: 100%;
-  margin-top: 14px;
-  padding: 11px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  display: block;
+  margin: 20px auto 0;
+  padding: 12px 16px;
+  min-height: 44px;
+  background: none;
+  border: 0;
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
-  color: var(--text2);
+  color: var(--text-4);
+  text-decoration: underline;
   cursor: pointer;
-  letter-spacing: 0.02em;
 }
-.reset-btn:active { background: var(--surface2); }
+.reset-btn:active { color: var(--text2); }
 
-.copy-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; }
+.copy-row { display: flex; gap: 10px; align-items: center; margin: 12px 0 4px; }
 .copy-row .copy-btn { flex: 1; margin: 0; }
+/* The mockup paints this button brand green. Left in WhatsApp's own green, for
+   consistency: the app has three "send on WhatsApp" buttons (here, the order
+   modal and the log) and recolouring only the one the mockup happens to show
+   would make three identical actions look like three different ones. */
 .copy-wa-btn {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
-  background: #25D366;
+  background: var(--whatsapp);
+  color: var(--on-brand);
   border: none;
   border-radius: var(--radius-sm);
   display: flex;
@@ -425,43 +463,50 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   cursor: pointer;
 }
-.copy-wa-btn:active { background: #1da851; }
+.copy-wa-btn:active { background: var(--whatsapp-press); }
 .copy-btn {
   width: 100%;
   margin: 12px 0 4px;
-  padding: 11px;
-  background: var(--surface);
-  border: 1px solid var(--accent);
+  padding: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
   cursor: pointer;
-  letter-spacing: 0.02em;
 }
 .copy-btn:active { background: var(--accent-light); }
 
 /* Footer recipes trigger */
 .recipe-footer {
-  text-align: center;
-  padding: 20px 0 10px;
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px calc(10px + var(--safe-bot));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .recipe-footer-btn {
-  background: transparent;
+  flex: 1;
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--text2);
-  font-size: 13px;
+  color: var(--text);
+  font-size: 14px;
   font-family: 'Manrope', sans-serif;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
+  /* icon + text must be a flex ROW: an SVG in a span is an inline box and would
+     sit on the text baseline, ~2px low. This is the app's most common bug. */
+  display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px 18px;
-  letter-spacing: 0.02em;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
 }
-.recipe-footer-btn:active { background: var(--surface2); }
+.recipe-footer-btn:active { background: var(--accent-light); }
 
 /* Settings overlays (hub + clients/products editor) */
 #settings-overlay, #cp-overlay {
@@ -479,9 +524,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 
 #cp-save-btn {
   background: none;
-  border: 1.5px solid rgba(255,255,255,0.3);
+  border: 1.5px solid var(--on-brand-dim);
   border-radius: var(--radius-sm);
-  color: rgba(255,255,255,0.3);
+  color: var(--on-brand-dim);
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 500;
@@ -489,7 +534,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   cursor: pointer;
   transition: all 0.15s;
 }
-#cp-save-btn.dirty { color: #fff; border-color: rgba(255,255,255,0.8); }
+#cp-save-btn.dirty { color: var(--on-brand); border-color: var(--on-brand-strong); }
 
 .settings-menu { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
 .settings-menu-btn {
@@ -549,7 +594,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
    No text-selection / iOS callout on long press. */
 .drill-reorder { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .cp-sortable-ghost { opacity: 0.35; }                              /* the gap placeholder */
-.cp-sortable-chosen { box-shadow: 0 8px 20px rgba(0,0,0,0.22); }   /* the grabbed item */
+.cp-sortable-chosen { box-shadow: var(--shadow-sheet); }   /* the grabbed item */
 .cp-sortable-drag { opacity: 0.95; background: var(--surface2); }  /* the moving clone */
 
 #cp-content { padding: 14px 16px; }
@@ -636,7 +681,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--on-brand);
   font-size: 14px;
   font-weight: 700;
   padding: 12px;
@@ -682,7 +727,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   border-radius: var(--radius);
   padding: 12px 14px;
   margin-bottom: 12px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: var(--shadow-card);
 }
 .cp-prod-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .cp-prod-card-head .cp-prod-name {
@@ -716,7 +761,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  color: #fff;
+  color: var(--on-brand);
   font-size: 16px;
   font-weight: 700;
   padding: 15px;
@@ -875,7 +920,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .recipe-overlay-header {
   position: relative;
   background: var(--accent);
-  padding: calc(14px + var(--safe-top)) 16px 14px;
+  padding: calc(14px + var(--safe-top)) 16px 20px;
+  border-radius: 0 0 26px 26px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -891,9 +937,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  border: 1.5px solid rgba(255,255,255,0.35);
-  color: #fff;
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
+  color: var(--on-brand);
   font-size: 18px;
   cursor: pointer;
   flex-shrink: 0;
@@ -914,9 +960,10 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
-  font-size: 18px;
-  font-weight: 600;
-  color: #fff;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--on-brand);
   letter-spacing: -0.3px;
 }
 /* Home shortcut in the overlay headers (Settings, Clients & products, Recipes):
@@ -927,9 +974,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.15);
-  border: 1.5px solid rgba(255,255,255,0.35);
-  color: #fff;
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
+  color: var(--on-brand);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -938,12 +985,12 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   cursor: pointer;
   padding: 0;
 }
-.overlay-home-btn:active { background: rgba(255,255,255,0.28); }
+.overlay-home-btn:active { background: var(--rim-bg-active); }
 #recipe-save-btn {
   background: none;
-  border: 1.5px solid rgba(255,255,255,0.3);
+  border: 1.5px solid var(--on-brand-dim);
   border-radius: var(--radius-sm);
-  color: rgba(255,255,255,0.3);
+  color: var(--on-brand-dim);
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 500;
@@ -952,8 +999,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   transition: all 0.15s;
 }
 #recipe-save-btn.dirty {
-  color: #fff;
-  border-color: rgba(255,255,255,0.8);
+  color: var(--on-brand);
+  border-color: var(--on-brand-strong);
 }
 .recipe-scroll {
   flex: 1;
@@ -1009,7 +1056,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   appearance: textfield;
   transition: border-color 0.15s;
 }
-.recipe-ing-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+.recipe-ing-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 .recipe-ing-input::-webkit-inner-spin-button,
 .recipe-ing-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 .recipe-unit { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; width: 14px; }
@@ -1057,34 +1104,33 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   display: none;
   width: 100%;
   margin-top: 14px;
-  padding: 16px;
+  padding: 15px;
   background: var(--accent);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--on-brand);
   cursor: pointer;
   letter-spacing: 0.01em;
-  box-shadow: 0 2px 8px rgba(45,80,22,0.25);
 }
 .confirm-btn-primary.visible { display: block; }
-.confirm-btn-primary:active { background: #1e3810; box-shadow: none; }
+.confirm-btn-primary:active { background: var(--brand-press); box-shadow: none; }
 .confirm-btn-primary:disabled { opacity: 0.6; cursor: default; }
 /* "Edit" mode (tab locked): a distinct slate look so it never reads as a fresh Confirm */
-.confirm-btn-primary.is-edit { background: #5a6b7a; box-shadow: 0 2px 8px rgba(40,55,70,0.25); }
+.confirm-btn-primary.is-edit { background: var(--slate); box-shadow: var(--shadow-slate); }
 .confirm-btn-primary.is-edit.visible { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.confirm-btn-primary.is-edit:active { background: #44525e; }
+.confirm-btn-primary.is-edit:active { background: var(--slate-press); }
 /* Today/Tomorrow buttons inside the day picker modal (opened by a tab's Confirm). */
 .day-row { display: flex; gap: 10px; }
 .day-btn {
   flex: 1; padding: 16px; border: none; border-radius: var(--radius-sm);
-  background: var(--accent); color: #fff; font-family: 'Manrope', sans-serif;
+  background: var(--accent); color: var(--on-brand); font-family: 'Manrope', sans-serif;
   font-size: 16px; font-weight: 600; cursor: pointer; letter-spacing: 0.01em;
-  box-shadow: 0 2px 8px rgba(45,80,22,0.25);
+  box-shadow: var(--shadow-brand);
 }
-.day-btn:active { background: #1e3810; box-shadow: none; }
+.day-btn:active { background: var(--brand-press); box-shadow: none; }
 .day-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* Order modal + list picker + day picker (same bottom-sheet style) */
@@ -1093,7 +1139,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(0,0,0,0.45);
+  background: var(--scrim);
   align-items: flex-end;
   justify-content: center;
   padding: 0;
@@ -1171,7 +1217,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 }
 .order-qty-input::-webkit-inner-spin-button,
 .order-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; }
-.order-qty-input:focus { outline: none; border-color: var(--accent); background: #fff; }
+.order-qty-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 .loaf-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
 .loaf-modal-cancel, .list-select-cancel {
   flex: 1;
@@ -1187,13 +1233,13 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .loaf-modal-send {
   flex: 2;
   padding: 13px;
-  background: #25D366;
+  background: var(--whatsapp);
   border: none;
   border-radius: var(--radius-sm);
   font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--on-brand);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1233,13 +1279,13 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .log-wa-btn {
   flex: 1;
   padding: 9px 10px;
-  background: #25D366;
+  background: var(--whatsapp);
   border: none;
   border-radius: var(--radius-sm);
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--on-brand);
   cursor: pointer;
 }
 .log-edit-btn, .log-delete-btn {
@@ -1304,7 +1350,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   padding: 3px 9px; border-radius: 999px; background: var(--accent-light); color: var(--accent);
   flex-shrink: 0;
 }
-.logday-badge.tomorrow { background: #fde9c8; color: #9a6212; }
+.logday-badge.tomorrow { background: var(--warn-bg); color: var(--warn); }
 /* A day that has already passed (Yesterday, N days ago): muted, so a stale log
    never reads as urgent as today's. Built from the shared neutral tokens only. */
 .logday-badge.past { background: var(--surface2); color: var(--text3); }
@@ -1336,11 +1382,11 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 #loghistory-overlay { z-index: 545; }
 .overlay-home-spacer { margin-left: auto; width: 36px; }
 #logedit-save-btn {
-  background: none; border: 1.5px solid rgba(255,255,255,0.3); border-radius: var(--radius-sm);
-  color: rgba(255,255,255,0.3); font-family: 'Manrope', sans-serif; font-size: 13px;
+  background: none; border: 1.5px solid var(--on-brand-dim); border-radius: var(--radius-sm);
+  color: var(--on-brand-dim); font-family: 'Manrope', sans-serif; font-size: 13px;
   padding: 7px 14px; cursor: pointer;
 }
-#logedit-save-btn.dirty { color: #fff; border-color: rgba(255,255,255,0.8); }
+#logedit-save-btn.dirty { color: var(--on-brand); border-color: var(--on-brand-strong); }
 #logview-content, #logedit-content, #loghistory-content { padding: 14px 16px; }
 
 /* Read-only view header. */
