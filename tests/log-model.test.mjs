@@ -230,11 +230,31 @@ test('dayLabel: THE BUG — the same "today" log reads Yesterday the next day', 
   assert.deepEqual(dayLabel(log, at(2026, 7, 13, 9)), { text: 'Yesterday', tone: 'past' });
 });
 
-test('dayLabel: a "tomorrow" log walks Tomorrow → Today → Yesterday', () => {
+test('dayLabel: a "tomorrow" log says what it is FOR, and later when it was MADE', () => {
   const log = madeOn(at(2026, 7, 12), 'tomorrow');
-  assert.equal(dayLabel(log, at(2026, 7, 12, 20)).text, 'Tomorrow');
-  assert.equal(dayLabel(log, at(2026, 7, 13, 8)).text, 'Today');
-  assert.equal(dayLabel(log, at(2026, 7, 14, 8)).text, 'Yesterday');
+  // On the day it was made, both facts are shown.
+  assert.equal(dayLabel(log, at(2026, 7, 12, 20)).text, 'Today for tomorrow');
+  // The next day it is needed NOW, and it was made yesterday. Saying only "Today"
+  // was the whole problem: whoever read it believed it had just been made.
+  assert.deepEqual(dayLabel(log, at(2026, 7, 13, 8)), { text: 'Yesterday for today', tone: 'today' });
+  assert.equal(dayLabel(log, at(2026, 7, 14, 8)).text, '2 days ago for yesterday');
+});
+
+test('dayLabel: when made and needed fall on the same day, one word is enough', () => {
+  const log = madeOn(at(2026, 7, 12), 'today');
+  assert.equal(dayLabel(log, at(2026, 7, 12, 20)).text, 'Today');
+  assert.equal(dayLabel(log, at(2026, 7, 13, 8)).text, 'Yesterday');
+});
+
+test('dayLabel: the colour follows the day it is FOR, not the day it was made', () => {
+  // Made yesterday, needed today: still green, because the colour answers "do I need
+  // this now?" while the words tell the story.
+  const forToday = madeOn(at(2026, 7, 12), 'tomorrow');
+  assert.equal(dayLabel(forToday, at(2026, 7, 13, 8)).tone, 'today');
+  const forTomorrow = madeOn(at(2026, 7, 12), 'tomorrow');
+  assert.equal(dayLabel(forTomorrow, at(2026, 7, 12, 8)).tone, 'tomorrow');
+  const past = madeOn(at(2026, 7, 12), 'today');
+  assert.equal(dayLabel(past, at(2026, 7, 14, 8)).tone, 'past');
 });
 
 test('dayLabel: further in the past it says how many days ago, never a wrong "Today"', () => {
@@ -242,13 +262,18 @@ test('dayLabel: further in the past it says how many days ago, never a wrong "To
   assert.deepEqual(dayLabel(log, at(2026, 7, 15, 9)), { text: '3 days ago', tone: 'past' });
 });
 
-test('dayLabel: it counts CALENDAR days, not elapsed hours', () => {
-  // Made at 23:30, read one hour later — a new calendar day, so already "Yesterday".
+test('dayLabel: it counts WORK days, so the night shift stays one day', () => {
+  // Made at 23:30, read an hour later. The calendar has turned over, but the bakery's
+  // day has not: it is the same night's work, so it must still read "Today".
   const late = madeOn(at(2026, 7, 12, 23, 30), 'today');
-  assert.equal(dayLabel(late, at(2026, 7, 13, 0, 30)).text, 'Yesterday');
-  // Made at 00:30, read 23 hours later — still the same calendar day, so "Today".
+  assert.equal(dayLabel(late, at(2026, 7, 13, 0, 30)).text, 'Today');
+  // Past 4am it belongs to the previous work day.
+  assert.equal(dayLabel(late, at(2026, 7, 13, 6, 0)).text, 'Yesterday');
+  // Made at 00:30 — that is still the night of the 11th, so by lunchtime on the 12th
+  // it already reads Yesterday.
   const early = madeOn(at(2026, 7, 12, 0, 30), 'today');
-  assert.equal(dayLabel(early, at(2026, 7, 12, 23, 30)).text, 'Today');
+  assert.equal(dayLabel(early, at(2026, 7, 12, 3, 0)).text, 'Today');
+  assert.equal(dayLabel(early, at(2026, 7, 12, 12, 0)).text, 'Yesterday');
 });
 
 test('dayLabel: a log with no usable creation time falls back to the stored choice', () => {

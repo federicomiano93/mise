@@ -1336,7 +1336,10 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   padding: 16px 16px 6px; cursor: pointer; color: inherit; font: inherit;
 }
 .log-card-body:active { background: var(--surface2); }
-.log-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* flex-wrap because the badge now carries a sentence ("Yesterday for today"), and on a
+   narrow phone a non-wrapping row would squeeze the dough name to nothing. The badge
+   keeps flex-shrink:0 and simply drops to its own line when there is no room. */
+.log-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .log-card-dough { margin-bottom: 0; padding-bottom: 0; border: none; }
 .logday-badge {
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;

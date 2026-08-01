@@ -372,14 +372,24 @@ export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, 
 // when forDay is 'tomorrow') and name it relative to the current day.
 //
 // Pure (nowMs is passed in) so it is unit-testable. Returns { text, tone }; tone
-// drives the badge colour ('today' | 'tomorrow' | 'past').
+// drives the badge colour ('today' | 'tomorrow' | 'past'). Days are WORK days
+// (workDayIndex above), so a dough made at 23:30 and read at 00:30 is still "Today":
+// same night's work.
 
-// Calendar-day number in LOCAL time. Built from the Y/M/D components rather than
-// dividing the timestamp, so a DST change (which makes a day 23 or 25 hours long)
-// cannot shift a date by one.
-function localDayIndex(ms) {
-  const d = new Date(num(ms));
-  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+// A day, named relative to now. Beyond ±1 the log is normally already out of the
+// retention window, but a clock change or a long-lived tab can still surface one —
+// name it plainly instead of showing a wrong "Today".
+function dayName(diff) {
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  if (diff > 1) return 'In ' + diff + ' days';
+  return -diff + ' days ago';
+}
+
+function toneFor(diff) {
+  if (diff === 0) return 'today';
+  return diff > 0 ? 'tomorrow' : 'past';
 }
 
 export function dayLabel(log, nowMs) {
@@ -394,17 +404,21 @@ export function dayLabel(log, nowMs) {
       : { text: 'Today', tone: 'today' };
   }
 
-  const target = localDayIndex(createdAtMs) + (forDay === 'tomorrow' ? 1 : 0);
-  const diff = target - localDayIndex(nowMs);
+  const today = workDayIndex(nowMs);
+  const made = workDayIndex(createdAtMs) - today;
+  const target = made + (forDay === 'tomorrow' ? 1 : 0);
 
-  if (diff === 0) return { text: 'Today', tone: 'today' };
-  if (diff === 1) return { text: 'Tomorrow', tone: 'tomorrow' };
-  if (diff === -1) return { text: 'Yesterday', tone: 'past' };
-  // Beyond ±1 day the log is normally already out of the 24/48h retention window,
-  // but a clock change or a long-lived tab can still surface one — name it plainly
-  // instead of showing a wrong "Today".
-  if (diff > 1) return { text: 'In ' + diff + ' days', tone: 'tomorrow' };
-  return { text: -diff + ' days ago', tone: 'past' };
+  // The badge names the day the dough was MADE, and adds the day it is FOR whenever
+  // the two differ. It used to name only the target, so a dough made yesterday for
+  // today read "Today" — and whoever picked up the log believed it had just been made.
+  const text = made === target
+    ? dayName(made)
+    : dayName(made) + ' for ' + dayName(target).toLowerCase();
+
+  // The colour still follows the day the dough is FOR: it answers "do I need this
+  // now?", while the words tell the story. A dough for today stays green even when it
+  // was made yesterday.
+  return { text, tone: toneFor(target) };
 }
 
 // Sort logs for display: newest first by creation time, with a stable id tiebreak.
