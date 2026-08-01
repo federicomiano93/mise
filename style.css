@@ -1170,6 +1170,14 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
 /* Log settings: one card per dough (products line + the two settings). */
 .logset-card { margin-bottom: 14px; }
 .logset-products { font-size: 13px; color: var(--text3); margin: 4px 0 12px; }
+/* Where the pre-filled numbers came from. Quiet, but never absent: filling a form with
+   real-looking values is only acceptable while the screen says where they are from. */
+.order-prefill-note {
+  font-size: 12px;
+  color: var(--text3);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
 .order-section-title {
   font-size: 15px;
   font-weight: 700;
