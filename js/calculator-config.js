@@ -5,28 +5,24 @@
 // tests/calculator-config.test.mjs). The owner cannot read code, so these tests
 // are the safety net (P15).
 //
-// THE MODEL (Stage 3 — shared product catalogue):
-//   • config.products[] is the CATALOGUE: every product exists once, here, with a
-//     name, the recipe it belongs to (`recipeId`: focaccia | brioche | sourdough)
-//     and its own unit weight in grams. A product is never duplicated.
-//   • config.clients[] is the address book. Each client has `items[]`: the products
-//     it orders. An item is an ASSOCIATION client↔product carrying how the quantity
-//     is entered (`kind`) and the optional crate box (`crate`) — these can differ
-//     per client, so the SAME catalogue product can be a dropdown for one client and
-//     a number field for another. The product's name/weight/recipe always come from
-//     the catalogue.
+// THE MODEL — a product belongs to the client that orders it:
+//   • config.clients[] is the address book, and each client carries its own
+//     `products[]`: { id, name, recipeId, weight, kind, crate }. There is no shared
+//     catalogue: what a client orders is described in one place, on one screen.
 //   • A recipe tab is a FILTERED VIEW: getTabProducts(config, recipeId) walks every
-//     client's items, resolves each to its catalogue product, and emits one row per
-//     association whose product belongs to that recipe. The SAME product ordered by
-//     two clients yields TWO rows (one per client), each with its own quantity — so
-//     quantities are per (client, product) pair, keyed by `qtyId`.
+//     client's products and emits one row per product belonging to that recipe.
+//     Quantities are per (client, product), keyed by `qtyId` = pairId(clientId, id).
 //
-// Stage 3 keeps the three recipes fixed (focaccia/brioche/sourdough as recipe ids);
-// Stage 4 turns them into editable config entities. Migration from the previous
-// nested shape (clients[].products[]) is additive and lossless: the catalogue and
-// items are built from the nested products, and the nested `products[]` are LEFT in
-// place as a revert safety window (the new code ignores them; the old code, if
-// reverted, can still read them).
+// Why the shared catalogue was dropped (Aug 2026): it existed so two clients could
+// order the SAME product and its weight be changed in one place. In the real data only
+// one product out of ten was shared, and the price was two screens and seven steps to
+// add a product. Two clients ordering the same thing now hold their own independent
+// copy, which is also what the owner asked for: changing one must not move the other.
+//
+// ⚠️ Two clients migrated from one catalogue product KEEP THE SAME id. Four things key
+// by it — divisor ticks, WhatsApp lists, saved log rows, and typed quantities — and
+// minting a fresh id would quietly cut all four. Where the client is known, resolve a
+// product inside THAT client's list (see resolveListClients).
 //
 // item.kind drives the INPUT WIDGET in the calculator, NOT the math:
 //   'number'   → plain numeric quantity field (default)
@@ -72,36 +68,24 @@ export function pairId(clientId, productId) {
 // configuration is loaded. Product ids are kept identical to the old ones so cached
 // quantities keep working; the ciabatta association ships with its crate box on.
 export const DEFAULT_CONFIG = {
-  products: [
-    { id: 'f-pizze',        name: 'Pizzas',        recipeId: 'focaccia',  weight: 201 },
-    { id: 'f-focacce',      name: 'Focaccias',     recipeId: 'focaccia',  weight: 181 },
-    { id: 'f-ciabatta',     name: 'Ciabatta',      recipeId: 'focaccia',  weight: 151 },
-    { id: 'f-trayfocaccia', name: 'Tray focaccia', recipeId: 'focaccia',  weight: 1800 },
-    { id: 'f-panini',       name: 'Panini',        recipeId: 'focaccia',  weight: 131 },
-    { id: 'b-burgerbuns',   name: 'Burger buns',   recipeId: 'brioche',   weight: 81 },
-    { id: 'b-subrolls',     name: 'Sub rolls',     recipeId: 'brioche',   weight: 121 },
-    { id: 'b-bun',          name: 'Buns',          recipeId: 'brioche',   weight: 71 },
-    { id: 'b-rolls',        name: 'Rolls',         recipeId: 'brioche',   weight: 71 },
-    { id: 's-loaf',         name: 'Loaf',          recipeId: 'sourdough', weight: 905 },
-  ],
   clients: [
-    { id: 'c-bakery', name: 'Bakery', items: [
-      { productId: 'f-pizze',   kind: 'number' },
-      { productId: 'f-focacce', kind: 'number' },
+    { id: 'c-bakery', name: 'Bakery', products: [
+      { id: 'f-pizze',   name: 'Pizzas',    recipeId: 'focaccia', weight: 201, kind: 'number' },
+      { id: 'f-focacce', name: 'Focaccias', recipeId: 'focaccia', weight: 181, kind: 'number' },
     ] },
-    { id: 'c-client-1', name: 'Client 1', items: [
-      { productId: 'f-ciabatta',   kind: 'dropdown', crate: { show: true, perBox: 20 } },
-      { productId: 'b-burgerbuns', kind: 'number' },
-      { productId: 'b-subrolls',   kind: 'number' },
+    { id: 'c-client-1', name: 'Client 1', products: [
+      { id: 'f-ciabatta',   name: 'Ciabatta',    recipeId: 'focaccia', weight: 151, kind: 'dropdown', crate: { show: true, perBox: 20 } },
+      { id: 'b-burgerbuns', name: 'Burger buns', recipeId: 'brioche',  weight: 81,  kind: 'number' },
+      { id: 'b-subrolls',   name: 'Sub rolls',   recipeId: 'brioche',  weight: 121, kind: 'number' },
     ] },
-    { id: 'c-client-2', name: 'Client 2', items: [
-      { productId: 'f-trayfocaccia', kind: 'number' },
-      { productId: 'b-bun',          kind: 'number' },
-      { productId: 'b-rolls',        kind: 'number' },
-      { productId: 's-loaf',         kind: 'number' },
+    { id: 'c-client-2', name: 'Client 2', products: [
+      { id: 'f-trayfocaccia', name: 'Tray focaccia', recipeId: 'focaccia',  weight: 1800, kind: 'number' },
+      { id: 'b-bun',          name: 'Buns',          recipeId: 'brioche',   weight: 71,   kind: 'number' },
+      { id: 'b-rolls',        name: 'Rolls',         recipeId: 'brioche',   weight: 71,   kind: 'number' },
+      { id: 's-loaf',         name: 'Loaf',          recipeId: 'sourdough', weight: 905,  kind: 'number' },
     ] },
-    { id: 'c-client-3', name: 'Client 3', items: [
-      { productId: 'f-panini', kind: 'number' },
+    { id: 'c-client-3', name: 'Client 3', products: [
+      { id: 'f-panini', name: 'Panini', recipeId: 'focaccia', weight: 131, kind: 'number' },
     ] },
   ],
   // The recipes — the base everything else hangs off. Each has a calc logic, an
@@ -260,34 +244,30 @@ export function getClientById(config, id) {
   return getClients(config).find(c => c && c.id === id) || null;
 }
 
-// The product catalogue (empty array for a missing/garbage config).
+// Every product of every client, flattened and tagged with its owner. A product now
+// belongs to exactly one client, so this is the whole set of products in the app.
 export function getProducts(config) {
-  return (config && Array.isArray(config.products)) ? config.products : [];
+  const out = [];
+  for (const client of getClients(config)) {
+    for (const p of (client.products || [])) {
+      if (p) out.push({ ...p, clientId: client.id, clientName: client.name });
+    }
+  }
+  return out;
 }
 
-// Find a catalogue product by id, or null. Used to resolve the product ids that
-// client items and WhatsApp entries reference.
+// Find a product by id, or null. Two clients that order the same product keep the SAME
+// id (see migrateCatalogue), so this can be ambiguous; use it only where the client is
+// unknown and the name is all that matters — the WhatsApp message. Where the client IS
+// known, look inside that client's own products instead (see resolveListClients).
 export function getProductById(config, id) {
   return getProducts(config).find(p => p && p.id === id) || null;
 }
 
-// Every catalogue product, each tagged with the clients that order it (names joined)
-// and a count. This is the pool the Products view and the WhatsApp editor pick from.
-// `clientNames` is a human-readable list of the clients ordering the product (empty
-// when none), so the UI can show "ordered by …" without re-walking the address book.
+// The pool the WhatsApp editor picks from. Kept named `clientNames`/`clientCount` for
+// the callers; with products owned by a client there is exactly one of each.
 export function getAllProducts(config) {
-  const clientsByProduct = new Map();
-  for (const client of getClients(config)) {
-    for (const item of (client.items || [])) {
-      if (!item || !item.productId) continue;
-      if (!clientsByProduct.has(item.productId)) clientsByProduct.set(item.productId, []);
-      clientsByProduct.get(item.productId).push(client.name || 'Client');
-    }
-  }
-  return getProducts(config).map(p => {
-    const names = clientsByProduct.get(p.id) || [];
-    return { ...p, clientNames: names, clientCount: names.length };
-  });
+  return getProducts(config).map(p => ({ ...p, clientNames: [p.clientName], clientCount: 1 }));
 }
 
 // ── Recipes (the base) + ingredient registry ──────────────────────────────────
@@ -368,8 +348,15 @@ export function resolveListClients(config, list) {
     if (!entry) continue;
     const client = getClientById(config, entry.clientId);
     if (!client) continue; // a deleted client drops out of the list
+    // Resolve inside THIS client's own products first. Two clients ordering the same
+    // product share an id, so a global lookup could return the other one's copy and
+    // print its name. The global fallback keeps an older reference working rather than
+    // silently dropping a line from the message.
+    const own = new Map((client.products || []).map(p => [p.id, p]));
     const productIds = Array.isArray(entry.products) ? entry.products : [];
-    const products = productIds.map(id => getProductById(config, id)).filter(Boolean);
+    const products = productIds
+      .map(id => own.get(id) || getProductById(config, id))
+      .filter(Boolean);
     out.push({ client, products });
   }
   return out;
@@ -420,10 +407,8 @@ export function getLogRetentionForDough(config, tab) {
 export function getTabProducts(config, recipeId) {
   const out = [];
   for (const client of getClients(config)) {
-    if (!client || !Array.isArray(client.items)) continue;
-    for (const item of client.items) {
-      if (!item || !item.productId) continue;
-      const product = getProductById(config, item.productId);
+    if (!client || !Array.isArray(client.products)) continue;
+    for (const product of client.products) {
       if (!product || product.recipeId !== recipeId) continue;
       out.push({
         id: product.id,
@@ -431,8 +416,8 @@ export function getTabProducts(config, recipeId) {
         name: product.name,
         recipeId: product.recipeId,
         weight: product.weight,
-        kind: normalizeKind(item.kind),
-        crate: normalizeCrate(item.crate),
+        kind: normalizeKind(product.kind),
+        crate: normalizeCrate(product.crate),
         clientId: client.id,
         clientName: client.name,
       });
@@ -541,50 +526,56 @@ function normalizeCrate(raw) {
   };
 }
 
-// A catalogue product: stable id, name, the recipe it belongs to, and its weight.
+// One of a client's products: what it is called, which recipe it belongs to, its unit
+// weight, how its quantity is typed and its optional crate box.
+//
+// ⚠️ recipeId is NOT validated here: recipes are configurable, so the only list that can
+// say whether one exists is config.recipes, which normalizeConfig assembles afterwards.
+// It used to be checked against the three shipped ids, which silently moved a product
+// assigned to any recipe the owner had created onto Focaccia. homeProducts() below does
+// the check properly, once the recipes are known.
 function normalizeProduct(p) {
   if (!p || typeof p !== 'object' || !p.id) return null;
   const recipe = p.recipeId != null ? p.recipeId : p.dough; // tolerate the old field name
   return {
     id: String(p.id),
     name: cleanName(p.name, 'Product'),
-    recipeId: TABS.includes(recipe) ? recipe : 'focaccia',
+    recipeId: String(recipe == null ? '' : recipe),
     weight: clampWeight(p.weight),
+    kind: normalizeKind(p.kind),
+    crate: normalizeCrate(p.crate),
   };
 }
 
-// Normalise the catalogue, dropping junk and de-duplicating by id (first wins).
-function normalizeProducts(raw) {
-  if (!Array.isArray(raw)) return [];
-  const out = [];
-  const seen = new Set();
-  for (const p of raw) {
-    const np = normalizeProduct(p);
-    if (np && !seen.has(np.id)) { seen.add(np.id); out.push(np); }
-  }
-  return out;
-}
-
-// One client item: a reference to a catalogue product plus the association's input
-// kind and crate box. Items pointing at a non-existent product are dropped.
-function normalizeItem(raw, validProductIds) {
-  if (!raw || typeof raw !== 'object') return null;
-  const productId = String(raw.productId || '');
-  if (!validProductIds.has(productId)) return null;
-  return { productId, kind: normalizeKind(raw.kind), crate: normalizeCrate(raw.crate) };
-}
-
-// A client in the new shape: id, name and items pruned to existing products.
-function normalizeClient(client, validProductIds) {
+// A client: id, name, and the products it orders. Junk is dropped and ids are unique
+// WITHIN the client (the same client never orders the same product twice).
+function normalizeClient(client) {
   if (!client || typeof client !== 'object') return null;
-  const items = Array.isArray(client.items)
-    ? client.items.map(i => normalizeItem(i, validProductIds)).filter(Boolean)
-    : [];
+  const products = [];
+  const seen = new Set();
+  for (const raw of (Array.isArray(client.products) ? client.products : [])) {
+    const p = normalizeProduct(raw);
+    if (!p || seen.has(p.id)) continue;
+    seen.add(p.id);
+    products.push(p);
+  }
   return {
     id: String(client.id || ''),
     name: cleanName(client.name, 'Client'),
-    items,
+    products,
   };
+}
+
+// Point every product at a recipe that actually exists. A product whose recipe was
+// deleted would otherwise belong to no tab at all, which means it could never be seen
+// or edited again — so it is re-homed onto the first recipe rather than lost.
+function homeProducts(clients, recipes) {
+  const known = new Set(recipes.map(r => r.id));
+  const fallback = recipes[0] ? recipes[0].id : '';
+  for (const c of clients) {
+    for (const p of c.products) if (!known.has(p.recipeId)) p.recipeId = fallback;
+  }
+  return clients;
 }
 
 // One WhatsApp list client entry, validated against the catalogue + address book.
@@ -640,7 +631,7 @@ function groupsToLists(groups, clients) {
     const entries = clientIds.map(cid => {
       const client = byId.get(String(cid));
       if (!client) return null;
-      return { clientId: client.id, products: (client.items || []).map(i => i.productId) };
+      return { clientId: client.id, products: (client.products || []).map(p => p.id) };
     }).filter(Boolean);
     return { id: String((g && g.id) || 'wl-' + gi), title: cleanName(g && g.title, 'Order'), clients: entries };
   });
@@ -676,19 +667,23 @@ function normalizeLogRetentionByDough(raw, legacyGlobal, ids) {
   return out;
 }
 
-// The set of catalogue product ids that belong to a given recipe.
-function recipeProductIds(products, recipeId) {
+// The set of product ids that belong to a given recipe, across every client.
+function recipeProductIds(clients, recipeId) {
   const ids = new Set();
-  for (const p of products) if (p.recipeId === recipeId) ids.add(p.id);
+  for (const c of clients) {
+    for (const p of (c.products || [])) if (p.recipeId === recipeId) ids.add(p.id);
+  }
   return ids;
 }
 
-// Which catalogue product ids each recipe's divisor includes, pruned to ids that
-// still exist in that recipe so a deleted product never lingers. Defaults to none.
-function normalizeDivisorIncluded(raw, products, recipeIds) {
+// Which product ids each recipe's divisor includes, pruned to ids that still exist in
+// that recipe so a deleted product never lingers. Defaults to none. Keyed by product
+// id, not per client, so ticking a product splits it across every client that orders
+// it — unchanged from before.
+function normalizeDivisorIncluded(raw, clients, recipeIds) {
   const out = {};
   for (const rid of recipeIds) {
-    const validIds = recipeProductIds(products, rid);
+    const validIds = recipeProductIds(clients, rid);
     const stored = raw && Array.isArray(raw[rid]) ? raw[rid].map(String) : [];
     out[rid] = stored.filter(id => validIds.has(id));
   }
@@ -789,60 +784,65 @@ function normalizeIngredients(raw, recipes) {
   return [...byName.values()];
 }
 
-// Assemble the normalised config from an already-normalised catalogue + clients plus
-// the raw document's remaining sections. Shared by the new-shape and migration paths.
-function assemble(products, clients, raw) {
-  const validProductIds = new Set(products.map(p => p.id));
+// Assemble the normalised config from already-normalised clients plus the raw
+// document's remaining sections. Shared by the current-shape and migration paths.
+function assemble(clients, raw) {
+  const recipes = normalizeRecipes(raw.recipes);
+  homeProducts(clients, recipes);
+  const recipeIds = recipes.map(r => r.id);
+  const validProductIds = new Set();
+  for (const c of clients) for (const p of c.products) validProductIds.add(p.id);
   const rawLists = Array.isArray(raw.whatsappLists)
     ? raw.whatsappLists
     : groupsToLists(raw.groups, clients);
-  const recipes = normalizeRecipes(raw.recipes);
-  const recipeIds = recipes.map(r => r.id);
   return {
     // Optimistic-concurrency revision (see saveCalculatorConfig): preserved across
     // load/edit/save so a concurrent write (e.g. a catalogue import) is detected.
     configRev: Number(raw.configRev) || 0,
-    products,
     clients,
     recipes,
     ingredients: normalizeIngredients(raw.ingredients, recipes),
     whatsappLists: normalizeWhatsappLists(rawLists, clients, validProductIds),
     whatsappClients: normalizeWhatsappClients(raw.whatsappClients, validProductIds),
     extraDough: normalizeExtraDough(raw.extraDough, recipeIds),
-    divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, products, recipeIds),
+    divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients, recipeIds),
     logVisibility: normalizeLogVisibility(raw.logVisibility, recipeIds),
     logRetentionHours: normalizeLogRetention(raw.logRetentionHours),
     logRetentionByDough: normalizeLogRetentionByDough(raw.logRetentionByDough, raw.logRetentionHours, recipeIds),
   };
 }
 
-// Migrate the previous NESTED shape (clients[].products[]) into the catalogue + items
-// shape. Additive and lossless: the catalogue is built from the nested products
-// (de-duplicated by id), each client gets `items` referencing them with the product's
-// kind/crate, and the original nested `products[]` are LEFT in place on each client as
-// a revert safety window (the new code ignores them).
-function migrateNested(rawClients) {
-  const products = [];
-  const seen = new Set();
-  const clients = [];
-  for (const c of rawClients) {
-    if (!c || typeof c !== 'object') continue;
-    const items = [];
-    for (const p of (Array.isArray(c.products) ? c.products : [])) {
-      const np = normalizeProduct(p);
-      if (!np) continue;
-      if (!seen.has(np.id)) { seen.add(np.id); products.push(np); }
-      items.push({ productId: np.id, kind: normalizeKind(p.kind), crate: normalizeCrate(p.crate) });
-    }
-    // Keep the ORIGINAL nested products verbatim as a revert safety window: the new
-    // code never reads them, but the old code (if reverted) still can. They are
-    // dropped on the first save in the new shape (the new-shape path keeps no nested).
-    clients.push({
-      id: String(c.id || ''), name: cleanName(c.name, 'Client'), items,
-      products: Array.isArray(c.products) ? c.products : [],
-    });
+// Migrate the shared-catalogue shape (a top-level products[] plus clients[].items[],
+// live from v1.5.0 to v1.21.x) into products owned by their client. Each item is
+// resolved to its catalogue product and carries its own kind/crate.
+//
+// ⚠️ THE ID IS PRESERVED, even when two clients order the same product and the two
+// copies therefore end up sharing one. Four things key by that id — the divisor ticks,
+// the WhatsApp lists, the rows of every saved log, and the typed quantities in
+// localStorage (qty-<client>::<product>) — and minting a new one for the second client
+// would quietly cut all four. Quantities were ALREADY per (client, product), so sharing
+// an id costs nothing; where the client is known, look inside its own products.
+function migrateCatalogue(raw) {
+  const catalogue = new Map();
+  for (const p of (Array.isArray(raw.products) ? raw.products : [])) {
+    const np = normalizeProduct(p);
+    if (np && !catalogue.has(np.id)) catalogue.set(np.id, np);
   }
-  return { products, clients };
+  const clients = [];
+  for (const c of (Array.isArray(raw.clients) ? raw.clients : [])) {
+    if (!c || typeof c !== 'object') continue;
+    const products = [];
+    const seen = new Set();
+    for (const item of (Array.isArray(c.items) ? c.items : [])) {
+      if (!item || !item.productId) continue;
+      const base = catalogue.get(String(item.productId));
+      if (!base || seen.has(base.id)) continue; // an item pointing at a deleted product
+      seen.add(base.id);
+      products.push({ ...base, kind: normalizeKind(item.kind), crate: normalizeCrate(item.crate) });
+    }
+    clients.push({ id: String(c.id || ''), name: cleanName(c.name, 'Client'), products });
+  }
+  return clients;
 }
 
 // Migrate the OLDEST per-tab shape ({focaccia,brioche,sourdough}.clients + market)
@@ -851,16 +851,14 @@ function migrateNested(rawClients) {
 // market-only product names cannot become catalogue products and are dropped — safe
 // because no real data exists yet (placeholders only).
 function migrateLegacy(raw) {
-  const products = [];
-  const seen = new Set();
-  const byName = new Map(); // lowercased name -> client object { id, name, items }
+  const byName = new Map(); // lowercased name -> client object { id, name, products }
   const order = [];
 
   function findOrCreateClient(name, idHint) {
     const key = String(name || 'Client').trim().toLowerCase();
     let client = byName.get(key);
     if (!client) {
-      client = { id: String(idHint || 'c-' + (key.replace(/\s+/g, '-') || 'client')), name: cleanName(name, 'Client'), items: [] };
+      client = { id: String(idHint || 'c-' + (key.replace(/\s+/g, '-') || 'client')), name: cleanName(name, 'Client'), products: [] };
       byName.set(key, client);
       order.push(client);
     }
@@ -875,9 +873,7 @@ function migrateLegacy(raw) {
       const client = findOrCreateClient(legacyClient.name, legacyClient.id);
       for (const p of (Array.isArray(legacyClient.products) ? legacyClient.products : [])) {
         const np = normalizeProduct({ ...p, recipeId: tab });
-        if (!np) continue;
-        if (!seen.has(np.id)) { seen.add(np.id); products.push(np); }
-        client.items.push({ productId: np.id, kind: normalizeKind(p.kind), crate: normalizeCrate(p.crate) });
+        if (np && !client.products.some(x => x.id === np.id)) client.products.push(np);
       }
     }
   }
@@ -888,11 +884,10 @@ function migrateLegacy(raw) {
       const client = findOrCreateClient(mc && mc.name, mc && mc.id);
       if (!clientIds.includes(client.id)) clientIds.push(client.id);
     }
-    return { id: String(list.id || 'g-' + li), title: String(list.title || 'Market order'), clientIds };
+    return { id: String(list.id || 'g-' + li), title: cleanName(list.title, 'Market order'), clientIds };
   });
 
-  const clients = order.map(c => ({ id: c.id, name: c.name, items: c.items }));
-  return assemble(products, clients, { ...raw, whatsappLists: undefined, groups });
+  return assemble(order, { ...raw, whatsappLists: undefined, groups });
 }
 
 // Pull the legacy market section into a flat list of {id,title,clients} shapes.
@@ -905,28 +900,30 @@ function legacyMarketLists(market) {
   return [];
 }
 
-// Produce a safe, well-formed config from arbitrary (e.g. Firestore) input. A new
-// catalogue document (with `products`) is validated; a nested document
-// (clients[].products) is migrated to the catalogue; an oldest per-tab document is
-// migrated; missing/garbage input falls back to the default so the app always renders.
+// Produce a safe, well-formed config from arbitrary (e.g. Firestore) input. A
+// shared-catalogue document (with a top-level `products`) is migrated into the current
+// shape; a current document (clients[].products) is validated; an oldest per-tab
+// document is migrated; missing/garbage input falls back to the default so the app
+// always renders.
+//
+// ⚠️ The catalogue branch must come FIRST: a document written by v1.5.0–v1.21.x carries
+// BOTH a top-level products[] AND a stale clients[].products[] left behind as a revert
+// window back then. The stale copy is deliberately ignored — `items` is what those
+// versions actually maintained.
+//
+// ⚠️ Rollback safety: a document in the CURRENT shape has clients[].products and no
+// top-level products[], which is exactly the shape the pre-v1.5.0 code migrated from.
+// A phone still running an older version therefore reads it correctly instead of
+// finding an empty address book.
 export function normalizeConfig(raw) {
   const base = cloneConfig(DEFAULT_CONFIG);
   if (!raw || typeof raw !== 'object') return base;
 
-  // New catalogue shape: products[] is the source of truth.
-  if (Array.isArray(raw.products)) {
-    const products = normalizeProducts(raw.products);
-    const validProductIds = new Set(products.map(p => p.id));
-    const clients = Array.isArray(raw.clients)
-      ? raw.clients.map(c => normalizeClient(c, validProductIds)).filter(Boolean)
-      : [];
-    return assemble(products, clients, raw);
-  }
+  if (Array.isArray(raw.products)) return assemble(migrateCatalogue(raw), raw);
 
-  // Previous nested shape: clients each carry their own products[].
+  // Current shape: each client owns the products it orders.
   if (Array.isArray(raw.clients)) {
-    const { products, clients } = migrateNested(raw.clients);
-    return assemble(products, clients, raw);
+    return assemble(raw.clients.map(normalizeClient).filter(Boolean), raw);
   }
 
   // Oldest per-tab + market shape.
