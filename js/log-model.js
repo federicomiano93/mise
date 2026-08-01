@@ -313,11 +313,38 @@ export function migrateOldLogs(records, makeId, baseMs = 0) {
   return out;
 }
 
-// Filter logs for the app's Log LIST only: keep a log when its dough type is visible
-// AND it is still within the retention window (created no more than retentionHours
-// ago). DISPLAY-only — the database keeps every log; this never deletes anything.
-// Pure (nowMs is passed in) so it can be unit-tested. `visibility` is keyed by the
-// lowercase dough name (focaccia/brioche/sourdough); a missing key counts as visible.
+// ── The work day (shared by the retention window) ─────────────────────────────
+// A bakery's day does not end at midnight: a dough calculated at 23:30 and looked at
+// again at 00:30 is the same night's work. So the day rolls over at 4am.
+export const DAY_START_HOUR = 4;
+
+// Which work day a moment belongs to, as a comparable integer.
+// ⚠️ Built from the Y/M/D components rather than by dividing the timestamp: on the day
+// the clocks change a day lasts 23 or 25 hours, and dividing shifts the date by one.
+export function workDayIndex(ms) {
+  const d = new Date(num(ms));
+  d.setHours(d.getHours() - DAY_START_HOUR);
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+}
+
+// The moment a work day ends: 4am on the morning after it. Built with the LOCAL Date
+// constructor, so it lands on the real local 4am even across a clock change.
+function workDayEndMs(index) {
+  const utc = new Date((index + 1) * 86400000);
+  return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate(), DAY_START_HOUR, 0, 0, 0).getTime();
+}
+
+// Filter logs for the app's Log LIST only: keep a log when its dough type is visible AND
+// it is still within the retention window. DISPLAY-only — the database keeps every log;
+// this never deletes anything. Pure (nowMs is passed in) so it can be unit-tested.
+// `visibility` is keyed by the lowercase recipe id / dough name; a missing key counts as
+// visible.
+//
+// ⚠️ The window is counted from the END OF THE WORK DAY THE DOUGH IS FOR, not from when
+// the log was written. A dough is often made for the NEXT day, and counting from writing
+// made it vanish on the morning of the very day it was needed: made at 09:00 for
+// tomorrow, gone at 09:00 tomorrow, so whoever came in at 10 could not find it.
+// Counting from the target day can only ever make a log live LONGER than before.
 export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, nowMs = 0 } = {}) {
   const list = Array.isArray(logs) ? logs : [];
   // retentionHours may be a single number (applies to every dough) OR a per-dough
@@ -330,8 +357,10 @@ export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, 
     const key = String((log && (log.recipeId || log.dough)) || '').toLowerCase();
     if (visibility[key] === false) return false;
     const windowMs = Math.max(0, hoursFor(key)) * 3600 * 1000;
-    if (windowMs > 0 && num(nowMs) - num(log && log.createdAtMs) > windowMs) return false;
-    return true;
+    if (windowMs <= 0) return true;
+    const madeOn = workDayIndex(num(log && log.createdAtMs));
+    const forDay = safeForDay(log && log.forDay) === 'tomorrow' ? 1 : 0;
+    return num(nowMs) <= workDayEndMs(madeOn + forDay) + windowMs;
   });
 }
 
