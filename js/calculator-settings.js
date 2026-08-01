@@ -19,7 +19,7 @@
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   WEIGHT_MIN, WEIGHT_MAX, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
-  getRecipes, getRecipeById, getIngredients, pairId,
+  getRecipes, getRecipeById, pairId,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
@@ -379,67 +379,6 @@ function productCard(client, product, pi) {
   return el('div', { class: 'cp-prod-card' + (paused ? ' cp-prod-card-paused' : '') }, children);
 }
 
-// ── Ingredients registry (separate Settings screen) ───────────────────────────
-// The master list of ingredient names used for autocomplete when composing a recipe.
-// Independent of the recipes: a name can exist here unused. Names used by a recipe are
-// always present (re-seeded on save), so deleting one only removes an UNUSED name.
-let ingWorking = null;
-let ingDirty = false;
-
-function ingList() {
-  if (!Array.isArray(ingWorking.ingredients)) ingWorking.ingredients = [];
-  return ingWorking.ingredients;
-}
-function updateIngSaveBtn() {
-  const btn = document.getElementById('ingredients-save-btn');
-  if (!btn) return;
-  btn.disabled = !ingDirty;
-  btn.classList.toggle('dirty', ingDirty);
-}
-function ingMarkDirty() { ingDirty = true; updateIngSaveBtn(); }
-
-function openIngredients() {
-  ingWorking = cloneConfig(getConfig());
-  ingDirty = false;
-  renderIngredientsList();
-  updateIngSaveBtn();
-  show('ingredients-overlay');
-}
-async function closeIngredients() {
-  if (!(await confirmDiscard(ingDirty))) return;
-  hide('ingredients-overlay');
-}
-
-function renderIngredientsList() {
-  const content = document.getElementById('ingredients-content');
-  content.textContent = '';
-  content.appendChild(el('p', { class: 'extra-help' },
-    'The ingredient names that autocomplete when you build a recipe. Names used by a recipe always stay; deleting only removes an unused name.'));
-  ingList().forEach((ing, ii) => {
-    const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: ing.name || '', placeholder: 'Ingredient name' });
-    nameInput.addEventListener('input', () => { ing.name = nameInput.value; ingMarkDirty(); });
-    const del = deleteIcon('Delete ingredient', () => { ingList().splice(ii, 1); ingMarkDirty(); renderIngredientsList(); });
-    content.appendChild(el('div', { class: 'cp-prod-card' }, [el('div', { class: 'cp-prod-card-head' }, [nameInput, del])]));
-  });
-  const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add ingredient');
-  add.addEventListener('click', () => { ingList().push({ id: genId('ing'), name: '' }); ingMarkDirty(); renderIngredientsList(); });
-  content.appendChild(add);
-}
-
-async function saveIngredients() {
-  // Drop blank rows; normalizeConfig de-dupes and re-seeds names used by recipes.
-  ingWorking.ingredients = ingList().filter(i => !isBlank(i.name));
-  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
-  try {
-    await saveConfig(ingWorking);
-    ingDirty = false;
-    updateIngSaveBtn();
-    ingWorking = cloneConfig(getConfig());
-    renderIngredientsList();
-  } catch (e) {
-    alertDialog('Could not save. Check your connection and try again.');
-  }
-}
 
 // ── Extra-dough visibility (separate Settings screen) ─────────────────────────
 let extraWorking = null;
@@ -639,10 +578,3 @@ document.getElementById('open-recipes-btn').addEventListener('click', openRecipe
 document.querySelector('.cp-back-btn').addEventListener('click', closeClients);
 document.getElementById('cp-home-btn').addEventListener('click', goHomeFromClients);
 document.getElementById('cp-save-btn').addEventListener('click', saveClients);
-document.getElementById('open-ingredients-btn').addEventListener('click', openIngredients);
-document.querySelector('.ingredients-back-btn').addEventListener('click', closeIngredients);
-document.getElementById('ingredients-home-btn').addEventListener('click', async () => {
-  if (!(await confirmDiscard(ingDirty))) return;
-  window.location.href = 'index.html';
-});
-document.getElementById('ingredients-save-btn').addEventListener('click', saveIngredients);
