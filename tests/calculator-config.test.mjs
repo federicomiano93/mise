@@ -541,3 +541,55 @@ test('the default ciabatta association has its crate box enabled (20 pieces)', (
   assert.equal(isCrateEnabled(ciabatta), true);
   assert.equal(getCratePerBox(ciabatta), 20);
 });
+
+// ── Names carry invisible spaces (A5) ─────────────────────────────────────────
+// A trailing space is invisible in the app AND in the Firebase console, but it shows
+// up the moment the name is used inside a sentence: the log printed
+// "Seeded burger buns : 40 pz". Normalisation runs on BOTH read and save, so cleaning
+// it here fixes what is already stored without touching the database.
+
+test('names are trimmed on the way in, so a stored trailing space stops showing', () => {
+  const norm = normalizeConfig({
+    products: [{ id: 'p1', name: '  Seeded burger buns ', recipeId: 'brioche', weight: 80 }],
+    clients: [{ id: 'c1', name: ' Bakery  ', items: [{ productId: 'p1', kind: 'number' }] }],
+    recipes: [{ id: 'r1', name: '  Brioche ', ingredients: [{ label: ' Flour ', grams: 100 }] }],
+    whatsappLists: [{ id: 'wl1', title: '  Market order ', clients: [{ clientId: 'c1', products: ['p1'] }] }],
+  });
+  assert.equal(getProductById(norm, 'p1').name, 'Seeded burger buns');
+  assert.equal(getClientById(norm, 'c1').name, 'Bakery');
+  assert.equal(norm.recipes[0].name, 'Brioche');
+  assert.equal(norm.recipes[0].ingredients[0].label, 'Flour');
+  assert.equal(norm.whatsappLists[0].title, 'Market order');
+});
+
+test('the row the log prints has no space before the colon any more', () => {
+  const norm = normalizeConfig({
+    products: [{ id: 'p1', name: 'Seeded burger buns ', recipeId: 'focaccia', weight: 80 }],
+    clients: [{ id: 'c1', name: 'Bakery', items: [{ productId: 'p1', kind: 'number' }] }],
+  });
+  const row = getTabProducts(norm, 'focaccia')[0];
+  assert.equal(row.name + ': 40 pz', 'Seeded burger buns: 40 pz');
+});
+
+test('a name of ONLY spaces falls back to the placeholder, never to an empty string', () => {
+  // The trim has to happen BEFORE the fallback: String(x || 'Product').trim() would
+  // let "   " through as "".
+  const norm = normalizeConfig({
+    products: [{ id: 'p1', name: '   ', recipeId: 'focaccia', weight: 80 }],
+    clients: [{ id: 'c1', name: '  ', items: [{ productId: 'p1', kind: 'number' }] }],
+    recipes: [{ id: 'r1', name: ' ', ingredients: [{ label: '  ', grams: 1 }] }],
+  });
+  assert.equal(getProductById(norm, 'p1').name, 'Product');
+  assert.equal(getClientById(norm, 'c1').name, 'Client');
+  assert.equal(norm.recipes[0].name, 'Recipe');
+  assert.equal(norm.recipes[0].ingredients[0].label, 'Ingredient');
+});
+
+test('a missing name still falls back, and nothing throws on junk', () => {
+  const norm = normalizeConfig({
+    products: [{ id: 'p1', recipeId: 'focaccia', weight: 80 }],
+    clients: [{ id: 'c1', items: [] }],
+  });
+  assert.equal(getProductById(norm, 'p1').name, 'Product');
+  assert.equal(getClientById(norm, 'c1').name, 'Client');
+});

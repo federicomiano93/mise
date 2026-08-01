@@ -547,7 +547,7 @@ function normalizeProduct(p) {
   const recipe = p.recipeId != null ? p.recipeId : p.dough; // tolerate the old field name
   return {
     id: String(p.id),
-    name: String(p.name || 'Product'),
+    name: cleanName(p.name, 'Product'),
     recipeId: TABS.includes(recipe) ? recipe : 'focaccia',
     weight: clampWeight(p.weight),
   };
@@ -582,7 +582,7 @@ function normalizeClient(client, validProductIds) {
     : [];
   return {
     id: String(client.id || ''),
-    name: String(client.name || 'Client'),
+    name: cleanName(client.name, 'Client'),
     items,
   };
 }
@@ -603,7 +603,7 @@ function normalizeWhatsappList(raw, validClientIds, validProductIds) {
   const clients = Array.isArray(raw.clients)
     ? raw.clients.map(c => normalizeListClient(c, validClientIds, validProductIds)).filter(Boolean)
     : [];
-  return { id: String(raw.id || 'wl'), title: String(raw.title || 'Order'), clients };
+  return { id: String(raw.id || 'wl'), title: cleanName(raw.title, 'Order'), clients };
 }
 
 function normalizeWhatsappLists(raw, clients, validProductIds) {
@@ -619,8 +619,8 @@ function normalizeWhatsappClient(raw, validProductIds) {
   const products = Array.isArray(raw.products)
     ? raw.products.map(String).filter(id => validProductIds.has(id))
     : [];
-  const name = String(raw.name || '');
-  if (name.trim() === '' && products.length === 0) return null;
+  const name = String(raw.name || '').trim();
+  if (name === '' && products.length === 0) return null;
   return { id: String(raw.id || 'wc'), name, products };
 }
 
@@ -642,7 +642,7 @@ function groupsToLists(groups, clients) {
       if (!client) return null;
       return { clientId: client.id, products: (client.items || []).map(i => i.productId) };
     }).filter(Boolean);
-    return { id: String((g && g.id) || 'wl-' + gi), title: String((g && g.title) || 'Order'), clients: entries };
+    return { id: String((g && g.id) || 'wl-' + gi), title: cleanName(g && g.title, 'Order'), clients: entries };
   });
 }
 
@@ -695,6 +695,19 @@ function normalizeDivisorIncluded(raw, products, recipeIds) {
   return out;
 }
 
+// Every name in this config is typed by hand, so it collects stray spaces at either
+// end. A trailing one is invisible — in the app AND in the Firebase console — until the
+// name is used inside a sentence, where it reads as "Seeded burger buns : 40 pz" in the
+// log and in the WhatsApp message. The same invisible-space trap already cost this
+// project a debugging session on the `sections` field (v205).
+//
+// ⚠️ Trim BEFORE applying the fallback: `String(x || 'Product').trim()` would let a name
+// made only of spaces through as an empty string.
+function cleanName(value, fallback) {
+  const s = String(value == null ? '' : value).trim();
+  return s || fallback;
+}
+
 // A slug suitable for a stable-ish id derived from a name (lowercase, hyphenated).
 function slug(s) {
   return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -704,7 +717,7 @@ function slug(s) {
 // (the displayed name) and grams. Keys are made unique within a recipe by the caller.
 function normalizeIngredientRow(raw, index) {
   if (!raw || typeof raw !== 'object') return null;
-  const label = String(raw.label || raw.name || 'Ingredient');
+  const label = cleanName(raw.label || raw.name, 'Ingredient');
   const key = raw.key ? String(raw.key) : (slug(label) || ('ing' + index));
   return { key, label, grams: Number(raw.grams) || 0 };
 }
@@ -714,7 +727,7 @@ function normalizeIngredientRow(raw, index) {
 // visibility. Anything invalid falls back to a safe value so the math always runs.
 function normalizeRecipe(raw, index) {
   if (!raw || typeof raw !== 'object') return null;
-  const name = String(raw.name || 'Recipe');
+  const name = cleanName(raw.name, 'Recipe');
   const id = String(raw.id || ('r-' + (slug(name) || index)));
   const logic = LOGICS.includes(raw.logic) ? raw.logic : 'orders';
 
@@ -825,7 +838,7 @@ function migrateNested(rawClients) {
     // code never reads them, but the old code (if reverted) still can. They are
     // dropped on the first save in the new shape (the new-shape path keeps no nested).
     clients.push({
-      id: String(c.id || ''), name: String(c.name || 'Client'), items,
+      id: String(c.id || ''), name: cleanName(c.name, 'Client'), items,
       products: Array.isArray(c.products) ? c.products : [],
     });
   }
@@ -847,7 +860,7 @@ function migrateLegacy(raw) {
     const key = String(name || 'Client').trim().toLowerCase();
     let client = byName.get(key);
     if (!client) {
-      client = { id: String(idHint || 'c-' + (key.replace(/\s+/g, '-') || 'client')), name: String(name || 'Client'), items: [] };
+      client = { id: String(idHint || 'c-' + (key.replace(/\s+/g, '-') || 'client')), name: cleanName(name, 'Client'), items: [] };
       byName.set(key, client);
       order.push(client);
     }
