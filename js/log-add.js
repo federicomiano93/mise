@@ -9,7 +9,7 @@ import { getConfig } from './calculator-config-store.js';
 import { getRecipes, getRecipeById, getTabProducts, getDivisorIncluded } from './calculator-config.js';
 import { logTimestamp } from './log-time.js';
 import { confirmDiscard } from './calculator-confirm.js';
-import { buildSheet, buildLogText } from './log-model.js';
+import { buildSheet, buildLogText, recipeSnapshot } from './log-model.js';
 import { createAndSave } from './log-store.js';
 import { qtyRow } from './log-qty.js';
 import { confirmDialog } from './confirm-dialog.js';
@@ -143,7 +143,10 @@ async function commit() {
     leaveningPct: recipe.leaveningDefaultPct, divisor,
   });
   const text = buildLogText(items, [], { grams: 0, value: 0, unit: 'g' });
-  const version = { calculatedBy: '', at: logTimestamp(), kind: 'create', items, occasional: [], sheet, text };
+  const version = {
+    calculatedBy: '', at: logTimestamp(), kind: 'create',
+    items, occasional: [], sheet, text, recipe: recipeSnapshot(recipe),
+  };
   createAndSave({ dough: recipe.name, recipeId: state.recipeId, forDay: state.forDay, version, createdAtMs: Date.now(), origin: 'manual' });
   close(true);
 }

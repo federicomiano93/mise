@@ -156,6 +156,72 @@ export function buildLogText(items, occasional, extra) {
   return lines.join('\n');
 }
 
+// ── Freezing what a log was made with ─────────────────────────────────────────
+
+// A compact copy of the recipe a log was calculated with, stored on the version so a
+// later edit rebuilds the sheet with the doses of THAT day rather than today's.
+//
+// ⚠️ These are exactly the fields buildSheet and recipeSpec read. If buildSheet ever
+// starts reading another one, add it here too or the freeze quietly loses a piece.
+export function recipeSnapshot(recipe) {
+  if (!recipe || typeof recipe !== 'object') return null;
+  const baseline = Number(recipe.baselinePct);
+  return {
+    id: String(recipe.id || ''),
+    name: safeDough(recipe.name),
+    logic: recipe.logic || 'orders',
+    ingredients: (Array.isArray(recipe.ingredients) ? recipe.ingredients : [])
+      .map(ing => ({ key: String(ing.key || ''), label: String(ing.label || ''), grams: num(ing.grams) })),
+    leaveningKey: recipe.leaveningKey || null,
+    leaveningDefaultPct: num(recipe.leaveningDefaultPct),
+    baselinePct: Number.isFinite(baseline) ? baseline : null,
+  };
+}
+
+// A row's identity inside a log: the client it belongs to plus the product. The same
+// product ordered by two clients is two independent rows.
+const rowKey = (clientName, id) => String(clientName || '') + '|' + String(id || '');
+
+// The rows the log-edit screen must show: everything the log SAVED, verbatim (its own
+// name, weight, kind, crate and quantity), followed by the products that exist today
+// and were not in it, at zero.
+//
+// Rebuilding the rows from today's config instead — which is what the screen used to do
+// — silently dropped the line of a deleted product, renamed the ones that had been
+// renamed, and recomputed the dough with a changed weight. A saved log must be able to
+// gain a row, never to lose or rewrite one.
+export function editRows(savedItems, currentRows) {
+  const out = [];
+  const seen = new Set();
+
+  for (const it of (Array.isArray(savedItems) ? savedItems : [])) {
+    if (!it) continue;
+    const key = rowKey(it.clientName, it.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      id: it.id,
+      name: it.name,
+      clientName: it.clientName,
+      weightG: num(it.weightG),
+      kind: it.kind,
+      // Logs written before crate boxes existed carry no crate at all.
+      crate: (it.crate && typeof it.crate === 'object') ? it.crate : { show: false, perBox: 20 },
+      qty: num(it.qty),
+    });
+  }
+
+  for (const row of (Array.isArray(currentRows) ? currentRows : [])) {
+    if (!row) continue;
+    const key = rowKey(row.clientName, row.id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...row, qty: 0 });
+  }
+
+  return out;
+}
+
 // ── Log lifecycle (append-only) ───────────────────────────────────────────────
 
 // A brand-new log with its first version. Each Confirm makes a NEW log — it never
