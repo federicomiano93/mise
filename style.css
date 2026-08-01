@@ -774,15 +774,35 @@ input.cp-prod-weight {
 }
 .cp-field-label { font-size: 13px; color: var(--text2); }
 .cp-field-suffix { font-size: 13px; color: var(--text2); text-align: left; }
-/* The field fills its column. ⚠️ This has to out-specify input.cp-prod-weight's own
-   width (0,1,1), which is why it names both the row and the element. */
+
+/* Every field in a card is the SAME BOX: same height, same type size, same padding,
+   whatever kind of control it is.
+   ⚠️ height, not min-height. A <select> on iOS sizes itself from its own metrics and
+   will happily grow past a minimum, so the selects ended up taller than the text and
+   number fields on the phone while measuring identical (42px) in Chromium on the
+   desktop. A fixed height nothing can exceed is the only version that holds on both.
+   ⚠️ The selector names the element as well as the row so it out-specifies
+   input.cp-prod-weight (0,1,1) and the generic input[type="number"] (0,1,1). */
 .cp-field-row > select,
-.cp-field-row > input { width: 100%; min-height: 42px; }
+.cp-field-row > input {
+  width: 100%;
+  height: 44px;
+  padding: 0 10px;
+  font-size: 15px;
+  line-height: normal;
+}
 
 /* The checkbox rows read as a group rather than as a labelled field, so they stay flex
-   and simply sit on the same left edge as the labels. */
+   and simply sit on the same left edge as the labels — but their number field is the
+   same box as every other. */
 .cp-check-row { display: flex; align-items: center; gap: 8px; }
-.cp-check-row > input[type="number"] { width: 84px; min-height: 42px; flex-shrink: 0; }
+.cp-check-row > input[type="number"] {
+  width: 84px;
+  height: 44px;
+  padding: 0 10px;
+  font-size: 15px;
+  flex-shrink: 0;
+}
 
 /* Delete lives alone at the bottom right, away from everything that edits, so it can
    never be hit while reaching for a field (P20). */
