@@ -11,22 +11,46 @@
   padding: 18px 16px calc(24px + var(--safe-bot));
 }
 
+/* ── Home header ──────────────────────────────────────────────────────────
+   The venue's own name is the largest type in the app, with "HOME" as a small
+   mono label above it. column-reverse puts the label first without moving the
+   <h1> off the top of the document, which is what a screen reader announces. */
+.home-header { position: relative; }
+/* A short crust rule fading out to the right, under the venue name. Decorative
+   only, so it is drawn from CSS and never announced. */
+.home-header::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 10px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--crust) 0%, transparent 70%);
+}
+.home-header > div { display: flex; flex-direction: column-reverse; }
+.home-header h1 { font-size: 30px; line-height: 1.05; }
+.home-header p { margin: 0 0 4px; letter-spacing: 0.18em; }
+
+/* The card is a 96px icon panel with the text beside it. The icon is taken out
+   of the flow so its panel fills the full height of the card whatever the text
+   does; the left padding is the panel's width plus its own gutter. */
 .home-card {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px 20px;
+  border-radius: 20px;
+  overflow: hidden;
+  padding: 18px 20px 18px 116px;
   text-decoration: none;
   color: var(--text);
-  min-height: 130px;
-  justify-content: center;
-  box-shadow: var(--shadow);
-  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  min-height: 104px;
+  transition: transform 0.12s, border-color 0.12s;
 }
 /* Count badge shown on the Orders card when an order is due to be placed today
    (added by js/home-orders-badge.js; absent otherwise). */
@@ -50,36 +74,51 @@
 .home-card:active {
   transform: scale(0.985);
   border-color: var(--accent);
-  box-shadow: var(--shadow);
 }
 .home-card-icon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 96px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   background: var(--accent-light);
   color: var(--accent);
-  margin-bottom: 6px;
+  margin: 0;
 }
 .home-card-title {
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 600;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
   color: var(--text);
 }
 .home-card-sub {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text3);
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── Orders header (back · title · settings) ──────────────────────────────── */
 .orders-header { gap: 12px; }
 .orders-header-title { flex: 1; text-align: center; }
-.orders-header-title h1 { font-size: 18px; font-weight: 600; color: var(--on-brand); letter-spacing: -0.3px; }
-.orders-header-title p { font-size: 11px; color: var(--on-brand-soft); margin-top: 1px; font-family: 'DM Mono', monospace; }
+.orders-header-title h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--on-brand);
+  letter-spacing: 0;
+}
+.orders-header-title p {
+  font-size: 10px;
+  color: var(--on-brand-soft);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
 .orders-icon-btn {
   width: 36px;
@@ -514,29 +553,29 @@ input.ing-stock {
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn-primary {
   width: 100%;
-  padding: 16px;
+  padding: 15px;
   margin-top: 16px;
   background: var(--accent);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: var(--on-brand);
   cursor: pointer;
-  box-shadow: var(--shadow-brand);
 }
 .btn-primary { transition: transform .06s ease; }
 .btn-primary:active { background: var(--brand-press); box-shadow: none; transform: scale(.97); }
 .btn-primary:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
 .btn-secondary {
-  padding: 14px 18px;
-  background: var(--surface);
+  padding: 12px 18px;
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: 'Manrope', sans-serif;
-  font-size: 15px;
-  color: var(--text2);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
   cursor: pointer;
 }
 

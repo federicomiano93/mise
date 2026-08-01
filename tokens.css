@@ -56,6 +56,26 @@
   src: url(fonts/dm-mono-500-latin-ext.woff2) format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
+/* Instrument Serif — the restyle's display face, used ONLY for screen titles.
+   SIL Open Font License, like Manrope and DM Mono. Self-hosted for the same
+   reason as the other two: the CSP is font-src 'self', and a font fetched from
+   Google at runtime would neither load nor survive going offline. */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/instrument-serif-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/instrument-serif-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 /* ── [hidden] really means hidden ─────────────────────────────────────────
    The browser hides [hidden] with a `display: none` rule of the same weight as
@@ -160,10 +180,8 @@
   --font:       'Manrope', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-round: 'Manrope', system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono:  'DM Mono', ui-monospace, "Cascadia Mono", Menlo, monospace;
-  /* Screen titles from Phase 2. Instrument Serif is NOT self-hosted yet and
-     the CSP is font-src 'self', so until its .woff2 ships in ./fonts/ and in
-     the service worker's ASSETS this resolves to Georgia. Declared here, not
-     yet applied anywhere. */
+  /* Screen titles. Self-hosted above; Georgia is the fallback for the one
+     frame before the file loads, and for a browser that refuses woff2. */
   --font-display: 'Instrument Serif', Georgia, 'Times New Roman', serif;
 }
 
@@ -181,6 +199,9 @@
   padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
   pointer-events: none; /* the host never blocks taps around the button */
 }
+/* The crust accent, not the brand green: this banner has to be noticed against
+   a screen that is already mostly green, and it is the only place in the app
+   that asks for something unprompted. */
 #sw-update-banner {
   pointer-events: auto;
   display: block;
@@ -188,11 +209,14 @@
   max-width: 480px;
   margin: 0 auto;
   min-height: 48px;
-  padding: 12px 16px;
+  padding: 14px 16px;
   border: none;
-  border-radius: var(--radius-sm);
-  background: var(--brand);
-  color: var(--on-brand);
+  border-radius: 14px;
+  /* --crust-ink, not --crust: the mockup's #C4713C under the pale text measures
+     3.4:1, below the 4.5:1 that 15px text needs (P18). The darker crust is the
+     same accent and measures 6.4:1. */
+  background: var(--crust-ink);
+  color: var(--crust-bg);
   font-family: var(--font);
   font-size: 15px;
   font-weight: 600;
@@ -236,7 +260,7 @@
 .app-dialog {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 18px;
   padding: 20px;
   width: 100%;
   max-width: 360px;
@@ -248,9 +272,10 @@
 }
 .app-dialog-title {
   margin: 0 0 8px;
-  font-family: var(--font-round);
-  font-size: 17px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.15;
   color: var(--text);
 }
 /* pre-line: dialog text is set with textContent (CSP-safe, no HTML), so a

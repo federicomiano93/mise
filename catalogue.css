@@ -49,7 +49,8 @@ body {
   color: var(--cat-brand-ink);
   /* viewport-fit=cover lets the green fill the status-bar area; the safe-area top
      inset keeps the title/buttons below the clock. */
-  padding: calc(16px + env(safe-area-inset-top)) 16px 16px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px 20px;
+  border-radius: 0 0 26px 26px;
   display: grid;
   grid-template-columns: 36px 1fr 36px;
   align-items: center;
@@ -70,8 +71,8 @@ body {
 .cat-icon-btn:focus-visible { outline: 2px solid var(--cat-brand-ink); outline-offset: 2px; }
 .cat-icon-btn[hidden] { display: none; }
 .cat-header-title { min-width: 0; text-align: center; }
-.cat-header-title h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.3px; text-wrap: balance; }
-.cat-header-title p { margin: 1px 0 0; font-size: 11px; font-family: var(--cat-font-mono); opacity: .75; }
+.cat-header-title h1 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 400; letter-spacing: 0; text-wrap: balance; }
+.cat-header-title p { margin: 2px 0 0; font-size: 10px; font-family: var(--cat-font-mono); letter-spacing: 0.12em; text-transform: uppercase; opacity: .75; }
 
 /* Scroll area + centered view width */
 .cat-screen { flex: 1; overflow-y: auto; padding: 16px; }

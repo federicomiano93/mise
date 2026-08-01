@@ -47,18 +47,36 @@ body {
   height: 100dvh;
 }
 
-/* Header */
+/* Header
+   The restyle rounds the bottom corners, so the warm ground shows at the two
+   corners and the green reads as a panel rather than a band. The top padding
+   still carries the status-bar inset: the mockup's flat 60px is the iOS frame
+   drawn by the prototype, not a value to copy. */
 header {
   background: var(--accent);
-  padding: calc(14px + var(--safe-top)) 16px 14px;
+  padding: calc(14px + var(--safe-top)) 16px 20px;
+  border-radius: 0 0 26px 26px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: relative;
 }
-header h1 { font-size: 18px; font-weight: 600; color: var(--on-brand); letter-spacing: -0.3px; }
-header p { font-size: 11px; color: var(--on-brand-soft); margin-top: 1px; font-family: 'DM Mono', monospace; }
+header h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--on-brand);
+  letter-spacing: 0;
+}
+header p {
+  font-size: 10px;
+  color: var(--on-brand-soft);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
 
 #header-wa-btn {
   width: 36px;
@@ -78,27 +96,34 @@ header p { font-size: 11px; color: var(--on-brand-soft); margin-top: 1px; font-f
    which the page CSP (style-src 'self') blocks. Use this class instead. */
 .is-hidden { display: none !important; }
 
-/* Tab bar */
+/* Tab bar — segmented pills, not an underline. Shared with the Orders screen
+   and the management panel, which use the same two classes. */
 .tab-bar {
   display: flex;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  background: transparent;
+  padding: 14px 16px 4px;
   flex-shrink: 0;
 }
 .tab {
   flex: 1;
-  padding: 12px 8px;
+  padding: 9px 8px;
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
+  border: 1px solid var(--border);
+  border-radius: 11px;
   font-family: 'Manrope', sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text2);
   cursor: pointer;
   transition: all 0.15s;
 }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-brand);
+  font-weight: 600;
+}
 
 /* Scroll area */
 .scroll-area {
@@ -118,12 +143,12 @@ header p { font-size: 11px; color: var(--on-brand-soft); margin-top: 1px; font-f
 /* Labels */
 .section-label {
   font-size: 10px;
-  font-weight: 600;
-  color: var(--text3);
+  font-weight: 500;
+  color: var(--text-4);
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  margin: 18px 0 8px;
-  font-family: 'DM Mono', monospace;
+  margin: 20px 2px 8px;
+  font-family: var(--font-mono);
 }
 .section-label:first-child { margin-top: 0; }
 
@@ -131,20 +156,19 @@ header p { font-size: 11px; color: var(--on-brand-soft); margin-top: 1px; font-f
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 12px 14px;
-  margin-bottom: 10px;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 12px;
 }
+/* The client's own name, set as a name rather than as a label: sentence case,
+   no rule under it. The uppercase treatment now belongs to .section-label,
+   which is the only place the restyle uses it. */
 .card-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 6px;
+  color: var(--text);
+  margin-bottom: 10px;
   font-family: 'Manrope', sans-serif;
-  padding-bottom: 8px;
-  border-bottom: 2px solid var(--accent-light);
 }
 
 /* Product rows */
@@ -239,10 +263,11 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .param-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--accent-light);
-  border-radius: var(--radius-sm);
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   margin-bottom: 10px;
 }
 .param-label { flex: 1; font-size: 13px; color: var(--accent); font-weight: 500; }
@@ -253,13 +278,17 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 14px 16px;
   margin-top: 12px;
-  background: var(--surface);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius);
 }
-.extra-dough-label { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.extra-dough-label { flex: 1; font-size: 15px; font-weight: 600; color: var(--crust-ink); }
+.extra-dough-row input[type="number"], .extra-dough-row .extra-unit-select {
+  background: var(--surface);
+  border-color: var(--warn-border);
+}
 .extra-dough-row .qty-group { width: auto; gap: 6px; }
 .extra-dough-row input[type="number"] { width: 70px; }
 .extra-unit-select {
@@ -279,12 +308,12 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .result-block.visible { display: block; }
 
 .result-card {
-  background: var(--accent-light);
-  border-radius: var(--radius);
-  padding: 20px 20px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
   color: var(--text);
   min-height: 80vh;
-  box-shadow: var(--shadow);
 }
 .result-header {
   display: flex;
@@ -293,7 +322,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
 }
-.result-header h3 { font-size: 20px; font-weight: 700; }
+.result-header h3 { font-family: var(--font-display); font-size: 22px; font-weight: 400; }
 .result-badge { display: none; }
 
 .ing-row {
@@ -318,9 +347,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   align-items: center;
   padding: 12px 0 16px;
 }
-.total-dough-label { font-size: 13px; font-weight: 600; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.04em; }
-.total-dough-val { font-size: 26px; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
-.total-dough-unit { font-size: 13px; color: var(--text3); margin-left: 2px; }
+.total-dough-label { font-size: 15px; font-weight: 700; color: var(--text); }
+.total-dough-val { font-size: 26px; font-weight: 500; color: var(--accent); font-family: var(--font-mono); }
+.total-dough-unit { font-size: 13px; color: var(--text-4); margin-left: 2px; font-family: var(--font-mono); }
 
 /* Crate boxes: one card per product that opted into a crate count, built by calc.js
    inside the result block. .crate-boxes is just the stacking wrapper. */
@@ -395,29 +424,34 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .summary-item .s-unit { font-size: 13px; color: var(--text3); margin-left: 2px; }
 #s-div { font-size: 13px; line-height: 1.4; }
 
-/* Reset button */
+/* Reset button — de-emphasised to a plain underlined label (P20: a destructive
+   action must never compete with Save/Confirm). Kept at 44px of height so it
+   stays a comfortable tap target despite losing its box. */
 .reset-btn {
-  width: 100%;
-  margin-top: 14px;
-  padding: 11px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  display: block;
+  margin: 20px auto 0;
+  padding: 12px 16px;
+  min-height: 44px;
+  background: none;
+  border: 0;
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
-  color: var(--text2);
+  color: var(--text-4);
+  text-decoration: underline;
   cursor: pointer;
-  letter-spacing: 0.02em;
 }
-.reset-btn:active { background: var(--surface2); }
+.reset-btn:active { color: var(--text2); }
 
-.copy-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; }
+.copy-row { display: flex; gap: 10px; align-items: center; margin: 12px 0 4px; }
 .copy-row .copy-btn { flex: 1; margin: 0; }
+/* The send button carries the WhatsApp glyph, so the restyle lets it take the
+   brand green rather than WhatsApp's own — the icon is what identifies it. */
 .copy-wa-btn {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   flex-shrink: 0;
-  background: var(--whatsapp);
+  background: var(--accent);
+  color: var(--on-brand);
   border: none;
   border-radius: var(--radius-sm);
   display: flex;
@@ -425,43 +459,50 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   cursor: pointer;
 }
-.copy-wa-btn:active { background: var(--whatsapp-press); }
+.copy-wa-btn:active { background: var(--brand-press); }
 .copy-btn {
   width: 100%;
   margin: 12px 0 4px;
-  padding: 11px;
-  background: var(--surface);
-  border: 1px solid var(--accent);
+  padding: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: 'Manrope', sans-serif;
-  font-size: 13px;
-  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
   cursor: pointer;
-  letter-spacing: 0.02em;
 }
 .copy-btn:active { background: var(--accent-light); }
 
 /* Footer recipes trigger */
 .recipe-footer {
-  text-align: center;
-  padding: 20px 0 10px;
+  display: flex;
+  gap: 10px;
+  padding: 10px 16px calc(10px + var(--safe-bot));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .recipe-footer-btn {
-  background: transparent;
+  flex: 1;
+  background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  color: var(--text2);
-  font-size: 13px;
+  color: var(--text);
+  font-size: 14px;
   font-family: 'Manrope', sans-serif;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  display: inline-flex;
+  /* icon + text must be a flex ROW: an SVG in a span is an inline box and would
+     sit on the text baseline, ~2px low. This is the app's most common bug. */
+  display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px 18px;
-  letter-spacing: 0.02em;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
 }
-.recipe-footer-btn:active { background: var(--surface2); }
+.recipe-footer-btn:active { background: var(--accent-light); }
 
 /* Settings overlays (hub + clients/products editor) */
 #settings-overlay, #cp-overlay {
@@ -875,7 +916,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .recipe-overlay-header {
   position: relative;
   background: var(--accent);
-  padding: calc(14px + var(--safe-top)) 16px 14px;
+  padding: calc(14px + var(--safe-top)) 16px 20px;
+  border-radius: 0 0 26px 26px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -914,8 +956,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
-  font-size: 18px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
   color: var(--on-brand);
   letter-spacing: -0.3px;
 }
@@ -1057,17 +1100,16 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   display: none;
   width: 100%;
   margin-top: 14px;
-  padding: 16px;
+  padding: 15px;
   background: var(--accent);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: var(--on-brand);
   cursor: pointer;
   letter-spacing: 0.01em;
-  box-shadow: var(--shadow-brand);
 }
 .confirm-btn-primary.visible { display: block; }
 .confirm-btn-primary:active { background: var(--brand-press); box-shadow: none; }
