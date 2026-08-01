@@ -3,8 +3,8 @@
    from the very first paint: the app must never flash one frame of a
    location's data at whoever is holding the phone. */
 
-/* The cover sits on the brand green, not on the page ground: before a location
-   is open there is no page yet, and the green is what the app is. */
+/* The sign-in screen sits on the brand green: before a location is open there is
+   no page yet, and the green is what the app is. */
 .auth-gate {
   position: fixed;
   inset: 0;
@@ -16,6 +16,18 @@
   padding: 24px 26px calc(24px + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
 }
+
+/* The same element is ALSO the opaque cover on every page while the session is
+   being resolved, and there it must not be noticed at all. Painted green, it made
+   every move between screens flash a full green panel.
+   While it is only covering, it is still EMPTY — auth-gate.js appends the
+   .auth-card only when it has something to ask — so :empty tells the two states
+   apart with no JS and no extra class.
+   :empty rather than :has(.auth-card): :has() wants Safari 15.4+, and the phones
+   in the two venues are not all known. Verified the div really is empty on all
+   four pages — <div id="auth-gate" class="auth-gate"></div>, no whitespace
+   inside — which is exactly what :empty requires. */
+.auth-gate:empty { background: var(--bg); }
 
 .auth-card {
   width: 100%;
