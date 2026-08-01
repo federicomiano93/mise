@@ -214,7 +214,9 @@ input[type="number"] {
   /* Bigger tap target */
   min-height: 40px;
 }
-input[type="number"]:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+/* The field being typed into takes the crust accent. It is the one signal in the
+   restyle that is not green, which is exactly why it reads as "you are here". */
+input[type="number"]:focus { outline: none; border-color: var(--crust); background: var(--crust-bg); }
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 /* Locked after Confirm — visibly greyed until the user taps Edit */
@@ -239,7 +241,7 @@ select.qty-select {
   -webkit-appearance: none;
   appearance: none;
 }
-select.qty-select:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+select.qty-select:focus { outline: none; border-color: var(--crust); background: var(--crust-bg); }
 
 .crate-count {
   font-size: 36px;
@@ -444,13 +446,15 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 
 .copy-row { display: flex; gap: 10px; align-items: center; margin: 12px 0 4px; }
 .copy-row .copy-btn { flex: 1; margin: 0; }
-/* The send button carries the WhatsApp glyph, so the restyle lets it take the
-   brand green rather than WhatsApp's own — the icon is what identifies it. */
+/* The mockup paints this button brand green. Left in WhatsApp's own green, for
+   consistency: the app has three "send on WhatsApp" buttons (here, the order
+   modal and the log) and recolouring only the one the mockup happens to show
+   would make three identical actions look like three different ones. */
 .copy-wa-btn {
   width: 46px;
   height: 46px;
   flex-shrink: 0;
-  background: var(--accent);
+  background: var(--whatsapp);
   color: var(--on-brand);
   border: none;
   border-radius: var(--radius-sm);
@@ -459,7 +463,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   cursor: pointer;
 }
-.copy-wa-btn:active { background: var(--brand-press); }
+.copy-wa-btn:active { background: var(--whatsapp-press); }
 .copy-btn {
   width: 100%;
   margin: 12px 0 4px;

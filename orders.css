@@ -187,7 +187,16 @@
 }
 
 /* ── Empty state / seed (test scaffolding) ────────────────────────────────── */
-.empty-state { text-align: center; padding: 40px 20px; }
+/* Empty state — a dashed outline says "nothing here yet" without looking like
+   a card that failed to load. Same block for "No past orders yet." and
+   "No logs yet." */
+.empty-state {
+  text-align: center;
+  padding: 28px 20px;
+  background: var(--surface);
+  border: 1px dashed var(--warn-border);
+  border-radius: 18px;
+}
 .empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 .empty-sub { font-size: 14px; color: var(--text3); line-height: 1.5; }
 
@@ -202,10 +211,10 @@
   display: flex;
   gap: 4px;
   padding: 4px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
 }
 /* Kept even though tokens.css now enforces [hidden] app-wide: it states the intent
    locally, next to the display:flex that would otherwise fight it. */
@@ -216,19 +225,19 @@
    doubles the height of the control and looks broken. */
 .view-switch-btn {
   flex: 1;
-  padding: 10px 6px;
+  padding: 8px 6px;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text2);
+  color: var(--text-4);
   cursor: pointer;
   transition: background 0.15s, color 0.15s, transform 0.06s ease;
 }
 .view-switch-btn:active { transform: scale(0.97); }
-.view-switch-btn.active { background: var(--surface); color: var(--accent); }
+.view-switch-btn.active { background: var(--accent-light); color: var(--accent); }
 
 /* ── Supplier list row ─────────────────────────────────────────────────────────
    One row per supplier; tapping it opens that supplier's own screen. This replaced
@@ -244,7 +253,7 @@
   width: 100%;
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -296,12 +305,12 @@
 .supplier-meta { display: block; font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
 .supplier-row-count {
   flex-shrink: 0;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
   background: var(--accent-light);
   color: var(--accent);
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   font-weight: 500;
 }
 .supplier-row-chevron { display: flex; align-items: center; color: var(--text3); flex-shrink: 0; }
@@ -809,14 +818,21 @@ input.ing-stock {
 }
 .mgmt-search-input {
   width: 100%;
-  padding: 11px 12px 11px 38px;
+  padding: 12px 14px 12px 40px;
   font-size: 15px;
   font-family: 'Manrope', sans-serif;
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   outline: none;
+}
+.mgmt-search-input::placeholder { color: var(--text-5); }
+/* The field takes the crust accent while it is being typed into — the one place
+   in the app where the warm accent marks "this is where you are". */
+.mgmt-search-input:focus {
+  border-color: var(--crust);
+  background: var(--crust-bg);
 }
 .mgmt-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
 .mgmt-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 20px 12px; font-family: 'DM Mono', monospace; }
