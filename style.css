@@ -140,6 +140,19 @@ header p {
 .content { padding: 14px 16px; display: none; }
 .content.active { display: block; }
 
+/* Why a tab is empty when the app is opened on a new day. Quiet, brief, and it
+   removes itself: an explanation, not an alert. */
+.tab-cleared-note {
+  font-size: 12px;
+  color: var(--text3);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
 /* Labels */
 .section-label {
   font-size: 10px;
