@@ -137,7 +137,8 @@ Written only from the Firebase console.
   (ordered quantities + stock on hand). Records from the earlier weekly model
   (`orders-history/{weekId}`) are still read; nothing was migrated.
 - `recipes/{id}` — the recipe catalogue, one document per recipe.
-- `logs/{id}`, `log/{dough}`, `daily-logs/{YYYY-MM-DD}` — production logs.
+- `logs/{id}`, `log/{dough}` — production logs. (`daily-logs/{YYYY-MM-DD}` still holds
+  the documents written before Aug 2026; nothing writes or reads it any more.)
 - `config/calculator`, `config/orders` — settings, mirrored to localStorage.
 
 Every document also carries its venue id in a `bakery` field, which the rules require

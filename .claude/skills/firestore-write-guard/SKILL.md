@@ -35,7 +35,7 @@ fallback. On any other hostname it uses production.
 ## When to warn (proactively, before starting)
 Before any task that triggers a Firestore WRITE during manual/browser testing,
 UNLESS situation 1 is confirmed (emulator up + "LOCAL EMULATOR mode" in console):
-- Confirming a dough (writes the new `logs` model + `daily-logs`)
+- Confirming a dough (writes the `logs` model)
 - Saving Settings / config (`config/calculator`)
 - Adding or editing a supplier or ingredient (`suppliers` / `ingredients`)
 - Autosaving an Orders draft (`drafts/current`)
@@ -46,8 +46,9 @@ Default to proposing the emulator FIRST, so the test is safe by construction.
 ## What to say (when the emulator is NOT confirmed active)
 "Unless the local emulator is running, this could write to the PRODUCTION Firestore —
 anything not served from a true localhost hostname (live site, a LAN IP to test on a
-phone, a tunnel) hits real production data. Suppliers, ingredients and daily-logs
-have delete denied, so test entries there can only be removed by hand from the
+phone, a tunnel) hits real production data. A test supplier or ingredient can at least
+be deleted from the app afterwards, but `drafts/current` and `config/*` have delete
+denied — a bad write there can only be repaired by overwriting it by hand from the
 Firebase Console. Let me start the emulator first (safe local database), or do you
 want to proceed against production?"
 
