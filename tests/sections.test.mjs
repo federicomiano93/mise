@@ -18,31 +18,53 @@ import {
 
 // ── Sections: default ALLOWED ────────────────────────────────────────────────
 
+const ALL_ON = { orders: true, calculator: true, catalogue: true, pastries: true };
+
 test('no location document: every section stays available', () => {
-  assert.deepEqual(allowedSections(null), { orders: true, calculator: true, catalogue: true });
-  assert.deepEqual(allowedSections(undefined), { orders: true, calculator: true, catalogue: true });
+  assert.deepEqual(allowedSections(null), ALL_ON);
+  assert.deepEqual(allowedSections(undefined), ALL_ON);
 });
 
 test('a document without the field: every section stays available', () => {
-  assert.deepEqual(allowedSections({ name: 'The Italian Club' }),
-    { orders: true, calculator: true, catalogue: true });
+  assert.deepEqual(allowedSections({ name: 'The Italian Club' }), ALL_ON);
 });
 
 test('only an explicit false hides a section', () => {
-  const doc = { sections: { orders: true, calculator: false, catalogue: false } };
-  assert.deepEqual(allowedSections(doc), { orders: true, calculator: false, catalogue: false });
+  const doc = { sections: { orders: true, calculator: false, catalogue: false, pastries: false } };
+  assert.deepEqual(allowedSections(doc),
+    { orders: true, calculator: false, catalogue: false, pastries: false });
   assert.equal(isSectionAllowed(doc, 'orders'), true);
   assert.equal(isSectionAllowed(doc, 'calculator'), false);
 });
 
 test('a corrupt sections field leaves the app whole rather than emptying it', () => {
   ['nonsense', 42, [], true, null].forEach(bad => {
-    assert.deepEqual(allowedSections({ sections: bad }),
-      { orders: true, calculator: true, catalogue: true },
+    assert.deepEqual(allowedSections({ sections: bad }), ALL_ON,
       `sections: ${JSON.stringify(bad)} must not hide anything`);
   });
   // A value that is merely not `false` is not a hide instruction either.
   assert.equal(allowedSections({ sections: { orders: 'no' } }).orders, true);
+});
+
+// ⚠️ THE COST OF THAT DEFAULT, WRITTEN DOWN ONCE.
+//
+// Every location document in production was written before Pastries existed, so
+// none of them mentions it — and a missing key means ON. Adding a section to
+// SECTIONS therefore switches it on for EVERY existing venue until someone types
+// `sections.<name>: false` into the ones that should not have it.
+//
+// That is not merely cosmetic: firestore.rules carries the same default, so a
+// venue showing a section it does not want can also WRITE that collection. The
+// console edit is part of shipping a section, not a tidy-up afterwards.
+test('a venue set up before a section existed still gets it — a missing key means on', () => {
+  const beforePastries = { sections: { orders: true, calculator: false, catalogue: false } };
+  assert.equal(allowedSections(beforePastries).pastries, true);
+  assert.equal(isSectionAllowed(beforePastries, 'pastries'), true);
+
+  const afterTheConsoleEdit = {
+    sections: { orders: true, calculator: false, catalogue: false, pastries: false },
+  };
+  assert.equal(isSectionAllowed(afterTheConsoleEdit, 'pastries'), false);
 });
 
 test('an unknown section name in the document is ignored, not rendered', () => {
@@ -58,13 +80,17 @@ test('an unknown section name in the document is ignored, not rendered', () => {
 // cards to a location set up for one — with nothing anywhere saying why.
 
 test('a trailing space in the sections field name does not silently void it', () => {
-  const out = allowedSections({ 'sections ': { orders: true, calculator: false, catalogue: false } });
-  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false });
+  const out = allowedSections({
+    'sections ': { orders: true, calculator: false, catalogue: false, pastries: false },
+  });
+  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false, pastries: false });
 });
 
 test('a trailing space in a section name does not silently void it', () => {
-  const out = allowedSections({ sections: { orders: true, 'calculator ': false, ' catalogue': false } });
-  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false });
+  const out = allowedSections({
+    sections: { orders: true, 'calculator ': false, ' catalogue': false, 'pastries ': false },
+  });
+  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false, pastries: false });
 });
 
 test('the exact name always wins over a spaced one, so it is never ambiguous', () => {

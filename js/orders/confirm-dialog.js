@@ -3,8 +3,9 @@
 // the app instead of the grey system box.
 //
 // Copied per feature, like dom.js (js/confirm-dialog.js, js/orders/confirm-dialog.js,
-// js/catalogue/confirm-dialog.js) — features must not import across folders, so
-// KEEP THE THREE COPIES IDENTICAL. Styles live in tokens.css (.app-dialog-*), the
+// js/catalogue/confirm-dialog.js, js/pastries/confirm-dialog.js) — features must
+// not import across folders, so KEEP THE FOUR COPIES IDENTICAL. Styles live in
+// tokens.css (.app-dialog-*), the
 // one stylesheet every page loads, because the dialog is created from JS and the
 // CSP (style-src 'self') forbids injected styles — same precedent as #sw-update-banner.
 //

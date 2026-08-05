@@ -1,0 +1,353 @@
+/* pastries.css — Pastries feature styles (self-contained, so the feature folder
+   stays extractable). Green header on a warm-neutral ground, a segmented strip of
+   the seven weekdays, then a name-left / quantity-right list built to be read at
+   4am. Uses the shared app-wide design tokens (tokens.css); light theme only. */
+
+/* Every value comes from the shared tokens.css (loaded before this file). These
+   aliases keep the var(--pas-*) references below readable while the values stay
+   in one place. NOTHING here invents a colour: a value this feature needed and
+   the design system did not already have would be a question, not a decision. */
+:root {
+  --pas-ground:      var(--bg);
+  --pas-surface:     var(--surface);
+  --pas-surface-2:   var(--surface-2);
+  --pas-brand:       var(--brand);
+  --pas-brand-ink:   var(--on-brand);
+  --pas-accent:      var(--accent-2);
+  --pas-accent-light: var(--accent-light);
+  --pas-crust:       var(--crust);
+  --pas-text:        var(--text);
+  --pas-text-2:      var(--text-2);
+  --pas-text-3:      var(--text-3);
+  --pas-text-5:      var(--text-5);
+  --pas-border:      var(--border);
+  --pas-danger:      var(--danger);
+  --pas-shadow:      var(--shadow);
+  --pas-radius:      var(--radius);
+  --pas-radius-sm:   var(--radius-sm);
+  --pas-font:        var(--font);
+  --pas-font-mono:   var(--font-mono);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--pas-font);
+  color: var(--pas-text);
+  background: var(--pas-ground);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────
+   The app-wide spec: a 36px icon button on each side and a CENTRED title, in
+   three fixed grid tracks so an empty side slot still holds its column. */
+.pas-header {
+  flex: none;
+  background: var(--pas-brand);
+  color: var(--pas-brand-ink);
+  /* viewport-fit=cover lets the green fill the status-bar area; the safe-area top
+     inset keeps the title/buttons below the clock. */
+  padding: calc(16px + env(safe-area-inset-top)) 16px 20px;
+  border-radius: 0 0 26px 26px;
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
+  align-items: center;
+  gap: 12px;
+}
+.pas-header-slot { display: flex; align-items: center; justify-content: center; }
+.pas-icon-btn {
+  appearance: none;
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
+  color: inherit;
+  width: 36px; height: 36px; border-radius: 50%; cursor: pointer; flex: none;
+  display: flex; align-items: center; justify-content: center; text-decoration: none;
+}
+.pas-icon-btn:hover { background: var(--rim-bg-hover); }
+.pas-icon-btn:active { background: var(--rim-bg-active); }
+/* On-brand ring: the app's default green focus ring is invisible on green. */
+.pas-icon-btn:focus-visible { outline: 2px solid var(--pas-brand-ink); outline-offset: 2px; }
+.pas-icon-btn[hidden] { display: none; }
+.pas-header-title { min-width: 0; text-align: center; }
+.pas-header-title h1 {
+  margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 400;
+  letter-spacing: 0; text-wrap: balance;
+}
+.pas-header-title p {
+  margin: 2px 0 0; font-size: 10px; font-family: var(--pas-font-mono);
+  letter-spacing: 0.12em; text-transform: uppercase; opacity: .75;
+}
+
+/* ── The weekday strip ─────────────────────────────────────────────────────
+   A segmented control: seven equal columns, NO gap, 1px hairlines between. The
+   arithmetic matters, because all seven have to be reachable without scrolling
+   and the narrowest real phone is 320px:
+
+       chip width = (viewport - 16) / 7
+       281px (preview window) -> 37.9   320px -> 43.4   390px -> 53.4
+
+   A 4px gap would take those to 34.4 / 40.0 / 47.9 — which is why there is no
+   gap. Horizontal scrolling was rejected outright: a day you cannot see is a
+   day you do not know is there, and moving between the days is the whole point
+   of the screen. The 48px HEIGHT is free and keeps the target comfortable
+   where the width cannot be. */
+.pas-strip {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin: 12px 8px 0;
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  background: var(--pas-surface);
+  overflow: hidden;
+}
+.pas-strip[hidden] { display: none; }
+
+.pas-chip {
+  appearance: none;
+  border: 0;
+  border-left: 1px solid var(--pas-border);
+  background: transparent;
+  color: var(--pas-text-2);
+  font-family: var(--pas-font);
+  font-size: 13px;
+  font-weight: 600;
+  height: 48px;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+.pas-chip:first-child { border-left: 0; }
+.pas-chip:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: -2px; }
+.pas-chip:active { transform: scale(.97); }
+
+/* A day with nothing in it reads quieter than one already filled, so "have I
+   done Thursday yet?" is answered without opening it. */
+.pas-chip--empty { color: var(--pas-text-5); }
+
+/* The selected day. */
+.pas-chip[aria-selected="true"] {
+  background: var(--pas-brand);
+  color: var(--pas-brand-ink);
+}
+
+/* The day the screen OPENED on — tomorrow. A crust dot under the label, so the
+   day you actually came for stays findable after browsing away from it. It is
+   the one place on this screen that is not green: on the selected chip the dot
+   sits on brand green, where an accent green would disappear. */
+.pas-chip-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--pas-crust);
+  flex: none;
+}
+
+/* ── Scroll area ───────────────────────────────────────────────────────────*/
+.pas-screen { flex: 1; overflow-y: auto; padding: 16px; min-height: 0; }
+.pas-view { max-width: 620px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+
+/* On each route change the view container is programmatically focused (see
+   swap() in pastries-main.js) so keyboard / screen-reader users don't drop to
+   the top of the page. That focus is not user-driven keyboard navigation, so the
+   browser's default outline around the whole container is unwanted. Suppressed
+   only there — a tabindex="-1" element is never reached by Tab, so the real
+   controls inside keep their :focus-visible rings. */
+.pas-screen > [tabindex="-1"]:focus { outline: none; }
+
+/* ── The day list (read-only) ──────────────────────────────────────────────
+   Name left, quantity right, in a column. The note this replaces wrote
+   "Cornetti: 24"; a column of numbers can be read down in one look at 4am,
+   which a number buried at the end of a name cannot. */
+.pas-list {
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius);
+  box-shadow: var(--pas-shadow);
+  overflow: hidden;
+}
+.pas-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--pas-border);
+}
+.pas-row:first-child { border-top: 0; }
+.pas-row-name { flex: 1; min-width: 0; font-size: 20px; overflow-wrap: anywhere; }
+.pas-row-qty {
+  flex: none;
+  font-family: var(--pas-font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  /* Same-width digits, so 4 / 12 / 24 line up down the column rather than
+     wandering by a pixel or two per row. */
+  font-variant-numeric: tabular-nums;
+  color: var(--pas-text);
+}
+
+.pas-empty {
+  text-align: center;
+  color: var(--pas-text-2);
+  padding: 40px 16px;
+}
+.pas-empty-hint { display: block; margin-top: 6px; font-size: 14px; color: var(--pas-text-3); }
+
+/* ── The editor ────────────────────────────────────────────────────────────*/
+.pas-editor-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; margin-bottom: 10px;
+}
+.pas-editor-label {
+  font-size: 10px; font-family: var(--pas-font-mono); letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--pas-text-3);
+}
+.pas-editor-count { font-size: 13px; color: var(--pas-text-3); }
+
+.pas-editrows { display: flex; flex-direction: column; gap: 10px; }
+
+/* Three columns: name · quantity · bin. The bin has to be its own button (a
+   button cannot nest inside a button), so it is a sibling and the row owns the
+   spacing. */
+.pas-editrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem 2.25rem;
+  gap: 8px;
+  align-items: center;
+}
+
+/* ⚠️ EVERY CONTROL IN THE ROW DECLARES ITS HEIGHT, PADDING AND TYPE SIZE, and
+   the height is a FIXED 44px rather than a min-height. On iOS a control sizes
+   itself from its own metrics and grows straight past a MINIMUM, so a row that
+   measures level in a desktop browser can still come out ragged on the phone —
+   that is exactly what shipped in v235 and had to be fixed in v236. 44px also
+   happens to be the comfortable tap target (P18). */
+input.pas-name,
+input.pas-qty {
+  height: 44px;
+  padding: 0 12px;
+  font-size: 16px;   /* under 16px, iOS zooms the page when the field is focused */
+  font-family: var(--pas-font);
+  color: var(--pas-text);
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  outline: none;
+  min-width: 0;
+  width: 100%;
+}
+
+/* ⚠️ `input.pas-qty`, NOT `.pas-qty`. An attribute selector counts as a class,
+   so input[type="number"] is (0,1,1) and a bare class is (0,1,0) — the class
+   LOSES and the field silently inherits a size from elsewhere in the app. That
+   is precisely the v235 defect, where a field written to be compact came out
+   46px tall at 18px next to neighbours 36px at 13px. Matching the element too
+   ties the specificity at (0,1,1) and wins on source order. */
+input.pas-qty {
+  text-align: right;
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  /* The spinners are useless at these sizes and eat the digits' width. */
+  -moz-appearance: textfield;
+}
+input.pas-qty::-webkit-outer-spin-button,
+input.pas-qty::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+input.pas-name:focus,
+input.pas-qty:focus {
+  border-color: var(--pas-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pas-accent) 22%, transparent);
+}
+input.pas-name.pas-invalid,
+input.pas-qty.pas-invalid {
+  border-color: var(--pas-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pas-danger) 20%, transparent);
+}
+
+/* Low-key, as every destructive control in this app is (P20): a small icon that
+   never competes with Save. */
+.pas-del-icon {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  width: 2.25rem; height: 44px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--pas-text-3);
+}
+.pas-del-icon:hover { color: var(--pas-danger); }
+.pas-del-icon:active { transform: scale(.97); }
+.pas-del-icon:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+.pas-add-row {
+  appearance: none;
+  margin-top: 12px;
+  width: 100%;
+  height: 44px;
+  background: var(--pas-surface-2);
+  border: 1px dashed var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  color: var(--pas-text-2);
+  font-family: var(--pas-font);
+  font-size: 15px;
+  cursor: pointer;
+  /* Icon + text must be a flex ROW. An SVG wrapped in a span is an inline box,
+     so it rests on the text BASELINE about 2px below the centre line — the most
+     common alignment bug in this app. */
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.pas-add-row > span { display: flex; align-items: center; }
+.pas-add-row:active { transform: scale(.97); }
+.pas-add-row:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* Save sits at the bottom of the scroll area, pushed down when the list is
+   short so it is always in the same place. */
+.pas-editor-actions { margin-top: auto; padding-top: 20px; }
+.pas-save-btn {
+  appearance: none;
+  width: 100%;
+  height: 48px;
+  background: var(--pas-brand);
+  color: var(--pas-brand-ink);
+  border: 0;
+  border-radius: var(--pas-radius-sm);
+  font-family: var(--pas-font);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pas-save-btn:active { transform: scale(.97); }
+.pas-save-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* ── Toast ─────────────────────────────────────────────────────────────────*/
+.pas-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(26px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(8px);
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  background: var(--pas-text);
+  color: var(--pas-surface);
+  border-radius: var(--pas-radius-sm);
+  box-shadow: var(--pas-shadow);
+  font-size: 14px;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease;
+  z-index: 40;
+}
+.pas-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Every transform above is decoration. The app-wide reduced-motion kill-switch
+   lives in tokens.css; this keeps the toast readable rather than animated for
+   anyone who has asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  .pas-toast { transition: none; }
+}

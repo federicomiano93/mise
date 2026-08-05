@@ -1,0 +1,114 @@
+<!--
+  THE ITALIAN CLUB PWA — Pastries
+  Seven lists, one per weekday: what has to be put to prove tonight for
+  tomorrow's service. Opens on the day being proved FOR, with a strip of the
+  seven days above it; the pencil edits the day on screen.
+  All logic lives in js/pastries/* (loaded via pastries-main.js).
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--
+  CSP bootstrap. A <meta> Content-Security-Policy cannot be loosened at runtime
+  (multiple policies combine by intersection), so to allow the LOCAL Firebase
+  emulator on localhost WITHOUT touching the live site's policy, the meta is
+  emitted here. On the live domain the string is byte-identical to the production
+  policy; on localhost only, connect-src additionally allows the Auth (9099) and
+  Firestore (8080) emulators. This inline script runs before any CSP is in effect
+  (only <meta charset> precedes it) and before any network request.
+-->
+<script>
+(function () {
+  var local = ['localhost', '127.0.0.1', '::1', '[::1]'].indexOf(location.hostname) !== -1;
+  var emu = local
+    ? ' http://localhost:8080 http://localhost:9099 http://127.0.0.1:8080 http://127.0.0.1:9099'
+    : '';
+  document.write(
+    '<meta http-equiv="Content-Security-Policy" content="' +
+    "default-src 'self'; " +
+    "script-src 'self' https://www.gstatic.com https://www.google.com; " +
+    "connect-src 'self' https://www.gstatic.com https://www.google.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "frame-src 'self' https://www.google.com; " +
+    "img-src 'self' data:; " +
+    "style-src 'self'; " +
+    "font-src 'self'; " +
+    // Neither is covered by default-src, so both have to be stated. base-uri stops
+    // an injected <base> from re-pointing every relative URL on the page; the app
+    // has no <form> at all, so form-action 'self' can only ever refuse something
+    // that should not be there.
+    "base-uri 'self'; " +
+    "form-action 'self'" +
+    '">'
+  );
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Pastries to prove for The Italian Club — one list per day of the week.">
+<meta name="theme-color" content="#2D5016">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Italian Club">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="auth.css">
+<link rel="stylesheet" href="pastries.css">
+<title>Pastries — The Italian Club</title>
+</head>
+<body data-section="pastries">
+<!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
+     paint: the app must never flash a location's data at whoever is holding
+     the phone. js/auth-gate.js fills it in and removes it once a location is
+     open.
+     ⚠️ ONE LINE, NO WHITESPACE BETWEEN THE TAGS. auth.css styles the covering
+     state with .auth-gate:empty, and :empty is byte-exact — a newline in here
+     makes every navigation flash a full green panel. -->
+<div id="auth-gate" class="auth-gate"></div>
+
+
+<!-- Three fixed tracks (left slot · title · right slot) so the title is TRULY
+     centred: only one button of each slot is ever visible, and an empty slot must
+     still hold its column or the title drifts off-centre. -->
+<header class="pas-header">
+  <span class="pas-header-slot">
+    <a class="pas-icon-btn" id="pasHome" href="index.html" aria-label="Back">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <button class="pas-icon-btn" id="pasBack" aria-label="Back" hidden>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+  </span>
+  <div class="pas-header-title">
+    <h1 id="pasTitle">Pastries</h1>
+    <p id="pasSub">To prove</p>
+  </div>
+  <span class="pas-header-slot">
+    <button class="pas-icon-btn" id="pasEdit" aria-label="Edit this day">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+    </button>
+  </span>
+</header>
+
+<!-- The weekday strip is CHROME, not content: it lives outside <main> and is
+     built once, so tapping a day never rebuilds it. Rebuilding would drop focus
+     off the chip that was just tapped, which breaks arrow-key navigation and
+     makes the row flicker on every change. Hidden while the editor is open. -->
+<div class="pas-strip" id="pasStrip" role="tablist" aria-label="Day of the week"></div>
+
+<main class="pas-screen" id="pasScreen" role="tabpanel"></main>
+
+<!-- The confirm dialog is built on demand by js/pastries/confirm-dialog.js
+     (the shared .app-dialog-* component), so no static markup is needed. -->
+
+<div class="pas-toast" id="pasToast"></div>
+
+<script type="module" src="js/auth-gate.js"></script>
+<script type="module" src="js/sw-update.js"></script>
+<script type="module" src="js/idle-reset.js"></script>
+<script type="module" src="js/pastries/pastries-main.js"></script>
+<script type="module" src="js/hold-to-zoom.js"></script>
+</body>
+</html>
