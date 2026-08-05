@@ -1,6 +1,8 @@
 <!--
   THE ITALIAN CLUB PWA — Home
-  Landing screen: two large cards (Orders, Calculator).
+  Landing screen: one card per section (Calculator, Recipe catalogue, Orders,
+  Pastries). A location that does not use a section has its card REMOVED here by
+  js/home-session.js, so this markup is the full set, not what any one venue sees.
   start_url of the PWA (see manifest.json). Reuses style.css; new styles in orders.css.
 -->
 <!DOCTYPE html>
@@ -126,6 +128,18 @@
       </span>
       <span class="home-card-title">Orders</span>
       <span class="home-card-sub">Suppliers &amp; weekly order</span>
+    </a>
+
+    <a class="home-card" href="pastries.html" data-section="pastries">
+      <span class="home-card-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3.5 16h17v2.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>
+          <path d="M6 16a2.75 2.75 0 0 1 5.5 0"/>
+          <path d="M12.5 16a3.25 3.25 0 0 1 6.5 0"/>
+        </svg>
+      </span>
+      <span class="home-card-title">Pastries</span>
+      <span class="home-card-sub">To prove for tomorrow</span>
     </a>
 
   </nav>

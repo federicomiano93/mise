@@ -11,7 +11,18 @@
 
 import { isValidLocationId } from './location.js';
 
-export const SECTIONS = Object.freeze(['orders', 'calculator', 'catalogue']);
+// ⚠️ A NEW NAME HERE IS NOT OPTIONAL, IT IS WHAT MAKES A PAGE REACHABLE. A
+// section missing from this list is not "allowed by default" — allowedSections
+// never produces a key for it, so isSectionAllowed returns false and
+// js/auth-gate.js redirects that page to the Home on EVERY location. The screen
+// simply cannot be opened, anywhere, and nothing says why.
+//
+// ⚠️ AND ADDING ONE TURNS IT ON FOR EVERY EXISTING LOCATION, because the default
+// below is ALLOWED and no location document written before today mentions the
+// new name. A venue that should not have it needs `sections.<name>: false` typed
+// into its document in the Firebase console — and until that is done, the same
+// default in firestore.rules lets that venue WRITE the new collection too.
+export const SECTIONS = Object.freeze(['orders', 'calculator', 'catalogue', 'pastries']);
 
 // Read a field by name, accepting a name typed with stray spaces around it.
 //
