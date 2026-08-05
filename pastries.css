@@ -492,3 +492,136 @@ input.pas-qty.pas-invalid {
 @media (prefers-reduced-motion: reduce) {
   .pas-toast { transition: none; }
 }
+
+/* ── Accept ────────────────────────────────────────────────────────────────
+   Pushed to the bottom of the scroll area so it is always in the same place,
+   whether the day holds two pastries or twelve. */
+.pas-accept-wrap { margin-top: auto; padding-top: 20px; }
+.pas-accept-btn {
+  appearance: none;
+  width: 100%;
+  height: 48px;
+  background: var(--pas-brand);
+  color: var(--pas-brand-ink);
+  border: 0;
+  border-radius: var(--pas-radius-sm);
+  font-family: var(--pas-font);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pas-accept-btn:active { transform: scale(.97); }
+.pas-accept-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* ── The bottom bar ────────────────────────────────────────────────────────
+   Secondary actions live here, not in the header — the app's own rule, and the
+   header's right slot already holds the pencil.
+   ⚠️ The safe-area inset is written out rather than taken from --safe-bot:
+   that variable is defined in style.css, which this page does not load. */
+.pas-footer {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--pas-ground);
+  border-top: 1px solid var(--pas-border);
+}
+.pas-footer[hidden] { display: none; }
+.pas-footer-btn {
+  appearance: none;
+  flex: 1;
+  max-width: 220px;
+  height: 44px;
+  cursor: pointer;
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  color: var(--pas-text-2);
+  font-family: var(--pas-font);
+  font-size: 15px;
+  font-weight: 600;
+  /* Icon + text is a flex ROW, and so is the wrapping span — an SVG in an inline
+     box sits on the text baseline, about 2px low. The commonest bug in this app. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pas-footer-btn > span { display: flex; align-items: center; }
+.pas-footer-btn:active { transform: scale(.97); }
+.pas-footer-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* ── The records ───────────────────────────────────────────────────────────*/
+.pas-logs { display: flex; flex-direction: column; gap: 12px; }
+.pas-log {
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius);
+  box-shadow: var(--pas-shadow);
+  overflow: hidden;
+}
+.pas-log-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--pas-border);
+}
+/* The date it was proved ON, and WHICH list it was — two different things: a
+   Wednesday list is accepted on Tuesday night. */
+.pas-log-date {
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--pas-text-2);
+}
+.pas-log-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--pas-radius-pill);
+  background: var(--pas-accent-light);
+  color: var(--pas-brand);
+}
+.pas-log-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--pas-border);
+}
+.pas-log-row:first-of-type { border-top: 0; }
+.pas-log-name { flex: 1; min-width: 0; font-size: 16px; overflow-wrap: anywhere; }
+.pas-log-qty {
+  flex: none;
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  font-weight: 500;
+}
+.pas-log-empty { padding: 12px 16px; color: var(--pas-text-3); font-size: 15px; }
+.pas-log-note {
+  padding: 10px 16px;
+  border-top: 1px solid var(--pas-border);
+  background: var(--pas-surface-2);
+  font-size: 14px;
+  color: var(--pas-text-2);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.pas-log-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  border-top: 1px solid var(--pas-border);
+}
+
+/* Said out loud, because an automatic deletion nobody was told about is the kind
+   of thing people find out by missing something. */
+.pas-retention {
+  text-align: center;
+  font-size: 13px;
+  color: var(--pas-text-3);
+  margin: 4px 0 0;
+}
