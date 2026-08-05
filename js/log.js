@@ -3,7 +3,6 @@
 // model and persistence live in log-model.js (pure) and log-store.js (Firestore).
 
 import { showResult, hideResult, markRevealed, clearRevealed, getLock, setLock } from './calc.js';
-import { saveDailyEntry } from './firebase.js';
 import { getConfig } from './calculator-config-store.js';
 import {
   getTabProducts, getDivisorIncluded, isExtraDoughEnabled, doughExtraGrams,
@@ -36,11 +35,6 @@ function totalInputFor(recipeId) {
   return e ? Math.max(0, +e.value || 0) : 0;
 }
 
-function isoDate() {
-  const n = new Date();
-  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
-}
-
 // ── Gather the current calculator state for a dough tab ───────────────────────
 function gatherItems(tab) {
   // One line per (client, product) association. `id` stays the product id so the
@@ -58,17 +52,6 @@ function gatherExtra(tab) {
   const u = document.getElementById(tab + '-extra-unit');
   const unit = u ? u.value : 'g';
   return { grams: doughExtraGrams(v.value, unit), value: +v.value || 0, unit };
-}
-
-// ── Daily-logs archive (unchanged behaviour, kept for the production archive) ──
-function buildDailyEntry(tab, sheet, at) {
-  const recipe = getRecipeById(getConfig(), tab) || {};
-  const base = {
-    date_iso: isoDate(), date: at.date, time: at.time, dough: recipe.name || tab,
-    total_g: sheet.total_g, extra_g: sheet.extra_g,
-  };
-  for (const p of getTabProducts(getConfig(), tab)) base['qty_' + p.qtyId] = qtyOf(p.qtyId);
-  return base;
 }
 
 // ── Confirm (Today/Tomorrow day picker) + Edit ────────────────────────────────
@@ -129,7 +112,6 @@ function commitLog() {
     const version = { calculatedBy: '', at, kind: 'create', items, occasional: [], sheet, text, recipe: frozenRecipe };
     createAndSave({ id: logId, dough: recipe.name, recipeId: tab, forDay: pendingDay, version, createdAtMs: Date.now(), origin: 'calculator' });
   }
-  saveDailyEntry(buildDailyEntry(tab, sheet, at)); // keep the production archive too
 
   // Reveal the recipe and LOCK the tab: the Today/Tomorrow pair becomes an "Edit" button
   // and the inputs grey out until the user taps Edit. The link is remembered so the next

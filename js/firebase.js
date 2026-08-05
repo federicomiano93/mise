@@ -9,7 +9,7 @@
 //   1. Initializes Firebase
 //   2. Owns THE SESSION: who is signed in and which location they are working
 //      on, which is what decides where every Firestore path points
-//   3. Exports the log / daily-log / calculator-config helpers
+//   3. Exports the log / calculator-config helpers
 //
 // Public API consumed by the rest of the app:
 //   - sessionReady / onSession / currentSession  → every data layer and the gate
@@ -17,7 +17,6 @@
 //   - switchLocation / chooseLocation        → js/home-session.js, js/auth-gate.js
 //   - saveLogToFirestore(record)                 → js/log.js
 //   - deleteLogFromFirestore(dough)              → js/log.js
-//   - saveDailyEntry(entry)                      → js/log.js
 //   - side-effect `import './firebase.js'` for init → js/app.js
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -384,28 +383,6 @@ export function readOldLogsOnce() {
     .catch(err => { console.error('readOldLogsOnce failed:', err); return []; });
 }
 
-// Daily production log: one document per day (entry.date_iso, 'YYYY-MM-DD'),
-// keyed by dough type so confirming one dough never overwrites the others.
-// Re-confirming the same dough on the same day updates its sub-entry (merge).
-// entry = buildDailyEntry(...) from js/log.js (includes entry.dough + entry.date_iso)
-//
-// ⚠️ pathFor() must be called INSIDE the authReady chain, like every other function
-// here. It THROWS while no location is open, and this one is called straight from
-// commitLog() — a synchronous throw there skipped the three lines that follow it, so
-// Confirm saved the log but never revealed the recipe or locked the tab, and tapping
-// again made a duplicate. Today the opaque auth gate makes that window unreachable by
-// a finger; that is a guard elsewhere, not a reason to build the path early.
-export function saveDailyEntry(entry) {
-  const key = entry.dough.toLowerCase();
-  return authReady
-    .then(() => setDoc(
-      doc(db, pathFor('daily-logs'), entry.date_iso),
-      { [key]: entry },
-      { merge: true }
-    ))
-    .catch(err => { console.error('saveDailyEntry failed:', err); });
-}
-
 // ── Calculator configuration (clients / products / weights) ──────────────────
 // One shared document: config/calculator. Shared across the team like the log,
 // under Anonymous Auth (same per-bakery caveat). Holds the configurable clients,
@@ -431,7 +408,7 @@ export function watchCalculatorConfig(onChange) {
 // Normal edits (including deleting a recipe) are unaffected: with no concurrent
 // writer the rev matches and nothing extra is merged. bakery is stamped as before.
 export function saveCalculatorConfig(config) {
-  // Same rule as saveDailyEntry: resolve the path INSIDE the chain. Built here it
+  // pathFor() must be resolved INSIDE the chain, not before it. Built here it
   // would throw before the caller ever gets a promise, so the error could not be
   // caught and reported by the .catch below.
   return authReady
