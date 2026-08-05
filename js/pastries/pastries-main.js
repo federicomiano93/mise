@@ -5,7 +5,7 @@
 // and never imports from js/orders/ or js/catalogue/.
 
 import {
-  initPastries, getDays, getItems, getCounts, saveDay, setSyncErrorHandler,
+  initPastries, getDays, getItems, getNote, getCounts, saveDay, setSyncErrorHandler,
 } from './pastries-store.js';
 import { renderStrip } from './pastries-strip.js';
 import { renderDay } from './pastries-day.js';
@@ -29,6 +29,7 @@ const openingDay = provingDayFor(Date.now());
 let view = 'day';         // 'day' | 'editor'
 let shownDay = openingDay;
 let strip = null;
+let dayView = null;       // { node, update } while the day view is on screen
 let leaveGuard = null;    // async () => boolean; blocks Back when there are unsaved edits
 
 // ── Header + view helpers ────────────────────────────────────────────────────
@@ -70,11 +71,15 @@ function showDay(day, opts = {}) {
     back: false,
     edit: true,
   });
-  swap(renderDay({ day, items: getItems(day) }), opts);
+  // A NEW view, because the day itself changed. A snapshot for the day already
+  // on screen goes through dayView.update() instead — see repaint().
+  dayView = renderDay({ day, items: getItems(day), note: getNote(day) });
+  swap(dayView.node, opts);
 }
 
 function openEditor(day) {
   view = 'editor';
+  dayView = null;
   // The strip is hidden rather than left live: changing day mid-edit would need
   // the unsaved-work question asked from a second place, and there is already a
   // Back that asks it.
@@ -104,9 +109,13 @@ function toast(msg) {
 // device's own optimistic write. The editor is deliberately NOT repainted: it
 // holds a working copy someone is typing into, and replacing it would delete
 // what they are in the middle of writing.
+//
+// ⚠️ IT UPDATES THE VIEW IN PLACE rather than rebuilding it. Rebuilding ran
+// swap(), which sets scrollTop = 0 — so every snapshot, several times a minute,
+// threw away where the person had scrolled to.
 function repaint() {
   if (strip) strip.setCounts(getCounts());
-  if (view === 'day') showDay(shownDay, { focus: false });
+  if (view === 'day' && dayView) dayView.update(getItems(shownDay), getNote(shownDay));
 }
 
 // The ONE thing the views receive. They never import the store or the header.
