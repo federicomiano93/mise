@@ -174,14 +174,29 @@ body {
   box-shadow: var(--pas-shadow);
   overflow: hidden;
 }
-.pas-row {
+.pas-row { border-top: 1px solid var(--pas-border); }
+.pas-row:first-child { border-top: 0; }
+
+/* The row itself is the tap target that opens the quantity box. It is a button,
+   so it announces itself and works from the keyboard — but it is styled as the
+   plain line it was, because this screen is read far more often than edited. */
+.pas-row-main {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  width: 100%;
   padding: 14px 16px;
-  border-top: 1px solid var(--pas-border);
+  appearance: none;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--pas-font);
+  color: var(--pas-text);
 }
-.pas-row:first-child { border-top: 0; }
+.pas-row-main:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: -2px; }
+.pas-row[data-open="true"] .pas-row-main { background: var(--pas-accent-light); }
+
 .pas-row-name { flex: 1; min-width: 0; font-size: 20px; overflow-wrap: anywhere; }
 .pas-row-qty {
   flex: none;
@@ -194,12 +209,138 @@ body {
   color: var(--pas-text);
 }
 
+/* ── The opened row ────────────────────────────────────────────────────────
+   Only one is open at a time, and only because it was tapped. Everything here
+   is display:none until then, so the reading screen has no fields on it. */
+.pas-row-edit { display: none; }
+.pas-row[data-open="true"] .pas-row-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 14px;
+  background: var(--pas-accent-light);
+}
+.pas-row-arrow {
+  flex: none;
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--pas-text-3);
+}
+.pas-row-hint { margin-left: auto; font-size: 12px; color: var(--pas-text-3); }
+
+/* ⚠️ `input.pas-quick`, NOT `.pas-quick`. An attribute selector counts as a
+   class, so input[type="number"] is (0,1,1) and a bare class is (0,1,0) — the
+   class LOSES and the field silently inherits a size from elsewhere in the app.
+   That is the v235 defect exactly. Matching the element ties it at (0,1,1) and
+   wins on source order.
+   ⚠️ And the height is FIXED, never a min-height: on iOS a control sizes itself
+   from its own metrics and grows straight past a minimum (v236). */
+input.pas-quick {
+  height: 44px;
+  width: 84px;
+  flex: none;
+  padding: 0 12px;
+  font-size: 16px;   /* under 16px, iOS zooms the page when the field is focused */
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--pas-text);
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  outline: none;
+  -moz-appearance: textfield;
+}
+input.pas-quick::-webkit-outer-spin-button,
+input.pas-quick::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input.pas-quick:focus {
+  border-color: var(--pas-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pas-accent) 22%, transparent);
+}
+
+.pas-tick {
+  appearance: none;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--pas-brand);
+  color: var(--pas-brand-ink);
+  border: 0;
+  border-radius: var(--pas-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pas-tick:active { transform: scale(.97); }
+.pas-tick:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
 .pas-empty {
   text-align: center;
   color: var(--pas-text-2);
   padding: 40px 16px;
 }
 .pas-empty-hint { display: block; margin-top: 6px; font-size: 14px; color: var(--pas-text-3); }
+
+/* ── The standing note ─────────────────────────────────────────────────────
+   A reminder about the WEEKDAY, not about one night: accepting a list never
+   clears it. Quieter than the list — it is context, not the job. */
+.pas-note {
+  margin-top: 16px;
+  background: var(--pas-surface-2);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius);
+  padding: 14px 16px;
+}
+.pas-note-label {
+  display: block;
+  font-family: var(--pas-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pas-text-3);
+  margin-bottom: 6px;
+}
+.pas-note-body {
+  margin: 0;
+  font-size: 15px;
+  color: var(--pas-text-2);
+  /* A note is written in lines, so the line breaks someone typed are kept. */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* The editor's copy of it. */
+.pas-editor-note { margin-top: 20px; display: flex; flex-direction: column; gap: 6px; }
+.pas-editor-note .pas-editor-label { margin: 0; }
+
+/* ⚠️ The 44px fixed-height rule does NOT apply here: that is about single-line
+   controls sharing a row, where iOS growing one past a minimum makes the row
+   ragged. A textarea is a block on its own, so it gets a real height and is
+   allowed to be dragged taller. 16px, like every other field, because below
+   that iOS zooms the page on focus. */
+.pas-note-input {
+  width: 100%;
+  height: 96px;
+  min-height: 44px;
+  resize: vertical;
+  padding: 10px 12px;
+  font-size: 16px;
+  font-family: var(--pas-font);
+  line-height: 1.45;
+  color: var(--pas-text);
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  outline: none;
+}
+.pas-note-input::placeholder { color: var(--pas-text-5); }
+.pas-note-input:focus {
+  border-color: var(--pas-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pas-accent) 22%, transparent);
+}
 
 /* ── The editor ────────────────────────────────────────────────────────────*/
 .pas-editor-head {
@@ -350,4 +491,137 @@ input.pas-qty.pas-invalid {
    anyone who has asked for less movement. */
 @media (prefers-reduced-motion: reduce) {
   .pas-toast { transition: none; }
+}
+
+/* ── Accept ────────────────────────────────────────────────────────────────
+   Pushed to the bottom of the scroll area so it is always in the same place,
+   whether the day holds two pastries or twelve. */
+.pas-accept-wrap { margin-top: auto; padding-top: 20px; }
+.pas-accept-btn {
+  appearance: none;
+  width: 100%;
+  height: 48px;
+  background: var(--pas-brand);
+  color: var(--pas-brand-ink);
+  border: 0;
+  border-radius: var(--pas-radius-sm);
+  font-family: var(--pas-font);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pas-accept-btn:active { transform: scale(.97); }
+.pas-accept-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* ── The bottom bar ────────────────────────────────────────────────────────
+   Secondary actions live here, not in the header — the app's own rule, and the
+   header's right slot already holds the pencil.
+   ⚠️ The safe-area inset is written out rather than taken from --safe-bot:
+   that variable is defined in style.css, which this page does not load. */
+.pas-footer {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  background: var(--pas-ground);
+  border-top: 1px solid var(--pas-border);
+}
+.pas-footer[hidden] { display: none; }
+.pas-footer-btn {
+  appearance: none;
+  flex: 1;
+  max-width: 220px;
+  height: 44px;
+  cursor: pointer;
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  color: var(--pas-text-2);
+  font-family: var(--pas-font);
+  font-size: 15px;
+  font-weight: 600;
+  /* Icon + text is a flex ROW, and so is the wrapping span — an SVG in an inline
+     box sits on the text baseline, about 2px low. The commonest bug in this app. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pas-footer-btn > span { display: flex; align-items: center; }
+.pas-footer-btn:active { transform: scale(.97); }
+.pas-footer-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* ── The records ───────────────────────────────────────────────────────────*/
+.pas-logs { display: flex; flex-direction: column; gap: 12px; }
+.pas-log {
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius);
+  box-shadow: var(--pas-shadow);
+  overflow: hidden;
+}
+.pas-log-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--pas-border);
+}
+/* The date it was proved ON, and WHICH list it was — two different things: a
+   Wednesday list is accepted on Tuesday night. */
+.pas-log-date {
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--pas-text-2);
+}
+.pas-log-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--pas-radius-pill);
+  background: var(--pas-accent-light);
+  color: var(--pas-brand);
+}
+.pas-log-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--pas-border);
+}
+.pas-log-row:first-of-type { border-top: 0; }
+.pas-log-name { flex: 1; min-width: 0; font-size: 16px; overflow-wrap: anywhere; }
+.pas-log-qty {
+  flex: none;
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  font-weight: 500;
+}
+.pas-log-empty { padding: 12px 16px; color: var(--pas-text-3); font-size: 15px; }
+.pas-log-note {
+  padding: 10px 16px;
+  border-top: 1px solid var(--pas-border);
+  background: var(--pas-surface-2);
+  font-size: 14px;
+  color: var(--pas-text-2);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.pas-log-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  border-top: 1px solid var(--pas-border);
+}
+
+/* Said out loud, because an automatic deletion nobody was told about is the kind
+   of thing people find out by missing something. */
+.pas-retention {
+  text-align: center;
+  font-size: 13px;
+  color: var(--pas-text-3);
+  margin: 4px 0 0;
 }

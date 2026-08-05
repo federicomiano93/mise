@@ -645,6 +645,31 @@ async function pastries() {
 
   await expectAllowed('a member reads a day', readAs(ALICE, `${A}/pastries/Monday`));
 
+  // ── The standing note ──
+  await expectAllowed('a day carrying its standing note', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', {
+      items: [{ name: 'Cornetti', qty: 24 }],
+      note: 'Butter is low\nCheck the fridge',
+    })));
+
+  // ⚠️ THE CHECK THAT MATTERS MOST. `note` is optional, so a phone still on the
+  // version before notes existed — which writes no note at all — must keep
+  // saving. Make this required and every one of its saves is refused, silently
+  // and permanently, until someone updates it.
+  await expectAllowed('a phone that predates the note still saves its day', () =>
+    wholeWrite(`${A}/pastries/Tuesday`, {
+      bakery: 'main', day: 'Tuesday', items: [], updatedAt: '2026-08-05T20:00:00.000Z',
+    }));
+
+  await expectAllowed('an empty note', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: '' })));
+  await expectDenied('a note longer than the cap', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: bigString(501) })));
+  await expectDenied('a note that is not text', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: 42 })));
+  await expectDenied('a note that is a list', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: ['a'] })));
+
   // ── ...and nothing else ──
   await expectDenied('an id that is not a weekday', () =>
     wholeWrite(`${A}/pastries/Funday`, day('Funday')));
@@ -702,8 +727,104 @@ async function pastries() {
     fetch(`${FS}/${A}/pastries/Monday`, { headers: noAuth() }));
 }
 
+// ── pastry-logs/{date}_{Weekday} ─────────────────────────────────────────────
+// A night's proving, kept as a record. One document per work date per weekday
+// list; accepting twice in one night replaces rather than adds.
+async function pastryLogs() {
+  await wipe();
+  await seedAccess();
+  const A = 'locations/main';
+  const readAs = (who, path) => () => fetch(`${FS}/${path}`, { headers: asAccount(who) });
+  const log = (date, day, extra = {}) => ({
+    bakery: 'main', date, day,
+    items: [{ name: 'Cornetti', qty: 24 }],
+    createdAt: '2026-08-05T20:00:00.000Z',
+    updatedAt: '2026-08-05T20:00:00.000Z',
+    ...extra,
+  });
+
+  // ── What Accept really writes ──
+  await expectAllowed('a record of a night', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Wednesday`, log('2026-08-05', 'Wednesday')));
+  await expectAllowed('…carrying the standing note it was proved under', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Wednesday`,
+      log('2026-08-05', 'Wednesday', { note: 'Butter is low' })));
+  await expectAllowed('a night with nothing proved', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-06_Thursday`,
+      log('2026-08-06', 'Thursday', { items: [] })));
+  for (const d of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
+    await expectAllowed(`a record for the ${d} list`, () =>
+      wholeWrite(`${A}/pastry-logs/2026-08-05_${d}`, log('2026-08-05', d)));
+  }
+  await expectAllowed('a member reads a record', readAs(ALICE, `${A}/pastry-logs/2026-08-05_Wednesday`));
+
+  // ── The id has to be the two fields, joined ──
+  await expectDenied('an id that does not match its own fields', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`, log('2026-08-05', 'Tuesday')));
+  await expectDenied('a weekday that is not one', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Funday`, log('2026-08-05', 'Funday')));
+  await expectDenied('a weekday in the wrong case', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_monday`, log('2026-08-05', 'monday')));
+  await expectDenied('a date the wrong way round', () =>
+    wholeWrite(`${A}/pastry-logs/05-08-2026_Monday`, log('05-08-2026', 'Monday')));
+  // ⚠️ Probed against the emulator rather than assumed: matches() compares the
+  // WHOLE string, so this stays refused even with the anchors removed. The
+  // check is kept because it pins the BEHAVIOUR — an id with rubbish around the
+  // date is refused — which is what matters whoever rewrites the pattern.
+  await expectDenied('a date with something stuck to it', () =>
+    wholeWrite(`${A}/pastry-logs/xx2026-08-05xx_Monday`, log('xx2026-08-05xx', 'Monday')));
+  await expectDenied('an id with no weekday at all', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05`, log('2026-08-05', 'Monday')));
+
+  // ── …and nothing else ──
+  await expectDenied('a key nobody declared', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`, log('2026-08-05', 'Monday', { total: 60 })));
+  await expectDenied('a record missing its stamp', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`, {
+      date: '2026-08-05', day: 'Monday', items: [], createdAt: 'x', updatedAt: 'x',
+    }));
+  await expectDenied('items as a string', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`, log('2026-08-05', 'Monday', { items: 'Cornetti' })));
+  await expectDenied('a runaway number of rows', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`, log('2026-08-05', 'Monday', {
+      items: Array.from({ length: 101 }, (_, i) => ({ name: `P${i}`, qty: 1 })),
+    })));
+  await expectDenied('a note past the cap', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`,
+      log('2026-08-05', 'Monday', { note: bigString(501) })));
+  await expectDenied('a createdAt long enough to be a payload', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`,
+      log('2026-08-05', 'Monday', { createdAt: bigString(65) })));
+
+  // ── Isolation ──
+  await expectDenied('a stamp naming another location', () =>
+    wholeWrite(`${A}/pastry-logs/2026-08-05_Monday`,
+      log('2026-08-05', 'Monday', { bakery: 'trattoria-x' })));
+  await expectDenied('writing a record into another location', () =>
+    wholeWrite('locations/trattoria-x/pastry-logs/2026-08-05_Monday',
+      { ...log('2026-08-05', 'Monday'), bakery: 'trattoria-x' }, asAccount(ALICE)));
+  await expectDenied('reading another location\'s records',
+    readAs(ALICE, 'locations/trattoria-x/pastry-logs/2026-08-05_Monday'));
+  await expectDenied('an orders-only location is refused the records',
+    readAs(BOB, 'locations/trattoria-x/pastry-logs/2026-08-05_Monday'));
+  await expectDenied('…and cannot write one either', () =>
+    wholeWrite('locations/trattoria-x/pastry-logs/2026-08-05_Monday',
+      { ...log('2026-08-05', 'Monday'), bakery: 'trattoria-x' }, asAccount(BOB)));
+  await expectDenied('a signed-out device reads nothing', () =>
+    fetch(`${FS}/${A}/pastry-logs/2026-08-05_Monday`, { headers: noAuth() }));
+
+  // ⚠️ DELETE IS ALLOWED, DELIBERATELY. The automatic prune and a person tapping
+  // the bin issue the same request, and refusing the second would remove the only
+  // way to undo a record made by mistake. The 15 days are guaranteed by
+  // isLogExpired() in pastries-log-model.js and by NOTHING here.
+  await expectAllowed('a member can remove a record — the window is enforced in code, not here',
+    () => deleteWrite(`${A}/pastry-logs/2026-08-05_Monday`, asAccount(ALICE)));
+  await expectDenied('…but not one belonging to another location',
+    () => deleteWrite('locations/trattoria-x/pastry-logs/2026-08-05_Monday', asAccount(ALICE)));
+}
+
 for (const scenario of [suppliers, ingredients, drafts, history, neighbours,
-                        locationTree, isolation, configAndLogs, pastries]) {
+                        locationTree, isolation, configAndLogs, pastries, pastryLogs]) {
   await scenario();
 }
 

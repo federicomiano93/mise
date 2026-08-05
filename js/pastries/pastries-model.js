@@ -40,6 +40,11 @@ export const MAX_ITEMS = 100;
 export const MAX_NAME_LENGTH = 80;
 export const MAX_QTY = 9999;
 
+// The standing note on a day. It is one string, not a list, which is why the
+// field is named `note` and not `notes` — and the name is pinned by the rules
+// whitelist the moment they deploy, so it cannot be renamed casually afterwards.
+export const MAX_NOTE_LENGTH = 500;
+
 export function isWeekday(name) {
   return typeof name === 'string' && WEEKDAYS.includes(name);
 }
@@ -112,6 +117,42 @@ function normalizeItem(raw) {
   return { name: name.slice(0, MAX_NAME_LENGTH), qty: wholeNumber(raw.qty) };
 }
 
+// A standing note, made safe to store and to show. Anything that is not a string
+// becomes '' — a day with no note and a day whose note field is corrupt look the
+// same on screen, which is the honest answer in both cases.
+//
+// Trailing whitespace is trimmed but the INNER line breaks are kept: a note is
+// written in lines ("check the fridge / butter is low") and flattening it would
+// change what someone wrote.
+export function cleanNote(raw) {
+  if (typeof raw !== 'string') return '';
+  return raw.trim().slice(0, MAX_NOTE_LENGTH);
+}
+
+// Move one row's quantity, keyed by index AND checked by name.
+//
+// ⚠️ THE NAME CHECK IS THE POINT. The day view lets someone type a number and
+// confirm it minutes later, and a snapshot from another phone can reorder or
+// replace the rows in between. An index alone would then write the number onto
+// whatever row had slid into that position. Returns null when the row is no
+// longer the one that was typed into, so the caller can say so instead of
+// quietly changing the wrong pastry.
+//
+// Comparison is case-insensitive and trimmed, matching how findInvalidItems
+// decides two rows are the same pastry.
+export function setQuantityAt(items, index, qty, expectedName) {
+  if (!Array.isArray(items)) return null;
+  const i = Number(index);
+  if (!Number.isInteger(i) || i < 0 || i >= items.length) return null;
+  const row = items[i];
+  if (!row || typeof row.name !== 'string') return null;
+  const wanted = typeof expectedName === 'string' ? expectedName.trim().toLowerCase() : null;
+  if (wanted === null || row.name.trim().toLowerCase() !== wanted) return null;
+  const next = items.slice();
+  next[i] = { name: row.name, qty: wholeNumber(qty) };
+  return next;
+}
+
 // One stored day document → the shape the rest of the feature works with.
 // Never throws: a missing document, a corrupt field and a document that was
 // never written all have to come back as an empty day, because that is what the
@@ -131,10 +172,14 @@ export function normalizeDay(raw, dayId) {
     if (item) items.push(item);
     if (items.length >= MAX_ITEMS) break;
   }
-  return { day, items };
+  return { day, items, note: cleanNote(raw && raw.note) };
 }
 
-// The whole collection → { Monday: [...], …, Sunday: [...] }.
+// The whole collection → { Monday: { items, note }, …, Sunday: { items, note } }.
+//
+// ⚠️ THE VALUE IS AN OBJECT, NOT THE ITEMS ARRAY. It was the bare array until the
+// standing note existed. Anything reading a cached copy written by an older
+// version has to cope with both — see fromStored() in pastries-store.js.
 //
 // ALL SEVEN KEYS, ALWAYS. The screen can be asked for any weekday at any moment,
 // including the five nobody has ever filled in, and a caller that has to guard
@@ -147,13 +192,36 @@ export function normalizeDay(raw, dayId) {
 // the rules pin, and it is the one that decides which list was being written.
 export function normalizeDays(docs) {
   const out = {};
-  WEEKDAYS.forEach(day => { out[day] = []; });
+  WEEKDAYS.forEach(day => { out[day] = { items: [], note: '' }; });
   if (!Array.isArray(docs)) return out;
   for (const doc of docs) {
     if (!doc || !isWeekday(doc.id)) continue;
-    out[doc.id] = normalizeDay(doc, doc.id).items;
+    const { items, note } = normalizeDay(doc, doc.id);
+    out[doc.id] = { items, note };
   }
   return out;
+}
+
+// A localStorage mirror → the same shape a Firestore read produces.
+//
+// ⚠️ IT ACCEPTS TWO SHAPES, AND IT HAS TO. Before the standing note existed, the
+// cached value under each weekday was the ITEMS ARRAY itself; it is now
+// { items, note }. A phone updating to the version that added notes reads a
+// cache its PREVIOUS version wrote, and it reads it before the network answers —
+// so a reader that understood only the new shape would show seven empty days on
+// the first paint after every update, on every phone, once.
+//
+// It lives here, in the pure model, rather than inside the store, for one reason:
+// here it can be tested. The store cannot be imported by a test — it reaches
+// Firestore — and this is exactly the kind of migration that is never exercised
+// by hand because it only happens once per device.
+export function daysFromCache(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return normalizeDays([]);
+  return normalizeDays(WEEKDAYS.map(day => {
+    const stored = raw[day];
+    if (Array.isArray(stored)) return { id: day, items: stored };          // the old shape
+    return { id: day, items: stored && stored.items, note: stored && stored.note };
+  }));
 }
 
 // An editor's working rows → what actually gets stored.

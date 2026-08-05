@@ -100,6 +100,16 @@
 
 <main class="pas-screen" id="pasScreen" role="tabpanel"></main>
 
+<!-- Secondary actions live in a bottom bar, not the header — the app's rule, and
+     the header's right slot already holds the pencil. Chrome, like the strip, so
+     it sits outside <main> and is hidden on every screen but the day. -->
+<div class="pas-footer" id="pasFooter">
+  <button class="pas-footer-btn" id="pasLogs" type="button">
+    <span aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+    Records
+  </button>
+</div>
+
 <!-- The confirm dialog is built on demand by js/pastries/confirm-dialog.js
      (the shared .app-dialog-* component), so no static markup is needed. -->
 
