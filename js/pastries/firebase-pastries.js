@@ -31,6 +31,7 @@ import {
   query,
   orderBy,
   limit,
+  where,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Reuse the default app if firebase.js already created it; otherwise create it.
@@ -122,7 +123,27 @@ export async function watchPastryLogs(onChange, onError) {
   );
 }
 
-// Read one record, or null. One read, only when Accept is tapped — it is what
+// Which lists have been confirmed for ONE work date — what makes a confirmed day
+// show as done and lock itself.
+//
+// ⚠️ One query answers it for all seven days at once, so the screen never asks
+// per day. An EQUALITY filter on a SINGLE field needs no composite index (the
+// same reason the Home's Orders badge is written this way), and at most seven
+// documents can match, because there is one record per weekday per night.
+//
+// It is a live listener rather than a one-off read so that a colleague's confirm
+// appears here without anyone reloading — the property that makes this shared
+// across phones instead of per-device.
+export async function watchPastryLogsForDate(date, onChange, onError) {
+  await authReady;
+  return onSnapshot(
+    query(collection(db, pathFor(LOGS)), where('date', '==', date)),
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => { console.error('watchPastryLogsForDate failed:', err); if (onError) onError(err); },
+  );
+}
+
+// Read one record, or null. One read, only when Confirm is tapped — it is what
 // lets the confirmation say "tonight's record will be replaced" truthfully. The
 // records listener is not running on the day screen (it is attached only when
 // the Records screen opens), so the in-memory list cannot answer this.
@@ -132,14 +153,14 @@ export async function getPastryLog(id) {
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-// Write a record, keeping whatever the first Accept of that night established.
+// Write a record, keeping whatever the first Confirm of that night established.
 //
 // ⚠️ A TRANSACTION, not a plain write. Accepting twice in one night REPLACES the
 // record, and `createdAt` has to survive that — but two phones can accept within
 // a second of each other, and a read-then-write would let the second overwrite
 // what the first had just established. `build(existing)` is handed the record as
 // it is INSIDE the transaction, so it can never be built from a stale read.
-export async function acceptPastryLog(id, build) {
+export async function confirmPastryLog(id, build) {
   await authReady;
   const ref = doc(db, pathFor(LOGS), id);
   let written;

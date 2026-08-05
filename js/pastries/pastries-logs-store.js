@@ -17,13 +17,21 @@
 import {
   normalizeLogs, sortLogs, buildLog, isLogVisible,
 } from './pastries-log-model.js';
+import { confirmedDaysFrom } from './pastries-lock.js';
 import {
-  watchPastryLogs, acceptPastryLog, deletePastryLog, getPastryLog,
+  watchPastryLogs, watchPastryLogsForDate, confirmPastryLog, deletePastryLog, getPastryLog,
 } from './firebase-pastries.js';
 
 let logs = [];
 let notify = null;
 let onError = null;
+
+// Which weekday lists are already confirmed for the work date now under way.
+// Separate from `logs` above on purpose: that list is the Records SCREEN and is
+// only ever subscribed when someone opens it, while this one is needed by the
+// day screen from the moment it boots.
+let confirmed = new Set();
+let unsubConfirmed = null;
 
 export function getLogs() {
   return logs;
@@ -59,7 +67,44 @@ export function initPastryLogs(onUpdate, onStreamError) {
   return logs;
 }
 
-// Is there already a record for tonight and this list? One read, only on Accept.
+// ── Which lists are already done tonight ─────────────────────────────────────
+
+// Is this weekday's list confirmed for the work date currently under way?
+export function isConfirmedTonight(day) {
+  return confirmed.has(day);
+}
+
+// Subscribe to tonight's confirmations. Called at boot AND again when the work
+// date rolls at 4am, so it always asks about the night actually under way — the
+// previous subscription is dropped first, or the screen would keep answering
+// about yesterday and a confirmed list would never unlock.
+//
+// ⚠️ A FAILURE HERE LEAVES THE SET EMPTY, which reads as "nothing is confirmed"
+// and therefore locks nothing. That is the safe direction: the worst case is the
+// app behaving exactly as it did before this feature existed. Locking on data
+// nobody could read would leave someone unable to correct a list at 4am with
+// nothing on screen to explain it.
+export async function watchConfirmations(workDate, onChange) {
+  if (unsubConfirmed) {
+    try { unsubConfirmed(); } catch (e) { /* already gone */ }
+    unsubConfirmed = null;
+  }
+  confirmed = new Set();
+  if (onChange) onChange();
+  try {
+    unsubConfirmed = await watchPastryLogsForDate(
+      workDate,
+      docs => { confirmed = confirmedDaysFrom(docs); if (onChange) onChange(); },
+      () => { confirmed = new Set(); if (onChange) onChange(); },
+    );
+  } catch (err) {
+    console.warn('Could not watch tonight\'s confirmations:', err);
+    confirmed = new Set();
+    if (onChange) onChange();
+  }
+}
+
+// Is there already a record for tonight and this list? One read, only on Confirm.
 // Returns null when it cannot be established — the caller then simply does not
 // promise a replacement, which is the safe way to be wrong.
 export async function tonightsRecord(day, nowMs = Date.now()) {
@@ -77,10 +122,16 @@ export async function tonightsRecord(day, nowMs = Date.now()) {
 // actually landed. A record shown on screen that does not exist is worse than
 // no record at all, because the whole point of one is to be able to trust it.
 // Returns the record on success, or null with the failure reported.
-export async function acceptDay(day, items, note, nowMs = Date.now()) {
+export async function confirmDay(day, items, note, nowMs = Date.now()) {
   const id = buildLog({ day, items, note, nowMs }).id;
   try {
-    return await acceptPastryLog(id, existing => buildLog({ day, items, note, nowMs, existing }));
+    const saved = await confirmPastryLog(id, existing => buildLog({ day, items, note, nowMs, existing }));
+    // Tick it off HERE, without waiting for the listener to say the same thing.
+    // The write has landed, so this is not optimism — it is the same fact,
+    // known a moment earlier. Waiting would leave the green button on screen
+    // after the job is done, which is exactly what someone would tap twice.
+    confirmed.add(day);
+    return saved;
   } catch (err) {
     console.warn('Pastry record did not save:', err);
     if (onError) onError(`Couldn't record ${day} — check your connection.`);

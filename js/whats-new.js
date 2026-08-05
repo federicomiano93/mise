@@ -18,6 +18,15 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-08-06-pastries-confirm',
+    title: 'Pastries',
+    points: [
+      'Accept is now called Confirm — the same word the Calculator uses for the same thing.',
+      'A confirmed list shows as done, and its numbers stop opening, so nothing changes by accident.',
+      'To change it anyway, tap Edit or any row and it asks first. Every list reopens on its own at 4am.',
+    ],
+  },
+  {
     id: '2026-08-05-pastries-records',
     title: 'Pastries',
     points: [

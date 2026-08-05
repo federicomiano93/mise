@@ -22,6 +22,12 @@
   --pas-text-5:      var(--text-5);
   --pas-border:      var(--border);
   --pas-danger:      var(--danger);
+  /* The Edit button on a confirmed day. The same slate the Calculator uses for
+     the same gesture, so a locked list never reads as a fresh Confirm — taken
+     from tokens.css, not chosen here. */
+  --pas-slate:       var(--slate);
+  --pas-slate-press: var(--slate-press);
+  --pas-shadow-slate: var(--shadow-slate);
   --pas-shadow:      var(--shadow);
   --pas-radius:      var(--radius);
   --pas-radius-sm:   var(--radius-sm);
@@ -285,7 +291,7 @@ input.pas-quick:focus {
 .pas-empty-hint { display: block; margin-top: 6px; font-size: 14px; color: var(--pas-text-3); }
 
 /* ── The standing note ─────────────────────────────────────────────────────
-   A reminder about the WEEKDAY, not about one night: accepting a list never
+   A reminder about the WEEKDAY, not about one night: confirming a list never
    clears it. Quieter than the list — it is context, not the job. */
 .pas-note {
   margin-top: 16px;
@@ -493,11 +499,12 @@ input.pas-qty.pas-invalid {
   .pas-toast { transition: none; }
 }
 
-/* ── Accept ────────────────────────────────────────────────────────────────
+/* ── Confirm, and the day once it is done ──────────────────────────────────
    Pushed to the bottom of the scroll area so it is always in the same place,
-   whether the day holds two pastries or twelve. */
-.pas-accept-wrap { margin-top: auto; padding-top: 20px; }
-.pas-accept-btn {
+   whether the day holds two pastries or twelve. Confirm and the confirmed state
+   occupy the SAME slot: only one of the two is ever on screen. */
+.pas-confirm-wrap { margin-top: auto; padding-top: 20px; }
+.pas-confirm-btn {
   appearance: none;
   width: 100%;
   height: 48px;
@@ -510,8 +517,58 @@ input.pas-qty.pas-invalid {
   font-weight: 600;
   cursor: pointer;
 }
-.pas-accept-btn:active { transform: scale(.97); }
-.pas-accept-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+.pas-confirm-btn:active { transform: scale(.97); }
+.pas-confirm-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* The list is recorded for tonight: the tick says so, and Edit is the way back
+   in. Deliberately NOT green — a day already done must never read as one still
+   waiting to be confirmed, which is the same reason the Calculator's Edit is
+   slate. */
+.pas-done {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+/* ⚠️ A flex ROW, on the wrapper AND on the span. An SVG inside a <span> is an
+   inline box, so it sits on the TEXT BASELINE — about 2px below the centre line
+   — and the tick would ride high next to its word. This is the single most
+   common alignment bug in this app. */
+.pas-done-mark {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--pas-brand);
+}
+.pas-edit-btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: none;
+  height: 48px;
+  padding: 0 22px;
+  background: var(--pas-slate);
+  color: var(--pas-brand-ink);
+  border: 0;
+  border-radius: var(--pas-radius-sm);
+  box-shadow: var(--pas-shadow-slate);
+  font-family: var(--pas-font);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pas-edit-btn:active { background: var(--pas-slate-press); box-shadow: none; transform: scale(.97); }
+.pas-edit-btn:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
+
+/* ⚠️ A LOCKED ROW IS DELIBERATELY NOT GREYED OUT. This list is read standing up
+   at 4am, and dimming it to signal a state would cost the one thing the screen
+   exists for. The tick at the bottom carries the state; the rows stay readable
+   and still respond to a tap — by asking. */
 
 /* ── The bottom bar ────────────────────────────────────────────────────────
    Secondary actions live here, not in the header — the app's own rule, and the
@@ -569,7 +626,7 @@ input.pas-qty.pas-invalid {
   border-bottom: 1px solid var(--pas-border);
 }
 /* The date it was proved ON, and WHICH list it was — two different things: a
-   Wednesday list is accepted on Tuesday night. */
+   Wednesday list is confirmed on Tuesday night. */
 .pas-log-date {
   font-family: var(--pas-font-mono);
   font-variant-numeric: tabular-nums;
