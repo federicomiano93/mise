@@ -27,7 +27,7 @@ const DAY_MS = 86400000;
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 // The work DATE a moment belongs to, as 'YYYY-MM-DD'. Same 4am roll-over as the
-// weekday: a record accepted at 00:30 on Wednesday belongs to Tuesday night.
+// weekday: a record confirmed at 00:30 on Wednesday belongs to Tuesday night.
 //
 // ⚠️ setHours, never a millisecond subtraction — the two disagree on both
 // clock-change Sundays, in opposite directions. See pastries-model.js.
@@ -145,8 +145,8 @@ export function sortLogs(logs) {
   });
 }
 
-// What Accept writes. `existing` is the record already filed for this date and
-// weekday, if there is one — accepting twice in one night is a CORRECTION, so
+// What Confirm writes. `existing` is the record already filed for this date and
+// weekday, if there is one — confirming twice in one night is a CORRECTION, so
 // the record is replaced and its original createdAt is preserved.
 export function buildLog({ day, items, note, nowMs, existing }) {
   const date = workDate(nowMs);

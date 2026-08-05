@@ -14,11 +14,12 @@ import { renderDay } from './pastries-day.js';
 import { renderEditor } from './pastries-editor.js';
 import { renderLogs } from './pastries-logs.js';
 import {
-  initPastryLogs, getVisibleLogs, acceptDay, removeLog, tonightsRecord,
-  setLogsErrorHandler,
+  initPastryLogs, getVisibleLogs, confirmDay, removeLog, tonightsRecord,
+  setLogsErrorHandler, isConfirmedTonight, watchConfirmations,
 } from './pastries-logs-store.js';
 import { provingDayFor } from './pastries-model.js';
-import { LOG_VISIBLE_DAYS } from './pastries-log-model.js';
+import { LOG_VISIBLE_DAYS, workDate } from './pastries-log-model.js';
+import { isDayLocked, grantKeyFor, msUntilWorkDayEnd } from './pastries-lock.js';
 import { confirmDialog } from './confirm-dialog.js';
 
 const screen = document.getElementById('pasScreen');
@@ -68,6 +69,85 @@ function swap(node, { focus = true } = {}) {
   try { node.focus({ preventScroll: true }); } catch (e) { /* focus is best-effort */ }
 }
 
+// ── The lock ─────────────────────────────────────────────────────────────────
+//
+// ⚠️ THE WORK DATE IS READ FROM THE CLOCK EVERY TIME, never frozen at boot the
+// way openingDay is. That difference is deliberate and both directions matter:
+// openingDay is frozen so the list under someone's finger cannot jump at 4am,
+// while the lock MUST follow the clock, because releasing itself at 4am is the
+// entire point of doing it this way.
+function currentWorkDate() {
+  return workDate(Date.now());
+}
+
+function grantFor(day) {
+  const key = grantKeyFor(day);
+  if (!key) return null;
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
+function lockedFor(day) {
+  return isDayLocked({
+    confirmed: isConfirmedTonight(day),
+    grant: grantFor(day),
+    workDate: currentWorkDate(),
+  });
+}
+
+// The ONE gate, whichever way a confirmed list is reached: a row, the Edit
+// button, or the pencil in the header. Returns true when editing may go ahead.
+//
+// An unlocked day passes straight through without a question — the gate exists
+// to catch a change to something already recorded, not to make every edit slower.
+async function requestEdit(day) {
+  if (!lockedFor(day)) return true;
+  const ok = await confirmDialog({
+    title: `Edit ${day}?`,
+    message: `${day} is already recorded for tonight. Edit these quantities?`,
+    okLabel: 'Edit',
+  });
+  if (!ok) return false;
+  // The permission carries the work date, so it is spent when the date rolls at
+  // 4am. In private mode this write throws and the day simply stays locked —
+  // annoying, never destructive.
+  const key = grantKeyFor(day);
+  try { if (key) localStorage.setItem(key, currentWorkDate()); } catch (e) { /* stays locked */ }
+  repaint();
+  return true;
+}
+
+// ── The 4am roll ─────────────────────────────────────────────────────────────
+//
+// A confirmed list unlocks when the work date moves on. Nothing about that is
+// stored, so all that is needed is to ask the database about the NEW date.
+let watchedDate = null;
+let rollTimer = null;
+
+function refreshConfirmations() {
+  watchedDate = currentWorkDate();
+  watchConfirmations(watchedDate, repaint);
+}
+
+function scheduleWorkDayRoll() {
+  clearTimeout(rollTimer);
+  const wait = msUntilWorkDayEnd(Date.now());
+  if (wait === null) return;
+  // A second past the boundary, so the clock has definitely crossed it by the
+  // time the new work date is computed.
+  rollTimer = setTimeout(() => { refreshConfirmations(); scheduleWorkDayRoll(); }, wait + 1000);
+}
+
+// ⚠️ THE TIMER ALONE IS NOT ENOUGH ON A PHONE. A backgrounded tab has its timers
+// throttled or suspended entirely, so a phone left in a pocket across 4am would
+// come back still showing last night as done. Checking on the way back in covers
+// exactly that, and costs nothing when the date has not changed.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (watchedDate === currentWorkDate()) return;
+  refreshConfirmations();
+  scheduleWorkDayRoll();
+});
+
 function showDay(day, opts = {}) {
   view = 'day';
   shownDay = day;
@@ -87,7 +167,9 @@ function showDay(day, opts = {}) {
   });
   // A NEW view, because the day itself changed. A snapshot for the day already
   // on screen goes through dayView.update() instead — see repaint().
-  dayView = renderDay({ day, items: getItems(day), note: getNote(day), app });
+  dayView = renderDay({
+    day, items: getItems(day), note: getNote(day), locked: lockedFor(day), app,
+  });
   swap(dayView.node, opts);
 }
 
@@ -158,13 +240,15 @@ function toast(msg) {
 // threw away where the person had scrolled to.
 function repaint() {
   if (strip) strip.setCounts(getCounts());
-  if (view === 'day' && dayView) dayView.update(getItems(shownDay), getNote(shownDay));
+  if (view === 'day' && dayView) {
+    dayView.update(getItems(shownDay), getNote(shownDay), lockedFor(shownDay));
+  }
 }
 
 // Keep tonight's list as a record. It confirms first, because it writes
 // something permanent — unlike the tick on a row, which changes a number that
 // can be changed straight back.
-async function acceptToday(day, items, note) {
+async function confirmToday(day, items, note) {
   const list = items || [];
   // One read, and only here. The records listener is not running on the day
   // screen, so the in-memory list cannot answer this — and getting it wrong
@@ -175,16 +259,24 @@ async function acceptToday(day, items, note) {
   const base = list.length
     ? `Keep this list as a record for ${day}?`
     : `${day} has nothing to prove. Record that?`;
-  // Naming the replacement out loud, so a second Accept is never a surprise.
+  // Naming the replacement out loud, so a second Confirm is never a surprise —
+  // and, for a first one, saying what confirming now DOES, since it ticks the
+  // day off. Deliberately not "kept for 15 days" any more: records are kept for
+  // good, and 15 days is only how far back this screen shows.
   const message = existing
     ? `${base}\n\nTonight's record for ${day} will be replaced.`
-    : `${base}\n\nRecords are kept for ${LOG_VISIBLE_DAYS} days.`;
+    : `${base}\n\n${day} will show as done. You can still change it — it will ask first.`;
 
-  const ok = await confirmDialog({ title: `Accept ${day}?`, message, okLabel: 'Accept' });
+  const ok = await confirmDialog({ title: `Confirm ${day}?`, message, okLabel: 'Confirm' });
   if (!ok) return;
 
-  const saved = await acceptDay(day, list, note);
-  if (saved) toast(`${day} recorded.`);
+  const saved = await confirmDay(day, list, note);
+  if (!saved) return;
+  toast(`${day} recorded.`);
+  // A confirm on THIS phone must tick the day off straight away. The
+  // confirmations listener will say the same thing a moment later, but waiting
+  // for it would leave the green button sitting there after the job is done.
+  repaint();
 }
 
 // The ONE thing the views receive. They never import the store or the header.
@@ -195,7 +287,8 @@ const app = {
   showLogs,
   saveDay,
   setItemQuantity,
-  acceptDay: acceptToday,
+  confirmDay: confirmToday,
+  requestEdit,
   removeLog,
   setLeaveGuard: (fn) => { leaveGuard = fn; },
 };
@@ -203,7 +296,17 @@ const app = {
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
 backBtn.addEventListener('click', handleBack);
-editBtn.addEventListener('click', () => { if (view === 'day') openEditor(shownDay); });
+
+// The pencil opens the full editor, which can rewrite the whole list — so it
+// goes through the SAME gate as a row. Leaving it open would have made the lock
+// cosmetic: the one screen that can change everything would have been the one
+// screen that never asked.
+editBtn.addEventListener('click', async () => {
+  if (view !== 'day') return;
+  if (!(await requestEdit(shownDay))) return;
+  if (view !== 'day') return;   // the dialog takes time; the screen may have moved on
+  openEditor(shownDay);
+});
 
 strip = renderStrip({
   host: stripHost,
@@ -224,5 +327,11 @@ initPastries(
   () => repaint(),
   () => toast('Live sync interrupted — this list may be out of date.'),
 );
+
+// Which lists are already done tonight. One query, at most seven documents, and
+// it is what ticks a day off and locks it. A failure leaves nothing locked,
+// which is how the screen behaved before this existed.
+refreshConfirmations();
+scheduleWorkDayRoll();
 
 showDay(shownDay);

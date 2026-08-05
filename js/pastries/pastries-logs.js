@@ -77,7 +77,7 @@ export function renderLogs({ logs, app }) {
         'No records yet.',
         el('span', {
           class: 'pas-empty-hint',
-          text: 'Tap Accept at the bottom of a day to keep one.',
+          text: 'Tap Confirm at the bottom of a day to keep one.',
         }),
       ]));
       return;
