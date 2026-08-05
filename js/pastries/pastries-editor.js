@@ -5,7 +5,8 @@
 
 import { el } from './dom.js';
 import {
-  cleanItems, findInvalidItems, MAX_NAME_LENGTH, MAX_QTY, WEEKDAYS,
+  cleanItems, findInvalidItems, cleanNote,
+  MAX_NAME_LENGTH, MAX_NOTE_LENGTH, MAX_QTY, WEEKDAYS,
 } from './pastries-model.js';
 
 const TRASH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
@@ -22,12 +23,17 @@ function problemMessage(problem, name) {
   return 'That cannot be saved yet.';
 }
 
-export function renderEditor({ day, items, allDays, app }) {
+export function renderEditor({ day, items, note, allDays, app }) {
   // The working copy. Quantities are held as STRINGS while being typed, so a
   // half-typed field is not fighting a number: an empty box stays empty instead
   // of snapping to 0 under the cursor.
   const working = (items || []).map(i => ({ name: i.name, qty: String(i.qty) }));
   if (!working.length) working.push({ name: '', qty: '' });
+
+  // The standing note is part of the same working copy, so it inherits the Save
+  // confirm and the "Discard changes?" guard. A permanent note somebody typed
+  // and then navigated away from must not disappear without being asked about.
+  let workingNote = typeof note === 'string' ? note : '';
 
   let dirty = false;
   let showErrors = false;
@@ -169,7 +175,7 @@ export function renderEditor({ day, items, allDays, app }) {
     if (!ok) { busy = false; return; }
 
     dirty = false;
-    app.saveDay(day, clean);
+    app.saveDay(day, clean, cleanNote(workingNote));
     app.toast(`${day} saved.`);
     app.showDay(day);
   }
@@ -200,6 +206,21 @@ export function renderEditor({ day, items, allDays, app }) {
     },
   }, [el('span', { icon: PLUS_SVG, 'aria-hidden': 'true' }), 'Add pastry']);
 
+  // ⚠️ THE APP'S FIRST <textarea>, and el() feeds it with `text:` — which sets
+  // textContent, and for a textarea that IS its value. `value:` would call
+  // setAttribute('value', …), which a textarea ignores entirely, so the field
+  // would silently open empty and Save would wipe the note.
+  const noteInput = el('textarea', {
+    class: 'pas-note-input',
+    id: 'pas-note-input',
+    rows: '4',
+    maxlength: String(MAX_NOTE_LENGTH),
+    placeholder: 'Anything worth remembering about this day…',
+    'aria-label': `Note for ${day}`,
+    text: workingNote,
+    oninput: (e) => { workingNote = e.target.value; markDirty(); },
+  });
+
   return el('div', { class: 'pas-view' }, [
     datalist,
     el('div', { class: 'pas-editor-head' }, [
@@ -208,6 +229,14 @@ export function renderEditor({ day, items, allDays, app }) {
     ]),
     rowsContainer,
     addBtn,
+    el('div', { class: 'pas-editor-note' }, [
+      el('label', {
+        class: 'pas-editor-label',
+        for: 'pas-note-input',
+        text: `Note — stays on ${day} until you change it`,
+      }),
+      noteInput,
+    ]),
     el('div', { class: 'pas-editor-actions' }, [
       el('button', { class: 'pas-save-btn', type: 'button', text: 'Save', onclick: onSave }),
     ]),

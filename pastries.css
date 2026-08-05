@@ -201,6 +201,64 @@ body {
 }
 .pas-empty-hint { display: block; margin-top: 6px; font-size: 14px; color: var(--pas-text-3); }
 
+/* ── The standing note ─────────────────────────────────────────────────────
+   A reminder about the WEEKDAY, not about one night: accepting a list never
+   clears it. Quieter than the list — it is context, not the job. */
+.pas-note {
+  margin-top: 16px;
+  background: var(--pas-surface-2);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius);
+  padding: 14px 16px;
+}
+.pas-note-label {
+  display: block;
+  font-family: var(--pas-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pas-text-3);
+  margin-bottom: 6px;
+}
+.pas-note-body {
+  margin: 0;
+  font-size: 15px;
+  color: var(--pas-text-2);
+  /* A note is written in lines, so the line breaks someone typed are kept. */
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* The editor's copy of it. */
+.pas-editor-note { margin-top: 20px; display: flex; flex-direction: column; gap: 6px; }
+.pas-editor-note .pas-editor-label { margin: 0; }
+
+/* ⚠️ The 44px fixed-height rule does NOT apply here: that is about single-line
+   controls sharing a row, where iOS growing one past a minimum makes the row
+   ragged. A textarea is a block on its own, so it gets a real height and is
+   allowed to be dragged taller. 16px, like every other field, because below
+   that iOS zooms the page on focus. */
+.pas-note-input {
+  width: 100%;
+  height: 96px;
+  min-height: 44px;
+  resize: vertical;
+  padding: 10px 12px;
+  font-size: 16px;
+  font-family: var(--pas-font);
+  line-height: 1.45;
+  color: var(--pas-text);
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  outline: none;
+}
+.pas-note-input::placeholder { color: var(--pas-text-5); }
+.pas-note-input:focus {
+  border-color: var(--pas-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pas-accent) 22%, transparent);
+}
+
 /* ── The editor ────────────────────────────────────────────────────────────*/
 .pas-editor-head {
   display: flex; align-items: baseline; justify-content: space-between;

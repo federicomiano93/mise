@@ -85,7 +85,9 @@ function openEditor(day) {
   // Back that asks it.
   stripHost.hidden = true;
   setHeader({ title: `Edit ${day}`, sub: 'Pastries', back: true, edit: false });
-  swap(renderEditor({ day, items: getItems(day), allDays: getDays(), app }));
+  swap(renderEditor({
+    day, items: getItems(day), note: getNote(day), allDays: getDays(), app,
+  }));
 }
 
 async function handleBack() {

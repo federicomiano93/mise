@@ -24,6 +24,16 @@ export function renderDay({ day, items, note }) {
 
   const body = el('div', { class: 'pas-body' });
 
+  // The standing note, under the list. It is a reminder about this WEEKDAY, not
+  // about tonight — nothing clears it but typing over it, in the editor. It is
+  // absent entirely rather than shown empty: a labelled empty box on the reading
+  // screen is furniture.
+  const noteText = el('p', { class: 'pas-note-body' });
+  const noteBlock = el('div', { class: 'pas-note' }, [
+    el('span', { class: 'pas-note-label', text: 'Note' }),
+    noteText,
+  ]);
+
   function paint(nextItems) {
     const rows = (nextItems || []).map(item => el('div', { class: 'pas-row' }, [
       el('span', { class: 'pas-row-name', text: item.name }),
@@ -37,17 +47,25 @@ export function renderDay({ day, items, note }) {
     }
   }
 
-  paint(items);
+  function paintNote(nextNote) {
+    const text = typeof nextNote === 'string' ? nextNote : '';
+    noteText.textContent = text;
+    noteBlock.hidden = !text;
+  }
 
-  const node = el('div', { class: 'pas-view' }, [body]);
+  paint(items);
+  paintNote(note);
+
+  const node = el('div', { class: 'pas-view' }, [body, noteBlock]);
 
   return {
     node,
     // Called when the data changed underneath — a snapshot from another phone,
-    // or this device's own optimistic write. It repaints the rows INSIDE the
-    // node that is already on screen, so the scroll position survives.
-    update(nextItems) {
+    // or this device's own optimistic write. It repaints INSIDE the node that is
+    // already on screen, so the scroll position survives.
+    update(nextItems, nextNote) {
       paint(nextItems);
+      paintNote(nextNote);
     },
   };
 }
