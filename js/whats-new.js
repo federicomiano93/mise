@@ -18,6 +18,15 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-08-05-pastries',
+    title: 'Pastries',
+    points: [
+      'A new card on the Home: the pastries to put to prove, one list per day of the week.',
+      'It opens on the day you are proving FOR, so at night you already have tomorrow.',
+      'Tap any day along the top to see or fill in that list; the pencil edits the one on screen.',
+    ],
+  },
+  {
     id: '2026-07-31-supplier-ingredient-list',
     title: 'Orders',
     points: [

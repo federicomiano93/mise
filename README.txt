@@ -1,12 +1,14 @@
 # The Italian Club — PWA
 
-A mobile-first Progressive Web App for hospitality venues, with three sections:
+A mobile-first Progressive Web App for hospitality venues, with four sections:
 
 - **Calculator** — dough scaling from production orders (Focaccia, Brioche, Sourdough).
 - **Recipe catalogue** — a searchable recipe library, scalable to a total weight.
 - **Orders** — supplier-order workflow: suppliers & ingredients, stock-based
   order suggestions learned from history, autosaving real-time draft, preview and
   WhatsApp send, order history, and a management panel.
+- **Pastries** — what to put to prove, one list per weekday. Opens on the day being
+  proved FOR, with the work day rolling over at 4am so a night shift is one day.
 
 It serves **several venues from one deployment**. Each signs in with its own account
 and sees only its own data, and each is set up with only the sections it uses.
@@ -21,10 +23,11 @@ The main ones — each feature folder holds more.
 ├── calculator.html         ← Calculator (dough scaling)
 ├── catalogue.html          ← Recipe catalogue
 ├── orders.html             ← Orders feature page
+├── pastries.html           ← Pastries (what to put to prove, one list per weekday)
 ├── install-guide.html      ← shareable, device-first install guide (uses qr.png)
 ├── tokens.css              ← THE shared design system (colour, type, spacing, dialogs)
 ├── style.css               ← Calculator styles      ├── auth.css   ← sign-in screen
-├── orders.css · catalogue.css
+├── orders.css · catalogue.css · pastries.css
 ├── fonts/                  ← self-hosted woff2 (no runtime font CDN)
 ├── manifest.json           ← PWA config (start_url, name, icons)
 ├── sw.js                   ← service worker (offline cache + auto-update)
@@ -52,6 +55,8 @@ The main ones — each feature folder holds more.
 │   ├── whats-new.js        ← PURE release notes + who is shown them
 │   ├── install.js · install-guide.js · sw-update.js · idle-reset.js
 │   ├── catalogue/          ← Recipe catalogue feature (own dom.js + dialog copies)
+│   ├── pastries/           ← Pastries feature (own dom.js + dialog copies)
+│   │   └── pastries-model.js  ← PURE: the 4am work day, the weekday list, validation
 │   └── orders/             ← Orders feature (vanilla ESM modules)
 │       ├── boot.js         ← service worker registration for Home/Orders pages
 │       ├── firebase-orders.js ← Firestore data layer (paths via location.js)
@@ -137,6 +142,8 @@ Written only from the Firebase console.
   (ordered quantities + stock on hand). Records from the earlier weekly model
   (`orders-history/{weekId}`) are still read; nothing was migrated.
 - `recipes/{id}` — the recipe catalogue, one document per recipe.
+- `pastries/{Weekday}` — what to put to prove, one document per weekday and never
+  more than seven (id = 'Monday'…'Sunday', the same vocabulary as orderDays).
 - `logs/{id}`, `log/{dough}` — production logs. (`daily-logs/{YYYY-MM-DD}` still holds
   the documents written before Aug 2026; nothing writes or reads it any more.)
 - `config/calculator`, `config/orders` — settings, mirrored to localStorage.
