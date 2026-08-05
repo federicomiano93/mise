@@ -813,10 +813,10 @@ async function pastryLogs() {
   await expectDenied('a signed-out device reads nothing', () =>
     fetch(`${FS}/${A}/pastry-logs/2026-08-05_Monday`, { headers: noAuth() }));
 
-  // ⚠️ DELETE IS ALLOWED, DELIBERATELY. The automatic prune and a person tapping
-  // the bin issue the same request, and refusing the second would remove the only
-  // way to undo a record made by mistake. The 15 days are guaranteed by
-  // isLogExpired() in pastries-log-model.js and by NOTHING here.
+  // ⚠️ DELETE IS ALLOWED, DELIBERATELY — and nothing but a person ever asks for
+  // it. The app deletes no record on its own; the 15 days are a display window
+  // in pastries-log-model.js that hides and never removes. Refusing the delete
+  // would take away the only way to undo a record made by mistake.
   await expectAllowed('a member can remove a record — the window is enforced in code, not here',
     () => deleteWrite(`${A}/pastry-logs/2026-08-05_Monday`, asAccount(ALICE)));
   await expectDenied('…but not one belonging to another location',

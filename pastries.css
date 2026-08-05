@@ -617,8 +617,7 @@ input.pas-qty.pas-invalid {
   border-top: 1px solid var(--pas-border);
 }
 
-/* Said out loud, because an automatic deletion nobody was told about is the kind
-   of thing people find out by missing something. */
+/* Said out loud, so nobody reads a missing old record as a lost one. */
 .pas-retention {
   text-align: center;
   font-size: 13px;

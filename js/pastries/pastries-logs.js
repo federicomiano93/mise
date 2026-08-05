@@ -1,8 +1,10 @@
 // pastries-logs.js — what was actually put to prove, night by night.
 //
-// Read-only apart from the bin. The screen says out loud how long a record is
-// kept, because an automatic deletion that nobody was told about is the kind of
-// thing people discover by missing something.
+// Read-only apart from the bin. The line under the list says out loud that the
+// fifteen days are a WINDOW and not a lifespan: this screen used to delete a
+// record once it was old enough, and the sentence there said so. It does not any
+// more, so the sentence had to change with it — a screen that still promised a
+// deletion nobody performs would be worse than one that never mentioned it.
 
 import { el } from './dom.js';
 import { LOG_VISIBLE_DAYS } from './pastries-log-model.js';
@@ -84,7 +86,7 @@ export function renderLogs({ logs, app }) {
       ...items.map(card),
       el('p', {
         class: 'pas-retention',
-        text: `Records are kept for ${LOG_VISIBLE_DAYS} days.`,
+        text: `Older records are kept — this screen shows the last ${LOG_VISIBLE_DAYS} days.`,
       }),
     );
   }

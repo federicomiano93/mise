@@ -59,7 +59,7 @@ The main ones — each feature folder holds more.
 │   ├── catalogue/          ← Recipe catalogue feature (own dom.js + dialog copies)
 │   ├── pastries/           ← Pastries feature (own dom.js + dialog copies)
 │   │   ├── pastries-model.js      ← PURE: the 4am work day, the weekday list, validation
-│   │   └── pastries-log-model.js  ← PURE: the ONE place allowed to say "delete"
+│   │   └── pastries-log-model.js  ← PURE: what a record is, and the 15-day SCREEN window
 │   └── orders/             ← Orders feature (vanilla ESM modules)
 │       ├── boot.js         ← service worker registration for Home/Orders pages
 │       ├── firebase-orders.js ← Firestore data layer (paths via location.js)
@@ -150,11 +150,12 @@ Written only from the Firebase console.
   Carries the day's standing `note`.
 - `pastry-logs/{YYYY-MM-DD}_{Weekday}` — a night kept as a record: the work DATE it
   was proved on and WHICH list it was. Accepting twice in one night replaces.
-  ⚠️ THE ONLY RECORDS THIS APP EVER DELETES BY ITSELF: shown for 15 days, removed
-  from the database after 21. The gap is deliberate — a mistake in the visible
-  rule surfaces a week before it becomes irreversible. The decision lives in
-  js/pastries/pastries-log-model.js and NOT in firestore.rules, which cannot tell
-  an automatic delete from a person tapping the bin.
+  ⚠️ NOTHING HERE IS EVER DELETED AUTOMATICALLY. A record leaves the SCREEN after
+  15 days and stays in the database for good — the same shape as the Calculator
+  log ("DISPLAY-only") and the Orders history ("This HIDES, it never deletes").
+  Only the bin on the Records screen removes one, and a person has to tap it.
+  Because the collection grows for ever, the READ is bounded instead: newest 120
+  by `date` (never by document id — Firestore refuses a descending key scan).
 - `logs/{id}`, `log/{dough}` — production logs. (`daily-logs/{YYYY-MM-DD}` still holds
   the documents written before Aug 2026; nothing writes or reads it any more.)
 - `config/calculator`, `config/orders` — settings, mirrored to localStorage.
