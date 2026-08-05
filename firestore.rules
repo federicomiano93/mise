@@ -414,6 +414,49 @@ service cloud.firestore {
           && request.resource.data.ingredients.size() <= 300;
         allow delete: if canUse(lid, 'catalogue');
       }
+
+      // ── Pastries to prove ───────────────────────────────────────────────
+      // SEVEN documents, for ever: one per weekday, the id being the
+      // capitalised English weekday name — the same vocabulary
+      // suppliers.orderDays uses. The id is pinned to that list, so this
+      // collection can never grow a document that means nothing.
+      //
+      // A LIST, not matches(). Rules use RE2 and matches() is UNANCHORED
+      // unless you say so, so 'Monday' would happily accept 'xMondayx'.
+      //
+      // Written WHOLE (setDoc, no merge), so — unlike suppliers, ingredients
+      // and drafts — the keys can be REQUIRED rather than all optional. That
+      // is safe HERE AND ONLY HERE: this is a brand-new collection, so there
+      // is no phone still running an older writer whose payload would suddenly
+      // start being refused. Never copy this shape onto a collection that
+      // production already carries.
+      //
+      // `day` repeats the document id and is pinned equal to it, so the field
+      // and the folder can never disagree — the same reasoning as the `bakery`
+      // stamp one line below it.
+      //
+      // ⚠️ RULES CANNOT LOOK INSIDE A LIST, so the shape of each row
+      // ({ name, qty }), the length of a name and the size of a quantity are
+      // guaranteed by js/pastries/pastries-model.js and NOT by this file. What
+      // is enforced here is the list's SIZE, which is what keeps the document
+      // far away from the 1MB ceiling.
+      //
+      // No delete: emptying a day is `items: []`, an ordinary update. There is
+      // nothing a delete does here that an update does not, so the destructive
+      // verb is simply not reachable from a phone.
+      match /pastries/{day} {
+        allow read: if canUse(lid, 'pastries');
+        allow create, update: if canUse(lid, 'pastries')
+          && day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+          && request.resource.data.keys().hasOnly(['bakery', 'day', 'items', 'updatedAt'])
+          && stampedFor(lid)
+          && request.resource.data.day == day
+          && request.resource.data.items is list
+          && request.resource.data.items.size() <= 100
+          && request.resource.data.updatedAt is string
+          && request.resource.data.updatedAt.size() <= 64;
+        allow delete: if false;
+      }
     }
 
     // The OLD FLAT COLLECTIONS (suppliers/…, ingredients/…, config/…) are gone
