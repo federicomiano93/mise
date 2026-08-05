@@ -28,6 +28,9 @@ import {
   deleteDoc,
   onSnapshot,
   runTransaction,
+  query,
+  orderBy,
+  limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Reuse the default app if firebase.js already created it; otherwise create it.
@@ -92,22 +95,29 @@ export async function savePastryDay(day, items, note = '') {
 
 // ── Records of a night's proving ─────────────────────────────────────────────
 
-// Subscribe to the records. onChange receives ({ logs, fromServer }).
+// How many records to READ. Nothing is ever deleted, so this collection grows by
+// one document a night — about 365 a year — and reading it whole would make
+// opening Records cost more every year (P14). This bounds the READ only: every
+// record stays in the database, in the Firebase console and in the backups.
 //
-// ⚠️ `fromServer` IS LOAD-BEARING and is why this signature is not the same as
-// watchPastryDays. The automatic prune must never act on a cached list: doing
-// so would delete on the strength of data that may be stale or partial. It is
-// the ONE flag that separates "the server told us this" from "this is what we
-// had last time", and the store refuses to prune without it.
+// 120 is roughly four months, eight times the fifteen days the screen shows, so
+// the bound can never be what makes a record disappear from view.
+const LOG_READ_LIMIT = 120;
+
+// Subscribe to the records, newest first. onChange receives an array of
+// { id, ...data }.
+//
+// ⚠️ Ordered by the `date` FIELD, never by the document id. Firestore REFUSES
+// orderBy(documentId(), 'desc') — "does not support descending key scans" — and
+// limitToLast on an ascending key order is rewritten into that same scan, so it
+// fails identically. That cost this project a release once already, in Orders.
+// A single-field order needs no composite index, and the rules REQUIRE `date` on
+// every record, so no document can be left out of the results by missing it.
 export async function watchPastryLogs(onChange, onError) {
   await authReady;
   return onSnapshot(
-    collection(db, pathFor(LOGS)),
-    { includeMetadataChanges: false },
-    snap => onChange({
-      logs: snap.docs.map(d => ({ id: d.id, ...d.data() })),
-      fromServer: !snap.metadata.fromCache,
-    }),
+    query(collection(db, pathFor(LOGS)), orderBy('date', 'desc'), limit(LOG_READ_LIMIT)),
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
     err => { console.error('watchPastryLogs failed:', err); if (onError) onError(err); },
   );
 }
@@ -145,9 +155,11 @@ export async function acceptPastryLog(id, build) {
   return written;
 }
 
-// Remove one record. Used by the bin on the Records screen AND by the automatic
-// prune — the two are indistinguishable to Firestore, which is exactly why the
-// retention window is guaranteed in pastries-log-model.js and not in the rules.
+// Remove one record. The ONLY caller is the bin on the Records screen, which a
+// person has to tap: nothing in this app deletes a record on its own. The rules
+// allow the delete for exactly that reason — they cannot tell an automatic
+// delete from a deliberate one, so refusing it would take away the only way to
+// undo a record made by mistake.
 export async function deletePastryLog(id) {
   await authReady;
   return deleteDoc(doc(db, pathFor(LOGS), id));

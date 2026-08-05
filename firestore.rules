@@ -490,12 +490,13 @@ service cloud.firestore {
       // is the one exception: it is optional, because a day that never had a
       // standing note produces a record without one.
       //
-      // ⚠️ THESE RULES CANNOT ENFORCE THE 15 DAYS. A delete from the automatic
-      // prune and a delete from a person tapping the bin are the same request,
-      // and refusing the second would take away the only way to remove a record
-      // typed by mistake. The retention window is guaranteed by isLogExpired()
-      // in js/pastries/pastries-log-model.js and by its tests, and by NOTHING
-      // in this file. That is written here so nobody reads a guarantee into it.
+      // ⚠️ NOTHING DELETES A RECORD BY ITSELF, AND THAT IS NOT ENFORCED HERE.
+      // The app removes a record only when a person taps the bin; the fifteen
+      // days on the Records screen are a DISPLAY window and take nothing away.
+      // These rules cannot tell one delete from another, so `allow delete` below
+      // is deliberately open to any member — refusing it would remove the only
+      // way to undo a record typed by mistake. Written here so nobody reads a
+      // retention guarantee into a rule that cannot make one.
       match /pastry-logs/{id} {
         allow read: if canUse(lid, 'pastries');
         allow create, update: if canUse(lid, 'pastries')

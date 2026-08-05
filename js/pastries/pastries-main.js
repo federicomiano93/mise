@@ -121,9 +121,8 @@ function showLogs() {
   logsView = renderLogs({ logs: getVisibleLogs(Date.now()), app });
   swap(logsView.node);
 
-  // The listener is attached HERE, on first use — never at page boot. The day
-  // screen therefore stays at seven reads per opening (P14), and the automatic
-  // prune only ever runs while somebody is looking at the records.
+  // The listener is attached HERE, on first use — never at page boot, so the day
+  // screen stays at seven reads per opening (P14).
   if (logsStarted) return;
   logsStarted = true;
   initPastryLogs(
