@@ -261,9 +261,36 @@ export async function seedDemoWorld() {
   await seedDoc('locations/bakery/recipes/CAT_1',
     { bakery: 'bakery', name: 'Sourdough', ingredients: [] });
 
+  // TWO days of pastries, five deliberately absent. A day that has never been
+  // written is the state all seven start in and the one the empty screen has to
+  // hold together for — and two rather than one, so switching day visibly
+  // changes something instead of just re-rendering the same list.
+  await seedDoc('locations/bakery/pastries/Tuesday', {
+    bakery: 'bakery', day: 'Tuesday', updatedAt: '2026-08-04T20:00:00.000Z',
+    items: [
+      { name: 'Cornetti', qty: 24 },
+      { name: 'Savoury croissant', qty: 12 },
+      { name: 'Pain chocolat', qty: 5 },
+      { name: 'Cinnamon rolls', qty: 5 },
+      { name: 'Bomboloni', qty: 10 },
+      { name: 'Danish fruit', qty: 4 },
+    ],
+  });
+  await seedDoc('locations/bakery/pastries/Wednesday', {
+    bakery: 'bakery', day: 'Wednesday', updatedAt: '2026-08-04T20:00:00.000Z',
+    items: [
+      { name: 'Cornetti', qty: 36 },
+      { name: 'Bomboloni', qty: 18 },
+    ],
+  });
+
+  // ⚠️ Every section a venue does NOT use has to be listed false, new ones
+  // included: sectionOn() defaults to TRUE for a missing key, so a section added
+  // to the app after a location document was written switches itself on. That is
+  // true here and true in production, where it is a console edit.
   await seedDoc('locations/trattoria-rosa', {
     name: 'Trattoria Rosa',
-    sections: { orders: true, calculator: false, catalogue: false },
+    sections: { orders: true, calculator: false, catalogue: false, pastries: false },
   });
   await seedDoc('locations/trattoria-rosa/suppliers/SUP_ROSA', {
     bakery: 'trattoria-rosa', name: 'Rosa Fresh Fish', category: 'Fish',
@@ -281,7 +308,7 @@ export async function seedDemoWorld() {
   // whether an empty Orders screen holds together.
   await seedDoc('locations/restaurant', {
     name: 'The Italian Club',
-    sections: { orders: true, calculator: false, catalogue: false },
+    sections: { orders: true, calculator: false, catalogue: false, pastries: false },
   });
 
   await seedAccount('club@club.test', DEMO_PASSWORD, { bakery: true });

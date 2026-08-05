@@ -73,9 +73,16 @@ async function seedAccess() {
   await seedDoc(`users/${ALICE.uid}`, { locations: { main: true } });
   await seedDoc(`users/${BOB.uid}`, { locations: { 'trattoria-x': true } });
   await seedDoc('locations/main', { name: 'The Italian Club Bakery' });
+  // ⚠️ EVERY SECTION THE VENUE DOES NOT USE MUST BE LISTED false, INCLUDING NEW
+  // ONES. sectionOn() defaults to TRUE for a key that is not there, so a section
+  // added to the app after this document was written is silently switched on —
+  // here, and in production, for exactly the same reason. Forgetting `pastries`
+  // below does not fail loudly: it quietly makes BOB a Pastries user and the
+  // "an orders-only location is refused…" checks start passing for the wrong
+  // reason. The fix in production is the same one line, typed in the console.
   await seedDoc('locations/trattoria-x', {
     name: 'Trattoria X',
-    sections: { orders: true, calculator: false, catalogue: false },
+    sections: { orders: true, calculator: false, catalogue: false, pastries: false },
   });
 }
 
@@ -606,8 +613,97 @@ BOB = await account('bob');
 NOBODY = await account('nobody');
 TOKEN = ALICE.token;
 
+// ── pastries/{Weekday} ───────────────────────────────────────────────────────
+// Seven documents, one per weekday, holding what has to be put to prove. Unlike
+// suppliers/ingredients/drafts this collection is written WHOLE, so its fields
+// can be REQUIRED — there is no phone anywhere still running an older writer.
+// The id is pinned to the seven weekday names, so the collection cannot grow a
+// document that means nothing.
+async function pastries() {
+  await wipe();
+  await seedAccess();
+  const A = 'locations/main';
+  const day = (d, extra = {}) => ({
+    bakery: 'main', day: d, items: [], updatedAt: '2026-08-05T20:00:00.000Z', ...extra,
+  });
+  const readAs = (who, path) => () => fetch(`${FS}/${path}`, { headers: asAccount(who) });
+
+  // ── What the app really writes must be accepted ──
+  await expectAllowed('a day with its pastries on it', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', {
+      items: [{ name: 'Cornetti', qty: 24 }, { name: 'Bomboloni', qty: 10 }],
+    })));
+
+  // An empty list is how a day gets CLEARED — the app has no other way to do it,
+  // because delete is refused below.
+  await expectAllowed('a day with nothing to prove', () =>
+    wholeWrite(`${A}/pastries/Sunday`, day('Sunday')));
+
+  for (const d of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) {
+    await expectAllowed(`the weekday id ${d}`, () => wholeWrite(`${A}/pastries/${d}`, day(d)));
+  }
+
+  await expectAllowed('a member reads a day', readAs(ALICE, `${A}/pastries/Monday`));
+
+  // ── ...and nothing else ──
+  await expectDenied('an id that is not a weekday', () =>
+    wholeWrite(`${A}/pastries/Funday`, day('Funday')));
+  await expectDenied('a weekday in the wrong case', () =>
+    wholeWrite(`${A}/pastries/monday`, day('monday')));
+  await expectDenied('a date instead of a weekday', () =>
+    wholeWrite(`${A}/pastries/2026-08-05`, day('2026-08-05')));
+  // ⚠️ matches() in rules is RE2 and UNANCHORED unless you say so, which is why
+  // the id is checked against a LIST. This is the check that would catch it.
+  await expectDenied('a weekday with something stuck to it', () =>
+    wholeWrite(`${A}/pastries/xMondayx`, day('xMondayx')));
+
+  await expectDenied('a key nobody declared', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { qty: 3 })));
+  await expectDenied('a day missing its stamp', () =>
+    wholeWrite(`${A}/pastries/Monday`, { day: 'Monday', items: [], updatedAt: 'x' }));
+  await expectDenied('items as a string', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { items: 'Cornetti' })));
+  await expectDenied('items as a map', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { items: { a: 1 } })));
+  await expectDenied('a runaway number of pastries', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', {
+      items: Array.from({ length: 101 }, (_, i) => ({ name: `P${i}`, qty: 1 })),
+    })));
+  await expectDenied('an updatedAt long enough to be a payload', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { updatedAt: bigString(65) })));
+
+  // The field and the folder can never disagree.
+  await expectDenied('a document filed under a different day than it names', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Tuesday')));
+
+  // ── Isolation ──
+  await expectDenied('a stamp naming another location', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { bakery: 'trattoria-x' })));
+  await expectDenied('writing into another location entirely', () =>
+    wholeWrite('locations/trattoria-x/pastries/Monday',
+      { bakery: 'trattoria-x', day: 'Monday', items: [], updatedAt: 'x' }, asAccount(ALICE)));
+  await expectDenied('reading another location',
+    readAs(ALICE, 'locations/trattoria-x/pastries/Monday'));
+
+  // ── The section gate ──
+  await expectDenied('an orders-only location is refused pastries',
+    readAs(BOB, 'locations/trattoria-x/pastries/Monday'));
+  await expectDenied('…and cannot write them either', () =>
+    wholeWrite('locations/trattoria-x/pastries/Monday',
+      { bakery: 'trattoria-x', day: 'Monday', items: [], updatedAt: 'x' }, asAccount(BOB)));
+
+  // ── Never deletable ──
+  // Emptying a day is items: [], an ordinary update, so the destructive verb is
+  // simply not reachable from a phone.
+  await expectDenied('a day cannot be deleted, even by its owner', () =>
+    deleteWrite(`${A}/pastries/Monday`, asAccount(ALICE)));
+
+  await expectDenied('a signed-out device reads nothing', () =>
+    fetch(`${FS}/${A}/pastries/Monday`, { headers: noAuth() }));
+}
+
 for (const scenario of [suppliers, ingredients, drafts, history, neighbours,
-                        locationTree, isolation, configAndLogs]) {
+                        locationTree, isolation, configAndLogs, pastries]) {
   await scenario();
 }
 
