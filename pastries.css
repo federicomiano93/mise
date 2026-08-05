@@ -174,14 +174,29 @@ body {
   box-shadow: var(--pas-shadow);
   overflow: hidden;
 }
-.pas-row {
+.pas-row { border-top: 1px solid var(--pas-border); }
+.pas-row:first-child { border-top: 0; }
+
+/* The row itself is the tap target that opens the quantity box. It is a button,
+   so it announces itself and works from the keyboard — but it is styled as the
+   plain line it was, because this screen is read far more often than edited. */
+.pas-row-main {
   display: flex;
   align-items: baseline;
   gap: 12px;
+  width: 100%;
   padding: 14px 16px;
-  border-top: 1px solid var(--pas-border);
+  appearance: none;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--pas-font);
+  color: var(--pas-text);
 }
-.pas-row:first-child { border-top: 0; }
+.pas-row-main:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: -2px; }
+.pas-row[data-open="true"] .pas-row-main { background: var(--pas-accent-light); }
+
 .pas-row-name { flex: 1; min-width: 0; font-size: 20px; overflow-wrap: anywhere; }
 .pas-row-qty {
   flex: none;
@@ -193,6 +208,74 @@ body {
   font-variant-numeric: tabular-nums;
   color: var(--pas-text);
 }
+
+/* ── The opened row ────────────────────────────────────────────────────────
+   Only one is open at a time, and only because it was tapped. Everything here
+   is display:none until then, so the reading screen has no fields on it. */
+.pas-row-edit { display: none; }
+.pas-row[data-open="true"] .pas-row-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 14px;
+  background: var(--pas-accent-light);
+}
+.pas-row-arrow {
+  flex: none;
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--pas-text-3);
+}
+.pas-row-hint { margin-left: auto; font-size: 12px; color: var(--pas-text-3); }
+
+/* ⚠️ `input.pas-quick`, NOT `.pas-quick`. An attribute selector counts as a
+   class, so input[type="number"] is (0,1,1) and a bare class is (0,1,0) — the
+   class LOSES and the field silently inherits a size from elsewhere in the app.
+   That is the v235 defect exactly. Matching the element ties it at (0,1,1) and
+   wins on source order.
+   ⚠️ And the height is FIXED, never a min-height: on iOS a control sizes itself
+   from its own metrics and grows straight past a minimum (v236). */
+input.pas-quick {
+  height: 44px;
+  width: 84px;
+  flex: none;
+  padding: 0 12px;
+  font-size: 16px;   /* under 16px, iOS zooms the page when the field is focused */
+  font-family: var(--pas-font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--pas-text);
+  background: var(--pas-surface);
+  border: 1px solid var(--pas-border);
+  border-radius: var(--pas-radius-sm);
+  outline: none;
+  -moz-appearance: textfield;
+}
+input.pas-quick::-webkit-outer-spin-button,
+input.pas-quick::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input.pas-quick:focus {
+  border-color: var(--pas-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pas-accent) 22%, transparent);
+}
+
+.pas-tick {
+  appearance: none;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--pas-brand);
+  color: var(--pas-brand-ink);
+  border: 0;
+  border-radius: var(--pas-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pas-tick:active { transform: scale(.97); }
+.pas-tick:focus-visible { outline: 2px solid var(--pas-accent); outline-offset: 2px; }
 
 .pas-empty {
   text-align: center;

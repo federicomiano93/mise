@@ -5,7 +5,8 @@
 // and never imports from js/orders/ or js/catalogue/.
 
 import {
-  initPastries, getDays, getItems, getNote, getCounts, saveDay, setSyncErrorHandler,
+  initPastries, getDays, getItems, getNote, getCounts, saveDay, setItemQuantity,
+  setSyncErrorHandler,
 } from './pastries-store.js';
 import { renderStrip } from './pastries-strip.js';
 import { renderDay } from './pastries-day.js';
@@ -73,7 +74,7 @@ function showDay(day, opts = {}) {
   });
   // A NEW view, because the day itself changed. A snapshot for the day already
   // on screen goes through dayView.update() instead — see repaint().
-  dayView = renderDay({ day, items: getItems(day), note: getNote(day) });
+  dayView = renderDay({ day, items: getItems(day), note: getNote(day), app });
   swap(dayView.node, opts);
 }
 
@@ -126,6 +127,7 @@ const app = {
   toast,
   showDay,
   saveDay,
+  setItemQuantity,
   setLeaveGuard: (fn) => { leaveGuard = fn; },
 };
 
