@@ -10,12 +10,11 @@
 //   1. Initializes Firebase and signs the user in anonymously
 //   2. Mirrors the `log` collection in real time into window.firestoreLog
 //      and notifies the app via a `firestore-log-updated` event
-//   3. Exports helpers to persist / remove log and daily-log entries
+//   3. Exports helpers to persist / remove log entries
 //
 // Public API consumed by the rest of the app:
 //   - saveLogToFirestore(record)      → js/log.js
 //   - deleteLogFromFirestore(dough)   → js/log.js
-//   - saveDailyEntry(entry)           → js/log.js
 //   - watchCalculatorConfig(onChange) → js/calculator-config-store.js
 //   - saveCalculatorConfig(config)    → js/calculator-config-store.js
 //   - side-effect `import './firebase.js'` for init → js/app.js
@@ -352,26 +351,6 @@ export function readOldLogsOnce() {
     .then(() => getDocs(collection(db, pathFor('log'))))
     .then(snap => snap.docs.map(d => d.data()))
     .catch(err => { console.error('readOldLogsOnce failed:', err); return []; });
-}
-
-// Daily production log: one document per day (entry.date_iso, 'YYYY-MM-DD'),
-// keyed by dough type so confirming one dough never overwrites the others.
-// Re-confirming the same dough on the same day updates its sub-entry (merge).
-// entry = buildDailyEntry(...) from js/log.js (includes entry.dough + entry.date_iso)
-//
-// ⚠️ pathFor() belongs INSIDE the authReady chain, like every other function here.
-// It THROWS while no location is open, and this one is called straight from
-// commitLog() — a synchronous throw there skips the lines that follow it, so the log
-// is saved but the recipe is never revealed and the tab never locked.
-export function saveDailyEntry(entry) {
-  const key = entry.dough.toLowerCase();
-  return authReady
-    .then(() => setDoc(
-      doc(db, pathFor('daily-logs'), entry.date_iso),
-      { [key]: entry },
-      { merge: true }
-    ))
-    .catch(err => { console.error('saveDailyEntry failed:', err); });
 }
 
 // ── Calculator configuration (single client address book) ────────────────────
