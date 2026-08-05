@@ -12,7 +12,18 @@
 
 import { toISODate, addDays, isBefore } from './day.js';
 
-const num = v => Math.max(0, Math.round(Number(v) || 0));
+// A quantity, made safe: whole, never negative, never NaN — and never Infinity.
+//
+// THE ONE definition, shared by every screen that reads a typed number (the order
+// rows, the History editor). `Number(v) || 0` alone let Infinity through: a number
+// field accepts `1e999`, and Firestore refuses to store a non-finite number, so
+// every save afterwards failed while the row on screen looked perfectly normal.
+export function wholeNumber(v) {
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+const num = wholeNumber;
 
 export function historyDocId(date, supplierId) {
   return `${date}_${supplierId}`;

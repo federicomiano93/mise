@@ -11,6 +11,7 @@
 
 import { el, groupBy } from './dom.js';
 import { isUnusualQuantity } from './suggestions.js';
+import { wholeNumber } from './archive.js';
 
 // How many of a supplier's ingredients already have a quantity entered — used to
 // paint the progress bar correctly on first render (before any typing), so a
@@ -89,7 +90,7 @@ export function buildRow(ing, supplier, suggest, entries, hooks, { meta = '' } =
   const hint = el('div', { class: 'ing-suggestion' });
 
   function setQty(value, fromInput) {
-    const qty = Math.max(0, Math.round(Number(value) || 0));
+    const qty = wholeNumber(value);
     entryFor(entries, ing.id).qty = qty;
     if (!fromInput) qtyInput.value = qty || '';
     hooks.afterChange(supplier.id);
@@ -121,7 +122,7 @@ export function buildRow(ing, supplier, suggest, entries, hooks, { meta = '' } =
   }
 
   stockInput.addEventListener('input', () => {
-    entryFor(entries, ing.id).stock = Math.max(0, Math.round(Number(stockInput.value) || 0));
+    entryFor(entries, ing.id).stock = wholeNumber(stockInput.value);
     const result = updateHint();
     if (result.active) setQty(result.suggestion); // auto-fill the suggested order (also autosaves)
     else hooks.afterChange(supplier.id);           // still autosave the stock value

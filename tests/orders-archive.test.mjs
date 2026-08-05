@@ -18,6 +18,7 @@ import {
   buildSupplierArchive, mergeArchives, groupHistoryByDay, splitHistoryByAge, countRecords,
   quantityPathsFor,
   recordedName, ingredientLabel,
+  wholeNumber,
 } from '../js/orders/archive.js';
 
 const SALVO = { id: 'salvo', name: 'Salvo' };
@@ -31,6 +32,26 @@ const INGREDIENTS = [
 ];
 
 const NOW = new Date(2026, 6, 13, 9, 0);
+
+test('a typed quantity is whole, never negative, never NaN', () => {
+  assert.equal(wholeNumber('7'), 7);
+  assert.equal(wholeNumber(2.6), 3);
+  assert.equal(wholeNumber('-4'), 0);
+  assert.equal(wholeNumber('abc'), 0);
+  assert.equal(wholeNumber(''), 0);
+  assert.equal(wholeNumber(null), 0);
+  assert.equal(wholeNumber(undefined), 0);
+});
+
+// A number field accepts `1e999`, which is Infinity. Firestore refuses to store a
+// non-finite number, so letting one reach the draft broke every save that followed
+// while the row on screen still looked normal.
+test('Infinity never reaches the draft — Firestore would refuse the write', () => {
+  assert.equal(wholeNumber('1e999'), 0);
+  assert.equal(wholeNumber(Infinity), 0);
+  assert.equal(wholeNumber(-Infinity), 0);
+  assert.equal(wholeNumber(NaN), 0);
+});
 
 test('historyDocId is the day and the supplier', () => {
   assert.equal(historyDocId('2026-07-13', 'salvo'), '2026-07-13_salvo');
