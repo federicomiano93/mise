@@ -18,6 +18,15 @@
 // everyone. To correct a released note, add a new entry.
 export const RELEASES = [
   {
+    id: '2026-08-05-pastries-records',
+    title: 'Pastries',
+    points: [
+      'Tap a pastry to change its number: type the new one and tap the green tick.',
+      'The note at the bottom of a day stays there until you change it — writing it is under the pencil.',
+      'Tap Accept when a list is done. It is kept under Records at the bottom, for 15 days.',
+    ],
+  },
+  {
     id: '2026-08-05-pastries',
     title: 'Pastries',
     points: [
