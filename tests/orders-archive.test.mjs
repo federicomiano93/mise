@@ -18,6 +18,7 @@ import {
   buildSupplierArchive, mergeArchives, groupHistoryByDay, splitHistoryByAge, countRecords,
   quantityPathsFor,
   recordedName, ingredientLabel,
+  wholeNumber, changedEntries, changedDays,
 } from '../js/orders/archive.js';
 
 const SALVO = { id: 'salvo', name: 'Salvo' };
@@ -31,6 +32,96 @@ const INGREDIENTS = [
 ];
 
 const NOW = new Date(2026, 6, 13, 9, 0);
+
+test('a typed quantity is whole, never negative, never NaN', () => {
+  assert.equal(wholeNumber('7'), 7);
+  assert.equal(wholeNumber(2.6), 3);
+  assert.equal(wholeNumber('-4'), 0);
+  assert.equal(wholeNumber('abc'), 0);
+  assert.equal(wholeNumber(''), 0);
+  assert.equal(wholeNumber(null), 0);
+  assert.equal(wholeNumber(undefined), 0);
+});
+
+// A number field accepts `1e999`, which is Infinity. Firestore refuses to store a
+// non-finite number, so letting one reach the draft broke every save that followed
+// while the row on screen still looked normal.
+test('Infinity never reaches the draft — Firestore would refuse the write', () => {
+  assert.equal(wholeNumber('1e999'), 0);
+  assert.equal(wholeNumber(Infinity), 0);
+  assert.equal(wholeNumber(-Infinity), 0);
+  assert.equal(wholeNumber(NaN), 0);
+});
+
+// ── What an autosave is allowed to send ──────────────────────────────────────
+// The whole point: an autosave must mention ONLY what this phone changed, or
+// Firestore's key-by-key merge re-asserts every other row at this phone's value.
+
+test('only the rows this phone changed are sent', () => {
+  const known = { flour: { qty: 3, stock: 1 }, semola: { qty: 2, stock: 0 } };
+  const next = { flour: { qty: 5, stock: 1 }, semola: { qty: 2, stock: 0 } };
+  assert.deepEqual(changedEntries(next, known), { flour: { qty: 5, stock: 1 } });
+});
+
+test('nothing changed means nothing is sent', () => {
+  const known = { flour: { qty: 3, stock: 1 } };
+  assert.deepEqual(changedEntries({ flour: { qty: 3, stock: 1 } }, known), {});
+});
+
+// Opening a supplier builds a blank row in memory for every ingredient it sells.
+// Those are not edits, and storing them would fill the draft with zeroes.
+test('just looking at a supplier stores nothing', () => {
+  assert.deepEqual(
+    changedEntries({ flour: { qty: 0, stock: 0 }, semola: { qty: '', stock: '' } }, {}),
+    {});
+});
+
+test('but a row taken DOWN to zero is a real change', () => {
+  assert.deepEqual(
+    changedEntries({ flour: { qty: 0, stock: 0 } }, { flour: { qty: 6, stock: 0 } }),
+    { flour: { qty: 0, stock: 0 } });
+});
+
+test('a brand-new row counts as changed, and an empty baseline sends everything', () => {
+  assert.deepEqual(
+    changedEntries({ flour: { qty: 1, stock: 0 } }, { }),
+    { flour: { qty: 1, stock: 0 } });
+  assert.deepEqual(
+    changedEntries({ flour: { qty: 4, stock: 2 } }, { semola: { qty: 1, stock: 0 } }),
+    { flour: { qty: 4, stock: 2 } });
+});
+
+test('a stock reading on its own is a change', () => {
+  const known = { flour: { qty: 3, stock: 0 } };
+  assert.deepEqual(changedEntries({ flour: { qty: 3, stock: 6 } }, known),
+    { flour: { qty: 3, stock: 6 } });
+});
+
+// "" and 0 and undefined are the same number, and a repaint hands back whichever
+// the field happened to hold. Treating that as a change would send a write per
+// keystroke and, worse, re-assert other rows for no reason.
+test('an empty field is not a change from zero', () => {
+  const known = { flour: { qty: 0, stock: 0 } };
+  assert.deepEqual(changedEntries({ flour: { qty: '', stock: undefined } }, known), {});
+});
+
+// THE DEFECT THIS EXISTS FOR: two phones ordering at once. Phone A holds a stale
+// copy of a row phone B has just changed; A's save must not carry that row at all.
+test('a colleague\'s newer quantity is never re-asserted at this phone\'s stale value', () => {
+  const asKnownHere = { flour: { qty: 3, stock: 0 }, nutella: { qty: 1, stock: 0 } };
+  // This phone typed semola; its copy of nutella is simply what it last heard.
+  const typedHere = { flour: { qty: 3, stock: 0 }, nutella: { qty: 1, stock: 0 }, semola: { qty: 9, stock: 0 } };
+  const sent = changedEntries(typedHere, asKnownHere);
+  assert.deepEqual(sent, { semola: { qty: 9, stock: 0 } });
+  assert.ok(!('nutella' in sent), 'the row the other phone owns is not mentioned');
+});
+
+test('only the day stamps that moved are sent', () => {
+  assert.deepEqual(
+    changedDays({ salvo: '2026-08-05', bako: '2026-07-20' }, { bako: '2026-07-20' }),
+    { salvo: '2026-08-05' });
+  assert.deepEqual(changedDays({ bako: '2026-07-20' }, { bako: '2026-07-20' }), {});
+});
 
 test('historyDocId is the day and the supplier', () => {
   assert.equal(historyDocId('2026-07-13', 'salvo'), '2026-07-13_salvo');

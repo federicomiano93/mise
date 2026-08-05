@@ -8,11 +8,27 @@
 
 import { DEFAULT_CONFIG, cloneConfig, normalizeConfig } from './calculator-config.js';
 import { watchCalculatorConfig, saveCalculatorConfig } from './firebase.js';
+import { alertDialog } from './confirm-dialog.js';
 
 const CACHE_KEY = 'calculator-config';
 
 let current = readCache();
 let notify = null; // called with the new config whenever it changes (set by initConfig)
+
+// Has Firestore ANSWERED yet — including answering "there is no document"?
+//
+// ⚠️ THIS IS A GUARD AGAINST DESTROYING THE ADDRESS BOOK, not bookkeeping.
+// With no cached copy (a new phone, or any phone that just entered a location —
+// clearLocalData() wipes the cache on the way in) `current` starts as
+// DEFAULT_CONFIG: the sample clients. If the config stream then FAILS — refused,
+// offline, a session that expired mid-load — that sample data is what sits on
+// screen, indistinguishable from real data, and the first Save would write it
+// over the location's real clients, products and recipes.
+//
+// So a save is only allowed to leave the device once the server has told us what
+// it holds. "No document yet" is a real answer (a brand-new location must be
+// able to save); never having heard back is not.
+let serverAnswered = false;
 
 function readCache() {
   try {
@@ -43,12 +59,21 @@ export function getConfig() {
 export function initConfig(onUpdate) {
   notify = typeof onUpdate === 'function' ? onUpdate : null;
   watchCalculatorConfig(remote => {
+    // Set BEFORE the early return: "there is no document" is an answer, and a
+    // brand-new location has to be able to save its first client.
+    serverAnswered = true;
     if (!remote) return; // no document yet — keep cache/default
     current = normalizeConfig(remote);
     writeCache(current);
     if (notify) notify(current);
   });
   return current;
+}
+
+// Whether a save can safely reach Firestore. Exported so a screen can explain
+// itself rather than leaving the operator to wonder why nothing synced.
+export function canSyncConfig() {
+  return serverAnswered;
 }
 
 // Persist a new config. Local-first (P17): update memory + cache and re-render
@@ -59,7 +84,27 @@ export function saveConfig(config) {
   current = normalizeConfig(config);
   writeCache(current);
   if (notify) notify(current);
-  return saveCalculatorConfig(current).catch(err => {
-    console.warn('Calculator config saved locally but not synced to Firestore:', err);
-  });
+
+  // Local-first still applies above: the change is in memory and in the cache
+  // before anything is sent. But it must NOT be sent while we are working from
+  // DEFAULT_CONFIG for want of an answer — see serverAnswered. Refusing to sync
+  // costs one unsynced edit; syncing here costs the location's whole address book.
+  if (!serverAnswered) {
+    console.warn('Calculator config kept local only: the server has not answered yet.');
+    // Told plainly, because the alternative is someone believing a change is
+    // shared with the other phones when it is only on this one.
+    alertDialog(
+      'Saved on this phone only. The app could not reach the settings stored '
+      + 'online, so it has not sent the change — this protects the clients and '
+      + 'recipes already saved there. Check your connection and reload the page.'
+    );
+    return Promise.resolve({ synced: false, reason: 'no-server-answer' });
+  }
+
+  return saveCalculatorConfig(current)
+    .then(() => ({ synced: true }))
+    .catch(err => {
+      console.warn('Calculator config saved locally but not synced to Firestore:', err);
+      return { synced: false, reason: 'write-failed', error: err };
+    });
 }

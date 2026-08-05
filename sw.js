@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v237';
+const CACHE_NAME = 'theitalianclub-v238';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -177,7 +177,11 @@ self.addEventListener('fetch', e => {
       fetch(e.request, { cache: 'no-store' }).then(res => {
         if (res.ok) {
           const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          // Caching is best-effort: a full quota must not become an unhandled
+          // rejection, and the response has already been handed to the page.
+          caches.open(CACHE_NAME)
+            .then(cache => cache.put(e.request, clone))
+            .catch(() => {});
         }
         return res;
       }).catch(() => caches.match(e.request))
@@ -193,10 +197,19 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
     caches.match(e.request).then(cached => {
+      // Deliberately fetch(e.request.url) and NOT fetch(e.request): passing a
+      // Request together with a non-empty init re-creates it, and the spec then
+      // downgrades a navigation's mode from 'navigate' to 'same-origin'. Every
+      // page load goes through here, so that is not a change worth making for a
+      // revalidation of same-origin static assets, which need no request context.
       const networkFetch = fetch(e.request.url, { cache: 'no-cache' }).then(res => {
         if (res.ok) {
           const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+          // Best-effort, like above: a failed put must not surface as an
+          // unhandled rejection when the page already has its response.
+          caches.open(CACHE_NAME)
+            .then(cache => cache.put(e.request, clone))
+            .catch(() => {});
         }
         return res;
       }).catch(() => cached);

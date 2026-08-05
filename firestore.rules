@@ -83,12 +83,39 @@ service cloud.firestore {
       allow write: if false;
 
       // ── Production logs (current model) ─────────────────────────────────
+      // Written WHOLE (saveLogDoc uses setDoc with no merge), so the keys can be
+      // listed exactly and the two the app always writes can be required.
+      //
+      // ⚠️ The cap on `versions` is the point of this block, not tidiness. The
+      // chain is append-only by design — every edit adds one and nothing ever
+      // removes one — and a Firestore document dies at 1MB. Without a limit a
+      // heavily corrected log would eventually refuse every further write, with
+      // nothing on screen to explain why. 100 versions is far past any real use
+      // and still nowhere near the ceiling.
       match /logs/{id} {
         allow read: if canUse(lid, 'calculator');
         allow create, update: if canUse(lid, 'calculator')
           && stampedFor(lid)
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'id', 'dough', 'recipeId', 'forDay',
+               'origin', 'createdAtMs', 'versions'
+             ])
           && request.resource.data.dough is string
-          && request.resource.data.versions is list;
+          && request.resource.data.dough.size() <= 200
+          && request.resource.data.versions is list
+          && request.resource.data.versions.size() <= 100
+          && (!('id' in request.resource.data)
+              || (request.resource.data.id is string
+                  && request.resource.data.id.size() <= 200))
+          && (!('recipeId' in request.resource.data)
+              || (request.resource.data.recipeId is string
+                  && request.resource.data.recipeId.size() <= 200))
+          && (!('forDay' in request.resource.data)
+              || request.resource.data.forDay in ['today', 'tomorrow'])
+          && (!('origin' in request.resource.data)
+              || request.resource.data.origin in ['calculator', 'manual'])
+          && (!('createdAtMs' in request.resource.data)
+              || request.resource.data.createdAtMs is number);
         allow delete: if canUse(lid, 'calculator');
       }
 
@@ -276,9 +303,14 @@ service cloud.firestore {
           && request.resource.data.updatedAt is string
           && request.resource.data.updatedAt.size() <= 64;
 
+        // The legacy branch is now pinned to the weekly id shape it was written
+        // for (`2026-W28`). It used to accept ANY id that merely failed to look
+        // like a daily one, which made `orders-history/anything-at-all` a legal
+        // place to put a document. Exactly one such record exists, from July 2026,
+        // and nothing has written this shape since v179.
         allow create, update: if canUse(lid, 'orders')
           && stampedFor(lid)
-          && !id.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}_.+$')
+          && id.matches('^[0-9]{4}-W[0-9]{2}$')
           && request.resource.data.keys().hasOnly([
                'bakery', 'weekStart', 'date', 'quantities',
                'stock', 'createdAt', 'updatedAt'
@@ -305,12 +337,67 @@ service cloud.firestore {
       // ── Configuration: config/calculator and config/orders ──────────────
       // config/orders belongs to the Orders screen, config/calculator to the
       // Calculator, so each is gated by its own section.
+      //
+      // ⚠️ THIS DOCUMENT IS THE ADDRESS BOOK — clients, their products, the
+      // recipes — and it cannot be deleted or rolled back from the app. It was
+      // the ONE collection with no field validation at all: any authenticated
+      // device could put anything of any shape in it, up to Firestore's 1MB.
+      // A client bug was enough; nothing had to be malicious.
+      //
+      // ⚠️ THE LIST IS DELIBERATELY WIDER THAN WHAT TODAY'S CODE WRITES. Rules
+      // reach every phone the instant they deploy, while code arrives per device,
+      // so anything a not-yet-updated phone still sends must remain legal or its
+      // saves start failing: `products` (the shared catalogue, v1.5.0–v1.21.x),
+      // `groups`, and the original per-tab keys. Same reasoning as
+      // notifyHoursBefore on suppliers. Remove one only after production has
+      // stopped carrying it.
+      //
+      // Sizes are generous — they exist to stop a runaway document, not to
+      // second-guess a bakery that grows.
       match /config/{doc} {
         allow read: if member(lid)
           && sectionOn(lid, doc == 'orders' ? 'orders' : 'calculator');
+
         allow create, update: if member(lid)
           && sectionOn(lid, doc == 'orders' ? 'orders' : 'calculator')
-          && stampedFor(lid);
+          && stampedFor(lid)
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'configRev',
+               // Calculator
+               'clients', 'recipes', 'ingredients',
+               'whatsappLists', 'whatsappClients',
+               'extraDough', 'divisorIncluded',
+               'logVisibility', 'logRetentionHours', 'logRetentionByDough',
+               // Orders
+               'showStock', 'historyDays',
+               // Retired, still writable by an un-updated phone (see above)
+               'products', 'groups', 'focaccia', 'brioche', 'sourdough', 'market'
+             ])
+          && (!('configRev' in request.resource.data)
+              || request.resource.data.configRev is number)
+          && (!('clients' in request.resource.data)
+              || (request.resource.data.clients is list
+                  && request.resource.data.clients.size() <= 200))
+          && (!('recipes' in request.resource.data)
+              || (request.resource.data.recipes is list
+                  && request.resource.data.recipes.size() <= 200))
+          && (!('ingredients' in request.resource.data)
+              || (request.resource.data.ingredients is list
+                  && request.resource.data.ingredients.size() <= 1000))
+          && (!('products' in request.resource.data)
+              || (request.resource.data.products is list
+                  && request.resource.data.products.size() <= 500))
+          && (!('whatsappLists' in request.resource.data)
+              || (request.resource.data.whatsappLists is list
+                  && request.resource.data.whatsappLists.size() <= 100))
+          && (!('whatsappClients' in request.resource.data)
+              || (request.resource.data.whatsappClients is list
+                  && request.resource.data.whatsappClients.size() <= 100))
+          && (!('showStock' in request.resource.data)
+              || request.resource.data.showStock is bool)
+          && (!('historyDays' in request.resource.data)
+              || request.resource.data.historyDays is number);
+
         allow delete: if false;
       }
 

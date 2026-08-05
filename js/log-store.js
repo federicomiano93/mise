@@ -7,7 +7,7 @@
 // loses the local change or blocks the UI).
 
 import {
-  watchLogs, saveLogDoc, deleteLogDoc, getLogsOnce, readOldLogsOnce,
+  watchLogs, saveLogDoc, deleteLogDoc, anyLogExists, readOldLogsOnce,
 } from './firebase.js';
 import {
   createLog, addVersion, setForDay, restoreVersion, migrateOldLogs, sortLogs,
@@ -53,8 +53,7 @@ export function initLogs(onUpdate) {
 async function migrateIfNeeded() {
   try {
     if (localStorage.getItem(MIGRATED_KEY)) return;
-    const existing = await getLogsOnce();
-    if (existing.length > 0) { localStorage.setItem(MIGRATED_KEY, '1'); return; }
+    if (await anyLogExists()) { localStorage.setItem(MIGRATED_KEY, '1'); return; }
     const old = await readOldLogsOnce();
     if (!old.length) { localStorage.setItem(MIGRATED_KEY, '1'); return; }
     const base = Date.now() - old.length; // keep original relative order, all in the past

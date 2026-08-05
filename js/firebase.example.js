@@ -37,6 +37,9 @@ import {
   deleteDoc,
   onSnapshot,
   getDocs,
+  query,
+  where,
+  limit,
   connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
@@ -317,13 +320,22 @@ const authReady = sessionReady;
 // Each log is its OWN document logs/{id} with an append-only version chain (see
 // js/log-model.js). Replaces the old one-document-per-dough `log` collection. The
 // old `log` collection is kept read-only for the one-time migration.
+// ⚠️ BOUNDED (P14): logs are never deleted, so an unbounded listener re-read the
+// entire history on every opening of the Calculator, for ever. 30 days is far
+// wider than the longest retention the screen offers (48 hours), so the window
+// can never be what hides a log. A single-field range needs no composite index.
+const LOG_WINDOW_DAYS = 30;
+
 export function watchLogs(onChange) {
+  const cutoff = Date.now() - LOG_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   authReady.then(() => {
     onSnapshot(
-      collection(db, pathFor('logs')),
+      query(collection(db, pathFor('logs')), where('createdAtMs', '>=', cutoff)),
       snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => { console.error('Logs listener failed:', err); },
     );
+  }).catch(err => {
+    console.error('Logs listener never started (no location open):', err);
   });
 }
 
@@ -339,11 +351,13 @@ export function deleteLogDoc(id) {
     .catch(err => { console.error('deleteLogDoc failed:', err); throw err; });
 }
 
-export function getLogsOnce() {
+// Does this location have ANY log? limit(1), because that is the whole question:
+// the migration only needs to know whether the new collection is still empty.
+export function anyLogExists() {
   return authReady
-    .then(() => getDocs(collection(db, pathFor('logs'))))
-    .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    .catch(err => { console.error('getLogsOnce failed:', err); return []; });
+    .then(() => getDocs(query(collection(db, pathFor('logs')), limit(1))))
+    .then(snap => !snap.empty)
+    .catch(err => { console.error('anyLogExists failed:', err); return false; });
 }
 
 export function readOldLogsOnce() {

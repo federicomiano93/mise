@@ -30,7 +30,13 @@
     "frame-src 'self' https://www.google.com; " +
     "img-src 'self' data:; " +
     "style-src 'self'; " +
-    "font-src 'self'" +
+    "font-src 'self'; " +
+    // Neither is covered by default-src, so both have to be stated. base-uri stops
+    // an injected <base> from re-pointing every relative URL on the page; the app
+    // has no <form> at all, so form-action 'self' can only ever refuse something
+    // that should not be there.
+    "base-uri 'self'; " +
+    "form-action 'self'" +
     '">'
   );
 })();

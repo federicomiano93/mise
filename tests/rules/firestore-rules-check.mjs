@@ -512,6 +512,93 @@ async function isolation() {
     readAs(ALICE, 'locations/main/recipes/R1'));
 }
 
+// ── config/* and logs/* field validation ─────────────────────────────────────
+// config/calculator was the ONE collection with no field validation at all: any
+// signed-in device could write anything of any shape into the document holding
+// the clients, their products and the recipes — which no client can delete or
+// roll back. These checks pin both directions: everything the app really writes
+// stays legal, and a document of arbitrary shape or runaway size is refused.
+async function configAndLogs() {
+  await wipe();
+  await seedAccess();
+  const A = 'locations/main';
+
+  // ── Everything the app actually writes must still be accepted ──
+  await expectAllowed('config: the full calculator document the app saves', () =>
+    wholeWrite(`${A}/config/calculator`, {
+      bakery: 'main', configRev: 3,
+      clients: [{ id: 'c1', name: 'Bakery', products: [] }],
+      recipes: [{ id: 'focaccia', name: 'Focaccia', ingredients: [] }],
+      ingredients: ['Flour'],
+      whatsappLists: [], whatsappClients: [],
+      extraDough: {}, divisorIncluded: {},
+      logVisibility: {}, logRetentionHours: 24, logRetentionByDough: {},
+    }));
+
+  await expectAllowed('config: the Orders settings patch', () =>
+    mergeWrite(`${A}/config/orders`, { bakery: 'main', showStock: false, historyDays: 15 }));
+
+  // ⚠️ An un-updated phone still sends the retired shared catalogue. Rules land
+  // on every device instantly while code rolls out per device, so refusing this
+  // would break saving for anyone who has not updated yet.
+  await expectAllowed('config: a phone still on the shared-catalogue shape', () =>
+    wholeWrite(`${A}/config/calculator`, {
+      bakery: 'main', configRev: 1, clients: [], recipes: [],
+      products: [{ id: 'p1', name: 'Pizzas' }], groups: {},
+    }));
+
+  // ── ...and nothing else ──
+  await expectDenied('config: a key nobody declared', () =>
+    mergeWrite(`${A}/config/calculator`, { bakery: 'main', surprise: 'anything' }));
+
+  await expectDenied('config: clients as something other than a list', () =>
+    mergeWrite(`${A}/config/calculator`, { bakery: 'main', clients: 'not a list' }));
+
+  await expectDenied('config: a runaway number of recipes', () =>
+    mergeWrite(`${A}/config/calculator`, {
+      bakery: 'main', recipes: Array.from({ length: 201 }, (_, i) => ({ id: 'r' + i })),
+    }));
+
+  await expectDenied('config: stamped with another location', () =>
+    mergeWrite(`${A}/config/calculator`, { bakery: 'trattoria-x', clients: [] }));
+
+  // ── logs: the whole document, and the cap that keeps it under 1MB ──
+  await expectAllowed('logs: the document the Calculator writes', () =>
+    wholeWrite(`${A}/logs/L2`, {
+      bakery: 'main', id: 'L2', dough: 'Focaccia', recipeId: 'focaccia',
+      forDay: 'tomorrow', origin: 'calculator', createdAtMs: 1785926647303,
+      versions: [{ kind: 'create' }],
+    }));
+
+  await expectDenied('logs: a key nobody declared', () =>
+    wholeWrite(`${A}/logs/L3`, {
+      bakery: 'main', dough: 'Focaccia', versions: [], smuggled: 'x',
+    }));
+
+  await expectDenied('logs: forDay outside today/tomorrow', () =>
+    wholeWrite(`${A}/logs/L4`, {
+      bakery: 'main', dough: 'Focaccia', forDay: 'someday', versions: [],
+    }));
+
+  // The append-only chain never shrinks, and a document dies at 1MB.
+  await expectDenied('logs: a version chain past the cap', () =>
+    wholeWrite(`${A}/logs/L5`, {
+      bakery: 'main', dough: 'Focaccia',
+      versions: Array.from({ length: 101 }, () => ({ kind: 'edit' })),
+    }));
+
+  // ── orders-history: the legacy branch is no longer a free-for-all ──
+  await expectAllowed('history: the real legacy weekly id still writes', () =>
+    wholeWrite(`${A}/orders-history/2026-W28`, {
+      bakery: 'main', weekStart: '2026-07-06', quantities: {}, stock: {},
+    }));
+
+  await expectDenied('history: an id that is neither daily nor weekly', () =>
+    wholeWrite(`${A}/orders-history/whatever-i-like`, {
+      bakery: 'main', weekStart: '2026-07-06', quantities: {}, stock: {},
+    }));
+}
+
 // ── Run ──────────────────────────────────────────────────────────────────────
 await requireEmulators();
 ALICE = await account('alice');
@@ -520,7 +607,7 @@ NOBODY = await account('nobody');
 TOKEN = ALICE.token;
 
 for (const scenario of [suppliers, ingredients, drafts, history, neighbours,
-                        locationTree, isolation]) {
+                        locationTree, isolation, configAndLogs]) {
   await scenario();
 }
 

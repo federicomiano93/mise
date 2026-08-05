@@ -38,6 +38,9 @@ import {
   onSnapshot,
   getDocs,
   runTransaction,
+  query,
+  where,
+  limit,
   connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
@@ -54,7 +57,9 @@ import {
 import { allowedSections, pickLocation, locationsOf } from './sections.js';
 import { clearLocalData, shouldClearLocalData } from './local-data.js';
 
-// ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
+// ── Configuration (PUBLIC config, P1 — committed on purpose, see .gitignore) ──
+// Copied from firebase.example.js, whose "placeholders only" heading came with
+// it: these are the real values, and this is the file the app actually loads.
 export const firebaseConfig = {
   apiKey: "AIzaSyCIy5dRbE9Ce_mJQ4-r7QuSOquKpgkwoMo",
   authDomain: "bakery-app-ebf90.firebaseapp.com",
@@ -337,15 +342,41 @@ const authReady = sessionReady;
 // which overwrote two logs of the same dough on the same day. The old `log`
 // collection is kept read-only for the one-time migration below.
 
-// Subscribe to the whole logs collection in real time. onChange receives an array
-// of log documents (each with its id); ordering/sorting is done by the caller.
+// How far back the Log screen ever reads. See LOG_WINDOW_DAYS below.
+const LOG_WINDOW_DAYS = 30;
+
+// Subscribe to the RECENT logs in real time. onChange receives an array of log
+// documents (each with its id); ordering/sorting is done by the caller.
+//
+// ⚠️ BOUNDED ON PURPOSE (P14). Logs are never deleted — filterVisibleLogs is a
+// display filter and says so — so this collection grows by a document per dough
+// per day, for ever. Unbounded, every single opening of the Calculator re-read
+// the entire history: a few hundred documents after one year, a few thousand
+// after several, on every phone, several times a day, billed each time.
+//
+// 30 days is far wider than anything the screen can show: the longest retention
+// selectable is 48 hours (LOG_RETENTION_OPTIONS), and even a log made FOR
+// tomorrow is counted from the end of that day — a handful of days at the very
+// most. The margin is there so the window can never be the thing that hides a
+// log, and so raising the retention options later needs no thought here.
+//
+// A single-field range needs no composite index, so this works with no console
+// setup. Documents missing createdAtMs would be excluded — but they are already
+// invisible on screen, because filterVisibleLogs reads the same field and treats
+// a missing one as 1970.
 export function watchLogs(onChange) {
+  const cutoff = Date.now() - LOG_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   authReady.then(() => {
     onSnapshot(
-      collection(db, pathFor('logs')),
+      query(collection(db, pathFor('logs')), where('createdAtMs', '>=', cutoff)),
       snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => { console.error('Logs listener failed:', err); },
     );
+  }).catch(err => {
+    // Every other function in this file catches its own; these two were the
+    // exceptions, so a session that never opened surfaced as an unhandled
+    // rejection rather than a line saying which stream never started.
+    console.error('Logs listener never started (no location open):', err);
   });
 }
 
@@ -365,13 +396,18 @@ export function deleteLogDoc(id) {
     .catch(err => { console.error('deleteLogDoc failed:', err); throw err; });
 }
 
-// One-shot read of the new logs collection (used by the migration to decide
-// whether anything already exists before importing the old records).
-export function getLogsOnce() {
+// Does this location have ANY log at all? Used by the one-time migration to
+// decide whether the old records still need importing.
+//
+// ⚠️ limit(1), because that is the whole question. It used to read the entire
+// collection and count it — and not once per device either: the guard flag lives
+// in localStorage, which clearLocalData() wipes every time someone enters a
+// location, so the whole archive was re-read on each entry to learn one bit.
+export function anyLogExists() {
   return authReady
-    .then(() => getDocs(collection(db, pathFor('logs'))))
-    .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    .catch(err => { console.error('getLogsOnce failed:', err); return []; });
+    .then(() => getDocs(query(collection(db, pathFor('logs')), limit(1))))
+    .then(snap => !snap.empty)
+    .catch(err => { console.error('anyLogExists failed:', err); return false; });
 }
 
 // One-shot read of the OLD `log` collection (one doc per dough), used only by the
@@ -397,6 +433,11 @@ export function watchCalculatorConfig(onChange) {
       snap => onChange(snap.exists() ? snap.data() : null),
       err => { console.error('Config listener failed:', err); },
     );
+  }).catch(err => {
+    // Deliberately does NOT call onChange: the store treats "called at all" as
+    // proof the server answered, and answering on its behalf here would re-open
+    // exactly the hole that guard exists to close (see calculator-config-store).
+    console.error('Config listener never started (no location open):', err);
   });
 }
 

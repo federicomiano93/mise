@@ -14,14 +14,12 @@
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { dayLabel, dayPhrase, spellDay } from './day.js';
-import { isLegacyRecord, recordDate, recordedName } from './archive.js';
+import { isLegacyRecord, recordDate, recordedName, wholeNumber as num } from './archive.js';
 
 const BACK_ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 const TRASH_ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
-
-const num = v => Math.max(0, Math.round(Number(v) || 0));
 
 // A legacy record is a whole week, every supplier merged, so it has no supplier
 // name to show — it names its week instead.

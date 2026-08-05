@@ -1169,6 +1169,20 @@ function setStatus(text, kind, autoHideMs) {
   }
 }
 
+// A live stream died. Say so, and say what stopped arriving.
+//
+// This screen is drawn entirely from Firestore listeners, so a refused or dropped
+// stream leaves it looking EXACTLY like a location that simply has no suppliers —
+// and onSnapshot never resubscribes after an error, so it stays wrong until the
+// page is reloaded. That is why the message names the reload: it is the fix, not
+// a suggestion. No auto-hide, for the same reason.
+function liveDataLost(what) {
+  return () => setStatus(
+    `Lost the live connection for ${what}. What you see may be out of date — reload the page.`,
+    'error',
+  );
+}
+
 // Hide the status line, but ONLY if it still shows `text`. Same guard as the
 // auto-hide above and for the same reason: whoever set a newer message — an error,
 // or "order saved to history ✓" — must never have it wiped by a stale clear.
@@ -1241,12 +1255,12 @@ async function init() {
     syncInputsFromState();
     renderReminders();
     checkPendingOnce();
-  });
+  }, liveDataLost('the order in progress'));
 
   watchCollection(COLLECTIONS.history, list => {
     applyHistory(list);
     renderReminders();
-  });
+  }, liveDataLost('past orders'));
 
   // Suppliers and ingredients stay unbounded: they are a handful of documents and
   // every one of them is needed to draw the screen. Only history grows without end.
@@ -1259,7 +1273,7 @@ async function init() {
     renderReminders();
     checkPendingOnce();
     mgmt?.refresh();
-  });
+  }, liveDataLost('suppliers'));
   watchCollection(COLLECTIONS.ingredients, list => {
     state.ingredients = list;
     state.loaded.ingredients = true;
@@ -1268,7 +1282,7 @@ async function init() {
     renderReminders();
     checkPendingOnce();
     mgmt?.refresh();
-  });
+  }, liveDataLost('ingredients'));
 }
 
 init();
