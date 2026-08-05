@@ -448,11 +448,22 @@ service cloud.firestore {
         allow read: if canUse(lid, 'pastries');
         allow create, update: if canUse(lid, 'pastries')
           && day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-          && request.resource.data.keys().hasOnly(['bakery', 'day', 'items', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['bakery', 'day', 'items', 'updatedAt', 'note'])
           && stampedFor(lid)
           && request.resource.data.day == day
           && request.resource.data.items is list
           && request.resource.data.items.size() <= 100
+          // ⚠️ `note` IS OPTIONAL, AND BOTH DIRECTIONS MATTER. Rules reach every
+          // phone the instant they deploy; code arrives per device. Required, and
+          // every phone still on the previous version would have every save
+          // refused — silently, permanently, with nothing on screen to explain
+          // it. Absent from the whitelist, and every UPDATED phone would be
+          // refused instead. Optional, deployed BEFORE the code merges, is the
+          // only ordering that is safe in both directions. Same precedent as
+          // orders-history.names above.
+          && (!('note' in request.resource.data)
+              || (request.resource.data.note is string
+                  && request.resource.data.note.size() <= 500))
           && request.resource.data.updatedAt is string
           && request.resource.data.updatedAt.size() <= 64;
         allow delete: if false;

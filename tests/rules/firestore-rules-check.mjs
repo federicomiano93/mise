@@ -645,6 +645,31 @@ async function pastries() {
 
   await expectAllowed('a member reads a day', readAs(ALICE, `${A}/pastries/Monday`));
 
+  // ── The standing note ──
+  await expectAllowed('a day carrying its standing note', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', {
+      items: [{ name: 'Cornetti', qty: 24 }],
+      note: 'Butter is low\nCheck the fridge',
+    })));
+
+  // ⚠️ THE CHECK THAT MATTERS MOST. `note` is optional, so a phone still on the
+  // version before notes existed — which writes no note at all — must keep
+  // saving. Make this required and every one of its saves is refused, silently
+  // and permanently, until someone updates it.
+  await expectAllowed('a phone that predates the note still saves its day', () =>
+    wholeWrite(`${A}/pastries/Tuesday`, {
+      bakery: 'main', day: 'Tuesday', items: [], updatedAt: '2026-08-05T20:00:00.000Z',
+    }));
+
+  await expectAllowed('an empty note', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: '' })));
+  await expectDenied('a note longer than the cap', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: bigString(501) })));
+  await expectDenied('a note that is not text', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: 42 })));
+  await expectDenied('a note that is a list', () =>
+    wholeWrite(`${A}/pastries/Monday`, day('Monday', { note: ['a'] })));
+
   // ── ...and nothing else ──
   await expectDenied('an id that is not a weekday', () =>
     wholeWrite(`${A}/pastries/Funday`, day('Funday')));
