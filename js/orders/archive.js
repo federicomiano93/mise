@@ -151,6 +151,50 @@ export function quantityPathsFor(supplierIds, ingredients) {
   return paths;
 }
 
+// The slice of the draft that actually CHANGED since the copy we last agreed on
+// with the server — the only thing an autosave has any business sending.
+//
+// ⚠️ THIS IS A CONCURRENCY FIX, not a saving of bytes. The autosave used to send
+// the WHOLE entries map. Firestore merges a map key by key, so every save also
+// re-asserted every OTHER row at the value this phone happened to hold — and a
+// quantity a colleague had typed seconds earlier, not yet arrived here, was
+// silently rewritten back to its old value. Two people ordering at once is
+// normal in a kitchen, and nothing on either screen showed what had happened.
+//
+// Sending only the changed keys makes the merge do what it looks like it does:
+// untouched rows are not mentioned, so nobody else's work is overwritten.
+//
+// A key with no counterpart in `known` counts as changed (it is new), and both
+// fields are compared through the same clamp the UI applies, so "" and 0 are not
+// mistaken for a change.
+export function changedEntries(next, known) {
+  const out = {};
+  Object.entries(next || {}).forEach(([id, entry]) => {
+    const before = (known || {})[id];
+    const qty = num(entry?.qty);
+    const stock = num(entry?.stock);
+    // Merely LOOKING at a supplier materialises a blank row in memory, and an
+    // all-zero row that the document never had says nothing worth storing.
+    // (A row that EXISTS and is taken down to zero is a real change: `before`
+    // is there, so it still goes.)
+    if (!before && qty === 0 && stock === 0) return;
+    if (!before || num(before.qty) !== qty || num(before.stock) !== stock) {
+      out[id] = { qty, stock };
+    }
+  });
+  return out;
+}
+
+// The same idea for the per-supplier day stamps: sending the whole map would
+// re-assert another phone's day for a supplier this one never touched.
+export function changedDays(next, known) {
+  const out = {};
+  Object.entries(next || {}).forEach(([supplierId, day]) => {
+    if ((known || {})[supplierId] !== day) out[supplierId] = day;
+  });
+  return out;
+}
+
 // Two orders to the same supplier on the same day are ONE order: the second is
 // "I forgot a couple of things", so quantities ADD UP rather than replace (which
 // would silently destroy the first order — the rows are cleared after archiving,
