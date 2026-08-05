@@ -36,6 +36,25 @@ export function grantKeyFor(day) {
   return isWeekday(day) ? `${EDIT_GRANT_PREFIX}${day}` : null;
 }
 
+// What the stored permission becomes after an action. `null` means "clear it".
+//
+// ⚠️ CONFIRMING SPENDS THE PERMISSION, and this is the half that was MISSING when
+// the feature first shipped. Edit stored "allowed tonight"; Confirm wrote the
+// record and left the permission behind — so confirming a second time looked like
+// it had done nothing at all: the record was written, but the day stayed open and
+// the button stayed green. Reported within the hour.
+//
+// The two halves of the rule live in this one function for exactly that reason.
+// The permission means "this already-recorded list may be changed tonight"; the
+// moment it IS recorded again, it is done again, and the permission is spent.
+export function grantAfter(action, workDate) {
+  switch (action) {
+    case 'edit':    return isRealISODate(workDate) ? workDate : null;
+    case 'confirm': return null;
+    default:        return null;
+  }
+}
+
 // May this day's list still be changed?
 //
 // ⚠️ EVERY UNCERTAIN ANSWER IS "NOT LOCKED", which is the opposite of how the

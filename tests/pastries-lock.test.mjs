@@ -15,7 +15,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  EDIT_GRANT_PREFIX, grantKeyFor, isDayLocked, msUntilWorkDayEnd, confirmedDaysFrom,
+  EDIT_GRANT_PREFIX, grantKeyFor, grantAfter, isDayLocked, msUntilWorkDayEnd,
+  confirmedDaysFrom,
 } from '../js/pastries/pastries-lock.js';
 import { workDate } from '../js/pastries/pastries-log-model.js';
 import { DAY_START_HOUR } from '../js/pastries/pastries-model.js';
@@ -69,6 +70,46 @@ test('the permission key names the day, and only a real weekday has one', () => 
   for (const bad of ['thursday', 'Funday', '', null, undefined, 42, {}]) {
     assert.equal(grantKeyFor(bad), null, `day=${JSON.stringify(bad)}`);
   }
+});
+
+// ── What each action does to the permission ──────────────────────────────────
+
+test('Edit grants the permission for tonight', () => {
+  assert.equal(grantAfter('edit', TONIGHT), TONIGHT);
+});
+
+test('CONFIRMING SPENDS THE PERMISSION', () => {
+  // ⚠️ THE BUG THIS TEST EXISTS FOR, reported within the hour of shipping.
+  // Confirm → Edit → Confirm left the permission behind, so the second Confirm
+  // wrote the record and the day stayed green: it looked like the button had
+  // done nothing at all.
+  assert.equal(grantAfter('confirm'), null);
+  assert.equal(grantAfter('confirm', TONIGHT), null);
+});
+
+test('a permission granted on an unreadable clock is no permission', () => {
+  for (const bad of [undefined, null, '', 'tonight', 42, '2026-02-31']) {
+    assert.equal(grantAfter('edit', bad), null, `workDate=${JSON.stringify(bad)}`);
+  }
+});
+
+test('the whole sequence: confirm, edit, confirm again', () => {
+  // The bug end to end, as a state machine. `confirmed` stays true throughout —
+  // the record is never removed — so the ONLY thing that can reopen or reclose
+  // the day is the permission.
+  let grant = null;
+  const locked = () => isDayLocked({ confirmed: true, grant, workDate: TONIGHT });
+
+  assert.equal(locked(), true, 'confirmed and untouched: locked');
+
+  grant = grantAfter('edit', TONIGHT);
+  assert.equal(locked(), false, 'after Edit: open');
+
+  grant = grantAfter('confirm');
+  assert.equal(locked(), true, 'after confirming again: LOCKED once more');
+
+  grant = grantAfter('edit', TONIGHT);
+  assert.equal(locked(), false, 'and Edit still works afterwards');
 });
 
 // ── When it unlocks by itself ────────────────────────────────────────────────
