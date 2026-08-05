@@ -38,10 +38,12 @@ export function renderEditor({ day, items, allDays, app }) {
   // Names already used on the OTHER six days. The same things prove on several
   // days, and typing "Savoury croissant" seven times is exactly the friction
   // worth removing.
+  // ⚠️ allDays[x] is { items, note } — it was the bare items array before the
+  // standing note existed. Reading it as an array here throws on .forEach.
   const suggestions = new Set();
   WEEKDAYS.forEach(other => {
     if (other === day) return;
-    ((allDays || {})[other] || []).forEach(item => {
+    (((allDays || {})[other] || {}).items || []).forEach(item => {
       if (item && item.name) suggestions.add(item.name);
     });
   });

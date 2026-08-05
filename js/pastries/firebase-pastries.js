@@ -77,8 +77,11 @@ export async function watchPastryDays(onChange, onError) {
 //
 // `day` repeats the document id deliberately, and the rules pin the two equal,
 // so the field and the folder can never drift apart.
-export async function savePastryDay(day, items) {
+//
+// `note` is the day's STANDING note and is written on every save, because the
+// whole document is replaced: omitting it would delete it.
+export async function savePastryDay(day, items, note = '') {
   await authReady;
-  const payload = withBakery({ day, items, updatedAt: new Date().toISOString() });
+  const payload = withBakery({ day, items, note, updatedAt: new Date().toISOString() });
   return setDoc(doc(db, pathFor(PASTRIES), day), payload);
 }
