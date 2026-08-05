@@ -54,7 +54,9 @@ import {
 import { allowedSections, pickLocation, locationsOf } from './sections.js';
 import { clearLocalData, shouldClearLocalData } from './local-data.js';
 
-// ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
+// ── Configuration (PUBLIC config, P1 — committed on purpose, see .gitignore) ──
+// Copied from firebase.example.js, whose "placeholders only" heading came with
+// it: these are the real values, and this is the file the app actually loads.
 export const firebaseConfig = {
   apiKey: "AIzaSyCIy5dRbE9Ce_mJQ4-r7QuSOquKpgkwoMo",
   authDomain: "bakery-app-ebf90.firebaseapp.com",
@@ -346,6 +348,11 @@ export function watchLogs(onChange) {
       snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => { console.error('Logs listener failed:', err); },
     );
+  }).catch(err => {
+    // Every other function in this file catches its own; these two were the
+    // exceptions, so a session that never opened surfaced as an unhandled
+    // rejection rather than a line saying which stream never started.
+    console.error('Logs listener never started (no location open):', err);
   });
 }
 
@@ -397,6 +404,11 @@ export function watchCalculatorConfig(onChange) {
       snap => onChange(snap.exists() ? snap.data() : null),
       err => { console.error('Config listener failed:', err); },
     );
+  }).catch(err => {
+    // Deliberately does NOT call onChange: the store treats "called at all" as
+    // proof the server answered, and answering on its behalf here would re-open
+    // exactly the hole that guard exists to close (see calculator-config-store).
+    console.error('Config listener never started (no location open):', err);
   });
 }
 

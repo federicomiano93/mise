@@ -72,12 +72,21 @@ function withBakery(data) {
 
 // Subscribe to a collection in real time. onChange receives an array of
 // documents ({ id, ...data }). Returns the unsubscribe function.
-export async function watchCollection(name, onChange) {
+//
+// onError is how a failure REACHES SOMEONE. Without it the stream dying — a
+// revoked session, a rule change, a network Firestore gives up on — left the
+// screen looking exactly like a location with no data in it, and onSnapshot does
+// NOT resubscribe after an error, so it stayed that way until a reload. The
+// console line remains for diagnosis; it is not a substitute for telling the user.
+export async function watchCollection(name, onChange, onError) {
   await authReady;
   return onSnapshot(
     collection(db, pathFor(name)),
     snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err => console.error(`watchCollection(${name}) failed:`, err),
+    err => {
+      console.error(`watchCollection(${name}) failed:`, err);
+      onError?.(err);
+    },
   );
 }
 
@@ -195,11 +204,14 @@ export async function getDocOnce(name, id) {
 
 // Subscribe to a single document in real time. onChange receives { id, ...data }
 // or null when the document does not exist. Returns the unsubscribe function.
-export async function watchDoc(name, id, onChange) {
+export async function watchDoc(name, id, onChange, onError) {
   await authReady;
   return onSnapshot(
     doc(db, pathFor(name), id),
     snap => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
-    err => console.error(`watchDoc(${name}/${id}) failed:`, err),
+    err => {
+      console.error(`watchDoc(${name}/${id}) failed:`, err);
+      onError?.(err);
+    },
   );
 }

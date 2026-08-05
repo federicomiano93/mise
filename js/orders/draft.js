@@ -78,13 +78,15 @@ export function flushDraftSave() {
 }
 
 // Real-time subscription. onChange receives { entries, days, updatedAt, exists }.
-export function watchDraft(onChange) {
+// onError is passed straight through: losing this stream means the order stops
+// syncing between phones, which nothing on screen would otherwise reveal.
+export function watchDraft(onChange, onError) {
   return watchDoc(COLLECTIONS.drafts, DRAFT_ID, doc => onChange({
     entries: doc?.entries || {},
     days: doc?.days || {},
     updatedAt: doc?.updatedAt || '',
     exists: Boolean(doc),
-  }));
+  }), onError);
 }
 
 // Record one supplier's order under `date`, and return the stored record (or null
