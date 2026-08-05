@@ -19,7 +19,7 @@ import {
 } from './pastries-logs-store.js';
 import { provingDayFor } from './pastries-model.js';
 import { LOG_VISIBLE_DAYS, workDate } from './pastries-log-model.js';
-import { isDayLocked, grantKeyFor, msUntilWorkDayEnd } from './pastries-lock.js';
+import { isDayLocked, grantKeyFor, grantAfter, msUntilWorkDayEnd } from './pastries-lock.js';
 import { confirmDialog } from './confirm-dialog.js';
 
 const screen = document.getElementById('pasScreen');
@@ -86,6 +86,17 @@ function grantFor(day) {
   try { return localStorage.getItem(key); } catch (e) { return null; }
 }
 
+// Store or clear the permission. In private mode both throw, and the lock then
+// behaves as if nothing was ever stored — annoying, never destructive.
+function setGrant(day, value) {
+  const key = grantKeyFor(day);
+  if (!key) return;
+  try {
+    if (value === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+  } catch (e) { /* nothing stored, so the day simply stays locked */ }
+}
+
 function lockedFor(day) {
   return isDayLocked({
     confirmed: isConfirmedTonight(day),
@@ -108,10 +119,8 @@ async function requestEdit(day) {
   });
   if (!ok) return false;
   // The permission carries the work date, so it is spent when the date rolls at
-  // 4am. In private mode this write throws and the day simply stays locked —
-  // annoying, never destructive.
-  const key = grantKeyFor(day);
-  try { if (key) localStorage.setItem(key, currentWorkDate()); } catch (e) { /* stays locked */ }
+  // 4am — and spent again by the next Confirm, see grantAfter().
+  setGrant(day, grantAfter('edit', currentWorkDate()));
   repaint();
   return true;
 }
@@ -272,6 +281,11 @@ async function confirmToday(day, items, note) {
 
   const saved = await confirmDay(day, list, note);
   if (!saved) return;
+  // ⚠️ Confirming SPENDS any permission to edit. Without this the day stays
+  // green after a Confirm → Edit → Confirm, because the permission still names
+  // tonight — which is exactly what it should mean, right up until the list is
+  // recorded again.
+  setGrant(day, grantAfter('confirm'));
   toast(`${day} recorded.`);
   // A confirm on THIS phone must tick the day off straight away. The
   // confirmations listener will say the same thing a moment later, but waiting
