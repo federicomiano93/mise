@@ -472,7 +472,8 @@ export function saveCalculatorConfig(config) {
 // document already IS the pairing of a thing with the supplier who sells it, and a
 // price belongs to that pairing rather than to the thing. It is entered as a
 // purchase form — pack price, pack size, unit — and normalised into pricePerUnit;
-// js/orders/price-model.js is the only place that maths lives. Every change also
+// js/price-model.js is the only place that maths lives (js/ root, not js/orders/,
+// because the Recipe catalogue reads it too). Every change also
 // appends to the /prices subcollection, in the SAME atomic write, and that
 // subcollection is create-only in the rules: it is the record the margin history
 // will be rebuilt from, and one that can be edited afterwards answers nothing.
