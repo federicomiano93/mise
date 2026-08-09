@@ -7,6 +7,7 @@
   "scripts": {
     "test": "node --test",
     "test:rules": "node tests/rules/firestore-rules-check.mjs",
+    "test:rules:emulated": "firebase emulators:exec --only auth,firestore --project demo-theitalianclub \"npm run test:rules\"",
     "seed:emulator": "node tests/rules/seed-emulator.mjs"
   }
 }
