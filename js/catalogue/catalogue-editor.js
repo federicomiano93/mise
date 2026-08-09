@@ -19,9 +19,17 @@ const TRASH_SVG =
 
 export function renderEditor({ recipe, allRecipes, app }) {
   // Working copy — nothing touches the stored recipe until Save.
+  // ⚠️ ...i, NOT a hand-listed set of fields. This copy and cleanWorking() below
+  // both rebuild every row, so any field named in neither is dropped on save —
+  // which is how opening a recipe to fix a typo would have wiped every ingredient
+  // link it had. Spreading the row keeps whatever it carries; only the fields the
+  // editor actually edits are overwritten.
   const working = recipe
-    ? { id: recipe.id, name: recipe.name, ingredients: recipe.ingredients.map(i => ({ label: i.label, grams: i.grams, unit: unitOf(i) })) }
-    : { id: null, name: '', ingredients: [{ label: '', grams: '', unit: 'g' }] };
+    ? {
+      ...recipe,
+      ingredients: recipe.ingredients.map(i => ({ ...i, unit: unitOf(i) })),
+    }
+    : { id: null, name: '', ingredients: [{ label: '', grams: '', unit: 'g' }], lossPct: 0 };
 
   let dirty = false;
   let showErrors = false;
@@ -125,12 +133,14 @@ export function renderEditor({ recipe, allRecipes, app }) {
   }
 
   // Trim labels, coerce grams to non-negative numbers, drop rows with no name.
+  // Spreads each row first (see `working` above) so an ingredient link survives a
+  // save; only the three fields this editor owns are rewritten.
   function cleanWorking() {
     return {
-      id: working.id,
+      ...working,
       name: String(working.name || '').trim(),
       ingredients: working.ingredients
-        .map(i => ({ label: String(i.label || '').trim(), grams: Math.max(0, Number(i.grams) || 0), unit: unitOf(i) }))
+        .map(i => ({ ...i, label: String(i.label || '').trim(), grams: Math.max(0, Number(i.grams) || 0), unit: unitOf(i) }))
         .filter(i => i.label),
     };
   }

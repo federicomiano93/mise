@@ -34,10 +34,14 @@ export function isWeighableUnit(unit) {
 }
 
 // One ingredient's amount converted to grams, or 0 when its unit isn't weighable.
-function ingGrams(ing) {
+// Exported because the cost model needs exactly this conversion: costing a row is
+// "how many grams is it" times "what does a gram cost", and a second copy of the
+// unit table is a second place for ml-to-g to drift.
+export function ingredientGrams(ing) {
   const factor = UNIT_TO_GRAMS[unitOf(ing)];
   return factor ? (Number(ing.grams) || 0) * factor : 0;
 }
+const ingGrams = ingredientGrams;
 
 // The recipe's total WEIGHABLE mass in grams (weight + volume rows only) — what the
 // "Total dough weight" scaling targets.
@@ -57,7 +61,33 @@ function normalizeIngredient(raw) {
   const label = String(raw.label != null ? raw.label : (raw.name || '')).trim();
   const grams = Number(raw.grams);
   const unit = (typeof raw.unit === 'string' && CATALOGUE_UNITS.includes(raw.unit)) ? raw.unit : DEFAULT_UNIT;
-  return { label, grams: Number.isFinite(grams) && grams >= 0 ? grams : 0, unit };
+  const row = { label, grams: Number.isFinite(grams) && grams >= 0 ? grams : 0, unit };
+
+  // ⚠️ THE LINK HAS TO BE CARRIED THROUGH HERE, AND THROUGH cleanWorking() IN THE
+  // EDITOR. This function rebuilds every row from scratch, so a field it does not
+  // mention is DROPPED — silently, on the way in from Firestore. Before this, a
+  // recipe opened to fix a typo in its name came back out with every ingredient
+  // link gone, and nothing anywhere would have said so.
+  //
+  // Absent rather than null when there is no link, so the rows written today are
+  // byte-identical to the rows written before this feature existed: no migration,
+  // and a recipe never touched again keeps exactly the shape it has now.
+  const link = linkOf(raw);
+  if (link) { row.kind = link.kind; row.refId = link.refId; }
+  return row;
+}
+
+// What a row points at, or null for a plain hand-typed row. `kind` decides where
+// refId is looked up — an ingredient in Orders, or another recipe in this
+// catalogue — and defaults to 'ingredient', which is what every link written by
+// the current editor is unless it says otherwise.
+export const ROW_KINDS = Object.freeze(['ingredient', 'recipe']);
+
+export function linkOf(raw) {
+  const refId = raw && raw.refId != null ? String(raw.refId).trim() : '';
+  if (!refId) return null;
+  const kind = ROW_KINDS.includes(raw.kind) ? raw.kind : 'ingredient';
+  return { kind, refId };
 }
 
 function normalizeIngredients(list) {
@@ -73,7 +103,24 @@ export function normalizeCatalogueRecipe(raw) {
     id: raw.id != null ? String(raw.id) : '',
     name: String(raw.name != null ? raw.name : '').trim(),
     ingredients: normalizeIngredients(raw.ingredients),
+    lossPct: normalizeLossPct(raw.lossPct),
   };
+}
+
+// How much weight this recipe loses on the way to being finished — evaporation in
+// the oven, mostly. 0 by default, which is what every recipe written before this
+// field existed means: nothing is assumed to be lost unless somebody says so.
+//
+// ⚠️ CAPPED AT 99, AND THE CAP IS LOAD-BEARING. The yield weight is the divisor of
+// the price per kilo, so a loss of 100 would divide by zero and a recipe would cost
+// Infinity per kilo — shown, and carried into every product built on it. Nothing
+// real loses all of its weight.
+export const MAX_LOSS_PCT = 99;
+
+export function normalizeLossPct(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(n, MAX_LOSS_PCT);
 }
 
 // A list of catalogue recipes, dropping junk entries.
