@@ -946,6 +946,40 @@ input.ing-stock {
 .mgmt-form .mgmt-input:focus,
 .mgmt-days-row .mgmt-input:focus { outline: none; border-color: var(--accent); }
 
+/* ── The price block in the ingredient form ────────────────────────────────────
+   The live answer to "what does a kilo of this cost", under the boxes it is
+   derived from, so a misplaced decimal point is visible BEFORE Save rather than
+   after. tabular-nums so the digits line up while they are being typed. */
+.mgmt-price-summary {
+  font-family: 'DM Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+/* Nothing is wrong when there is no price yet — most ingredients start this way —
+   so the "no price" state is quiet, not a warning. */
+.mgmt-price-summary.muted { color: var(--text3); }
+
+.mgmt-price-history { display: flex; flex-direction: column; gap: 6px; }
+.mgmt-price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: 'DM Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.mgmt-price-row:last-child { border-bottom: none; }
+.mgmt-price-rate { color: var(--text); font-weight: 600; }
+.mgmt-price-when { color: var(--text3); flex-shrink: 0; }
+
 /* A number and its unit on one line. The box is sized for three digits — full width
    would read as a text field and invite a sentence. */
 .mgmt-days-row { display: flex; align-items: center; gap: 8px; }
