@@ -1,0 +1,349 @@
+// foodcost-editor.js — one product, on one page.
+//
+// ONE PAGE, NOT A WIZARD (the design's decision): the fields that only apply to
+// one way of selling appear and disappear with the choice, rather than the product
+// being built through a sequence nobody can go back through.
+//
+// The editing pattern is the app's own (P20): work on a COPY, nothing touches the
+// stored product until Save, Save is confirmed, the required field is validated
+// before saving, Delete is low-key and confirmed, and leaving with unsaved edits
+// asks first.
+
+import { el } from './dom.js';
+import {
+  VAT_RATES, SELLING_MODES, costProduct, BLOCKER_TEXT, statusFor,
+  snapshotWorthTaking, productSnapshot, normalizeProduct,
+} from './foodcost-model.js';
+import { CURRENCY, formatRate, formatMoney, pricePerKg } from '../price-model.js';
+import { costRecipe } from '../catalogue/recipe-cost-model.js';
+
+const TRASH_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
+
+const STATUS_TEXT = { green: 'On target', amber: 'Slightly over target', red: 'Over target' };
+
+export function renderEditor({ product, app }) {
+  // A working COPY. Nothing reaches the stored product until Save.
+  const working = product
+    ? JSON.parse(JSON.stringify(normalizeProduct(product)))
+    : {
+      id: null, name: '', components: [], packaging: [],
+      sellingMode: null, piecesPerBatch: null, sellingPrice: null,
+      vatRate: null, foodCostTarget: null,
+    };
+
+  let dirty = false;
+  let busy = false;
+  let showErrors = false;
+  const markDirty = () => { dirty = true; };
+
+  // ── The answer, live ───────────────────────────────────────────────────────
+  const answer = el('div', { class: 'fc-answer' });
+
+  function paintAnswer() {
+    const result = costProduct(working, app.tables());
+    answer.replaceChildren();
+
+    if (result.foodCostPct === null) {
+      answer.className = 'fc-answer muted';
+      answer.appendChild(el('p', { class: 'fc-answer-none', text: 'Not costed yet' }));
+      // Everything still missing, in the order a person would fill it in — not
+      // just the first one, so the screen is a checklist rather than a drip-feed.
+      const list = el('ul', { class: 'fc-blockers' });
+      result.blockers.forEach(key => {
+        list.appendChild(el('li', { text: BLOCKER_TEXT[key] || key }));
+      });
+      answer.appendChild(list);
+      return;
+    }
+
+    const status = result.status;
+    answer.className = `fc-answer ${status || 'none'}`;
+    answer.appendChild(el('div', { class: 'fc-answer-head' }, [
+      el('span', { class: 'fc-answer-label', text: 'Food cost' }),
+      el('span', { class: 'fc-answer-value', text: `${result.foodCostPct}%` }),
+    ]));
+
+    const unit = working.sellingMode === 'weight' ? 'per kg' : 'per piece';
+    answer.appendChild(el('p', { class: 'fc-answer-basis', text:
+      `${formatRate(result.unitCost)} to make ${unit}  ·  ${formatMoney(result.netUnitPrice)} net  ·  ${formatMoney(result.margin)} margin` }));
+
+    if (status) answer.appendChild(el('p', { class: 'fc-answer-status', text: STATUS_TEXT[status] }));
+
+    // ⚠️ A PARTIAL COST MUST NEVER LOOK COMPLETE. If a recipe inside this product
+    // is only partly priced, the percentage is real but too LOW — the one
+    // direction a food cost must not be wrong in.
+    if (result.partial) {
+      answer.appendChild(el('p', { class: 'fc-answer-partial', text:
+        'Part of this product is not priced yet, so the real food cost is higher than this.' }));
+    }
+  }
+
+  // ── Name ───────────────────────────────────────────────────────────────────
+  const nameInput = el('input', {
+    id: 'fcName', class: 'fc-input', type: 'text', placeholder: 'Product name',
+    value: working.name, 'aria-label': 'Product name',
+    oninput: e => { working.name = e.target.value; markDirty(); if (showErrors) validateUI(); },
+  });
+
+  // ── What it is made of ─────────────────────────────────────────────────────
+  const componentRows = el('div', { class: 'fc-rows' });
+  const packagingRows = el('div', { class: 'fc-rows' });
+
+  function lineRow({ list, index, entry, kind }) {
+    const isRecipe = kind === 'recipe';
+    const options = isRecipe ? app.recipeOptions() : app.packagingOptions();
+    const idKey = isRecipe ? 'recipeId' : 'ingredientId';
+    const qtyKey = isRecipe ? 'qtyKg' : 'qtyPcs';
+
+    const select = el('select', {
+      class: 'fc-input fc-select', 'aria-label': isRecipe ? 'Recipe' : 'Packaging item',
+      onchange: e => { entry[idKey] = e.target.value; markDirty(); repaint(); },
+    }, [
+      el('option', { value: '' }, isRecipe ? '— Choose a recipe —' : '— Choose an item —'),
+      ...options.map(o => el('option', { value: o.id }, o.label)),
+    ]);
+    select.value = entry[idKey] || '';
+
+    const qty = el('input', {
+      class: 'fc-input fc-qty', type: 'number', min: '0', step: 'any',
+      inputmode: 'decimal', placeholder: '0', value: entry[qtyKey] || '',
+      'aria-label': isRecipe ? 'Kilos' : 'Pieces',
+      oninput: e => { entry[qtyKey] = Number(e.target.value) || 0; markDirty(); repaint(); },
+    });
+
+    const remove = el('button', {
+      class: 'fc-del-icon', type: 'button', icon: TRASH_SVG,
+      'aria-label': isRecipe ? 'Remove recipe' : 'Remove packaging item',
+      onclick: () => { list.splice(index, 1); markDirty(); repaint(); },
+    });
+
+    // What this line costs, under it — the number that shows WHICH line is heavy.
+    const note = el('p', { class: 'fc-line-note', text: lineNote(entry, kind) });
+
+    return el('div', { class: 'fc-line' }, [
+      el('div', { class: 'fc-line-row' }, [select, qty, el('span', { class: 'fc-line-unit', text: isRecipe ? 'kg' : 'pcs' }), remove]),
+      note,
+    ]);
+  }
+
+  function lineNote(entry, kind) {
+    if (kind === 'recipe') {
+      const recipe = app.tables().recipes[entry.recipeId];
+      if (!recipe) return entry.recipeId ? 'This recipe no longer exists' : '';
+      const costed = costRecipe(recipe, app.tables());
+      if (costed.pricePerKg === null) return 'This recipe is not priced yet';
+      const line = (Number(entry.qtyKg) || 0) * costed.pricePerKg;
+      return `${formatRate(costed.pricePerKg)} / kg  ·  ${formatMoney(line)}${costed.partial ? '  ·  partly priced' : ''}`;
+    }
+    const ingredient = app.tables().ingredients[entry.ingredientId];
+    if (!ingredient) return entry.ingredientId ? 'This item no longer exists' : '';
+    if (ingredient.priceUnit !== 'pcs') {
+      // Counted in pieces, so it has to be BOUGHT by the piece. Said plainly
+      // rather than silently costing nothing.
+      return 'Priced by weight — set it up as a per-piece price in Orders to count it here';
+    }
+    const each = Number(ingredient.pricePerUnit) || 0;
+    return `${formatRate(each)} each  ·  ${formatMoney((Number(entry.qtyPcs) || 0) * each)}`;
+  }
+
+  function repaintLines() {
+    componentRows.replaceChildren();
+    working.components.forEach((entry, index) => {
+      componentRows.appendChild(lineRow({ list: working.components, index, entry, kind: 'recipe' }));
+    });
+    packagingRows.replaceChildren();
+    working.packaging.forEach((entry, index) => {
+      packagingRows.appendChild(lineRow({ list: working.packaging, index, entry, kind: 'packaging' }));
+    });
+  }
+
+  // ── How it is sold ─────────────────────────────────────────────────────────
+  const modeSelect = el('select', {
+    id: 'fcMode', class: 'fc-input', 'aria-label': 'How it is sold',
+    onchange: e => {
+      working.sellingMode = e.target.value || null;
+      markDirty();
+      repaint();
+    },
+  }, [
+    el('option', { value: '' }, '— Choose —'),
+    el('option', { value: 'piece' }, 'By the piece'),
+    el('option', { value: 'weight' }, 'By weight (per kg)'),
+  ]);
+  modeSelect.value = working.sellingMode || '';
+
+  const piecesInput = numberInput('fcPieces', 'How many pieces come out of one batch',
+    working.piecesPerBatch, v => { working.piecesPerBatch = v; });
+  const piecesField = field('Pieces per batch', piecesInput,
+    'How many finished pieces one batch of the recipes above makes.');
+
+  // ⚠️ GROSS, and the label says so. The number typed here is the one on the
+  // label; the app takes the VAT out before working out the food cost.
+  const priceInput = numberInput('fcPrice', 'Selling price including VAT',
+    working.sellingPrice, v => { working.sellingPrice = v; });
+
+  // A dropdown of the UK rates plus a free field, because which rate applies to a
+  // bakery product is a question for an accountant, not for this app.
+  const vatSelect = el('select', {
+    id: 'fcVat', class: 'fc-input', 'aria-label': 'VAT rate',
+    onchange: e => {
+      const value = e.target.value;
+      working.vatRate = value === 'other' ? working.vatRate : (value === '' ? null : Number(value));
+      vatOther.hidden = value !== 'other';
+      markDirty();
+      repaint();
+    },
+  }, [
+    el('option', { value: '' }, '— Choose —'),
+    ...VAT_RATES.map(rate => el('option', { value: String(rate) },
+      rate === 20 ? '20% — standard' : rate === 5 ? '5% — reduced' : '0% — zero-rated')),
+    el('option', { value: 'other' }, 'Another rate…'),
+  ]);
+  const vatOther = numberInput('fcVatOther', 'Another VAT rate, as a percentage',
+    null, v => { working.vatRate = v; });
+  vatOther.hidden = true;
+  if (working.vatRate !== null && !VAT_RATES.includes(working.vatRate)) {
+    vatSelect.value = 'other';
+    vatOther.value = String(working.vatRate);
+    vatOther.hidden = false;
+  } else if (working.vatRate !== null) {
+    vatSelect.value = String(working.vatRate);
+  }
+
+  const targetInput = numberInput('fcTarget', 'Food cost target, as a percentage',
+    working.foodCostTarget, v => { working.foodCostTarget = v; });
+
+  function numberInput(id, label, value, set) {
+    return el('input', {
+      id, class: 'fc-input fc-number', type: 'number', min: '0', step: 'any',
+      inputmode: 'decimal', placeholder: '0', 'aria-label': label,
+      value: value === null || value === undefined ? '' : String(value),
+      oninput: e => {
+        const raw = e.target.value;
+        set(raw === '' ? null : Number(raw));
+        markDirty();
+        repaint();
+      },
+    });
+  }
+
+  function field(labelText, input, note) {
+    return el('div', { class: 'fc-field' }, [
+      el('label', { class: 'fc-label', for: input.id, text: labelText }),
+      input,
+      note ? el('p', { class: 'fc-note', text: note }) : null,
+    ]);
+  }
+
+  function repaint() {
+    // The pieces field only exists for something sold by the piece; for something
+    // sold by weight it is not merely irrelevant, it is a number that would mean
+    // nothing and invite being filled in.
+    piecesField.hidden = working.sellingMode !== 'piece';
+    repaintLines();
+    paintAnswer();
+  }
+
+  function validateUI() {
+    nameInput.classList.toggle('fc-invalid', showErrors && !String(working.name || '').trim());
+  }
+
+  // ── Save / delete ──────────────────────────────────────────────────────────
+  async function onSave() {
+    if (busy) return;
+    // The ONE required field. Everything else may be missing — the answer panel
+    // says what, and refusing the save would mean losing the work.
+    if (!String(working.name || '').trim()) {
+      showErrors = true;
+      validateUI();
+      nameInput.focus();
+      app.toast('Please enter a product name.');
+      return;
+    }
+
+    busy = true;
+    const ok = await app.confirm({ title: 'Save product?', message: 'Save these changes?', okLabel: 'Save' });
+    if (!ok) { busy = false; return; }
+
+    const clean = { ...working, name: String(working.name).trim() };
+    // A margin is recorded only when the PRICE or the COMPOSITION changed, and only
+    // when there is a real answer to record. Renaming a product records nothing —
+    // a history of non-events cannot answer "when did this change?".
+    const result = costProduct(clean, app.tables());
+    const snapshot = result.foodCostPct !== null && snapshotWorthTaking(product, clean)
+      ? productSnapshot(clean, result, new Date().toISOString(), app.tables())
+      : null;
+
+    dirty = false;
+    app.saveProduct(clean, snapshot);
+    app.toast(product ? 'Product saved.' : 'Product added.');
+    app.showList();
+  }
+
+  async function onDelete() {
+    if (busy) return;
+    busy = true;
+    const ok = await app.confirm({
+      title: 'Delete product?',
+      message: `Delete "${product.name || 'this product'}"? This cannot be undone, and its margin history goes with it.`,
+      okLabel: 'Delete', danger: true,
+    });
+    if (!ok) { busy = false; return; }
+    dirty = false;
+    app.deleteProduct(product.id);
+    app.toast('Product deleted.');
+    app.showList();
+  }
+
+  app.setLeaveGuard(async () => {
+    if (!dirty) return true;
+    return app.confirm({
+      title: 'Discard changes?', message: 'You have unsaved changes. Discard them?',
+      okLabel: 'Discard', danger: true,
+    });
+  });
+
+  const historyBtn = product
+    ? el('button', { class: 'fc-link', type: 'button', text: 'Margin history',
+      onclick: () => app.openHistory(product) })
+    : null;
+
+  repaint();
+
+  return el('div', { class: 'fc-view fc-editor' }, [
+    answer,
+
+    field('Name', nameInput),
+
+    el('h2', { class: 'fc-section', text: 'Made of' }),
+    componentRows,
+    el('button', { class: 'fc-add-row', type: 'button', text: '+ Add recipe',
+      onclick: () => { working.components.push({ recipeId: '', qtyKg: 0 }); markDirty(); repaint(); } }),
+
+    el('h2', { class: 'fc-section', text: 'Packaging' }),
+    packagingRows,
+    el('button', { class: 'fc-add-row', type: 'button', text: '+ Add packaging',
+      onclick: () => { working.packaging.push({ ingredientId: '', qtyPcs: 0 }); markDirty(); repaint(); } }),
+    el('p', { class: 'fc-note', text:
+      'Boxes, bags, ribbon — anything bought by the piece. It adds cost but no weight.' }),
+
+    el('h2', { class: 'fc-section', text: 'How it is sold' }),
+    field('Sold', modeSelect),
+    piecesField,
+    field(`Selling price, including VAT (${CURRENCY})`, priceInput,
+      'The price on the label. The app takes the VAT off before working out the food cost.'),
+    field('VAT rate', vatSelect),
+    vatOther,
+    field('Food cost target (%)', targetInput,
+      'The share of the net price you want the ingredients to be. Leave empty for no target.'),
+
+    el('div', { class: 'fc-actions' }, [
+      el('button', { class: 'fc-save', type: 'button', text: 'Save', onclick: onSave }),
+      historyBtn,
+      product ? el('button', { class: 'fc-delete', type: 'button', onclick: onDelete }, [
+        el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }), 'Delete product',
+      ]) : null,
+    ]),
+  ]);
+}

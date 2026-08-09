@@ -18,7 +18,7 @@ import {
 
 // ── Sections: default ALLOWED ────────────────────────────────────────────────
 
-const ALL_ON = { orders: true, calculator: true, catalogue: true, pastries: true };
+const ALL_ON = { orders: true, calculator: true, catalogue: true, pastries: true, foodcost: true };
 
 test('no location document: every section stays available', () => {
   assert.deepEqual(allowedSections(null), ALL_ON);
@@ -30,9 +30,9 @@ test('a document without the field: every section stays available', () => {
 });
 
 test('only an explicit false hides a section', () => {
-  const doc = { sections: { orders: true, calculator: false, catalogue: false, pastries: false } };
+  const doc = { sections: { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false } };
   assert.deepEqual(allowedSections(doc),
-    { orders: true, calculator: false, catalogue: false, pastries: false });
+    { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false });
   assert.equal(isSectionAllowed(doc, 'orders'), true);
   assert.equal(isSectionAllowed(doc, 'calculator'), false);
 });
@@ -65,6 +65,14 @@ test('a venue set up before a section existed still gets it — a missing key me
     sections: { orders: true, calculator: false, catalogue: false, pastries: false },
   };
   assert.equal(isSectionAllowed(afterTheConsoleEdit, 'pastries'), false);
+
+  // Food Cost is the newest one, and the same thing is true of it: every location
+  // document in production predates it, so every venue gets it until somebody
+  // types the false in. The restaurant is the one that must not have it.
+  assert.equal(allowedSections(afterTheConsoleEdit).foodcost, true);
+  assert.equal(isSectionAllowed({
+    sections: { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false },
+  }, 'foodcost'), false);
 });
 
 test('an unknown section name in the document is ignored, not rendered', () => {
@@ -81,16 +89,16 @@ test('an unknown section name in the document is ignored, not rendered', () => {
 
 test('a trailing space in the sections field name does not silently void it', () => {
   const out = allowedSections({
-    'sections ': { orders: true, calculator: false, catalogue: false, pastries: false },
+    'sections ': { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false },
   });
-  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false, pastries: false });
+  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false });
 });
 
 test('a trailing space in a section name does not silently void it', () => {
   const out = allowedSections({
-    sections: { orders: true, 'calculator ': false, ' catalogue': false, 'pastries ': false },
+    sections: { orders: true, 'calculator ': false, ' catalogue': false, 'pastries ': false, 'foodcost ': false },
   });
-  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false, pastries: false });
+  assert.deepEqual(out, { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false });
 });
 
 test('the exact name always wins over a spaced one, so it is never ambiguous', () => {

@@ -1,0 +1,102 @@
+<!--
+  THE ITALIAN CLUB PWA — Food cost
+  Finished products: what each one costs to make, what share of its price that
+  is, and whether it is inside its target. Costs come from the recipes in the
+  catalogue, which in turn come from the prices entered in Orders.
+  All logic lives in js/foodcost/* (loaded via foodcost-main.js).
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--
+  CSP bootstrap. A <meta> Content-Security-Policy cannot be loosened at runtime
+  (multiple policies combine by intersection), so to allow the LOCAL Firebase
+  emulator on localhost WITHOUT touching the live site's policy, the meta is
+  emitted here. On the live domain the string is byte-identical to the production
+  policy; on localhost only, connect-src additionally allows the Auth (9099) and
+  Firestore (8080) emulators. This inline script runs before any CSP is in effect
+  (only <meta charset> precedes it) and before any network request.
+-->
+<script>
+(function () {
+  var local = ['localhost', '127.0.0.1', '::1', '[::1]'].indexOf(location.hostname) !== -1;
+  var emu = local
+    ? ' http://localhost:8080 http://localhost:9099 http://127.0.0.1:8080 http://127.0.0.1:9099'
+    : '';
+  document.write(
+    '<meta http-equiv="Content-Security-Policy" content="' +
+    "default-src 'self'; " +
+    "script-src 'self' https://www.gstatic.com https://www.google.com; " +
+    "connect-src 'self' https://www.gstatic.com https://www.google.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "frame-src 'self' https://www.google.com; " +
+    "img-src 'self' data:; " +
+    "style-src 'self'; " +
+    "font-src 'self'; " +
+    "base-uri 'self'; " +
+    "form-action 'self'" +
+    '">'
+  );
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Food cost for The Italian Club — what each product costs to make and what it earns.">
+<meta name="theme-color" content="#2D5016">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Italian Club">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="auth.css">
+<link rel="stylesheet" href="foodcost.css">
+<title>Food cost — The Italian Club</title>
+</head>
+<body data-section="foodcost">
+<!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
+     paint: the app must never flash a location's data at whoever is holding
+     the phone. js/auth-gate.js fills it in and removes it once a location is
+     open.
+
+     ⚠️ NOTHING BETWEEN THE TAGS. tokens.css styles `.auth-gate:empty` as the
+     page background and the non-empty one as the green sign-in screen, so a
+     newline or a comment in here brings back the full-green flash on every
+     navigation that v1.21.1 fixed. -->
+<div id="auth-gate" class="auth-gate"></div>
+
+<!-- Three fixed tracks (left slot · title · right slot) so the title is TRULY
+     centred: only one button of each slot is ever visible, and an empty slot must
+     still hold its column or the title drifts off-centre. The right slot is empty
+     here — adding a product is a button in the list, not in the header, because
+     this screen is read far more often than it is added to. -->
+<header class="fc-header">
+  <span class="fc-header-slot">
+    <a class="fc-icon-btn" id="fcHome" href="index.html" aria-label="Back">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <button class="fc-icon-btn" id="fcBack" aria-label="Back" hidden>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+  </span>
+  <div class="fc-header-title">
+    <h1 id="fcTitle">Food cost</h1>
+    <p id="fcSub">Products and margins</p>
+  </div>
+  <span class="fc-header-slot"></span>
+</header>
+
+<main class="fc-screen" id="fcScreen"></main>
+
+<!-- The confirm dialog is built on demand by js/foodcost/confirm-dialog.js
+     (the shared .app-dialog-* component), so no static markup is needed. -->
+
+<div class="fc-toast" id="fcToast"></div>
+
+<script type="module" src="js/auth-gate.js"></script>
+<script type="module" src="js/sw-update.js"></script>
+<script type="module" src="js/idle-reset.js"></script>
+<script type="module" src="js/foodcost/foodcost-main.js"></script>
+</body>
+</html>

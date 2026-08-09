@@ -1,0 +1,297 @@
+/* foodcost.css — the Food Cost screen.
+   Every value comes from tokens.css, the app's one source of colour, type,
+   spacing, radius and shadow (CLAUDE.md, "UI consistency"). Nothing here defines
+   a colour of its own; the local --fc-* names are aliases onto the shared tokens,
+   the same shape catalogue.css uses. */
+:root {
+  --fc-ground:    var(--bg);
+  --fc-surface:   var(--surface);
+  --fc-surface-2: var(--surface-2);
+  --fc-brand:     var(--brand);
+  --fc-brand-ink: var(--on-brand);
+  --fc-accent:    var(--accent-2);
+  --fc-text:      var(--text);
+  --fc-text-2:    var(--text-2);
+  --fc-text-3:    var(--text-3);
+  --fc-border:    var(--border);
+  --fc-danger:    var(--danger);
+  --fc-warn:      var(--warn);
+  --fc-radius:    var(--radius);
+  --fc-font:      var(--font);
+  --fc-font-mono: var(--font-mono);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--fc-font);
+  color: var(--fc-text);
+  background: var(--fc-ground);
+  /* The app shell is pinned: green to the top edge, and the page itself cannot be
+     dragged. Only .fc-screen scrolls — see the min-height note there. */
+  position: fixed;
+  inset: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: none;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────
+   Back on the LEFT, title CENTRED, a matching slot on the right so the title
+   cannot drift off centre when one side is empty (CLAUDE.md, header spec). */
+.fc-header {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+  background: var(--fc-brand);
+  color: var(--fc-brand-ink);
+}
+.fc-header-slot { display: flex; align-items: center; justify-content: center; }
+.fc-icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid var(--rim);
+  background: var(--rim-bg);
+  color: inherit;
+  cursor: pointer;
+}
+.fc-icon-btn:hover { background: var(--rim-bg-hover); }
+.fc-icon-btn:active { background: var(--rim-bg-active); }
+/* The app's green focus ring is invisible on the green header, so the ring here
+   is the on-brand ink instead. */
+.fc-icon-btn:focus-visible { outline: 2px solid var(--fc-brand-ink); outline-offset: 2px; }
+.fc-icon-btn[hidden] { display: none; }
+.fc-header-title { min-width: 0; text-align: center; }
+.fc-header-title h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.fc-header-title p { margin: 2px 0 0; font-size: 11px; opacity: .8; font-family: var(--fc-font-mono); }
+
+/* min-height:0 is load-bearing: as a flex child without it, iOS miscomputes the
+   height and momentum scrolling freezes or snaps to the top (the v185 fix). */
+.fc-screen {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 14px calc(24px + env(safe-area-inset-bottom));
+}
+
+.fc-view { display: flex; flex-direction: column; gap: 12px; }
+.fc-view:focus { outline: none; }
+.fc-empty { text-align: center; color: var(--fc-text-3); font-size: .88rem; padding: 28px 8px; }
+.fc-note { font-size: .74rem; color: var(--fc-text-2); margin: 0; }
+.fc-section { font-size: .82rem; font-weight: 600; margin: 10px 0 0; color: var(--fc-text); }
+
+/* ── The list ──────────────────────────────────────────────────────────────
+   Worst margin first. Each row is one line of figures and one line of words, so
+   every card is the same height and the list stays scannable. */
+.fc-list { display: flex; flex-direction: column; gap: 8px; }
+.fc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--fc-border);
+  border-radius: var(--fc-radius);
+  background: var(--fc-surface);
+  cursor: pointer;
+}
+.fc-row:active { transform: scale(.97); }
+.fc-row:focus-visible { outline: 2px solid var(--fc-accent); outline-offset: 2px; }
+.fc-row.incomplete { opacity: .75; }
+.fc-row-main { min-width: 0; flex: 1; }
+.fc-row-name { display: block; font-size: .96rem; font-weight: 600; color: var(--fc-text); }
+.fc-row-sub { display: block; margin-top: 3px; font-size: .72rem; color: var(--fc-text-2); font-family: var(--fc-font-mono); }
+.fc-row-figure { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.fc-pct { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fc-pct-none { color: var(--fc-text-3); font-weight: 400; }
+
+/* The traffic light. It is a dot AND a word on the row beside it: colour alone is
+   not a signal everyone can read (P18). */
+.fc-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.fc-dot.green { background: var(--fc-brand); }
+.fc-dot.amber { background: var(--fc-warn); }
+.fc-dot.red { background: var(--fc-danger); }
+.fc-dot.none { background: var(--fc-border); }
+
+.fc-add, .fc-add-row {
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--fc-border);
+  border-radius: var(--fc-radius);
+  background: none;
+  color: var(--fc-text-2);
+  font-family: var(--fc-font);
+  font-size: .88rem;
+  cursor: pointer;
+}
+.fc-add:active, .fc-add-row:active { transform: scale(.97); }
+
+/* ── The answer panel ──────────────────────────────────────────────────────
+   Pinned at the top of the product screen, because it is the reason the screen
+   exists: every field below it changes this number. */
+.fc-answer {
+  padding: 14px;
+  border: 1px solid var(--fc-border);
+  border-left-width: 4px;
+  border-radius: var(--fc-radius);
+  background: var(--fc-surface);
+}
+.fc-answer.green { border-left-color: var(--fc-brand); }
+.fc-answer.amber { border-left-color: var(--fc-warn); }
+.fc-answer.red { border-left-color: var(--fc-danger); }
+.fc-answer.muted, .fc-answer.none { border-left-color: var(--fc-border); }
+.fc-answer-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.fc-answer-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--fc-text-2); font-family: var(--fc-font-mono); }
+.fc-answer-value { font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fc-answer-basis { margin: 6px 0 0; font-size: .74rem; color: var(--fc-text-2); font-family: var(--fc-font-mono); }
+.fc-answer-status { margin: 6px 0 0; font-size: .8rem; font-weight: 600; }
+.fc-answer.green .fc-answer-status { color: var(--fc-brand); }
+.fc-answer.amber .fc-answer-status { color: var(--fc-warn); }
+.fc-answer.red .fc-answer-status { color: var(--fc-danger); }
+/* A partial cost is always LOWER than the truth, so this warning is the one thing
+   on the screen that must never be missed. */
+.fc-answer-partial { margin: 8px 0 0; font-size: .78rem; color: var(--fc-warn); }
+.fc-answer-none { margin: 0; font-size: .95rem; font-weight: 600; color: var(--fc-text-2); }
+.fc-blockers { margin: 8px 0 0; padding-left: 18px; font-size: .78rem; color: var(--fc-text-2); }
+.fc-blockers li { margin-top: 3px; }
+
+/* ── Fields ────────────────────────────────────────────────────────────────
+   Every control in this screen is a fixed 44px tall with the same padding and
+   type size. ⚠️ A FIXED HEIGHT, not a min-height: a <select> on iOS sizes itself
+   from its own metrics and grows straight past a MINIMUM, so the selects stood
+   taller than the text fields on the phone while measuring identical on the
+   desktop (the v236 lesson). */
+.fc-field { display: flex; flex-direction: column; gap: 6px; }
+.fc-label { font-size: .78rem; color: var(--fc-text-2); font-weight: 500; }
+.fc-field[hidden] { display: none; }
+.fc-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1.5px solid var(--fc-border);
+  border-radius: var(--radius-sm);
+  background: var(--fc-surface);
+  color: var(--fc-text);
+  font-family: var(--fc-font);
+  font-size: 15px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.fc-input:focus { outline: none; border-color: var(--fc-accent); }
+.fc-invalid { border-color: var(--fc-danger); }
+.fc-number { font-variant-numeric: tabular-nums; }
+/* A native select needs its own arrow back once appearance is stripped. */
+.fc-select, select.fc-input { padding-right: 30px; background-repeat: no-repeat; background-position: right 10px center; }
+
+/* ── Composition lines ─────────────────────────────────────────────────────
+   The chooser takes the width, the quantity is sized for three digits, and what
+   the line costs sits UNDER it — at 296px there is no room for a fourth column,
+   and the cost is what shows which line is the heavy one. */
+.fc-rows { display: flex; flex-direction: column; gap: 10px; }
+.fc-line { border: 1px solid var(--fc-border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--fc-surface); }
+.fc-line-row { display: flex; align-items: center; gap: 8px; }
+.fc-line-row .fc-select { flex: 1; min-width: 0; }
+.fc-qty { width: 4.6rem; flex-shrink: 0; text-align: right; }
+.fc-line-unit { font-size: .8rem; color: var(--fc-text-2); flex-shrink: 0; }
+.fc-line-note { margin: 6px 0 0; font-size: .72rem; color: var(--fc-text-2); font-family: var(--fc-font-mono); }
+.fc-del-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  color: var(--fc-text-3);
+  cursor: pointer;
+}
+.fc-del-icon:hover { color: var(--fc-danger); }
+.fc-del-icon:focus-visible { outline: 2px solid var(--fc-accent); outline-offset: 2px; }
+
+/* ── Actions. Save is prominent, Delete is low-key (P20). ─────────────────── */
+.fc-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.fc-save {
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--fc-radius);
+  background: var(--fc-brand);
+  color: var(--fc-brand-ink);
+  font-family: var(--fc-font);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fc-save:active { transform: scale(.97); }
+.fc-link {
+  align-self: center;
+  border: 0;
+  background: none;
+  color: var(--crust-ink);
+  font-family: var(--fc-font);
+  font-size: .88rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fc-delete {
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: var(--fc-danger);
+  font-family: var(--fc-font);
+  font-size: .84rem;
+  cursor: pointer;
+}
+/* An SVG in a <span> is an inline box and rests on the text BASELINE, ~2px below
+   the centre line — the most common alignment bug in this app (PR #31). The
+   wrapper needs the flex row too, not just the button. */
+.fc-delete span { display: flex; align-items: center; }
+
+/* ── Margin history ───────────────────────────────────────────────────────── */
+.fc-hist-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--fc-border);
+  font-family: var(--fc-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.fc-hist-pct { font-size: 1rem; font-weight: 600; flex-shrink: 0; }
+.fc-hist-detail { flex: 1; min-width: 0; font-size: .72rem; color: var(--fc-text-2); }
+.fc-hist-when { font-size: .72rem; color: var(--fc-text-3); flex-shrink: 0; }
+
+/* ── Toast ────────────────────────────────────────────────────────────────── */
+.fc-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(26px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(20px);
+  background: var(--fc-text);
+  color: var(--fc-ground);
+  padding: 11px 18px;
+  border-radius: 999px;
+  font-size: .9rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+  z-index: 40;
+  max-width: 90vw;
+  text-align: center;
+}
+.fc-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

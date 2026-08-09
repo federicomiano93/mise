@@ -1112,6 +1112,14 @@ async function products() {
   await expectDenied('a snapshot with no frozen prices', () => {
     const s2 = snap(); delete s2.frozenPrices; return createWrite(SNAPS, s2);
   });
+  // Added after a mutation test came back GREEN: relaxing the frozen rate's range
+  // broke nothing, which meant the guard was not tested at all. A run that stays
+  // green after a real mutation proves the check is missing, not that it is safe.
+  await expectDenied('a snapshot with a negative VAT rate', () => createWrite(SNAPS, snap({ vatRate: -20 })));
+  await expectDenied('a snapshot with a VAT rate above 100', () => createWrite(SNAPS, snap({ vatRate: 120 })));
+  await expectDenied('a snapshot with a negative cost', () => createWrite(SNAPS, snap({ unitCost: -1 })));
+  await expectDenied('a snapshot with a selling mode nobody writes', () =>
+    createWrite(SNAPS, snap({ sellingMode: 'pezzo' })));
   await expectDenied('an unknown key on a snapshot', () => createWrite(SNAPS, snap({ evil: 'x' })));
   await expectDenied('a snapshot stamped for another location', () =>
     createWrite(SNAPS, snap({ bakery: 'trattoria-x' })));
