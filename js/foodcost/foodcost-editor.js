@@ -311,7 +311,7 @@ export function renderEditor({ product, app }) {
 
   repaint();
 
-  return el('div', { class: 'fc-view fc-editor' }, [
+  const root = el('div', { class: 'fc-view fc-editor' }, [
     answer,
 
     field('Name', nameInput),
@@ -346,4 +346,24 @@ export function renderEditor({ product, app }) {
       ]) : null,
     ]),
   ]);
+
+  return {
+    root,
+    // ⚠️ WITHOUT THIS THE CHOOSERS ARE BUILT ONCE, FROM WHATEVER HAD ARRIVED.
+    // The recipe and ingredient listeners are still in flight while this screen is
+    // being opened — on a cold start, offline, or a slow network — so "+ Add
+    // recipe" could produce a menu with nothing in it, and it would STAY empty for
+    // as long as the screen was open. The only way to see the recipes would be to
+    // leave and come back.
+    //
+    // The rows are left alone while somebody is typing in one of them: rebuilding
+    // an input under the finger loses the focus and the half-typed number. The
+    // answer panel is always safe to repaint — it holds no input.
+    refreshData() {
+      const typing = componentRows.contains(document.activeElement)
+        || packagingRows.contains(document.activeElement);
+      if (!typing) repaintLines();
+      paintAnswer();
+    },
+  };
 }

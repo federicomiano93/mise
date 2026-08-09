@@ -28,6 +28,7 @@ const backBtn = document.getElementById('fcBack');
 
 let view = 'list';
 let activeList = null;
+let activeEditor = null;
 let currentProduct = null;
 let leaveGuard = null;
 
@@ -47,6 +48,7 @@ function swap(node) {
 
 function showList() {
   view = 'list';
+  activeEditor = null;
   currentProduct = null;
   leaveGuard = null;
   setHeader({ title: 'Food cost', sub: 'Products and margins', back: false });
@@ -62,12 +64,14 @@ function openProduct(product) {
   currentProduct = product;
   leaveGuard = null;
   setHeader({ title: product ? (product.name || 'Product') : 'New product', sub: 'Food cost', back: true });
-  swap(renderEditor({ product, app }));
+  activeEditor = renderEditor({ product, app });
+  swap(activeEditor.root);
 }
 
 // The margin over time. Read on demand, never watched.
 async function openHistory(product) {
   view = 'history';
+  activeEditor = null;
   leaveGuard = null;
   setHeader({ title: 'Margin history', sub: product.name || 'Product', back: true });
 
@@ -175,7 +179,12 @@ backBtn.addEventListener('click', handleBack);
 setSyncErrorHandler(msg => toast(msg));
 
 initFoodCost(
-  () => { if (view === 'list' && activeList) activeList.refresh(getProducts(), tables()); },
+  () => {
+    if (view === 'list' && activeList) activeList.refresh(getProducts(), tables());
+    // A product on screen picks up the recipes and prices as they arrive, and any
+    // change made on another phone, without losing the edit in progress.
+    if (view === 'editor' && activeEditor) activeEditor.refreshData();
+  },
   () => toast('Live sync interrupted — products may be out of date.'),
 );
 

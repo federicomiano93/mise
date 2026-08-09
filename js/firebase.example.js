@@ -468,6 +468,18 @@ export function saveCalculatorConfig(config) {
 // weekStart, every supplier merged) are still read and still counted — nothing was
 // migrated.
 //
+// FOOD COST. locations/{lid}/products/{id} is a finished product — kilos of
+// recipes plus packaging counted in pieces — with the price it sells for and the
+// food-cost target it is measured against. The selling price is stored GROSS (the
+// number on the label) with its own vatRate beside it, and the food cost is worked
+// out on the NET price; storing it net instead would make every past margin wrong
+// the day a rate changes. `products/{id}/snapshots/{autoId}` is the append-only
+// margin series, taken when the price or the composition changes, and it FREEZES
+// the VAT rate and the ingredient prices of the moment.
+//
+// ⚠️ vatRate may legitimately be 0 — most takeaway bakery in the UK is zero-rated.
+// Anything treating 0 as "not filled in" refuses to cost the bakery's main line.
+//
 // RECIPE COSTING. locations/{lid}/recipes/{id} gained `lossPct` (the weight the
 // recipe loses while cooking) and each ingredient row may carry `kind`
 // ('ingredient' | 'recipe') + `refId`. A linked row contributes both its cost and
