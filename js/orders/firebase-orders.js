@@ -33,8 +33,11 @@ import {
   deleteField,
   onSnapshot,
   runTransaction,
+  writeBatch,
   query,
   where,
+  orderBy,
+  limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Reuse the default app if firebase.js already created it; otherwise create it.
@@ -193,6 +196,60 @@ export async function createDoc(name, data) {
 export async function removeDoc(name, id) {
   await authReady;
   return deleteDoc(doc(db, pathFor(name), id));
+}
+
+// ── Ingredient prices ────────────────────────────────────────────────────────
+// The name of the append-only history that hangs under each ingredient. It is a
+// SUBCOLLECTION, so it never appears in COLLECTIONS above: pathFor() builds a
+// location's top-level collections and refuses a name containing a slash. The
+// path is composed from the ingredient's own document reference instead.
+const PRICES = 'prices';
+
+// Save an ingredient and, when its price actually changed, record that price —
+// as ONE atomic write.
+//
+// ⚠️ THE BATCH IS THE POINT. These are two documents in two different places, and
+// done as two writes the second can fail on its own: the ingredient would then
+// carry a price that the history has no record of, which is precisely the
+// question the history exists to answer. Either both land or neither does.
+//
+// `priceRecord` is null when nothing about the price moved — re-saving an
+// ingredient to fix a typo in its name must not plant a second identical entry,
+// or the history fills with non-events and "when did this go up?" stops being
+// answerable.
+//
+// A new ingredient gets its id here rather than from addDoc(): doc() on a
+// collection mints an id WITHOUT writing anything, which is what lets a brand-new
+// ingredient and its first price go in the same batch. Returns the id either way.
+export async function saveIngredientWithPrice(id, data, priceRecord) {
+  await authReady;
+  const ingredients = collection(db, pathFor(COLLECTIONS.ingredients));
+  const ref = id ? doc(ingredients, id) : doc(ingredients);
+
+  const batch = writeBatch(db);
+  batch.set(ref, withBakery(data), { merge: true });
+  if (priceRecord) batch.set(doc(collection(ref, PRICES)), withBakery(priceRecord));
+  await batch.commit();
+  return ref.id;
+}
+
+// What this ingredient has cost, newest first. Read ON DEMAND — only when someone
+// opens the ingredient — never watched, so an archive that grows for years costs
+// nothing on the screens that do not ask for it (P14).
+//
+// ⚠️ ORDERED BY THE recordedAt FIELD, never by document id. Firestore refuses a
+// descending scan by key, and limitToLast on an ascending key order is rewritten
+// into that same refused query. This project has already lost a release to that
+// exact trap twice.
+export async function getPriceHistory(ingredientId, max = 20) {
+  await authReady;
+  const ref = doc(collection(db, pathFor(COLLECTIONS.ingredients)), ingredientId);
+  const snap = await getDocs(query(
+    collection(ref, PRICES),
+    orderBy('recordedAt', 'desc'),
+    limit(max),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 // One-off read of a single document. Returns { id, ...data } or null.
