@@ -159,6 +159,10 @@ export const FIXTURE = {
       unit: 'casse',
       active: true,
     },
+    // The one seeded ingredient that already carries a PRICE, so a screen that
+    // costs something has something to cost. The other two are deliberately left
+    // unpriced — that is the state every real ingredient starts in, and nothing
+    // migrates them.
     ING_MODERN_2: {
       bakery: 'main',
       name: 'Mozzarella',
@@ -168,6 +172,12 @@ export const FIXTURE = {
       category: 'Dairy',
       unit: 'box',
       active: true,
+      priceUnit: 'kg',
+      pricePerUnit: 6.5,
+      packPrice: 6.5,
+      packSize: 1,
+      unitWeightKg: null,
+      priceUpdatedAt: '2026-08-10T09:00:00.000Z',
     },
   },
   // The draft still carries weekId from the retired weekly model, and holds one

@@ -383,7 +383,14 @@ export function buildManagement(data, actions) {
     const pieceWeight = money(item?.unitWeightKg, 'e.g. 0.055');
 
     const packSizeLabel = el('span', { class: 'mgmt-field-label', text: 'Pack size' });
-    const summary = el('p', { class: 'mgmt-price-summary' });
+    // Two lines, not one. A per-piece price can be perfectly complete as a PRICE
+    // and still be unusable in a recipe written in grams, and a summary that only
+    // showed "£2.10 / each" would look finished while the ingredient silently
+    // stayed out of every cost. The numbers go on top, what is still missing
+    // underneath.
+    const summaryMain = el('span', { class: 'mgmt-price-main' });
+    const summaryNote = el('span', { class: 'mgmt-price-note' });
+    const summary = el('p', { class: 'mgmt-price-summary' }, [summaryMain, summaryNote]);
 
     const pieceField = el('label', { class: 'mgmt-field' }, [
       el('span', { class: 'mgmt-field-label', text: 'Weight of one piece (kg)' }),
@@ -422,7 +429,8 @@ export function buildManagement(data, actions) {
 
       const draft = pricePatch(read(), null);
       if (draft.pricePerUnit === null) {
-        summary.textContent = costReasonText(draft);
+        summaryMain.textContent = costReasonText(draft);
+        summaryNote.textContent = '';
         summary.className = 'mgmt-price-summary muted';
         return;
       }
@@ -432,7 +440,10 @@ export function buildManagement(data, actions) {
       // left to be worked out from a piece weight.
       const parts = [formatPricePerUnit(draft), formatPurchaseForm(draft)];
       if (unit === 'pcs' && perKg !== null) parts.splice(1, 0, `${formatRate(perKg)} / kg`);
-      summary.textContent = parts.filter(Boolean).join('  ·  ');
+      summaryMain.textContent = parts.filter(Boolean).join('  ·  ');
+      // Empty whenever the ingredient IS costable, so the note only ever appears
+      // when there is something left to do.
+      summaryNote.textContent = costReasonText(draft);
       summary.className = 'mgmt-price-summary';
     }
 

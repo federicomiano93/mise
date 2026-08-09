@@ -964,6 +964,15 @@ input.ing-stock {
    so the "no price" state is quiet, not a warning. */
 .mgmt-price-summary.muted { color: var(--text3); }
 
+/* What is still missing, under the numbers. It appears only when the price is
+   complete as a PRICE but the ingredient still cannot be costed — a per-piece
+   price with no piece weight — which otherwise looks finished and silently stays
+   out of every recipe cost. Amber, not red: nothing is wrong, something is
+   unfinished. Empty when there is nothing to say, so :empty removes its gap. */
+.mgmt-price-main { display: block; }
+.mgmt-price-note { display: block; margin-top: 6px; color: var(--warn); }
+.mgmt-price-note:empty { display: none; }
+
 .mgmt-price-history { display: flex; flex-direction: column; gap: 6px; }
 .mgmt-price-row {
   display: flex;

@@ -447,7 +447,12 @@ export function saveCalculatorConfig(config) {
 // bakery: "main" (validated in firestore.rules):
 //   - suppliers/{id}          { name, category, deliveryDays[], orderDays[], phone,
 //                               email, active }
-//   - ingredients/{id}        { name, supplierId, category, unit, active }
+//   - ingredients/{id}        { name, supplierId, category, unit, active,
+//                               priceUnit, pricePerUnit, packPrice, packSize,
+//                               unitWeightKg, priceUpdatedAt }
+//   - ingredients/{id}/prices/{autoId}
+//                             { recordedAt, priceUnit, pricePerUnit, packPrice,
+//                               packSize, unitWeightKg, supplierId, source }
 //   - drafts/current          { entries:{ id:{ qty, stock } },
 //                               days:{ supplierId: 'YYYY-MM-DD' }, updatedAt }
 //   - orders-history/{YYYY-MM-DD}_{supplierId}
@@ -462,6 +467,15 @@ export function saveCalculatorConfig(config) {
 // Documents written by the earlier model (one per ISO week, id "2026-W28", field
 // weekStart, every supplier merged) are still read and still counted — nothing was
 // migrated.
+//
+// PRICES. An ingredient carries what it costs, because in Orders an ingredient
+// document already IS the pairing of a thing with the supplier who sells it, and a
+// price belongs to that pairing rather than to the thing. It is entered as a
+// purchase form — pack price, pack size, unit — and normalised into pricePerUnit;
+// js/orders/price-model.js is the only place that maths lives. Every change also
+// appends to the /prices subcollection, in the SAME atomic write, and that
+// subcollection is create-only in the rules: it is the record the margin history
+// will be rebuilt from, and one that can be edited afterwards answers nothing.
 //
 // ── Push notifications (Firebase Cloud Messaging) — FUTURE / server step ──────
 // Client-side alerts (js/orders/notifications.js) already work while the app is
