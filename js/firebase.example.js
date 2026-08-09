@@ -468,6 +468,14 @@ export function saveCalculatorConfig(config) {
 // weekStart, every supplier merged) are still read and still counted — nothing was
 // migrated.
 //
+// RECIPE COSTING. locations/{lid}/recipes/{id} gained `lossPct` (the weight the
+// recipe loses while cooking) and each ingredient row may carry `kind`
+// ('ingredient' | 'recipe') + `refId`. A linked row contributes both its cost and
+// its weight; an unlinked one contributes NEITHER, so the price per kilo is always
+// the price per kilo of what was actually costed — partial, and flagged as such.
+// The maths is js/catalogue/recipe-cost-model.js. Rules cannot look inside a list,
+// so the row shape is guaranteed by js/catalogue/catalogue-model.js.
+//
 // PRICES. An ingredient carries what it costs, because in Orders an ingredient
 // document already IS the pairing of a thing with the supplier who sells it, and a
 // price belongs to that pairing rather than to the thing. It is entered as a

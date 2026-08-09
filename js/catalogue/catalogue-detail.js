@@ -230,10 +230,14 @@ export function renderDetail({ recipe, app }) {
   // here. The recipe + weight panel are wrapped in .cat-detail-top, which is made
   // at least a screenful tall (CSS min-height), so Import/Delete always land BELOW
   // the fold and are reached only by scrolling — never competing with the recipe.
-  return el('div', { class: 'cat-view' }, [
+  // The cost panel is REPLACED in place when new data arrives, never the whole
+  // view: rebuilding the view would throw away a scaled batch the user is reading.
+  const costHost = el('div', { class: 'cat-cost-host' }, [costPanel(recipe)]);
+
+  const root = el('div', { class: 'cat-view' }, [
     el('div', { class: 'cat-detail-top' }, [
       ingList,
-      costPanel(recipe),
+      costHost,
       weightPanel,
     ]),
     el('div', { class: 'cat-detail-bottom' }, [
@@ -245,4 +249,18 @@ export function renderDetail({ recipe, app }) {
       deleteBtn,
     ]),
   ]);
+
+  // ⚠️ WITHOUT THIS THE COST IS COMPUTED ONCE AND NEVER AGAIN. The ingredient
+  // listener is still in flight while this screen is being opened — on a cold start,
+  // offline, or simply a slow network — so the first paint can legitimately find no
+  // prices at all. Computed once, the panel would say "no cost yet" for as long as
+  // the screen stayed open, and the only way to see the real number would be to
+  // leave and come back. It also keeps a price corrected in Orders, or the recipe
+  // edited on another phone, from being a stale figure on an open screen.
+  return {
+    root,
+    refreshCost(latest) {
+      costHost.replaceChildren(costPanel(latest || recipe));
+    },
+  };
 }

@@ -134,8 +134,20 @@ function writeJsonMap(key, list) {
   }
 }
 
-const readIngredientCache = () => readJsonMap(INGREDIENTS_KEY);
-const writeIngredientCache = list => writeJsonMap(INGREDIENTS_KEY, list);
+// ⚠️ DECLARATIONS, NOT const ARROWS. The module initialises its state at the top
+// of the file — `let ingredients = readIngredientCache()` — which runs BEFORE this
+// line. A function declaration is hoisted and works; a const arrow is in the
+// temporal dead zone and throws "Cannot access before initialization", which kills
+// the whole module and leaves the catalogue page blank with no screen at all.
+// That is exactly what it did, and no unit test could have caught it: this file
+// touches Firestore, so it is one of the deliberately untested ones.
+function readIngredientCache() {
+  return readJsonMap(INGREDIENTS_KEY);
+}
+
+function writeIngredientCache(list) {
+  return writeJsonMap(INGREDIENTS_KEY, list);
+}
 
 function indexById(list) {
   const out = {};
