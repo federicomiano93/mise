@@ -17,3 +17,43 @@ jobs:
       # No install step: the suite is pure Node with zero dependencies, run by the
       # built-in test runner (`node --test`, see package.json).
       - run: npm test
+
+  # The security rules are the app's ONLY boundary between two businesses sharing
+  # one database, and until now their suite ran only when somebody remembered to
+  # run it by hand. It needs the Firebase emulator, so it cannot ride in the job
+  # above (`node --test` deliberately does not discover tests/rules/*.mjs).
+  rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # The Firestore emulator is a Java program. 21 is the current LTS and the
+      # version this was verified on locally.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      # The emulator jars are downloaded on first use (~100 MB) and never change
+      # for a given firebase-tools release, so they are cached against the pinned
+      # version. A cache miss only costs time, never correctness.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-15.26.0
+
+      # PINNED ON PURPOSE. firebase-tools ships the emulator itself, so an
+      # unpinned `@latest` would silently change the thing under test between two
+      # runs of the same commit — a red build nobody changed anything to cause,
+      # and the opposite of what a safety net is for. 15.26.0 is the version the
+      # 161 checks were verified against locally before this workflow was written.
+      # Raise it deliberately, and re-run the suite locally when you do.
+      - run: npm install --global firebase-tools@15.26.0
+
+      # --project demo-theitalianclub: firebase-tools treats a `demo-` prefix as
+      # offline-only — it looks for no credentials and can reach no real Firebase
+      # project, so CI cannot touch production even by accident. The harness
+      # defaults to the same id (tests/rules/seed-emulator.mjs).
+      - run: firebase emulators:exec --only auth,firestore --project demo-theitalianclub "npm run test:rules"

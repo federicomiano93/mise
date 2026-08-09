@@ -1,10 +1,12 @@
 // firestore-rules-check.mjs — prove the Orders security rules accept every write
 // the app really makes, and reject everything else.
 //
-// Run it with the emulators up:
-//   firebase emulators:exec --only auth,firestore "npm run test:rules"
-// or, against an emulator you already have running:
+// Run it, emulator and all, with:
+//   npm run test:rules:emulated
+// or, against an emulator you already have running under the same project id:
 //   npm run test:rules
+//
+// It also runs in CI on every push — see .github/workflows/test.yml.
 //
 // WHY THIS EXISTS. The four Orders collections used to validate nothing but
 // `bakery == 'main'`. Tightening them is dangerous in one specific way: suppliers,
@@ -29,12 +31,15 @@
 // post-write document, and the property under test ("fields outside the mask
 // survive, so hasOnly sees them") is reproduced exactly.
 //
-// Deliberately NOT named *.test.mjs: `node --test` auto-discovers that pattern and
-// CI has no emulator. Keep it that way.
+// Deliberately NOT named *.test.mjs: `node --test` auto-discovers that pattern, and
+// the `test` job has no emulator. This suite has its own CI job, which does — see
+// .github/workflows/test.yml. Keep the naming as it is.
 
-import { toFields, wipe, seedDoc, readDoc, requireEmulators, FIXTURE } from './seed-emulator.mjs';
+import { toFields, wipe, seedDoc, readDoc, requireEmulators, PROJECT, FIXTURE } from './seed-emulator.mjs';
 
-const PROJECT = 'bakery-app-ebf90';
+// PROJECT is imported, never re-declared: two independent defaults for the same id
+// would drift, and the day they did, this file and the seeder would be writing into
+// two different namespaces inside the emulator.
 const FS = `http://127.0.0.1:8080/v1/projects/${PROJECT}/databases/(default)/documents`;
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake';
 
