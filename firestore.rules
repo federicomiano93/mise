@@ -67,11 +67,12 @@ service cloud.firestore {
       return member(lid) && sectionOn(lid, section);
     }
 
-    // ── Who may READ the ingredient list ──────────────────────────────────
-    // Ingredients belong to Orders and are still written only from Orders, but
-    // they are no longer read only there: the Recipe catalogue links a recipe row
-    // to an ingredient so it can cost it, and a screen that cannot read the list
-    // cannot offer it. Reading is widened; WRITING deliberately is not.
+    // ── Who may READ Orders' address book ─────────────────────────────────
+    // Ingredients and suppliers belong to Orders and are still written only from
+    // Orders, but they are no longer read only there: the Recipe catalogue links a
+    // recipe row to an ingredient so it can cost it, and the chooser names the
+    // supplier so two similar articles can be told apart. Reading is widened;
+    // WRITING deliberately is not.
     //
     // ⚠️ 'foodcost' IS ABSENT FROM THIS LIST ON PURPOSE, and it is not an
     // oversight to fix later without thinking. sectionOn() defaults to TRUE for a
@@ -81,7 +82,7 @@ service cloud.firestore {
     // the release that creates it, together with the `sections.foodcost: false`
     // typed into every venue that must not have it. Same trap, same fix, as the
     // note in js/sections.js.
-    function canReadIngredients(lid) {
+    function canReadOrdersData(lid) {
       return member(lid)
         && (sectionOn(lid, 'orders') || sectionOn(lid, 'catalogue'));
     }
@@ -180,7 +181,7 @@ service cloud.firestore {
       // present in production; removing it here stops every old supplier from
       // being writable, silently and permanently.
       match /suppliers/{id} {
-        allow read: if canUse(lid, 'orders');
+        allow read: if canReadOrdersData(lid);
 
         allow create, update: if canUse(lid, 'orders')
           && stampedFor(lid)
@@ -228,7 +229,7 @@ service cloud.firestore {
       // quoted per: kg, l, pcs) are different fields with confusingly similar
       // names. The first is how you count the order, the second is how you buy it.
       match /ingredients/{id} {
-        allow read: if canReadIngredients(lid);
+        allow read: if canReadOrdersData(lid);
 
         allow create, update: if canUse(lid, 'orders')
           && stampedFor(lid)
@@ -309,7 +310,7 @@ service cloud.firestore {
         // would simply be refused. Ordering is done by the `recordedAt` FIELD,
         // which is also the only thing Firestore can order descending.
         match /prices/{priceId} {
-          allow read: if canReadIngredients(lid);
+          allow read: if canReadOrdersData(lid);
 
           allow create: if canUse(lid, 'orders')
             && stampedFor(lid)

@@ -280,3 +280,139 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* The reduced-motion kill-switch is now app-wide, in tokens.css. */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COSTING — what a recipe costs, and what each row is linked to
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* An ingredient row and its link are ONE group, so the border that separates
+   ingredients is drawn around both. Moved off .cat-ing-editrow, which is now the
+   inner line — otherwise every link line would get a rule above it and the list
+   would read as twice as many ingredients. */
+.cat-ing-editgroup { border-top: 1px solid var(--cat-border); }
+.cat-ing-editgroup:first-child { border-top: 0; }
+.cat-ing-editgroup .cat-ing-editrow { border-top: 0; }
+
+/* What the row points at. Full width and quiet: it is a caption most of the time,
+   and only becomes something to act on when it says "+ Link to an ingredient". */
+.cat-ing-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 10px 8px 10px;
+  border: 0;
+  background: none;
+  font-family: var(--cat-font-mono);
+  font-size: .74rem;
+  line-height: 1.35;
+  color: var(--cat-text-2);
+  cursor: pointer;
+}
+.cat-ing-link.linked { color: var(--brand); }
+.cat-ing-link:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: -2px; }
+
+/* Weight lost while cooking. */
+.cat-loss-field { margin-top: 14px; }
+.cat-loss-label { display: block; font-size: .78rem; color: var(--cat-text-2); margin-bottom: 6px; }
+.cat-loss-row { display: flex; align-items: center; gap: 8px; }
+.cat-loss-input {
+  width: 5.5rem;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--cat-border);
+  border-radius: var(--radius-sm);
+  background: var(--cat-surface);
+  color: var(--cat-text);
+  font-family: var(--cat-font);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.cat-loss-input:focus { outline: none; border-color: var(--cat-accent); }
+.cat-loss-unit { font-size: .95rem; color: var(--cat-text-2); }
+.cat-loss-note { margin-top: 6px; font-size: .74rem; color: var(--cat-text-2); }
+
+/* The cost panel on the recipe screen. The number and its caveat are one block:
+   a partial cost shown without its note is the one way this screen can mislead. */
+.cat-cost-panel {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius);
+  background: var(--cat-surface);
+}
+.cat-cost-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cat-cost-label { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--cat-text-2); font-family: var(--cat-font-mono); }
+.cat-cost-value { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--cat-text); }
+.cat-cost-basis { margin-top: 4px; font-size: .74rem; color: var(--cat-text-2); font-family: var(--cat-font-mono); }
+/* Amber, not red: a partial cost is unfinished, not wrong. */
+.cat-cost-partial { margin-top: 8px; font-size: .78rem; color: var(--warn); }
+.cat-cost-none { font-size: .78rem; color: var(--cat-text-2); }
+
+/* ── The link chooser ──────────────────────────────────────────────────────
+   A full-screen overlay following the app's header spec: Back on the LEFT, title
+   CENTRED, a spacer on the right so the title cannot be pushed off centre. */
+.cat-pick-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background: var(--cat-ground);
+}
+.cat-pick-header { flex-shrink: 0; display: flex; align-items: center; }
+.cat-pick-title { flex: 1; min-width: 0; text-align: center; }
+.cat-pick-title h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.cat-pick-spacer { width: 36px; flex-shrink: 0; }
+.cat-pick-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px calc(20px + env(safe-area-inset-bottom)); }
+
+.cat-pick-search {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 12px;
+  border: 1.5px solid var(--cat-border);
+  border-radius: var(--radius-sm);
+  background: var(--cat-surface);
+  color: var(--cat-text);
+  font-family: var(--cat-font);
+  font-size: 1rem;
+}
+.cat-pick-search:focus { outline: none; border-color: var(--cat-accent); }
+
+.cat-pick-unlink {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--cat-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--cat-danger);
+  font-family: var(--cat-font);
+  font-size: .88rem;
+  cursor: pointer;
+}
+
+.cat-pick-list { margin-top: 12px; }
+.cat-pick-head {
+  padding: 12px 2px 6px;
+  font-family: var(--cat-font-mono);
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--cat-text-2);
+}
+.cat-pick-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 2px;
+  border: 0;
+  border-top: 1px solid var(--cat-border);
+  background: none;
+  cursor: pointer;
+}
+.cat-pick-row:active { background: var(--cat-surface-2); }
+.cat-pick-row:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: -2px; }
+.cat-pick-name { display: block; font-size: .95rem; color: var(--cat-text); }
+.cat-pick-meta { display: block; margin-top: 3px; font-family: var(--cat-font-mono); font-size: .72rem; color: var(--cat-text-2); }
+.cat-pick-empty { padding: 24px 2px; text-align: center; font-size: .85rem; color: var(--cat-text-2); }

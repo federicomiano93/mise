@@ -10,7 +10,11 @@ import { isSectionAllowed } from '../sections.js';
 import {
   scaleCatalogue, baseAmounts, weighableTotalGrams, unitOf, batchWarning, formatWeight,
 } from './catalogue-model.js';
-import { getScaledTarget, setScaledTarget, clearScaledTarget } from './catalogue-store.js';
+import {
+  getScaledTarget, setScaledTarget, clearScaledTarget, getIngredients, getRecipesById,
+} from './catalogue-store.js';
+import { costRecipe, partialCostText } from './recipe-cost-model.js';
+import { formatRate } from '../price-model.js';
 
 const IMPORT_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
@@ -32,6 +36,50 @@ const amountEl = ({ num, unit }) => el('span', { class: 'cat-ing-amt' }, [
   el('span', { class: 'cat-ing-num', text: num }),
   el('span', { class: 'cat-ing-unit', text: unit }),
 ]);
+
+// What a kilo of this recipe costs, from the prices entered in Orders.
+//
+// ⚠️ THE NUMBER AND ITS CAVEAT ARE ONE ELEMENT, NEVER TWO. If some rows are not
+// linked, the figure is the cost per kilo OF THE LINKED ROWS — a real, useful,
+// PARTIAL answer — and showing it without the note beside it is the one way this
+// screen can mislead: a food cost that reads complete and is too low.
+//
+// The whole panel is hidden when nothing at all is linked, rather than showing
+// "£0.00" or an empty box on the hundreds of recipes nobody has linked yet.
+function costPanel(recipe) {
+  const result = costRecipe(recipe, {
+    ingredients: getIngredients(),
+    recipes: getRecipesById(),
+  });
+
+  const panel = el('div', { class: 'cat-cost-panel' });
+  if (result.pricePerKg === null) {
+    // Nothing linked at all: say what to do, once, quietly — and only when the
+    // recipe has rows worth linking, so a brand-new empty recipe stays silent.
+    if (!result.unpriced.length) { panel.hidden = true; return panel; }
+    panel.appendChild(el('p', { class: 'cat-cost-none', text:
+      'No cost yet — link the ingredients to price this recipe.' }));
+    return panel;
+  }
+
+  panel.appendChild(el('div', { class: 'cat-cost-head' }, [
+    el('span', { class: 'cat-cost-label', text: 'Cost' }),
+    el('span', { class: 'cat-cost-value', text: `${formatRate(result.pricePerKg)} / kg` }),
+  ]));
+
+  // The weight it was worked out over, said plainly, because it is NOT the recipe
+  // total whenever a row is unlinked — and a reader comparing the two numbers
+  // deserves to know why they differ rather than doubting both.
+  const over = result.lossPct > 0
+    ? `over ${formatWeight(result.yieldGrams)} finished (${result.lossPct}% lost from ${formatWeight(result.costedGrams)})`
+    : `over ${formatWeight(result.yieldGrams)}`;
+  panel.appendChild(el('p', { class: 'cat-cost-basis', text: over }));
+
+  const note = partialCostText(result);
+  if (note) panel.appendChild(el('p', { class: 'cat-cost-partial', text: note }));
+
+  return panel;
+}
 
 export function renderDetail({ recipe, app }) {
   // Restore a recently calculated batch (kept per device until Clear or 12h), so
@@ -185,6 +233,7 @@ export function renderDetail({ recipe, app }) {
   return el('div', { class: 'cat-view' }, [
     el('div', { class: 'cat-detail-top' }, [
       ingList,
+      costPanel(recipe),
       weightPanel,
     ]),
     el('div', { class: 'cat-detail-bottom' }, [

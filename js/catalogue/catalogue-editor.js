@@ -9,7 +9,10 @@
 import { el } from './dom.js';
 import {
   findInvalidRecipe, unitOf, CATALOGUE_UNITS, isWeighableUnit, weighableTotalGrams,
+  linkOf, normalizeLossPct, MAX_LOSS_PCT,
 } from './catalogue-model.js';
+import { openLinkPicker } from './ingredient-picker.js';
+import { pricePerKg, formatRate } from '../price-model.js';
 
 // Whole grams, no thousands separator — the same reading as the recipe view.
 const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, useGrouping: false });
@@ -115,10 +118,77 @@ export function renderEditor({ recipe, allRecipes, app }) {
           if (showErrors) validateUI();
         },
       });
-      rowsContainer.appendChild(el('div', { class: 'cat-ing-editrow' }, [labelInput, gramsInput, unitSelect, delIcon]));
+      // The link lives on its OWN line under the row, not as a fifth control in it.
+      // At 296px the row already holds a name, an amount, a unit and a bin; a fifth
+      // target takes its width from the ingredient NAME, which is the one thing that
+      // has to stay readable. Under it there is room to say what it points at.
+      rowsContainer.appendChild(el('div', { class: 'cat-ing-editgroup' }, [
+        el('div', { class: 'cat-ing-editrow' }, [labelInput, gramsInput, unitSelect, delIcon]),
+        linkRow(ing, idx),
+      ]));
     });
     rowsContainer.appendChild(totalRow);
     updateTotal();
+  }
+
+  // What this row points at — an ingredient in Orders, or another recipe — and the
+  // button that changes it. A row with no link is not an error: it is how every
+  // recipe in the catalogue reads today, and it stays perfectly usable. It just
+  // cannot contribute a cost, and says so.
+  function linkRow(ing, idx) {
+    const link = linkOf(ing);
+    const button = el('button', {
+      class: 'cat-ing-link' + (link ? ' linked' : ''), type: 'button',
+      onclick: async () => {
+        const chosen = await openLinkPicker({
+          ingredients: app.ingredients(),
+          recipes: app.allRecipes(),
+          suppliers: app.suppliers(),
+          excludeRecipeId: working.id,
+          hasLink: !!linkOf(working.ingredients[idx]),
+        });
+        if (chosen === undefined) return;              // dismissed: change nothing
+
+        const row = working.ingredients[idx];
+        if (chosen === null) {
+          delete row.kind;
+          delete row.refId;
+        } else {
+          row.kind = chosen.kind;
+          row.refId = chosen.refId;
+          // Pre-fill the name only when the row has none. An existing label is the
+          // wording somebody chose for THIS recipe ("strong flour" for an article
+          // filed as "Flour T55"), and overwriting it would undo that every time
+          // the link is corrected.
+          if (!String(row.label || '').trim()) row.label = chosen.name;
+        }
+        markDirty();
+        renderIngredientRows();
+        if (showErrors) validateUI();
+      },
+    }, linkText(ing));
+    return button;
+  }
+
+  // "→ Flour · Salvo · £2.00 / kg", or an invitation when there is no link.
+  // The price is shown here because it is the number the cost is built from, and
+  // seeing it beside the row is what catches a link to the wrong article.
+  function linkText(ing) {
+    const link = linkOf(ing);
+    if (!link) return '+ Link to an ingredient';
+
+    if (link.kind === 'recipe') {
+      const sub = app.allRecipes().find(r => r.id === link.refId);
+      return sub ? `→ ${sub.name}  ·  recipe` : '→ a recipe that no longer exists';
+    }
+
+    const ingredient = app.ingredients()[link.refId];
+    if (!ingredient) return '→ an ingredient that no longer exists';
+    const rate = pricePerKg(ingredient);
+    const supplier = (app.suppliers()[ingredient.supplierId] || {}).name || '';
+    return ['→ ' + (ingredient.name || 'Ingredient'), supplier,
+      rate === null ? 'no price yet' : `${formatRate(rate)} / kg`]
+      .filter(Boolean).join('  ·  ');
   }
 
   // Highlight the empty required fields (name, and every ingredient missing a label).
@@ -188,6 +258,26 @@ export function renderEditor({ recipe, allRecipes, app }) {
     return app.confirm({ title: 'Discard changes?', message: 'You have unsaved changes. Discard them?', okLabel: 'Discard', danger: true });
   });
 
+  // How much weight this recipe loses on the way to being finished — evaporation in
+  // the oven, mostly. It is the divisor of the cost per kilo: a dough that goes in
+  // at 1000 g and comes out at 800 g costs 25% more per kilo than its ingredients
+  // suggest, and leaving this at 0 is what makes a baked product look cheaper than
+  // it is. Optional, and 0 for every recipe written before it existed.
+  const lossInput = el('input', {
+    id: 'catRecipeLoss', class: 'cat-loss-input', type: 'number',
+    min: '0', max: String(MAX_LOSS_PCT), step: 'any', inputmode: 'decimal',
+    placeholder: '0', value: working.lossPct || '',
+    'aria-label': 'Weight lost while cooking, as a percentage',
+    oninput: (e) => { working.lossPct = normalizeLossPct(e.target.value); markDirty(); },
+  });
+
+  const lossField = el('div', { class: 'cat-loss-field' }, [
+    el('label', { class: 'cat-loss-label', for: 'catRecipeLoss', text: 'Weight lost while cooking' }),
+    el('div', { class: 'cat-loss-row' }, [lossInput, el('span', { class: 'cat-loss-unit', text: '%' })]),
+    el('p', { class: 'cat-loss-note', text:
+      'Leave at 0 if nothing is lost. It only affects the cost per kilo, never the amounts.' }),
+  ]);
+
   const addRowBtn = el('button', {
     class: 'cat-add-row', type: 'button', text: '+ Add ingredient',
     onclick: () => { working.ingredients.push({ label: '', grams: '', unit: 'g' }); markDirty(); renderIngredientRows(); if (showErrors) validateUI(); },
@@ -214,6 +304,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
     rowsContainer,
     totalNote,
     addRowBtn,
+    lossField,
     actions,
   ]);
 }

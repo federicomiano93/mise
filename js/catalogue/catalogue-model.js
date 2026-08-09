@@ -149,6 +149,57 @@ export function filterByName(recipes, query) {
   return recipes.filter(r => String(r.name).toLowerCase().includes(q));
 }
 
+// ── Choosing what a row points at ─────────────────────────────────────────────
+
+// Lower-cased and stripped of accents, so "però" is found by typing "pero".
+//
+// ⚠️ js/orders/ingredient-search.js has the same three lines, and that duplication
+// is ACCEPTED here where the price maths was not. The two failures are not
+// comparable: two copies of a price calculation that drift produce two different
+// food-cost percentages with nothing to say which is right, while two copies of
+// this produce a search that finds one row more or fewer. One is a wrong number,
+// the other is a shrug.
+export function normalizeSearchText(value) {
+  return String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+// The things a recipe row can be linked to, filtered by what was typed.
+//
+//   { ingredients: [{ id, name, supplierName, pricePerKg }], recipes: [{ id, name }] }
+//
+// Ingredients first, because they are what almost every row is. Deactivated ones
+// are left out — they are not orderable, so building a live cost on one would be
+// building on something the kitchen has stopped buying.
+//
+// `excludeRecipeId` keeps a recipe out of its own picker. The cost model catches a
+// cycle anyway, but offering the choice and then refusing it is a worse screen than
+// never offering it.
+export function linkOptions({ ingredients, recipes, suppliers, query, excludeRecipeId } = {}) {
+  const q = normalizeSearchText(query);
+  const matches = (...fields) => !q || fields.some(f => normalizeSearchText(f).includes(q));
+  const supplierName = id => (suppliers && (suppliers[id] || {}).name) || '';
+
+  const ingredientList = Object.values(ingredients || {})
+    .filter(ing => ing && ing.active !== false)
+    .map(ing => ({
+      id: ing.id,
+      name: String(ing.name || '').trim(),
+      weight: String(ing.weight || '').trim(),
+      supplierName: supplierName(ing.supplierId),
+      ingredient: ing,
+    }))
+    .filter(row => row.name && matches(row.name, row.weight, row.supplierName))
+    .sort((a, b) => a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id)));
+
+  const recipeList = (Array.isArray(recipes) ? recipes : Object.values(recipes || {}))
+    .filter(r => r && r.id !== excludeRecipeId && String(r.name || '').trim())
+    .filter(r => matches(r.name))
+    .map(r => ({ id: r.id, name: String(r.name).trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { ingredients: ingredientList, recipes: recipeList };
+}
+
 // ── kg scaling (pure pro-rata "total" — the catalogue's only calc logic) ──────
 
 // Round an array of gram values so the displayed integers sum EXACTLY to

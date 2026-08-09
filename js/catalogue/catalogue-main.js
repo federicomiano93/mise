@@ -6,6 +6,7 @@
 
 import {
   initCatalogue, getRecipes, getUsage, bumpUsage, saveRecipe, deleteRecipe, setSyncErrorHandler,
+  getIngredients, getSuppliers,
 } from './catalogue-store.js';
 import { renderList } from './catalogue-list.js';
 import { renderDetail } from './catalogue-detail.js';
@@ -111,6 +112,13 @@ const app = {
   deleteRecipe,
   bumpUsage,
   setLeaveGuard: (fn) => { leaveGuard = fn; },
+  // Live getters, not snapshots: the editor is open while the ingredient listener
+  // is still streaming in, so a price corrected in Orders reaches an open recipe
+  // without a reload — and a chooser opened before the first snapshot is not stuck
+  // showing an empty list for as long as the screen stays open.
+  ingredients: getIngredients,
+  suppliers: getSuppliers,
+  allRecipes: getRecipes,
   // Delete a catalogue recipe with a strong confirm, warning first if the recipe
   // was imported into the Calculator (the two are independent copies — deleting
   // here never touches the Calculator). The link check is raced with a short

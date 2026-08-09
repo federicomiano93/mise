@@ -11,9 +11,13 @@
 // "Most used first" is driven by a LOCAL open-count map (per device, free, no
 // extra Firestore writes) — see the usage helpers below.
 
-import { normalizeCatalogueRecipe, normalizeCatalogueRecipes, isScaledEntryFresh } from './catalogue-model.js';
+import {
+  normalizeCatalogueRecipe, normalizeCatalogueRecipes, isScaledEntryFresh, normalizeLossPct,
+} from './catalogue-model.js';
 import {
   watchRecipes,
+  watchIngredients,
+  watchSuppliers,
   saveRecipeDoc,
   removeRecipeDoc,
   newRecipeId,
@@ -22,8 +26,12 @@ import {
 const CACHE_KEY = 'catalogue-recipes';
 const USAGE_KEY = 'catalogue-usage';
 const SCALED_KEY = 'catalogue-scaled';
+const INGREDIENTS_KEY = 'catalogue-ingredients';
+const SUPPLIERS_KEY = 'catalogue-suppliers';
 
 let recipes = readCache();
+let ingredients = readIngredientCache();
+let suppliers = readJsonMap(SUPPLIERS_KEY);
 let usage = readUsage();
 let scaled = readScaled();
 let notify = null;         // called with the new recipe list whenever it changes
@@ -75,7 +83,83 @@ export function initCatalogue(onUpdate, onError) {
     },
     err => { if (onError) onError(err); },
   ).catch(err => { console.error('Catalogue live sync failed to start:', err); if (onError) onError(err); });
+
+  // The ingredient list, for costing. A failure here is DELIBERATELY quiet: it is
+  // Orders' collection, a venue may not use Orders at all, and the worst outcome is
+  // that every row reads "not priced yet" — which is exactly what the screen says
+  // anyway when nothing is linked. Shouting about it would put an alarm on the
+  // recipe screen of a venue that has no ingredients and never wanted any.
+  watchIngredients(
+    remote => {
+      ingredients = indexById(remote);
+      writeIngredientCache(remote);
+      if (notify) notify(recipes);
+    },
+    err => { console.warn('Ingredient prices unavailable:', err); },
+  ).catch(err => { console.warn('Ingredient prices unavailable:', err); });
+
+  // Supplier NAMES only, and only so the chooser can tell two similar articles
+  // apart. Quiet on failure for the same reason as the ingredients.
+  watchSuppliers(
+    remote => {
+      suppliers = indexById(remote);
+      writeJsonMap(SUPPLIERS_KEY, remote);
+      if (notify) notify(recipes);
+    },
+    () => {},
+  ).catch(() => {});
+
   return recipes;
+}
+
+// ── Ingredient prices (read-only, owned by Orders) ────────────────────────────
+// Mirrored to localStorage like the recipes, so a recipe opened offline still
+// shows its cost instead of silently reading as unpriced.
+
+function readJsonMap(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return indexById(JSON.parse(raw));
+  } catch (e) {
+    // Corrupt/unavailable cache — the listener will fill it in.
+  }
+  return {};
+}
+
+function writeJsonMap(key, list) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+  } catch (e) {
+    // Storage full/unavailable — the in-memory copy still works this session.
+  }
+}
+
+const readIngredientCache = () => readJsonMap(INGREDIENTS_KEY);
+const writeIngredientCache = list => writeJsonMap(INGREDIENTS_KEY, list);
+
+function indexById(list) {
+  const out = {};
+  (Array.isArray(list) ? list : []).forEach(item => {
+    if (item && item.id) out[item.id] = item;
+  });
+  return out;
+}
+
+// { id: ingredient } — what the cost model looks rows up in.
+export function getIngredients() {
+  return ingredients;
+}
+
+// { id: supplier } — names only, for the chooser.
+export function getSuppliers() {
+  return suppliers;
+}
+
+// { id: recipe } — the other half of the same lookup, for rows that point at a
+// sub-recipe. Built on demand rather than kept in step with `recipes`, so there is
+// only ever one list of recipes to go wrong.
+export function getRecipesById() {
+  return indexById(recipes);
 }
 
 // Optimistically upsert a recipe into the in-memory list + cache + UI.
@@ -103,7 +187,19 @@ function removeLocal(id) {
 // REJECTED (not merely offline-pending), the optimistic change is rolled back and
 // the error is surfaced.
 export function saveRecipe(recipe) {
-  const data = { name: recipe.name, ingredients: recipe.ingredients };
+  // ⚠️ THE FIELDS ARE LISTED BY HAND HERE ON PURPOSE, unlike the editor's
+  // cleanWorking() which spreads. This object becomes the Firestore DOCUMENT, and
+  // the rules whitelist exactly bakery/name/ingredients/lossPct — spreading the
+  // recipe would send `id` as a field and every save would be refused.
+  //
+  // The cost of that is this list has to be kept up to date: lossPct was added
+  // here in the same commit that added it to the model, because a field the model
+  // carries and this line does not is dropped on every save, silently.
+  const data = {
+    name: recipe.name,
+    ingredients: recipe.ingredients,
+    lossPct: normalizeLossPct(recipe.lossPct),
+  };
   const id = recipe.id || newRecipeId();
   const prev = recipes.find(r => r.id === id) || null;
   upsertLocal({ id, ...data });

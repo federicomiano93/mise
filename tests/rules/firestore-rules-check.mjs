@@ -358,10 +358,19 @@ async function ingredientPrices() {
   });
   const X_PRICES = 'locations/trattoria-x/ingredients/ING_X/prices';
 
+  await seedDoc('locations/trattoria-x/suppliers/SUP_X', { bakery: 'trattoria-x', name: 'Theirs' });
+
   await expectAllowed('a catalogue-only venue may READ its own ingredients',
     () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
   await expectAllowed('…and read their price history',
     () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(BOB) }));
+  // The chooser names the supplier so two similar articles can be told apart, so
+  // the supplier LIST is readable on the same terms — and writable on the old ones.
+  await expectAllowed('…and read the supplier list the chooser names',
+    () => fetch(`${FS}/locations/trattoria-x/suppliers/SUP_X`, { headers: asAccount(BOB) }));
+  await expectDenied('…but may not WRITE a supplier', () =>
+    mergeWrite('locations/trattoria-x/suppliers/SUP_X',
+      { name: 'Renamed', bakery: 'trattoria-x' }, asAccount(BOB)));
   await expectDenied('…but may not WRITE an ingredient', () =>
     mergeWrite('locations/trattoria-x/ingredients/ING_X',
       { pricePerUnit: 9, bakery: 'trattoria-x' }, asAccount(BOB)));
@@ -377,6 +386,8 @@ async function ingredientPrices() {
     () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
   await expectDenied('…and no price history',
     () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(BOB) }));
+  await expectDenied('…and no supplier list',
+    () => fetch(`${FS}/locations/trattoria-x/suppliers/SUP_X`, { headers: asAccount(BOB) }));
 
   // Isolation: prices are business data, and they stay inside their own location.
   await expectDenied('reading another location\'s price history',
