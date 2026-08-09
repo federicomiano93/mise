@@ -30,6 +30,9 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection,
   doc,
   getDoc,
@@ -72,7 +75,45 @@ export const firebaseConfig = {
 // ── Initialization ────────────────────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = getFirestore(app);
+
+// ── Firestore, with the offline cache ON ─────────────────────────────────────
+// WHY. Until now the app had no Firestore persistence at all, so a write made
+// while the connection was down was held in MEMORY, never resolved, and was gone
+// the moment the page reloaded — with nothing said to the person who made it.
+// This app is used in a kitchen, on phones, where the signal comes and goes: an
+// order typed in a cold room and lost on the next reload is exactly the failure
+// nobody finds out about until the delivery does not arrive. With the cache on,
+// that write is written to disk, survives a reload, and is sent when the phone
+// is back. Reads come from disk too, so the app opens with real data offline.
+//
+// persistentMultipleTabManager, not the single-tab default: the same phone or
+// laptop can have the Calculator open in one tab and Orders in another, and the
+// single-tab manager gives the second tab NO cache at all (the first holds the
+// lock). Sharing it across tabs is the behaviour that matches how the app is used.
+//
+// ⚠️ THIS MUST BE THE FIRST TOUCH OF FIRESTORE IN THE WHOLE APP. The SDK settles
+// its settings on first use: initializeFirestore() after anything has already
+// called getFirestore() throws, and getFirestore() first would create the default
+// memory-only instance and silently keep it. The three feature data layers
+// (orders/catalogue/pastries firebase-*.js) all `import '../firebase.js'`, and an
+// ES module's imports run before its own body, so this line always wins the race.
+// tests/firebase-offline-cache.test.mjs pins that, because nothing else would.
+function startFirestore() {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch (err) {
+    // No IndexedDB (private-mode Safari, a locked-down browser, an embedded
+    // webview) is not a reason to have no app: fall back to the memory-only
+    // client, which is exactly how the app behaved before this change.
+    console.warn('Firestore offline cache unavailable — running from memory only:',
+      err?.message || err);
+    return getFirestore(app);
+  }
+}
+
+const db = startFirestore();
 
 // ── Local emulator switch (AUTOMATIC, by hostname) ────────────────────────────
 // On localhost / 127.0.0.1 the app talks to the LOCAL Firebase Emulator Suite, so
