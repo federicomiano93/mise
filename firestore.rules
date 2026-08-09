@@ -74,17 +74,19 @@ service cloud.firestore {
     // supplier so two similar articles can be told apart. Reading is widened;
     // WRITING deliberately is not.
     //
-    // ⚠️ 'foodcost' IS ABSENT FROM THIS LIST ON PURPOSE, and it is not an
-    // oversight to fix later without thinking. sectionOn() defaults to TRUE for a
-    // section no location document mentions, so adding a name here that no venue
-    // has yet turned off would make this OR always true — and the read would stop
-    // being gated by any section at all. The Food Cost section joins this list in
-    // the release that creates it, together with the `sections.foodcost: false`
-    // typed into every venue that must not have it. Same trap, same fix, as the
-    // note in js/sections.js.
+    // ⚠️ ADDING A NAME HERE IS ONLY SAFE ONCE THAT SECTION CAN BE TURNED OFF.
+    // sectionOn() defaults to TRUE for a section no location document mentions, so
+    // a name in this OR that no venue has explicitly disabled makes the whole
+    // condition always true and the read stops being gated at all. 'foodcost'
+    // joins the list in the release that CREATES the section, and that release
+    // requires `sections.foodcost: false` to be typed into every venue that must
+    // not have it BEFORE the rules deploy. Same trap, same fix, as the note in
+    // js/sections.js.
     function canReadOrdersData(lid) {
       return member(lid)
-        && (sectionOn(lid, 'orders') || sectionOn(lid, 'catalogue'));
+        && (sectionOn(lid, 'orders')
+            || sectionOn(lid, 'catalogue')
+            || sectionOn(lid, 'foodcost'));
     }
 
     // Which locations an account may open. Readable only by that account, so
@@ -525,7 +527,10 @@ service cloud.firestore {
       // whitelist would refuse every save from an updated one. Same precedent as
       // orders-history.names and pastries.note.
       match /recipes/{id} {
-        allow read: if canUse(lid, 'catalogue');
+        // Read by the catalogue that owns them AND by Food Cost, which costs a
+        // product from them. Writing stays the catalogue's alone.
+        allow read: if member(lid)
+          && (sectionOn(lid, 'catalogue') || sectionOn(lid, 'foodcost'));
         allow create, update: if canUse(lid, 'catalogue')
           && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients', 'lossPct'])
           && stampedFor(lid)
@@ -542,6 +547,105 @@ service cloud.firestore {
                   && request.resource.data.lossPct >= 0
                   && request.resource.data.lossPct <= 99));
         allow delete: if canUse(lid, 'catalogue');
+      }
+
+      // ── Finished products, and what they earn ───────────────────────
+      // A product is a batch — kilos of recipes plus packaging counted in pieces —
+      // with the price it sells for and the food-cost target it is measured
+      // against. Written WHOLE by the editor, so the keys are listed exactly; but
+      // only `name` is REQUIRED, because a product is created before anybody knows
+      // its price and must be saveable half-filled. The screen says what is still
+      // missing; refusing the save instead would mean losing the work.
+      //
+      // ⚠️ vatRate ACCEPTS 0. Most takeaway bakery in the UK is zero-rated, so a
+      // rule demanding a positive rate would refuse the bakery's main line. It is
+      // the one number here that may legitimately be zero.
+      //
+      // ⚠️ THE COMPONENT ROWS ARE NOT VALIDATED AND CANNOT BE — rules cannot look
+      // inside a list. Their shape is guaranteed by js/foodcost/foodcost-model.js.
+      // What is enforced here is the LIST SIZE, which keeps the document far from
+      // the 1MB ceiling. Same division of labour as recipes and pastries.
+      match /products/{id} {
+        allow read: if canUse(lid, 'foodcost');
+
+        allow create, update: if canUse(lid, 'foodcost')
+          && stampedFor(lid)
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'name', 'components', 'packaging', 'sellingMode',
+               'piecesPerBatch', 'sellingPrice', 'vatRate', 'foodCostTarget'
+             ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 200
+          && (!('components' in request.resource.data)
+              || (request.resource.data.components is list
+                  && request.resource.data.components.size() <= 100))
+          && (!('packaging' in request.resource.data)
+              || (request.resource.data.packaging is list
+                  && request.resource.data.packaging.size() <= 100))
+          && (!('sellingMode' in request.resource.data)
+              || request.resource.data.sellingMode == null
+              || request.resource.data.sellingMode in ['piece', 'weight'])
+          && (!('piecesPerBatch' in request.resource.data)
+              || request.resource.data.piecesPerBatch == null
+              || (request.resource.data.piecesPerBatch is number
+                  && request.resource.data.piecesPerBatch > 0))
+          && (!('sellingPrice' in request.resource.data)
+              || request.resource.data.sellingPrice == null
+              || (request.resource.data.sellingPrice is number
+                  && request.resource.data.sellingPrice > 0))
+          && (!('vatRate' in request.resource.data)
+              || request.resource.data.vatRate == null
+              || (request.resource.data.vatRate is number
+                  && request.resource.data.vatRate >= 0
+                  && request.resource.data.vatRate <= 100))
+          && (!('foodCostTarget' in request.resource.data)
+              || request.resource.data.foodCostTarget == null
+              || (request.resource.data.foodCostTarget is number
+                  && request.resource.data.foodCostTarget > 0
+                  && request.resource.data.foodCostTarget <= 100));
+
+        allow delete: if canUse(lid, 'foodcost');
+
+        // ── What this product cost, and earned, on a given day ─────────────
+        // APPEND-ONLY, exactly like the ingredient price history and for the same
+        // reason: it is the series a margin over time is rebuilt from, and one
+        // that can be rewritten afterwards answers nothing.
+        //
+        // ⚠️ A SUBCOLLECTION INHERITS NOTHING from the rules of the document above
+        // it. Without this block every write here is refused by the default-deny
+        // at the bottom of the file, and from the app that looks like a network
+        // problem.
+        //
+        // The frozen VAT rate is required, not optional: it is the whole reason a
+        // past margin stays comparable after a rate changes by law.
+        match /snapshots/{snapshotId} {
+          allow read: if canUse(lid, 'foodcost');
+
+          allow create: if canUse(lid, 'foodcost')
+            && stampedFor(lid)
+            && request.resource.data.keys().hasOnly([
+                 'bakery', 'recordedAt', 'unitCost', 'foodCostPct',
+                 'sellingPrice', 'vatRate', 'sellingMode', 'frozenPrices'
+               ])
+            && request.resource.data.recordedAt is string
+            && request.resource.data.recordedAt.size() > 0
+            && request.resource.data.recordedAt.size() <= 64
+            && request.resource.data.unitCost is number
+            && request.resource.data.unitCost >= 0
+            && request.resource.data.foodCostPct is number
+            && request.resource.data.foodCostPct >= 0
+            && request.resource.data.sellingPrice is number
+            && request.resource.data.sellingPrice > 0
+            && request.resource.data.vatRate is number
+            && request.resource.data.vatRate >= 0
+            && request.resource.data.vatRate <= 100
+            && request.resource.data.sellingMode in ['piece', 'weight']
+            && request.resource.data.frozenPrices is map
+            && request.resource.data.frozenPrices.size() <= 500;
+
+          allow update, delete: if false;
+        }
       }
 
       // ── Pastries to prove ───────────────────────────────────────────────
