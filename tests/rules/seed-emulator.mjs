@@ -1,8 +1,8 @@
 // seed-emulator.mjs — plant production-SHAPED Orders data into the local Firestore
 // emulator, so the app can be driven by hand against realistic documents.
 //
-// Run it with the emulators up:
-//   firebase emulators:start --only auth,firestore
+// Run it with the emulators up, under the SAME project id (see PROJECT below):
+//   firebase emulators:start --only auth,firestore --project demo-theitalianclub
 //   node tests/rules/seed-emulator.mjs
 //
 // WHY THE LEGACY SHAPES MATTER. Production carries fields no current code writes,
@@ -24,11 +24,26 @@
 // It never touches production: everything here is hardcoded to 127.0.0.1.
 //
 // This file is deliberately NOT named *.test.mjs: `node --test` auto-discovers that
-// pattern, and this needs a running emulator, which CI does not have.
+// pattern, and this needs a running emulator, which the `test` CI job does not have.
+// (The `rules` job does — it starts one around npm run test:rules.)
 
 import { pathToFileURL } from 'node:url';
 
-const PROJECT = 'bakery-app-ebf90';
+// The project id is a NAMESPACE inside the emulator, not a destination: every URL
+// below points at 127.0.0.1 and nothing here can reach Google. It defaults to a
+// `demo-` id because firebase-tools treats that prefix as offline-only — it will
+// not look for credentials and cannot be pointed at a real project by accident,
+// which is what makes it the right default for CI. Override with
+// FIREBASE_PROJECT_ID when the emulator is already running under another id.
+//
+// It should MATCH the id the emulator was started with — `npm run test:rules:emulated`
+// starts both halves together, which is why that script exists. A mismatch is not
+// dangerous, though, and no guard was added for it: measured on firebase-tools
+// 15.26.0, the emulator applies the loaded ruleset to whatever project id a request
+// names, with `singleProjectMode` both true and false (161/161 either way). The only
+// consequence of a mismatch is that seeded data and the checks can end up in two
+// namespaces, which the suite would report as ordinary failures.
+export const PROJECT = process.env.FIREBASE_PROJECT_ID || 'demo-theitalianclub';
 const HOST = 'http://127.0.0.1:8080';
 const BASE = `${HOST}/v1/projects/${PROJECT}/databases/(default)/documents`;
 const OWNER = { Authorization: 'Bearer owner', 'Content-Type': 'application/json' };
