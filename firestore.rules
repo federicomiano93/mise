@@ -510,16 +510,36 @@ service cloud.firestore {
       }
 
       // ── Recipe catalogue ────────────────────────────────────────────────
+      // ⚠️ RULES CANNOT LOOK INSIDE A LIST, so the shape of each ingredient row —
+      // and in particular the `kind`/`refId` link that decides what a row COSTS —
+      // is guaranteed by js/catalogue/catalogue-model.js and NOT by this file.
+      // What is enforced here is the list's SIZE, which keeps the document away
+      // from the 1MB ceiling. Same limitation, same division of labour, as the
+      // pastries block below.
+      //
+      // `lossPct` is the weight a recipe loses on the way to being finished. It is
+      // OPTIONAL, in both directions on purpose: rules reach every phone the
+      // instant they deploy while code arrives per device, so required would refuse
+      // every save from a phone still on the previous version, and absent from the
+      // whitelist would refuse every save from an updated one. Same precedent as
+      // orders-history.names and pastries.note.
       match /recipes/{id} {
         allow read: if canUse(lid, 'catalogue');
         allow create, update: if canUse(lid, 'catalogue')
-          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients'])
+          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients', 'lossPct'])
           && stampedFor(lid)
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && request.resource.data.name.size() < 200
           && request.resource.data.ingredients is list
-          && request.resource.data.ingredients.size() <= 300;
+          && request.resource.data.ingredients.size() <= 300
+          // Capped at 99 here as well as in the model: the yield weight is the
+          // divisor of the price per kilo, and a stored 100 would make every
+          // recipe built on this one cost Infinity per kilo.
+          && (!('lossPct' in request.resource.data)
+              || (request.resource.data.lossPct is number
+                  && request.resource.data.lossPct >= 0
+                  && request.resource.data.lossPct <= 99));
         allow delete: if canUse(lid, 'catalogue');
       }
 

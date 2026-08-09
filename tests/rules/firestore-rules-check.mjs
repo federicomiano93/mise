@@ -507,6 +507,39 @@ async function neighbours() {
   await expectAllowed('recipes still accepts a recipe', () =>
     wholeWrite('locations/main/recipes/r1', { bakery: 'main', name: 'Focaccia', ingredients: [] }));
 
+  // ── A recipe that knows what it costs ──
+  // The link a row carries (kind/refId) is NOT checked here and cannot be: rules
+  // cannot look inside a list. Only the recipe's own new field is.
+  await expectAllowed('a recipe may record the weight it loses', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: 12 }));
+  await expectAllowed('…including none at all', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: 0 }));
+  await expectAllowed('a recipe written by a phone that has not updated yet still saves', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [] }));
+  await expectAllowed('a linked row is stored, links and all', () =>
+    wholeWrite('locations/main/recipes/r1', {
+      bakery: 'main', name: 'Focaccia', lossPct: 8,
+      ingredients: [{ label: 'Flour', grams: 800, unit: 'g', kind: 'ingredient', refId: 'ING_MODERN' }],
+    }));
+
+  // ⚠️ A loss of 100 would divide the price per kilo by zero and make every
+  // recipe built on this one cost Infinity — capped in the model AND here.
+  await expectDenied('a weight loss of 100%', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: 100 }));
+  await expectDenied('a negative weight loss', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: -5 }));
+  await expectDenied('a weight loss sent as text', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: '12' }));
+  await expectDenied('an unknown key on a recipe', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], costPerKg: 3.2 }));
+
   await expectDenied('config still refuses a delete', () => deleteWrite('locations/main/config/calculator'));
 }
 
