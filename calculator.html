@@ -274,6 +274,20 @@
   </div>
 </div>
 
+<!-- Recipient picker: opened by Send when more than one client has quantities, to choose
+     between one message for everybody and one client on its own. The id ends in
+     "-modal" and it is shown with .visible, which is what puts it in the update gate's
+     busy list (js/update-gate.js) so a compulsory update cannot land on a typed order. -->
+<div id="send-who-modal">
+  <div id="send-who-box">
+    <div class="loaf-modal-title">Send to</div>
+    <div id="send-who-body"></div>
+    <div class="loaf-modal-actions">
+      <button class="send-who-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Day picker: opened by a dough tab's Confirm button to choose which day to save the log for. -->
 <div id="day-modal" role="dialog" aria-modal="true" aria-labelledby="day-modal-title">
   <div id="day-modal-box">

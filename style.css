@@ -1220,7 +1220,7 @@ input.cp-prod-weight {
 .day-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* Order modal + list picker + day picker (same bottom-sheet style) */
-#loaf-modal, #list-select-modal, #day-modal {
+#loaf-modal, #list-select-modal, #day-modal, #send-who-modal {
   display: none;
   position: fixed;
   inset: 0;
@@ -1235,12 +1235,13 @@ input.cp-prod-weight {
    is anchored to — ~200ms, no bounce. (app-fade-in lives in tokens.css, loaded on
    every page; @keyframes are document-global. The reduced-motion kill-switch there
    neutralises both for anyone who asks the OS for less motion.) */
-#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible {
+#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible, #send-who-modal.visible {
   display: flex;
   animation: app-fade-in .15s ease-out;
 }
 #loaf-modal.visible #loaf-modal-box,
 #list-select-modal.visible #list-select-box,
+#send-who-modal.visible #send-who-box,
 #day-modal.visible #day-modal-box { animation: sheet-up .2s ease-out; }
 @keyframes sheet-up { from { transform: translateY(26px); opacity: 0; } }
 
@@ -1251,7 +1252,7 @@ input.cp-prod-weight {
 }
 .confirm-btn-primary:active, .day-btn:active, .cp-save-bottom:active,
 .reset-btn:active, .loaf-modal-send:active { transform: scale(.97); }
-#loaf-modal-box, #list-select-box, #day-modal-box {
+#loaf-modal-box, #list-select-box, #day-modal-box, #send-who-box {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
   padding: 24px 20px 32px;
@@ -1340,7 +1341,7 @@ input.cp-prod-weight {
 .order-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 .order-qty-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 .loaf-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-.loaf-modal-cancel, .list-select-cancel {
+.loaf-modal-cancel, .list-select-cancel, .send-who-cancel {
   flex: 1;
   padding: 13px;
   background: var(--surface2);

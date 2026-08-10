@@ -7,7 +7,7 @@ import { saveDay, editTab, renderLog } from './log.js';
 import { closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
 import './log-settings.js';
-import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker } from './whatsapp.js';
+import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker, closeWhoPicker } from './whatsapp.js';
 import { getConfig, initConfig } from './calculator-config-store.js';
 import { initLogs } from './log-store.js';
 import { renderTab, buildRecipePanel, el } from './calculator-render.js';
@@ -345,6 +345,7 @@ document.getElementById('recipe-home-btn').addEventListener('click', goHomeFromR
 document.querySelector('.loaf-modal-cancel').addEventListener('click', closeLoafModal);
 document.querySelector('.loaf-modal-send').addEventListener('click', sendWithLoaves);
 document.querySelector('.list-select-cancel').addEventListener('click', closeListPicker);
+document.querySelector('.send-who-cancel').addEventListener('click', closeWhoPicker);
 
 // ── Cross-module events ───────────────────────────────────────────────────────
 // A recipe/config save re-renders everything (recipes now live in config; saveConfig
