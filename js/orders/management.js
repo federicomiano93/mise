@@ -21,7 +21,7 @@ import { buildSearchBox } from './search-box.js';
 import {
   CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
   pricePatch, priceChanged, priceRecord, pricePerKg,
-  formatPricePerUnit, formatPurchaseForm, formatRate, costReasonText,
+  formatPricePerUnit, formatRate, costReasonText,
 } from '../price-model.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
@@ -356,12 +356,33 @@ export function buildManagement(data, actions) {
     ]);
   }
 
+  // What the price box is called, per purchase form. Spelled out per unit rather
+  // than assembled from the unit code, because "Price per pcs" is not English and
+  // the label is the only place the ex-VAT rule can be stated.
+  const RATE_LABEL = Object.freeze({
+    kg: `Price per kg (${CURRENCY}, excluding VAT)`,
+    l: `Price per litre (${CURRENCY}, excluding VAT)`,
+    pcs: `Price per piece (${CURRENCY}, excluding VAT)`,
+  });
+
+  // The worked example under the box. It exists to pre-empt the ONE mistake this
+  // form cannot detect: the invoice total typed where the rate belongs. 180 and
+  // 7.20 are both perfectly valid numbers, so nothing can reject the wrong one —
+  // it just makes every recipe using that ingredient cost twenty-five times too
+  // much, on a screen where the answer is a percentage nobody can eyeball.
+  const RATE_HINT = Object.freeze({
+    kg: 'The price of ONE KILO, not of the pack — a 25 kg sack at £180 is 7.20.',
+    l: 'The price of ONE LITRE, not of the container — a 5 l tin at £30 is 6.00.',
+    pcs: 'The price of ONE PIECE, not of the box — a box of 100 at £3.50 is 0.035.',
+  });
+
   // ── The price block inside the ingredient form ──────────────────────────────
-  // Three boxes and a unit, never a typed phrase: "a 25kg box for £180" has to be
-  // read back into numbers to be usable, and every misreading produces a wrong
-  // cost with nothing on screen looking wrong (see js/price-model.js).
+  // One number and a unit. The rate is typed rather than derived from a pack
+  // price ÷ pack size: that second box asked again for the pack weight the
+  // ingredient already carries in its own Weight field a few lines above
+  // ("2.27kg"), and two boxes holding one fact drift apart.
   //
-  // Returns { node, read(), summary() } so the form above can stay readable.
+  // Returns { node, read() } so the form above can stay readable.
   function priceBlock(item) {
     const unitSelect = el('select', { class: 'mgmt-input' });
     unitSelect.appendChild(el('option', { value: '', text: '— No price —' }));
@@ -371,18 +392,19 @@ export function buildManagement(data, actions) {
       unitSelect.appendChild(opt);
     });
 
-    // step="any" on every one of them. A step of 0.01 makes the browser REFUSE a
-    // piece weight of 0.0035 kg as invalid — silently, by leaving the box empty on
-    // submit — and that is exactly the number a vanilla pod needs.
+    // step="any" on both of them. A step of 0.01 makes the browser REFUSE 0.0035
+    // as invalid — silently, by leaving the box empty on submit — and that is
+    // exactly the number a vanilla pod weighs AND the number a gelatine leaf
+    // costs, so it is the wrong step for the rate as well as for the weight.
     const money = (value, placeholder) => el('input', {
       type: 'number', class: 'mgmt-input', min: '0', step: 'any',
       inputmode: 'decimal', value: value ?? '', placeholder,
     });
-    const packPrice = money(item?.packPrice, 'e.g. 180');
-    const packSize = money(item?.packSize, 'e.g. 25');
+    const rate = money(item?.pricePerUnit, 'e.g. 7.20');
     const pieceWeight = money(item?.unitWeightKg, 'e.g. 0.055');
 
-    const packSizeLabel = el('span', { class: 'mgmt-field-label', text: 'Pack size' });
+    const rateLabel = el('span', { class: 'mgmt-field-label' });
+    const rateHint = el('p', { class: 'notif-note' });
     // Two lines, not one. A per-piece price can be perfectly complete as a PRICE
     // and still be unusable in a recipe written in grams, and a summary that only
     // showed "£2.10 / each" would look finished while the ingredient silently
@@ -399,20 +421,10 @@ export function buildManagement(data, actions) {
         'Needed only to use this in a recipe written in grams — one egg is about 0.055, a vanilla pod about 0.0035.' }),
     ]);
 
-    // The pack size the operator already typed into the free-text weight field,
-    // shown as a reminder rather than read automatically. Guessing "2.27kg" into a
-    // number would be right often enough to be trusted and wrong often enough to
-    // matter, and a wrong price says nothing on screen.
-    const noted = (item?.weight || '').trim();
-    const notedHint = noted
-      ? el('p', { class: 'notif-note', text: `This ingredient is noted as "${noted}".` })
-      : null;
-
     function read() {
       return {
         priceUnit: unitSelect.value || null,
-        packPrice: packPrice.value,
-        packSize: packSize.value,
+        pricePerUnit: rate.value,
         unitWeightKg: pieceWeight.value,
       };
     }
@@ -423,9 +435,9 @@ export function buildManagement(data, actions) {
     function refresh() {
       const unit = unitSelect.value;
       pieceField.hidden = unit !== 'pcs';
-      packSizeLabel.textContent = unit === 'pcs' ? 'How many pieces in a pack'
-        : unit ? `Pack size (${unit})`
-        : 'Pack size';
+      rateLabel.textContent = RATE_LABEL[unit] || `Price (${CURRENCY}, excluding VAT)`;
+      rateHint.textContent = RATE_HINT[unit] || '';
+      rateHint.hidden = !RATE_HINT[unit];
 
       const draft = pricePatch(read(), null);
       if (draft.pricePerUnit === null) {
@@ -438,8 +450,8 @@ export function buildManagement(data, actions) {
       // For a per-piece price the price per KILO is the derived number, and it is
       // the one every recipe cost is built from — so it is spelled out rather than
       // left to be worked out from a piece weight.
-      const parts = [formatPricePerUnit(draft), formatPurchaseForm(draft)];
-      if (unit === 'pcs' && perKg !== null) parts.splice(1, 0, `${formatRate(perKg)} / kg`);
+      const parts = [formatPricePerUnit(draft)];
+      if (unit === 'pcs' && perKg !== null) parts.push(`${formatRate(perKg)} / kg`);
       summaryMain.textContent = parts.filter(Boolean).join('  ·  ');
       // Empty whenever the ingredient IS costable, so the note only ever appears
       // when there is something left to do.
@@ -447,7 +459,7 @@ export function buildManagement(data, actions) {
       summary.className = 'mgmt-price-summary';
     }
 
-    [unitSelect, packPrice, packSize, pieceWeight].forEach(input => {
+    [unitSelect, rate, pieceWeight].forEach(input => {
       input.addEventListener('input', refresh);
       input.addEventListener('change', refresh);
     });
@@ -456,8 +468,7 @@ export function buildManagement(data, actions) {
     const node = el('div', {}, [
       el('h3', { class: 'mgmt-section-title', text: 'Price' }),
       field('How it is bought', unitSelect),
-      field(`Price paid for one pack (${CURRENCY})`, packPrice),
-      el('label', { class: 'mgmt-field' }, [packSizeLabel, packSize, notedHint]),
+      el('label', { class: 'mgmt-field' }, [rateLabel, rate, rateHint]),
       pieceField,
       summary,
       item ? priceHistoryBlock(item) : null,
