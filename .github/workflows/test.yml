@@ -10,8 +10,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
       # No install step: the suite is pure Node with zero dependencies, run by the
@@ -25,13 +25,13 @@ jobs:
   rules:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '20'
       # The Firestore emulator is a Java program. 21 is the current LTS and the
       # version this was verified on locally.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
@@ -39,7 +39,7 @@ jobs:
       # The emulator jars are downloaded on first use (~100 MB) and never change
       # for a given firebase-tools release, so they are cached against the pinned
       # version. A cache miss only costs time, never correctness.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-15.26.0
@@ -48,7 +48,7 @@ jobs:
       # unpinned `@latest` would silently change the thing under test between two
       # runs of the same commit — a red build nobody changed anything to cause,
       # and the opposite of what a safety net is for. 15.26.0 is the version the
-      # 161 checks were verified against locally before this workflow was written.
+      # checks were verified against locally before this workflow was written.
       # Raise it deliberately, and re-run the suite locally when you do.
       - run: npm install --global firebase-tools@15.26.0
 
