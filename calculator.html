@@ -233,6 +233,24 @@
   </div>
 </div>
 
+<!-- Orders a client typed themselves. The banner sits ABOVE the tab bar, outside the
+     scrolling area, so it cannot be scrolled past: it is the app's only signal that
+     somebody is waiting for bread. Empty (and display:none) until one arrives. -->
+<div id="client-orders-banner"></div>
+
+<div id="clientorders-overlay">
+  <div class="recipe-overlay-header">
+    <button class="clientorders-back-btn" type="button" aria-label="Back"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <span class="recipe-overlay-title">Orders received</span>
+    <a class="overlay-home-btn" id="clientorders-home-btn" href="index.html" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </a>
+  </div>
+  <div class="recipe-scroll">
+    <div id="clientorders-content"></div>
+  </div>
+</div>
+
 <div class="tab-bar" id="tab-bar"></div>
 
 <div class="scroll-area">

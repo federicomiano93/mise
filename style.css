@@ -686,6 +686,119 @@ input.cp-prod-weight {
   cursor: pointer;
   width: 100%;
 }
+/* ── Orders a client typed themselves ─────────────────────────────────────────
+   The banner sits above the tab bar, outside the scrolling area, so it cannot be
+   scrolled past. It is the app's only signal that somebody is waiting for bread. */
+#client-orders-banner:empty { display: none; }
+
+.co-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-light);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+/* An order changed AFTER it was used is the one that bakes the wrong amount, so it
+   is the one thing here allowed to shout. */
+.co-banner--changed {
+  background: var(--error-bg);
+  border-bottom-color: var(--error-border);
+  color: var(--error);
+}
+.co-banner-text { flex: 1; min-width: 0; }
+.co-banner-go { flex: none; font-size: 18px; line-height: 1; opacity: .6; }
+
+.co-card {
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.co-card--changed { border-color: var(--error-border); background: var(--error-bg); }
+/* Done, and quietly so: it must not compete for attention with the ones still waiting. */
+.co-card--used { opacity: .72; }
+
+.co-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+.co-card-client { font-size: 16px; font-weight: 600; }
+.co-card-when { flex: none; font-size: 13px; color: var(--text-3); }
+.co-card-arrived { margin: 0 0 10px; font-size: 12px; color: var(--text-3); }
+.co-card-alert {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--error);
+}
+
+.co-card-lines {
+  border-top: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.co-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+}
+/* A product the client no longer has: shown, because they asked for it, but marked,
+   because there is no field it can go into. */
+.co-line--missing { color: var(--text-3); text-decoration: line-through; }
+.co-line-name { min-width: 0; }
+.co-line-qty { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+.co-card-empty { margin: 0; padding: 10px 0; font-size: 14px; color: var(--text-3); }
+
+.co-card-note {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.co-card-note-label { font-weight: 600; }
+.co-card-note--warn { color: var(--warn); }
+
+.co-apply {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 60ms ease;
+}
+.co-apply:active { transform: scale(.97); }
+.co-apply:disabled { background: var(--text-3); transform: none; cursor: default; }
+
+.co-none { margin: 0; font-size: 15px; line-height: 1.55; color: var(--text-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  .co-apply { transition: none; }
+  .co-apply:active { transform: none; }
+}
+
 /* The ordering-link section of a client's screen. A hint that explains what the link
    is before anyone taps anything — this is the one control in the app that hands
    something to a person outside the business, so it says so in words first. */
@@ -927,7 +1040,8 @@ input.cp-prod-weight {
 #wa-overlay,
 #logsettings-overlay,
 #products-overlay,
-#ingredients-overlay {
+#ingredients-overlay,
+#clientorders-overlay {
   position: fixed;
   inset: 0;
   z-index: 520;
@@ -940,8 +1054,10 @@ input.cp-prod-weight {
 #wa-overlay.visible,
 #logsettings-overlay.visible,
 #products-overlay.visible,
-#ingredients-overlay.visible { display: flex; }
-#extra-content, #divisor-content, #wa-content, #logsettings-content, #products-content, #ingredients-content { padding: 14px 16px; }
+#ingredients-overlay.visible,
+#clientorders-overlay.visible { display: flex; }
+#extra-content, #divisor-content, #wa-content, #logsettings-content, #products-content, #ingredients-content,
+#clientorders-content { padding: 14px 16px; }
 
 /* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
    remove icon beside it (the top screen deletes lists & direct clients there). */
