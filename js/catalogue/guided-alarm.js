@@ -119,6 +119,19 @@ export function startAlarm() {
   ringTimer = setTimeout(stopAlarm, MAX_RING_MS);
 }
 
+// Is the alarm sounding right now?
+//
+// ⚠️ THIS EXISTS SO THE ALARM CAN BE PROVED, and it earns its place. The element
+// is detached (new Audio()), so nothing outside this file can reach it — which
+// means the single most important signal in the feature was unobservable. A
+// deliberate break, deleting the play() call, left every driven check GREEN:
+// the file was still fetched, the card still turned, the screen still said "Time
+// is up", and only the sound was missing. A safety signal nobody can inspect is
+// a safety signal nobody can test.
+export function isRinging() {
+  return !!audio && !audio.paused && !audio.muted;
+}
+
 export function stopAlarm() {
   if (ringTimer) { clearTimeout(ringTimer); ringTimer = null; }
   if (buzzTimer) { clearInterval(buzzTimer); buzzTimer = null; }
