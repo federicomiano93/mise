@@ -24,6 +24,7 @@ import {
 } from './guided-model.js';
 import { unitOf } from './catalogue-model.js';
 import { unlockAlarm, startAlarm, stopAlarm, keepScreenAwake, releaseScreen, canKeepScreenAwake } from './guided-alarm.js';
+import { scheduleAlarm, cancelAlarm, pushSupport, enablePush, SUPPORT_TEXT } from '../push.js';
 
 const SESSION_KEY = 'catalogue-guided-run';
 const TICK_MS = 250;
@@ -95,6 +96,9 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
   let alarmedFor = 0;
   let finished = false;
   let ticker = null;
+  // The id of the notification booked for the step being timed, so it can be
+  // disarmed the moment somebody finishes, skips or walks away.
+  let scheduled = '';
 
   const body = el('div', { class: 'guided-body' });
   // ⚠️ `.guided-run` IS THE MARKER TWO OTHER MODULES LOOK FOR — js/update-gate.js
@@ -228,17 +232,59 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     ]);
   }
 
+  // What this phone can actually do, said in one line — and the offer to fix it
+  // where fixing it is possible.
+  //
+  // ⚠️ THE THREE STATES ARE DIFFERENT SENTENCES, not one hedged one. "Keep this
+  // screen open" is simply FALSE once notifications are on, and a warning that is
+  // wrong is worse than no warning: the next one is believed too. On an iPhone
+  // opened from Safari the answer is neither "on" nor "off" but "install it
+  // first", because no amount of tapping will ever work otherwise.
+  function pushNote() {
+    const support = pushSupport();
+
+    if (support.ok) {
+      return el('p', { class: 'guided-note guided-note--on', text:
+        'It will also send a notification if you leave the app.' });
+    }
+
+    if (support.reason === 'ask') {
+      const wrap = el('div', { class: 'guided-note' });
+      wrap.appendChild(el('button', {
+        class: 'guided-skip', type: 'button',
+        text: 'Also tell me if I leave the app',
+        // ⚠️ FROM A REAL TAP, which is the only moment a browser will ask.
+        onclick: async (e) => {
+          e.target.disabled = true;
+          const result = await enablePush();
+          if (!result.ok) app.toast(SUPPORT_TEXT[result.reason] || SUPPORT_TEXT.unsupported);
+          paint();
+        },
+      }));
+      wrap.appendChild(el('p', { class: 'guided-note-sub', text:
+        'Otherwise keep this screen open — the alarm cannot ring from a closed app.' }));
+      return wrap;
+    }
+
+    // Blocked, not installed, not set up, or a phone that simply cannot: say
+    // which, and fall back to the honest instruction.
+    return el('div', { class: 'guided-note' }, [
+      el('p', { class: 'guided-note-sub', text: SUPPORT_TEXT[support.reason] || SUPPORT_TEXT.unsupported }),
+      el('p', { text: canKeepScreenAwake()
+        ? 'Keep this screen open — the alarm cannot ring if you leave the app.'
+        : 'Keep this screen open and awake — the alarm cannot ring if you leave the app.' }),
+    ]);
+  }
+
   function paint() {
     if (finished) { body.replaceChildren(finishCard()); return; }
     const parts = [stepCard(), actions()];
-    // Said once, at the bottom, and only where it is true: a phone that cannot
-    // hold its screen on must not be promised that it will.
-    parts.push(el('p', {
-      class: 'guided-note',
-      text: canKeepScreenAwake()
-        ? 'Keep this screen open — the alarm cannot ring if you leave the app.'
-        : 'Keep this screen open and awake — the alarm cannot ring if you leave the app.',
-    }));
+    // ⚠️ THE NOTE TELLS THE TRUTH ABOUT THIS PHONE, not a fixed sentence. Once
+    // notifications are on, "the alarm cannot ring if you leave the app" is a LIE
+    // — and a warning that is wrong is worse than none, because the next one is
+    // believed too. Where they could be on and are not, the offer is here, at the
+    // moment it matters, rather than buried in a settings screen nobody opens.
+    parts.push(pushNote());
     body.replaceChildren(...parts);
   }
 
@@ -254,10 +300,47 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     alarmedFor = 0;
     save();
     paint();
+
+    // ⚠️ ASKED FOR, NEVER WAITED ON. The countdown has already started above; a
+    // notification is a bonus for the case where somebody walks away, and a Start
+    // button that hangs on the network while a mixer runs would cost the dough.
+    // scheduleAlarm never throws and returns '' when it schedules nothing — which
+    // is an ordinary outcome (notifications off, or a timer too short to beat the
+    // delivery), not a failure worth reporting.
+    const wanted = endsAt;
+    scheduleAlarm({
+      id: alarmDocId(index),
+      fireAt: wanted,
+      title: snapshot.name || 'The Italian Club',
+      body: current.text || 'Time is up.',
+    }).then((id) => {
+      // The step may have been finished, skipped or left while this was in
+      // flight. Cancel what we just booked rather than leaving it to fire.
+      if (id && endsAt !== wanted) cancelAlarm(id);
+      else scheduled = id;
+    });
+  }
+
+  // One id per run and step, so two runs of the same recipe never share an alarm
+  // and a re-entered step overwrites its own rather than booking a second.
+  function alarmDocId(stepIndex) {
+    return `${recipe.id}-${startedAt}-${stepIndex}`;
+  }
+
+  // Disarm whatever this screen booked. Cancelling MARKS the alarm rather than
+  // deleting it — see cancelAlarm() — so the server can tell "cancelled" apart
+  // from "I could not read it", which is the difference between knowing why a
+  // phone stayed quiet and guessing.
+  function dropScheduled() {
+    if (!scheduled) return;
+    const id = scheduled;
+    scheduled = '';
+    cancelAlarm(id);
   }
 
   function next() {
     stopAlarm();
+    dropScheduled();
     endsAt = 0;
     alarmedFor = 0;
     if (index >= steps.length - 1) {
@@ -305,6 +388,11 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     if (ticker) { clearInterval(ticker); ticker = null; }
     document.removeEventListener('visibilitychange', onVisible);
     stopAlarm();
+    // ⚠️ LEAVING DISARMS IT TOO. Without this, walking out of a mix leaves a
+    // notification booked for a step nobody is doing any more — and a phone that
+    // buzzes for nothing is the fastest way to get notifications turned off,
+    // taking the useful ones with them.
+    dropScheduled();
     releaseScreen();
   }
 

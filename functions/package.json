@@ -1,0 +1,17 @@
+{
+  "name": "the-italian-club-functions",
+  "private": true,
+  "type": "module",
+  "description": "Notifications that reach a phone with the app closed. The only code in this project that does not run on a phone.",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "lint": "node --check index.js"
+  },
+  "dependencies": {
+    "firebase-admin": "13.6.0",
+    "firebase-functions": "6.5.0"
+  }
+}
