@@ -595,7 +595,7 @@ service cloud.firestore {
         allow create, update: if canUse(lid, 'calculator')
           && stampedFor(lid)
           && request.resource.data.keys().hasOnly(
-               ['bakery', 'clientId', 'clientName', 'createdAt'])
+               ['bakery', 'clientId', 'clientName', 'createdAt', 'linkToken'])
           && request.resource.data.clientId is string
           && request.resource.data.clientId.size() > 0
           && request.resource.data.clientId.size() <= 64
@@ -608,7 +608,24 @@ service cloud.firestore {
           && request.resource.data.clientName is string
           && request.resource.data.clientName.size() <= 200
           && request.resource.data.createdAt is string
-          && request.resource.data.createdAt.size() <= 64;
+          && request.resource.data.createdAt.size() <= 64
+          // ⚠️ THIS IS A CAPABILITY TOKEN, AND STORING IT IS A DELIBERATE TRADE-OFF.
+          // It is the secret inside the ordering link, kept so the owner can re-send
+          // that link to a client who changed phone WITHOUT breaking the session on
+          // the phone that still works — the alternative, minting a new account each
+          // time, revokes the client currently using it every time you help them.
+          //
+          // What makes it acceptable is what it is worth: a machine-generated secret
+          // for a single-purpose account that can read one product list and write one
+          // client's order, nothing else, revoked by deleting this document. It is
+          // not a person's password, it is not reused anywhere, and it is readable
+          // only by the location's own staff — who can already read every order and
+          // every price — and by the account it belongs to, which already has it.
+          //
+          // ⚠️ Do NOT copy this pattern for anything a human chooses or reuses.
+          && (!('linkToken' in request.resource.data)
+              || (request.resource.data.linkToken is string
+                  && request.resource.data.linkToken.size() <= 128));
 
         allow delete: if canUse(lid, 'calculator');
       }

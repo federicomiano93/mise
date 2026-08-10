@@ -1328,6 +1328,19 @@ async function clientOrders() {
   await expectDenied('a client CANNOT claim its order was already used', () =>
     wholeWrite(ORDER_A, order({ appliedAt: '2026-08-10T10:00:00.000Z' }), asAccount(CLIENT_A)));
 
+  // ⚠️ AND ON A FIRST ORDER TOO, WHERE THERE IS NOTHING TO COMPARE AGAINST. This
+  // needed its own check and would not have been written without one: the line above
+  // aims at a document that already exists, so it is the UPDATE branch that refuses
+  // it, and deleting the create branch's guard altogether left the whole suite green.
+  // Found by mutation, which is the only thing that could have found it — a guard
+  // whose removal changes nothing is a guard nobody is testing.
+  await expectDenied('…on a first order as well, where there is nothing to compare against', () =>
+    wholeWrite(`${L}/client-orders/${day(5)}_c-one`,
+      order({ date: day(5), appliedAt: '2026-08-10T10:00:00.000Z' }), asAccount(CLIENT_A)));
+  await expectDenied('…including a first order that only claims WHICH version was used', () =>
+    wholeWrite(`${L}/client-orders/${day(6)}_c-one`,
+      order({ date: day(6), appliedFor: '2026-08-10T09:00:00.000Z' }), asAccount(CLIENT_A)));
+
   await seedDoc(ORDER_A, order({
     appliedAt: '2026-08-10T10:00:00.000Z', appliedFor: '2026-08-10T09:00:00.000Z',
   }));
@@ -1405,6 +1418,21 @@ async function clientOrders() {
   await expectAllowed('the bakery creates an ordering account', () =>
     wholeWrite(`${L}/client-accounts/${NOBODY.uid}`,
       { bakery: 'main', clientId: 'c-three', clientName: 'CLIENT C', createdAt: 'now' }));
+  // Kept so the owner can re-send a link to a client who changed phone without
+  // revoking the phone that still works. It is a capability token for an account
+  // that can do two things — not a person's password.
+  await expectAllowed('…carrying the token inside its ordering link', () =>
+    wholeWrite(`${L}/client-accounts/${NOBODY.uid}`, {
+      bakery: 'main', clientId: 'c-three', clientName: 'CLIENT C',
+      createdAt: 'now', linkToken: 'a'.repeat(43),
+    }));
+  await expectDenied('a link token cannot become a payload of its own', () =>
+    wholeWrite(`${L}/client-accounts/${NOBODY.uid}`, {
+      bakery: 'main', clientId: 'c-three', clientName: 'CLIENT C',
+      createdAt: 'now', linkToken: bigString(500),
+    }));
+  await expectDenied('a client CANNOT read the token of another client\'s link',
+    readAs(CLIENT_A, `${L}/client-accounts/${NOBODY.uid}`));
   await expectAllowed('the bakery revokes a link', () =>
     deleteWrite(`${L}/client-accounts/${NOBODY.uid}`));
   await expectAllowed('the bakery deletes an order', () => deleteWrite(ORDER_A));
