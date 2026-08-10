@@ -9,7 +9,10 @@
 // on, so an order left unmarked overnight is filed under the day it was written,
 // not under today.
 
-import { watchCollection, watchDoc, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
+import {
+  watchCollection, watchDoc, saveDoc, createDoc, removeDoc,
+  saveIngredientWithPrice, getPriceHistory, COLLECTIONS,
+} from './firebase-orders.js';
 import { currentSession } from '../firebase.js';
 import { el, groupBy } from './dom.js';
 import { mountSupplierList, refreshSupplierDerived } from './suppliers.js';
@@ -1118,8 +1121,11 @@ function openManagement() {
       saveOrdersConfig: patch => saveDoc(COLLECTIONS.config, 'orders', patch),
       saveSupplier: (id, payload) =>
         id ? saveDoc(COLLECTIONS.suppliers, id, payload) : createDoc(COLLECTIONS.suppliers, payload),
-      saveIngredient: (id, payload) =>
-        id ? saveDoc(COLLECTIONS.ingredients, id, payload) : createDoc(COLLECTIONS.ingredients, payload),
+      // One call for both create and update, because the ingredient and its price
+      // record have to land together or not at all — see saveIngredientWithPrice.
+      // `record` is null whenever the price did not actually move.
+      saveIngredient: (id, payload, record) => saveIngredientWithPrice(id, payload, record),
+      priceHistory: (id) => getPriceHistory(id),
       setSupplierActive: (id, active) => saveDoc(COLLECTIONS.suppliers, id, { active }),
       setIngredientActive: (id, active) => saveDoc(COLLECTIONS.ingredients, id, { active }),
       deleteSupplier: (id) => removeDoc(COLLECTIONS.suppliers, id),

@@ -18,6 +18,11 @@ import { renderNotificationSettings } from './notifications.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
 import { buildSearchBox } from './search-box.js';
+import {
+  CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
+  pricePatch, priceChanged, priceRecord, pricePerKg,
+  formatPricePerUnit, formatPurchaseForm, formatRate, costReasonText,
+} from './price-model.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
 
@@ -222,7 +227,11 @@ export function buildManagement(data, actions) {
       emptyText: 'No ingredients yet.',
       noMatchText: 'No ingredient matches your search.',
       rowFor: (i) => {
-        const meta = [supById[i.supplierId] || 'No supplier', i.brand, i.weight].filter(Boolean).join(' · ');
+        // The price is on the row, and "No price" is said out loud when there is
+        // none — that is what turns this list into the list of what is still to be
+        // filled in. Every ingredient starts without one and nothing migrates them.
+        const meta = [supById[i.supplierId] || 'No supplier', i.brand, i.weight,
+                      formatPricePerUnit(i) || 'No price'].filter(Boolean).join(' · ');
         return mgmtRow(i.name, meta, i.active !== false,
           () => { view = { type: 'ingredientForm', item: i }; render(); },
           () => actions.setIngredientActive(i.id, i.active === false),
@@ -347,6 +356,156 @@ export function buildManagement(data, actions) {
     ]);
   }
 
+  // ── The price block inside the ingredient form ──────────────────────────────
+  // Three boxes and a unit, never a typed phrase: "a 25kg box for £180" has to be
+  // read back into numbers to be usable, and every misreading produces a wrong
+  // cost with nothing on screen looking wrong (see js/orders/price-model.js).
+  //
+  // Returns { node, read(), summary() } so the form above can stay readable.
+  function priceBlock(item) {
+    const unitSelect = el('select', { class: 'mgmt-input' });
+    unitSelect.appendChild(el('option', { value: '', text: '— No price —' }));
+    PRICE_UNITS.forEach(u => {
+      const opt = el('option', { value: u, text: PRICE_UNIT_LABELS[u] });
+      if (item?.priceUnit === u) opt.selected = true;
+      unitSelect.appendChild(opt);
+    });
+
+    // step="any" on every one of them. A step of 0.01 makes the browser REFUSE a
+    // piece weight of 0.0035 kg as invalid — silently, by leaving the box empty on
+    // submit — and that is exactly the number a vanilla pod needs.
+    const money = (value, placeholder) => el('input', {
+      type: 'number', class: 'mgmt-input', min: '0', step: 'any',
+      inputmode: 'decimal', value: value ?? '', placeholder,
+    });
+    const packPrice = money(item?.packPrice, 'e.g. 180');
+    const packSize = money(item?.packSize, 'e.g. 25');
+    const pieceWeight = money(item?.unitWeightKg, 'e.g. 0.055');
+
+    const packSizeLabel = el('span', { class: 'mgmt-field-label', text: 'Pack size' });
+    // Two lines, not one. A per-piece price can be perfectly complete as a PRICE
+    // and still be unusable in a recipe written in grams, and a summary that only
+    // showed "£2.10 / each" would look finished while the ingredient silently
+    // stayed out of every cost. The numbers go on top, what is still missing
+    // underneath.
+    const summaryMain = el('span', { class: 'mgmt-price-main' });
+    const summaryNote = el('span', { class: 'mgmt-price-note' });
+    const summary = el('p', { class: 'mgmt-price-summary' }, [summaryMain, summaryNote]);
+
+    const pieceField = el('label', { class: 'mgmt-field' }, [
+      el('span', { class: 'mgmt-field-label', text: 'Weight of one piece (kg)' }),
+      pieceWeight,
+      el('p', { class: 'notif-note', text:
+        'Needed only to use this in a recipe written in grams — one egg is about 0.055, a vanilla pod about 0.0035.' }),
+    ]);
+
+    // The pack size the operator already typed into the free-text weight field,
+    // shown as a reminder rather than read automatically. Guessing "2.27kg" into a
+    // number would be right often enough to be trusted and wrong often enough to
+    // matter, and a wrong price says nothing on screen.
+    const noted = (item?.weight || '').trim();
+    const notedHint = noted
+      ? el('p', { class: 'notif-note', text: `This ingredient is noted as "${noted}".` })
+      : null;
+
+    function read() {
+      return {
+        priceUnit: unitSelect.value || null,
+        packPrice: packPrice.value,
+        packSize: packSize.value,
+        unitWeightKg: pieceWeight.value,
+      };
+    }
+
+    // The live line under the boxes. It answers the only question that matters —
+    // what does a kilo of this cost — while the boxes are still being typed into,
+    // so a misplaced decimal point is visible before Save rather than after.
+    function refresh() {
+      const unit = unitSelect.value;
+      pieceField.hidden = unit !== 'pcs';
+      packSizeLabel.textContent = unit === 'pcs' ? 'How many pieces in a pack'
+        : unit ? `Pack size (${unit})`
+        : 'Pack size';
+
+      const draft = pricePatch(read(), null);
+      if (draft.pricePerUnit === null) {
+        summaryMain.textContent = costReasonText(draft);
+        summaryNote.textContent = '';
+        summary.className = 'mgmt-price-summary muted';
+        return;
+      }
+      const perKg = pricePerKg(draft);
+      // For a per-piece price the price per KILO is the derived number, and it is
+      // the one every recipe cost is built from — so it is spelled out rather than
+      // left to be worked out from a piece weight.
+      const parts = [formatPricePerUnit(draft), formatPurchaseForm(draft)];
+      if (unit === 'pcs' && perKg !== null) parts.splice(1, 0, `${formatRate(perKg)} / kg`);
+      summaryMain.textContent = parts.filter(Boolean).join('  ·  ');
+      // Empty whenever the ingredient IS costable, so the note only ever appears
+      // when there is something left to do.
+      summaryNote.textContent = costReasonText(draft);
+      summary.className = 'mgmt-price-summary';
+    }
+
+    [unitSelect, packPrice, packSize, pieceWeight].forEach(input => {
+      input.addEventListener('input', refresh);
+      input.addEventListener('change', refresh);
+    });
+    refresh();
+
+    const node = el('div', {}, [
+      el('h3', { class: 'mgmt-section-title', text: 'Price' }),
+      field('How it is bought', unitSelect),
+      field(`Price paid for one pack (${CURRENCY})`, packPrice),
+      el('label', { class: 'mgmt-field' }, [packSizeLabel, packSize, notedHint]),
+      pieceField,
+      summary,
+      item ? priceHistoryBlock(item) : null,
+    ]);
+
+    return { node, read };
+  }
+
+  // The append-only record of what this ingredient has cost. Loaded only when
+  // asked for: it is a separate read per ingredient, and nobody opening the form to
+  // fix a spelling needs it (P14).
+  function priceHistoryBlock(item) {
+    const list = el('div', { class: 'mgmt-price-history' });
+    const button = el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
+      button.disabled = true;
+      button.textContent = 'Loading…';
+      try {
+        const entries = await actions.priceHistory(item.id);
+        list.replaceChildren();
+        button.remove();
+        if (!entries.length) {
+          list.appendChild(el('p', { class: 'mgmt-empty', text: 'No price recorded yet.' }));
+          return;
+        }
+        entries.forEach(entry => {
+          list.appendChild(el('div', { class: 'mgmt-price-row' }, [
+            el('span', { class: 'mgmt-price-rate', text: formatPricePerUnit(entry) }),
+            el('span', { class: 'mgmt-price-when', text: shortDate(entry.recordedAt) }),
+          ]));
+        });
+      } catch (err) {
+        button.disabled = false;
+        button.textContent = 'Price history';
+        await reportFailure('load the price history for', item.name, err);
+      }
+    } }, 'Price history');
+
+    return el('div', { class: 'mgmt-field' }, [button, list]);
+  }
+
+  // "10 Aug 2026" from an ISO stamp. Anything unreadable falls back to the raw
+  // value rather than to "Invalid Date", which tells the reader nothing.
+  function shortDate(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso || '');
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
   function ingredientForm(item) {
     const name = el('input', { type: 'text', class: 'mgmt-input', value: item?.name || '' });
     const brand = el('input', { type: 'text', class: 'mgmt-input', value: item?.brand || '', placeholder: 'e.g. Galbani' });
@@ -372,10 +531,17 @@ export function buildManagement(data, actions) {
       supplierSelect.appendChild(opt);
     });
 
+    const price = priceBlock(item);
+
     const save = el('button', { type: 'button', class: 'btn-primary', onClick: async () => {
       // The supplier is no longer required — only the name is.
       if (!name.value.trim()) { name.focus(); return; }
       save.disabled = true;
+
+      // Every price field is in the patch, as a number or as null, because this is
+      // a MERGE write: a field left out keeps whatever it had, so emptying the
+      // boxes could never actually remove a price.
+      const patch = pricePatch(price.read(), new Date().toISOString());
       const payload = {
         name: name.value.trim(),
         supplierId: supplierSelect.value,
@@ -384,8 +550,18 @@ export function buildManagement(data, actions) {
         category: category.value.trim() || 'Other',
         unit: unit.value.trim(),
         active: item ? item.active !== false : true,
+        ...patch,
       };
-      try { await actions.saveIngredient(item?.id || null, payload); view = { type: 'list' }; render(); }
+
+      // Record the price only when it is COMPLETE and actually different. Saving
+      // the form to correct a spelling must not plant an identical entry — a
+      // history of non-events cannot answer "when did this go up?" — and removing
+      // a price is not a price, so it records nothing.
+      const record = patch.pricePerUnit !== null && priceChanged(item, patch)
+        ? priceRecord({ ...item, supplierId: payload.supplierId }, patch, patch.priceUpdatedAt)
+        : null;
+
+      try { await actions.saveIngredient(item?.id || null, payload, record); view = { type: 'list' }; render(); }
       catch (err) {
         save.disabled = false;                       // let them try again
         await reportFailure('save', payload.name, err);
@@ -400,6 +576,7 @@ export function buildManagement(data, actions) {
       field('Weight', weight),
       field('Category', category),
       field('Order unit', unit),
+      price.node,
       formActions(save),
     ]);
   }

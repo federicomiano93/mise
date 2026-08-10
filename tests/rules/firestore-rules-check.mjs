@@ -235,7 +235,154 @@ async function ingredients() {
   await expectDenied('active sent as a string instead of a boolean',
     () => mergeWrite('locations/main/ingredients/ING_MODERN', { active: 'yes', bakery: 'main' }));
 
+  // ── Prices on the ingredient ──
+  await expectAllowed('save an ingredient with a price', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25,
+      unitWeightKg: null, priceUpdatedAt: '2026-08-10T09:00:00.000Z', bakery: 'main',
+    }));
+
+  await expectAllowed('a per-piece price carries the weight of one piece', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      priceUnit: 'pcs', pricePerUnit: 2.1, packPrice: 2.1, packSize: 1,
+      unitWeightKg: 0.0035, priceUpdatedAt: '2026-08-10T09:00:00.000Z', bakery: 'main',
+    }));
+
+  // ⚠️ THE ONE THAT MAKES A PRICE REMOVABLE. These documents are merge-written, so
+  // a field left OUT of the payload keeps its old value — "clear the price" can
+  // only be said by writing null. Refuse null here and a wrong price entered once
+  // could never be taken off the ingredient again.
+  await expectAllowed('clear a price by writing nulls', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      priceUnit: null, pricePerUnit: null, packPrice: null, packSize: null,
+      unitWeightKg: null, priceUpdatedAt: null, bakery: 'main',
+    }));
+
+  await expectDenied('a price unit that is not one of the three',
+    () => mergeWrite('locations/main/ingredients/ING_MODERN', { priceUnit: 'crate', bakery: 'main' }));
+  await expectDenied('a negative price',
+    () => mergeWrite('locations/main/ingredients/ING_MODERN', { pricePerUnit: -7.2, bakery: 'main' }));
+  await expectDenied('a price of zero',
+    () => mergeWrite('locations/main/ingredients/ING_MODERN', { pricePerUnit: 0, bakery: 'main' }));
+  await expectDenied('a pack size of zero — it is a divisor',
+    () => mergeWrite('locations/main/ingredients/ING_MODERN', { packSize: 0, bakery: 'main' }));
+  await expectDenied('a piece weight of zero — it is a divisor too',
+    () => mergeWrite('locations/main/ingredients/ING_MODERN', { unitWeightKg: 0, bakery: 'main' }));
+  await expectDenied('a price sent as text',
+    () => mergeWrite('locations/main/ingredients/ING_MODERN', { pricePerUnit: '7.20', bakery: 'main' }));
+  await expectDenied('a priceUpdatedAt long enough to be a payload',
+    () => mergeWrite('locations/main/ingredients/ING_MODERN',
+      { priceUpdatedAt: bigString(65), bakery: 'main' }));
+
   await expectAllowed('delete an ingredient', () => deleteWrite('locations/main/ingredients/ING_MODERN'));
+}
+
+// The append-only record of what an ingredient has cost. It is a SUBCOLLECTION,
+// which inherits nothing from the rules of the document above it — without its own
+// block every write here is refused by the default-deny at the bottom of the file.
+async function ingredientPrices() {
+  await wipe();
+  await seedAccess();
+  await seedDoc('locations/main/ingredients/ING_MODERN', FIXTURE.ingredients.ING_MODERN);
+
+  const PRICES = 'locations/main/ingredients/ING_MODERN/prices';
+  const entry = (over = {}) => ({
+    recordedAt: '2026-08-10T09:00:00.000Z',
+    priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25,
+    supplierId: 'SUP_MODERN', source: 'manual', bakery: 'main', ...over,
+  });
+
+  await expectAllowed('append a price to the history', () => createWrite(PRICES, entry()));
+  await expectAllowed('append a second one — the history accumulates', () =>
+    createWrite(PRICES, entry({ recordedAt: '2026-08-11T09:00:00.000Z', packPrice: 190, pricePerUnit: 7.6 })));
+  await expectAllowed('a per-piece price records the piece weight', () =>
+    createWrite(PRICES, entry({ priceUnit: 'pcs', pricePerUnit: 2.1, packPrice: 2.1, packSize: 1, unitWeightKg: 0.0035 })));
+  await expectAllowed('an ingredient bought without a supplier still records', () =>
+    createWrite(PRICES, entry({ supplierId: '' })));
+
+  // ⚠️ APPEND-ONLY IS THE WHOLE POINT. A history that can be rewritten afterwards
+  // answers nothing about what was actually paid, and this is the record the margin
+  // history will later be rebuilt from. Correcting a price means adding the
+  // corrected one — which is also what really happened.
+  await seedDoc(`${PRICES}/SEEDED`, entry());
+  await expectDenied('editing a price already recorded',
+    () => mergeWrite(`${PRICES}/SEEDED`, { pricePerUnit: 1, bakery: 'main' }));
+  await expectDenied('replacing a price already recorded',
+    () => wholeWrite(`${PRICES}/SEEDED`, entry({ pricePerUnit: 1 })));
+  await expectDenied('deleting a price already recorded',
+    () => deleteWrite(`${PRICES}/SEEDED`));
+
+  // A field left OUT, not sent as null: toValue() encodes undefined as an explicit
+  // null, which is a different thing from absent and would test a different rule.
+  const without = key => { const e = entry(); delete e[key]; return e; };
+
+  await expectDenied('an unknown key on a price record',
+    () => createWrite(PRICES, entry({ evil: 'x' })));
+  await expectDenied('a price record with no date at all',
+    () => createWrite(PRICES, without('recordedAt')));
+  await expectDenied('a price record with an empty date',
+    () => createWrite(PRICES, entry({ recordedAt: '' })));
+  await expectDenied('a price record with no rate at all',
+    () => createWrite(PRICES, without('pricePerUnit')));
+  await expectDenied('a price record with no source',
+    () => createWrite(PRICES, without('source')));
+  await expectDenied('a rate of zero',
+    () => createWrite(PRICES, entry({ pricePerUnit: 0 })));
+  await expectDenied('a negative pack price',
+    () => createWrite(PRICES, entry({ packPrice: -180 })));
+  await expectDenied('a price unit that is not one of the three',
+    () => createWrite(PRICES, entry({ priceUnit: 'crate' })));
+  await expectDenied('a source nobody writes',
+    () => createWrite(PRICES, entry({ source: 'guessed' })));
+  await expectDenied('a piece weight of zero',
+    () => createWrite(PRICES, entry({ unitWeightKg: 0 })));
+  await expectDenied('a supplierId long enough to be a payload',
+    () => createWrite(PRICES, entry({ supplierId: bigString(201) })));
+  await expectDenied('a price record stamped for another location',
+    () => createWrite(PRICES, entry({ bakery: 'trattoria-x' })));
+  await expectDenied('a signed-out device appends nothing',
+    () => createWrite(PRICES, entry(), noAuth()));
+
+  // ── Who may see a price ──
+  // The design's rule: the ingredient LIST is read by Orders and by the Recipe
+  // catalogue (which links a row to an ingredient to cost it), but it is still
+  // WRITTEN only from Orders. trattoria-x is re-seeded here as a catalogue-only
+  // venue to prove exactly that split — BOB's own location, so nothing about
+  // crossing between locations is involved.
+  await seedDoc('locations/trattoria-x', {
+    name: 'Trattoria X',
+    sections: { orders: false, calculator: false, catalogue: true, pastries: false },
+  });
+  await seedDoc('locations/trattoria-x/ingredients/ING_X', {
+    bakery: 'trattoria-x', name: 'Olive oil', supplierId: '', active: true,
+  });
+  const X_PRICES = 'locations/trattoria-x/ingredients/ING_X/prices';
+
+  await expectAllowed('a catalogue-only venue may READ its own ingredients',
+    () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
+  await expectAllowed('…and read their price history',
+    () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(BOB) }));
+  await expectDenied('…but may not WRITE an ingredient', () =>
+    mergeWrite('locations/trattoria-x/ingredients/ING_X',
+      { pricePerUnit: 9, bakery: 'trattoria-x' }, asAccount(BOB)));
+  await expectDenied('…nor append a price', () =>
+    createWrite(X_PRICES, { ...entry(), bakery: 'trattoria-x' }, asAccount(BOB)));
+
+  // A venue that uses neither section reaches nothing at all.
+  await seedDoc('locations/trattoria-x', {
+    name: 'Trattoria X',
+    sections: { orders: false, calculator: true, catalogue: false, pastries: false },
+  });
+  await expectDenied('a venue with neither Orders nor the catalogue reads no ingredients',
+    () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
+  await expectDenied('…and no price history',
+    () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(BOB) }));
+
+  // Isolation: prices are business data, and they stay inside their own location.
+  await expectDenied('reading another location\'s price history',
+    () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(ALICE) }));
+  await expectDenied('writing a price into another location', () =>
+    createWrite(X_PRICES, { ...entry(), bakery: 'trattoria-x' }, asAccount(ALICE)));
 }
 
 async function drafts() {
@@ -828,7 +975,7 @@ async function pastryLogs() {
     () => deleteWrite('locations/trattoria-x/pastry-logs/2026-08-05_Monday', asAccount(ALICE)));
 }
 
-for (const scenario of [suppliers, ingredients, drafts, history, neighbours,
+for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
                         locationTree, isolation, configAndLogs, pastries, pastryLogs]) {
   await scenario();
 }

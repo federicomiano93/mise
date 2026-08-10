@@ -67,6 +67,25 @@ service cloud.firestore {
       return member(lid) && sectionOn(lid, section);
     }
 
+    // ── Who may READ the ingredient list ──────────────────────────────────
+    // Ingredients belong to Orders and are still written only from Orders, but
+    // they are no longer read only there: the Recipe catalogue links a recipe row
+    // to an ingredient so it can cost it, and a screen that cannot read the list
+    // cannot offer it. Reading is widened; WRITING deliberately is not.
+    //
+    // ⚠️ 'foodcost' IS ABSENT FROM THIS LIST ON PURPOSE, and it is not an
+    // oversight to fix later without thinking. sectionOn() defaults to TRUE for a
+    // section no location document mentions, so adding a name here that no venue
+    // has yet turned off would make this OR always true — and the read would stop
+    // being gated by any section at all. The Food Cost section joins this list in
+    // the release that creates it, together with the `sections.foodcost: false`
+    // typed into every venue that must not have it. Same trap, same fix, as the
+    // note in js/sections.js.
+    function canReadIngredients(lid) {
+      return member(lid)
+        && (sectionOn(lid, 'orders') || sectionOn(lid, 'catalogue'));
+    }
+
     // Which locations an account may open. Readable only by that account, so
     // one person cannot enumerate another's access; writable by no client at all.
     match /users/{uid} {
@@ -199,14 +218,25 @@ service cloud.firestore {
       // ── Ingredients ─────────────────────────────────────────────────────
       // Also merge-written: brand/weight only arrived in v1.10.0, so an
       // ingredient untouched since then lacks them and nothing may be required.
+      //
+      // ⚠️ THE PRICE FIELDS MUST ALL ACCEPT null AS WELL AS A NUMBER. Clearing a
+      // price is a merge write that sets them to null — a merge leaves out what
+      // it does not mention, so "clear" cannot be expressed by omission. Refuse
+      // null here and a price could be entered but never removed.
+      //
+      // `unit` (the ORDER unit: casse, box) and `priceUnit` (what the price is
+      // quoted per: kg, l, pcs) are different fields with confusingly similar
+      // names. The first is how you count the order, the second is how you buy it.
       match /ingredients/{id} {
-        allow read: if canUse(lid, 'orders');
+        allow read: if canReadIngredients(lid);
 
         allow create, update: if canUse(lid, 'orders')
           && stampedFor(lid)
           && request.resource.data.keys().hasOnly([
                'bakery', 'name', 'supplierId', 'brand', 'weight',
-               'category', 'unit', 'active'
+               'category', 'unit', 'active',
+               'priceUnit', 'pricePerUnit', 'packPrice', 'packSize',
+               'unitWeightKg', 'priceUpdatedAt'
              ])
           && (!('name' in request.resource.data)
               || (request.resource.data.name is string
@@ -227,9 +257,87 @@ service cloud.firestore {
               || (request.resource.data.unit is string
                   && request.resource.data.unit.size() <= 100))
           && (!('active' in request.resource.data)
-              || request.resource.data.active is bool);
+              || request.resource.data.active is bool)
+          && (!('priceUnit' in request.resource.data)
+              || request.resource.data.priceUnit == null
+              || request.resource.data.priceUnit in ['kg', 'l', 'pcs'])
+          && (!('pricePerUnit' in request.resource.data)
+              || request.resource.data.pricePerUnit == null
+              || (request.resource.data.pricePerUnit is number
+                  && request.resource.data.pricePerUnit > 0))
+          && (!('packPrice' in request.resource.data)
+              || request.resource.data.packPrice == null
+              || (request.resource.data.packPrice is number
+                  && request.resource.data.packPrice > 0))
+          && (!('packSize' in request.resource.data)
+              || request.resource.data.packSize == null
+              || (request.resource.data.packSize is number
+                  && request.resource.data.packSize > 0))
+          && (!('unitWeightKg' in request.resource.data)
+              || request.resource.data.unitWeightKg == null
+              || (request.resource.data.unitWeightKg is number
+                  && request.resource.data.unitWeightKg > 0))
+          && (!('priceUpdatedAt' in request.resource.data)
+              || request.resource.data.priceUpdatedAt == null
+              || (request.resource.data.priceUpdatedAt is string
+                  && request.resource.data.priceUpdatedAt.size() <= 64));
 
         allow delete: if canUse(lid, 'orders');
+
+        // ── What this ingredient has cost over time ───────────────────────
+        // APPEND-ONLY BY CONSTRUCTION: create is allowed, update and delete are
+        // not. That is the whole point — this is the record the margin history
+        // will later be reconstructed from, and a record that can be edited
+        // afterwards answers nothing. Correcting a price means adding the
+        // corrected one, which is also what actually happened.
+        //
+        // ⚠️ A SUBCOLLECTION IS NOT COVERED BY ITS PARENT'S RULES. Without this
+        // block the documents fall through to the default-deny at the bottom of
+        // the file and every write is refused — silently, from the app's point of
+        // view, because a rejected write looks like a network problem.
+        //
+        // Written WHOLE, and the collection is brand new, so every field can be
+        // REQUIRED rather than optional: there is no phone anywhere running an
+        // older writer whose payload would suddenly start being refused. Same
+        // reasoning, and the same limit, as the pastries block further down —
+        // and, as there, never copy this shape onto a collection production
+        // already carries.
+        //
+        // The document id is generated by Firestore, NOT taken from the
+        // timestamp. An id that is the moment of the write makes two prices saved
+        // in the same millisecond collide, and with update denied the second one
+        // would simply be refused. Ordering is done by the `recordedAt` FIELD,
+        // which is also the only thing Firestore can order descending.
+        match /prices/{priceId} {
+          allow read: if canReadIngredients(lid);
+
+          allow create: if canUse(lid, 'orders')
+            && stampedFor(lid)
+            && request.resource.data.keys().hasOnly([
+                 'bakery', 'recordedAt', 'priceUnit', 'pricePerUnit',
+                 'packPrice', 'packSize', 'unitWeightKg', 'supplierId', 'source'
+               ])
+            && request.resource.data.recordedAt is string
+            && request.resource.data.recordedAt.size() > 0
+            && request.resource.data.recordedAt.size() <= 64
+            && request.resource.data.priceUnit in ['kg', 'l', 'pcs']
+            && request.resource.data.pricePerUnit is number
+            && request.resource.data.pricePerUnit > 0
+            && request.resource.data.packPrice is number
+            && request.resource.data.packPrice > 0
+            && request.resource.data.packSize is number
+            && request.resource.data.packSize > 0
+            // Only a per-piece price has one, so it is the single optional field.
+            && (!('unitWeightKg' in request.resource.data)
+                || request.resource.data.unitWeightKg == null
+                || (request.resource.data.unitWeightKg is number
+                    && request.resource.data.unitWeightKg > 0))
+            && request.resource.data.supplierId is string
+            && request.resource.data.supplierId.size() <= 200
+            && request.resource.data.source in ['manual', 'invoice'];
+
+          allow update, delete: if false;
+        }
       }
 
       // ── The order in progress ───────────────────────────────────────────
