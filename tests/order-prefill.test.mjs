@@ -43,9 +43,51 @@ test('the most RECENT log wins when two recorded the same row', () => {
   assert.deepEqual(fill(logs), { '0|p1': 12 });
 });
 
-test('a zero in the log is not an answer — that row stays for you to type', () => {
-  const logs = [mkLog([item('CLIENT A', 'p1', 0)]), mkLog([item('CLIENT A', 'p1', 7)])];
-  assert.deepEqual(fill(logs), { '0|p1': 7 });
+test('a ZERO in the newest log is an answer — it stops an older number outliving it', () => {
+  // ⚠️ THE DEFECT THIS PINS, reported from the bakery on 10 Aug 2026. A dough log
+  // lists EVERY product of its recipe for every client, zeros included, so a zero in
+  // today's log means "none of these today". The code used to skip it and keep
+  // searching backwards, and offered yesterday's 10 for a row today's log plainly
+  // showed as 0 — in a message about to be sent to that client.
+  const logs = [
+    mkLog([item('CLIENT A', 'p1', 0)], TODAY),
+    mkLog([item('CLIENT A', 'p1', 10)], YESTERDAY),
+  ];
+  assert.deepEqual(fill(logs), {});
+});
+
+test('the newest log decides a row even when an older one has a bigger number', () => {
+  const logs = [
+    mkLog([item('CLIENT A', 'p1', 3)], TODAY),
+    mkLog([item('CLIENT A', 'p1', 99)], YESTERDAY),
+  ];
+  assert.deepEqual(fill(logs), { '0|p1': 3 });
+});
+
+test('a row the newest log does NOT mention still falls through to an older one', () => {
+  // A focaccia log cannot answer for a brioche row: it never names it. That is what
+  // makes "yesterday's dough, made for today" still work.
+  const logs = [
+    mkLog([item('CLIENT A', 'p1', 5)], TODAY),          // says nothing about p2
+    mkLog([item('CLIENT A', 'p2', 48)], YESTERDAY),
+  ];
+  assert.deepEqual(fill(logs), { '0|p1': 5, '0|p2': 48 });
+});
+
+test('the real shape it went wrong on: two doughs, one row zeroed today', () => {
+  // Today's brioche: one client's first product ordered, the second at zero.
+  // Yesterday's focaccia: a different product entirely. Nothing may leak across.
+  const entries = [
+    { client: { name: 'CLIENT A' }, products: [
+      { id: 'buns', name: 'Buns' }, { id: 'rolls', name: 'Rolls' }, { id: 'trays', name: 'Trays' }] },
+  ];
+  const logs = [
+    mkLog([item('CLIENT A', 'buns', 0), item('CLIENT A', 'rolls', 20)], TODAY),
+    mkLog([item('CLIENT A', 'buns', 10), item('CLIENT A', 'rolls', 20)], YESTERDAY),
+    mkLog([item('CLIENT A', 'trays', 4)], YESTERDAY),
+  ];
+  assert.deepEqual(prefillFromLogs(entries, logs, latestOf, { nowMs: NOW }),
+    { '0|rolls': 20, '0|trays': 4 });
 });
 
 test('the same product for two clients does not bleed across', () => {
