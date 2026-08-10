@@ -359,10 +359,24 @@ export function resolveListClients(config, list) {
     const productIds = Array.isArray(entry.products) ? entry.products : [];
     const products = productIds
       .map(id => own.get(id) || getProductById(config, id))
-      .filter(Boolean);
+      .filter(Boolean)
+      .concat(freeLineRows(entry.extras));
     out.push({ client, products });
   }
   return out;
+}
+
+// Free lines join the resolved rows as ordinary ones, so the order modal, the
+// prefill and the message builder need to know nothing about them: a row is a row.
+// They come LAST, after the products, because they are the additions to an order
+// rather than the body of it.
+//
+// `free: true` is carried for the settings screen, which is the only place that has
+// to tell the two apart — it lets you rename a free line and not a product.
+function freeLineRows(extras) {
+  return (Array.isArray(extras) ? extras : [])
+    .filter(l => l && l.id && l.name)
+    .map(l => ({ id: l.id, name: l.name, free: true }));
 }
 
 // Resolve a direct WhatsApp client to the order message's data: its typed name plus
@@ -370,7 +384,8 @@ export function resolveListClients(config, list) {
 export function resolveDirectClient(config, dc) {
   if (!dc) return null;
   const productIds = Array.isArray(dc.products) ? dc.products : [];
-  const products = productIds.map(id => getProductById(config, id)).filter(Boolean);
+  const products = productIds.map(id => getProductById(config, id)).filter(Boolean)
+    .concat(freeLineRows(dc.extras));
   return { name: dc.name || 'Client', products };
 }
 
@@ -615,6 +630,63 @@ function homeProducts(clients, recipes) {
   return clients;
 }
 
+// ── Free lines: things a client buys that the bakery does not calculate ───────
+// A line that exists ONLY in the WhatsApp message. It carries its own name and is
+// not a product at all, which is the entire point:
+//
+//   • it can never reach the dough calculation, structurally — not by a flag being
+//     respected in every place that counts a product, but because there is nothing
+//     to count;
+//   • it can never be pruned away, because there is no reference to resolve;
+//   • the order form always leaves it at 0, because no production log can ever name
+//     it — which is right, since nobody logs what they did not make.
+//
+// It exists because of a real case: a client buys loaves that are cut from the bread
+// baked for ANOTHER client, so the dough is already counted once and must not be
+// counted twice — but the line still has to appear in the message, or the client is
+// sent an order missing what they asked for. Until now the only way was to borrow
+// the other client's product, which worked and was fragile: delete that product
+// everywhere and this line vanished from the message in silence.
+//
+// ⚠️ THE ID IS PREFIXED `wx-`, AND THAT PREFIX IS LOAD-BEARING. The order modal keys
+// its inputs by product id and the prefill keys its lookups the same way, so a free
+// line must never collide with a real `p-…` id — a collision would put a client's
+// typed quantity onto somebody else's row.
+export const FREE_LINE_PREFIX = 'wx-';
+const MAX_FREE_LINES = 50;
+
+export function isFreeLineId(id) {
+  return String(id || '').startsWith(FREE_LINE_PREFIX);
+}
+
+// Keep the ones that still have a name. A blank line is not an error — it is a row
+// somebody started and abandoned — so it is dropped quietly rather than refused.
+//
+// ⚠️ IDS ARE MADE UNIQUE WITHIN THE ENTRY. Two lines named the same would otherwise
+// slug to the same id, and the modal would render two inputs sharing one id:
+// getElementById returns the first, so one quantity would be read twice and the
+// other silently ignored. Suffixed rather than dropped — a client really can be sold
+// two things with the same name.
+function normalizeFreeLines(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  const used = new Set();
+  for (const line of raw) {
+    if (!line || typeof line !== 'object') continue;
+    const name = String(line.name == null ? '' : line.name).trim();
+    if (!name) continue;
+
+    const wanted = isFreeLineId(line.id) ? String(line.id) : FREE_LINE_PREFIX + (slug(name) || 'line');
+    let id = wanted;
+    for (let n = 2; used.has(id); n++) id = `${wanted}-${n}`;
+    used.add(id);
+
+    out.push({ id, name });
+    if (out.length >= MAX_FREE_LINES) break;
+  }
+  return out;
+}
+
 // One WhatsApp list client entry, validated against the catalogue + address book.
 function normalizeListClient(raw, validClientIds, validProductIds) {
   if (!raw || typeof raw !== 'object') return null;
@@ -623,7 +695,7 @@ function normalizeListClient(raw, validClientIds, validProductIds) {
   const products = Array.isArray(raw.products)
     ? raw.products.map(String).filter(id => validProductIds.has(id))
     : [];
-  return { clientId, products };
+  return { clientId, products, extras: normalizeFreeLines(raw.extras) };
 }
 
 function normalizeWhatsappList(raw, validClientIds, validProductIds) {
@@ -647,9 +719,10 @@ function normalizeWhatsappClient(raw, validProductIds) {
   const products = Array.isArray(raw.products)
     ? raw.products.map(String).filter(id => validProductIds.has(id))
     : [];
+  const extras = normalizeFreeLines(raw.extras);
   const name = String(raw.name || '').trim();
-  if (name === '' && products.length === 0) return null;
-  return { id: String(raw.id || 'wc'), name, products };
+  if (name === '' && products.length === 0 && extras.length === 0) return null;
+  return { id: String(raw.id || 'wc'), name, products, extras };
 }
 
 function normalizeWhatsappClients(raw, validProductIds) {

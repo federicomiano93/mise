@@ -15,7 +15,9 @@
 //   • Level 1  → a list: its name + a card per client                (+ Add client)
 //   • Level 1b → choose which address-book client to add to the list
 //   • Level 2  → a client's products (list entry OR direct client)   (+ Add product)
-//   • Level 3  → choose a product to add (UNIQUE product names)
+//                plus the lines TYPED BY HAND, which live only in the message
+//   • Level 3  → add to the message: this client's own products, then everyone
+//                else's, then a box for a name that is in neither list
 //
 // PERSISTENCE MODEL: each item is saved from ITS OWN detail screen (a bottom Save).
 // The top screen has NO Save — it only lists items and deletes them, and a delete is
@@ -75,27 +77,20 @@ function currentTarget() {
   return lists()[activeList].clients[activeEntry];
 }
 
-// ── Address-book product pool (unique by name) ─────────────────────────────────
-// The WhatsApp message uses only the product name, so the picker shows each distinct
-// name once, keeping the first product that bears it as the representative to store.
-// Products now belong to their client, so this walks every client's list — two clients
-// ordering the same thing still offer that name once.
-function uniqueProducts() {
-  const seen = new Set();
-  const out = [];
-  for (const p of getAllProducts(getConfig())) {
-    if (seen.has(p.name)) continue;
-    seen.add(p.name);
-    out.push({ id: p.id, name: p.name });
-  }
-  return out;
-}
-
 // The display names of the products a target has chosen (skipping ids whose product
 // has since been deleted). Used for the entry summary and the "already added" set.
 function targetProductNames(target) {
   const ids = Array.isArray(target.products) ? target.products : [];
   return ids.map(id => { const p = getProductById(getConfig(), id); return p ? p.name : null; }).filter(Boolean);
+}
+
+// Everything that will appear in the message for this target: its products AND its
+// free lines. The summary on the card must count both, or an entry that carries only
+// free lines reads "No products yet" while the message it sends is full.
+function targetLineNames(target) {
+  const extras = Array.isArray(target.extras) ? target.extras : [];
+  return targetProductNames(target)
+    .concat(extras.map(l => (l && String(l.name || '').trim()) || null).filter(Boolean));
 }
 
 // ── Open / navigate ────────────────────────────────────────────────────────────
@@ -359,8 +354,8 @@ function renderListDetail() {
 function entryCard(list, entry, ei) {
   const client = getClientById(getConfig(), entry.clientId);
   const name = client ? (client.name || 'Unnamed client') : 'Unknown client';
-  const names = targetProductNames(entry);
-  const summary = names.length ? names.join(', ') : 'No products yet — tap to add';
+  const names = targetLineNames(entry);
+  const summary = names.length ? names.join(', ') : 'Nothing to send yet — tap to add';
 
   const open = el('button', { class: 'drill-item wa-entry-open', type: 'button' }, [
     el('span', { class: 'wa-entry-text' }, [
@@ -443,6 +438,52 @@ function addProductButton() {
   return btn;
 }
 
+// ── Free lines: things this client buys that the bakery does not calculate ────
+// A typed name that lives ONLY in the message. It is not a product, so it cannot
+// reach a dough total and cannot be pruned when somebody tidies the address book.
+//
+// The real case: a client buys loaves cut from the bread baked for ANOTHER client.
+// The dough is already counted once and must not be counted twice — but the line
+// still has to reach that client's message.
+//
+// ⚠️ EDITED IN PLACE, not through a picker. There is nothing to pick from: the whole
+// point is that this thing is not in the address book. Typing straight into the row
+// is also what makes it obvious it is a free line rather than a product, which the
+// rows above it are.
+function freeLinesField(target) {
+  if (!Array.isArray(target.extras)) target.extras = [];
+
+  const field = el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label' }, 'Added by hand'),
+    el('p', { class: 'extra-help' },
+      'For things this client buys that you do not calculate here — bread cut from '
+      + 'another client\'s batch, for example. They appear in the message and never '
+      + 'in a dough total, and the order form always leaves them empty for you to fill in.'),
+  ]);
+
+  target.extras.forEach((line, i) => {
+    const input = el('input', {
+      class: 'cp-client-name', type: 'text', value: line.name || '',
+      placeholder: 'e.g. Loaves of bread',
+      'aria-label': 'Extra line ' + (i + 1),
+    });
+    // ⚠️ The id is NOT recomputed as the name is typed. It keys the quantity box in
+    // the order modal, so changing it mid-edit would move somebody's typed number to
+    // a different row. A blank line is dropped on save, which is where ids settle.
+    input.addEventListener('input', () => { line.name = input.value; markDirty(); });
+
+    const del = deleteIcon('Remove line', () => {
+      target.extras.splice(i, 1);
+      markDirty();
+      renderEditor();
+    });
+    field.appendChild(el('div', { class: 'wa-prod-row' }, [input, del]));
+  });
+
+  return field;
+}
+
+
 function renderEntryDetail() {
   const entry = lists()[activeList].clients[activeEntry];
   if (!Array.isArray(entry.products)) entry.products = [];
@@ -453,6 +494,7 @@ function renderEntryDetail() {
   content.textContent = '';
   content.appendChild(productsField(entry));
   content.appendChild(addProductButton());
+  content.appendChild(freeLinesField(entry));
   content.appendChild(saveBottomButton());
 }
 
@@ -474,6 +516,7 @@ function renderDirectDetail() {
 
   content.appendChild(productsField(dc));
   content.appendChild(addProductButton());
+  content.appendChild(freeLinesField(dc));
   content.appendChild(saveBottomButton());
 }
 
@@ -489,41 +532,141 @@ function productRow(target, id, name) {
   return el('div', { class: 'wa-prod-row' }, [el('span', {}, name), del]);
 }
 
-// ── Level 3: choose a product (unique names) to add to the current target ──────
+// The address book as this picker sees it: unique by NAME, because the message only
+// ever carries a name.
+//
+// ⚠️ WHEN TWO CLIENTS SELL THE SAME NAME, THIS CLIENT'S OWN COPY WINS. Picking the
+// first one found would file a client's own product under "other products" — exactly
+// backwards — whenever somebody else happened to be earlier in the address book.
+function pickerProducts(client) {
+  const ownIds = new Set(client ? (client.products || []).map(p => p.id) : []);
+  const byName = new Map();
+  for (const p of getAllProducts(getConfig())) {
+    const seen = byName.get(p.name);
+    if (!seen || (!ownIds.has(seen.id) && ownIds.has(p.id))) byName.set(p.name, { id: p.id, name: p.name });
+  }
+  return { rows: [...byName.values()], ownIds };
+}
+
+// The client this target belongs to, or null for a direct client — which is a typed
+// name with no address-book entry, so it has no products "of its own".
+function targetClient(target) {
+  return activeDirect !== null ? null : getClientById(getConfig(), target.clientId);
+}
+
+// ── Level 3: choose what to add ───────────────────────────────────────────────
+// Three ways in, in the order somebody looks for them: this client's own products
+// first, then everything else in the address book, and last a box for a name that is
+// in neither — the escape hatch that makes the WhatsApp side independent of the
+// Clients screen.
+//
+// ⚠️ THE TYPING BOX IS LAST ON PURPOSE. At the top it would be the first thing
+// reached, and half the free lines would be hand-typed copies of products that were
+// already there two rows below — two rows in one message for the same thing.
 function renderProductPicker() {
   const target = currentTarget();
-  waTitle().textContent = 'Add product';
+  const client = targetClient(target);
+  waTitle().textContent = 'Add to the message';
   setHomeVisible(false);
   const content = document.getElementById('wa-content');
   content.textContent = '';
 
-  // Unique product names not already added to this target.
-  const addedNames = new Set(targetProductNames(target));
-  const available = uniqueProducts().filter(p => !addedNames.has(p.name));
+  // Already on this target, by name: products AND hand-typed lines, so the picker
+  // cannot offer something the message already carries.
+  const added = new Set(targetLineNames(target));
+  const { rows, ownIds } = pickerProducts(client);
+  const available = rows.filter(p => !added.has(p.name));
+  const own = available.filter(p => ownIds.has(p.id));
+  const others = available.filter(p => !ownIds.has(p.id));
 
-  if (uniqueProducts().length === 0) {
-    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in the address book yet.'));
-    return;
-  }
-  if (available.length === 0) {
-    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'All products are already added.'));
-    return;
+  const addProduct = product => {
+    target.products.push(product.id); // store the representative id for this name
+    markDirty();
+    addingProduct = false;            // back to the list, showing the addition
+    renderEditor();
+  };
+
+  if (own.length) {
+    content.appendChild(el('div', { class: 'send-picker-label' },
+      client ? `${client.name}'s products` : 'Its products'));
+    own.forEach(p => content.appendChild(pickRow(p.name, () => addProduct(p))));
   }
 
-  content.appendChild(el('p', { class: 'extra-help' }, 'Tap a product to add it. It need not belong to this client.'));
-  available.forEach(product => {
-    const box = el('button', { class: 'drill-item', type: 'button' }, [
-      el('span', {}, product.name),
-      el('span', { class: 'drill-chevron' }, '+'),
-    ]);
-    box.addEventListener('click', () => {
-      target.products.push(product.id); // store the representative id for this name
-      markDirty();
-      addingProduct = false; // back to the product list, showing the addition
-      renderEditor();
-    });
-    content.appendChild(box);
+  if (others.length) {
+    content.appendChild(el('div', { class: 'send-picker-label' },
+      own.length ? 'Other products' : 'Products'));
+    content.appendChild(el('p', { class: 'extra-help' },
+      'Products of other clients. Adding one here only puts it in this message — it '
+      + 'does not change the address book.'));
+    others.forEach(p => content.appendChild(pickRow(p.name, () => addProduct(p))));
+  }
+
+  if (!own.length && !others.length) {
+    content.appendChild(el('div', { class: 'cp-empty-hint' },
+      rows.length ? 'Everything in the address book is already added.'
+        : 'No products in the address book yet.'));
+  }
+
+  content.appendChild(byHandField(target, added));
+}
+
+function pickRow(label, onPick) {
+  const box = el('button', { class: 'drill-item', type: 'button' }, [
+    el('span', {}, label),
+    el('span', { class: 'drill-chevron' }, '+'),
+  ]);
+  box.addEventListener('click', onPick);
+  return box;
+}
+
+// ── Type a name that is in neither list ───────────────────────────────────────
+// This is what makes the WhatsApp side independent of the Clients screen: something
+// a client buys but the bakery does not calculate — bread cut from another client's
+// batch, say — needs a line in the message and must never reach a dough total.
+//
+// It is stored as a FREE LINE, not as a product, so there is nothing to count and
+// nothing to prune. The order form always leaves it empty for you to fill in, because
+// no production log can ever name it.
+function byHandField(target, added) {
+  const input = el('input', {
+    class: 'cp-client-name', type: 'text',
+    placeholder: 'e.g. Loaves of bread',
+    'aria-label': 'Add a line by hand',
   });
+  const warning = el('p', { class: 'extra-help cp-empty-hint' });
+  warning.hidden = true;
+
+  const add = () => {
+    const name = input.value.trim();
+    if (!name) return;
+    // Refuse a name the message already carries, rather than sending the client the
+    // same thing on two lines. Said out loud — silently ignoring the tap reads as a
+    // broken button.
+    if (added.has(name)) {
+      warning.textContent = `"${name}" is already in this message.`;
+      warning.hidden = false;
+      return;
+    }
+    if (!Array.isArray(target.extras)) target.extras = [];
+    target.extras.push({ id: '', name });   // the id settles on save
+    markDirty();
+    addingProduct = false;
+    renderEditor();
+  };
+
+  input.addEventListener('input', () => { warning.hidden = true; });
+  const btn = el('button', { class: 'cp-add-prod', type: 'button' }, 'Add this line');
+  btn.addEventListener('click', add);
+
+  return el('div', { class: 'cp-field' }, [
+    el('div', { class: 'send-picker-label' }, 'Not in the address book?'),
+    el('p', { class: 'extra-help' },
+      'Type it here. It goes in the message only — never into a dough calculation — '
+      + 'and the order form leaves it empty for you to fill in.'),
+    input,
+    warning,
+    btn,
+  ]);
 }
 
 // ── Static wiring (elements exist in calculator.html) ──────────────────────────
