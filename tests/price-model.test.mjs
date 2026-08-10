@@ -111,7 +111,7 @@ test('an ingredient with a complete price is costable', () => {
 test('the 65 ingredients that exist today are simply "no price yet"', () => {
   // The real shape in production before this feature: a name, a supplier, a
   // free-text weight. Nothing about them may look broken — they are just unpriced.
-  const live = { name: 'Bacon', supplierId: 'BRAKES', weight: '2.27kg', unit: 'casse', active: true };
+  const live = { name: 'Bacon', supplierId: 'SUP_1', weight: '2.27kg', unit: 'casse', active: true };
   assert.deepEqual(costState(live), { costable: false, reason: 'no-price' });
   assert.equal(costReasonText(live), 'No price yet');
 });
@@ -244,11 +244,11 @@ test('a missing field and a null field are the same absence', () => {
 // ── The history entry ────────────────────────────────────────────────────────
 
 test('a history entry carries the supplier and a date FIELD', () => {
-  const ing = { name: 'Flour', supplierId: 'SALVO' };
+  const ing = { name: 'Flour', supplierId: 'SUP_1' };
   const patch = pricePatch({ priceUnit: 'kg', packPrice: 180, packSize: 25 }, AT);
   const record = priceRecord(ing, patch, AT);
 
-  assert.equal(record.supplierId, 'SALVO');
+  assert.equal(record.supplierId, 'SUP_1');
   assert.equal(record.source, 'manual');
   assert.equal(record.pricePerUnit, 7.2);
   // recordedAt must be a field: Firestore refuses to order a query descending by
