@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_CONFIG,
   getOrderPrefillWindow,
+  isFreeLineId,
   ORDER_PREFILL_WINDOWS,
   ORDER_PREFILL_LABELS,
   pairId,
@@ -375,7 +376,8 @@ test('normalizeConfig prunes WhatsApp list entries for dead clients/products', (
   };
   const norm = normalizeConfig(raw);
   assert.equal(norm.whatsappLists[0].clients.length, 1);
-  assert.deepEqual(norm.whatsappLists[0].clients[0], { clientId: 'c1', products: ['p1'] });
+  // `extras` (free lines typed by hand) is always present, empty when there are none.
+  assert.deepEqual(norm.whatsappLists[0].clients[0], { clientId: 'c1', products: ['p1'], extras: [] });
 });
 
 test('normalizeConfig falls back to the default for missing/garbage input', () => {
@@ -754,4 +756,109 @@ test('every choice has wording, or the settings screen shows a blank option', ()
     assert.equal(typeof ORDER_PREFILL_LABELS[w], 'string');
     assert.ok(ORDER_PREFILL_LABELS[w].length > 0, w);
   }
+});
+
+// ── Free lines: things a client buys that the bakery does not calculate ───────
+// A line that exists ONLY in the WhatsApp message. The real case: a client buys
+// loaves cut from the bread baked for ANOTHER client, so the dough is counted once
+// and must not be counted twice — but the line still has to reach the message.
+
+const FREE_CFG = {
+  clients: [
+    { id: 'cA', name: 'CLIENT A', products: [
+      { id: 'p1', name: 'Buns', recipeId: 'brioche', weight: 80, kind: 'number' }] },
+  ],
+  whatsappLists: [{ id: 'wl', title: 'Morning', clients: [
+    { clientId: 'cA', products: ['p1'], extras: [{ id: '', name: 'Loaves of bread' }] }] }],
+};
+
+test('a free line survives normalisation and gets a wx- id', () => {
+  const cfg = normalizeConfig(FREE_CFG);
+  const extras = cfg.whatsappLists[0].clients[0].extras;
+  assert.equal(extras.length, 1);
+  assert.equal(extras[0].name, 'Loaves of bread');
+  assert.ok(isFreeLineId(extras[0].id), extras[0].id);
+});
+
+test('a free line NEVER reaches the dough calculation', () => {
+  // The point of the whole design: it is not a product, so there is nothing to count.
+  const cfg = normalizeConfig(FREE_CFG);
+  assert.deepEqual(getTabProducts(cfg, 'brioche').map(p => p.id), ['p1']);
+  assert.equal(getProducts(cfg).length, 1);
+  assert.equal(getProductById(cfg, cfg.whatsappLists[0].clients[0].extras[0].id), null);
+});
+
+test('a free line reaches the message as an ordinary row, after the products', () => {
+  const cfg = normalizeConfig(FREE_CFG);
+  const [entry] = resolveListClients(cfg, cfg.whatsappLists[0]);
+  assert.deepEqual(entry.products.map(p => p.name), ['Buns', 'Loaves of bread']);
+  assert.equal(entry.products[1].free, true);
+});
+
+test('a free line id can never collide with a product id', () => {
+  // The modal keys its quantity boxes by id; a collision would put one client's
+  // typed number onto another row.
+  const cfg = normalizeConfig(FREE_CFG);
+  const ids = new Set(getProducts(cfg).map(p => p.id));
+  for (const l of cfg.whatsappLists[0].clients[0].extras) assert.equal(ids.has(l.id), false);
+});
+
+test('two free lines with the same name get different ids', () => {
+  // Two inputs sharing an id means getElementById returns the first, so one quantity
+  // is read twice and the other silently ignored.
+  const cfg = normalizeConfig({ ...FREE_CFG, whatsappLists: [{ id: 'wl', title: 'M', clients: [
+    { clientId: 'cA', products: [], extras: [{ name: 'Bread' }, { name: 'Bread' }] }] }] });
+  const extras = cfg.whatsappLists[0].clients[0].extras;
+  assert.equal(extras.length, 2);
+  assert.notEqual(extras[0].id, extras[1].id);
+});
+
+test('an existing free line KEEPS its id when renamed', () => {
+  // The id keys a quantity box. Recomputing it from the new name would move a typed
+  // number to a different row mid-edit.
+  const cfg = normalizeConfig({ ...FREE_CFG, whatsappLists: [{ id: 'wl', title: 'M', clients: [
+    { clientId: 'cA', products: [], extras: [{ id: 'wx-loaves-of-bread', name: 'Sourdough loaves' }] }] }] });
+  assert.equal(cfg.whatsappLists[0].clients[0].extras[0].id, 'wx-loaves-of-bread');
+});
+
+test('a blank free line is dropped quietly, not refused', () => {
+  const cfg = normalizeConfig({ ...FREE_CFG, whatsappLists: [{ id: 'wl', title: 'M', clients: [
+    { clientId: 'cA', products: ['p1'], extras: [{ name: '   ' }, { name: '' }, null, 'oops'] }] }] });
+  assert.deepEqual(cfg.whatsappLists[0].clients[0].extras, []);
+  assert.deepEqual(cfg.whatsappLists[0].clients[0].products, ['p1']);
+});
+
+test('a list entry with only free lines is kept, not treated as empty', () => {
+  const cfg = normalizeConfig({ ...FREE_CFG, whatsappLists: [{ id: 'wl', title: 'M', clients: [
+    { clientId: 'cA', products: [], extras: [{ name: 'Loaves of bread' }] }] }] });
+  const [entry] = resolveListClients(cfg, cfg.whatsappLists[0]);
+  assert.deepEqual(entry.products.map(p => p.name), ['Loaves of bread']);
+});
+
+test('a direct client can carry free lines too', () => {
+  const cfg = normalizeConfig({ ...FREE_CFG,
+    whatsappClients: [{ id: 'wc', name: 'Market stall', products: [], extras: [{ name: 'Bread' }] }] });
+  const resolved = resolveDirectClient(cfg, cfg.whatsappClients[0]);
+  assert.deepEqual(resolved.products.map(p => p.name), ['Bread']);
+});
+
+test('a direct client that is ONLY free lines is not dropped', () => {
+  // The old rule dropped an entry with no name and no products; a free line is now
+  // something, so dropping it would delete work somebody had just typed.
+  const cfg = normalizeConfig({ ...FREE_CFG,
+    whatsappClients: [{ id: 'wc', name: '', products: [], extras: [{ name: 'Bread' }] }] });
+  assert.equal(cfg.whatsappClients.length, 1);
+});
+
+test('free lines are capped, so a stuck finger cannot grow the config for ever', () => {
+  const many = Array.from({ length: 200 }, (_, i) => ({ name: 'Line ' + i }));
+  const cfg = normalizeConfig({ ...FREE_CFG, whatsappLists: [{ id: 'wl', title: 'M', clients: [
+    { clientId: 'cA', products: [], extras: many }] }] });
+  assert.equal(cfg.whatsappLists[0].clients[0].extras.length, 50);
+});
+
+test('a config that never heard of free lines normalises to an empty list', () => {
+  const cfg = normalizeConfig({ ...FREE_CFG, whatsappLists: [{ id: 'wl', title: 'M', clients: [
+    { clientId: 'cA', products: ['p1'] }] }] });
+  assert.deepEqual(cfg.whatsappLists[0].clients[0].extras, []);
 });
