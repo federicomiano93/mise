@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v259';
+const CACHE_NAME = 'theitalianclub-v260';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -35,6 +35,8 @@ const ASSETS = [
   './js/calculator-icons.js',
   './js/hold-to-zoom.js',
   './js/price-model.js',
+  './js/push-model.js',
+  './js/push.js',
   './js/client-order-model.js',
   './js/client-orders-data.js',
   './js/calculator-client-orders.js',
@@ -274,4 +276,83 @@ self.addEventListener('message', e => {
   if (e.data && e.data.action === 'skipWaiting') {
     self.skipWaiting();
   }
+});
+
+// ── Notifications that arrive with the app closed ────────────────────────────
+//
+// ⚠️ THIS IS HERE, IN THE APP'S OWN SERVICE WORKER, ON PURPOSE. Firebase's usual
+// setup registers a SECOND worker (firebase-messaging-sw.js) at the site ROOT —
+// and this app is not at the root, it lives under /the_italian_club_app/. Two
+// workers fighting over one scope is a whole class of bug that simply cannot
+// happen if there is only ever one. getToken() is handed THIS registration
+// instead (js/push.js).
+//
+// The server sends DATA-ONLY messages, so nothing is displayed until the code
+// below decides to display it. A message carrying a `notification` block would be
+// shown by the browser automatically, and the app would lose the two decisions it
+// actually needs: whether to show it at all, and what it should say.
+
+// Every push must result in something visible — a browser is entitled to revoke
+// permission from a site that pushes silently — so this always shows SOMETHING,
+// even when the payload is unreadable.
+function pushPayload(event) {
+  try {
+    const raw = event.data ? event.data.json() : null;
+    // FCM delivers the fields under `data` for a data-only message.
+    return (raw && (raw.data || raw)) || {};
+  } catch (err) {
+    return {};
+  }
+}
+
+self.addEventListener('push', event => {
+  const data = pushPayload(event);
+  const title = data.title || 'The Italian Club';
+  const body = data.body || 'Open the app to see what changed.';
+  // One notification per thing: a re-delivery REPLACES rather than stacking three
+  // copies of the same alarm on a lock screen.
+  const tag = data.tag || 'italianclub';
+
+  event.waitUntil((async () => {
+    // ⚠️ SILENT WHEN THE APP IS ALREADY IN FRONT OF YOU. The alarm the page itself
+    // sounds is better (it repeats, and the screen is showing the countdown), so a
+    // notification on top of it is the same thing twice. `visibilityState` is the
+    // test and not merely "a window exists": a page left open behind a locked
+    // screen is not somebody looking at it.
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const watching = open.some(c => c.visibilityState === 'visible');
+    if (watching) {
+      // Still tell the page, so it can react without a second alarm going off.
+      open.forEach(c => { try { c.postMessage({ type: 'push', data }); } catch (err) {} });
+      return;
+    }
+
+    await self.registration.showNotification(title, {
+      body,
+      tag,
+      renotify: true,
+      icon: './icons/icon-192.png',
+      badge: './icons/icon-192.png',
+      data: { url: data.url || './index.html' },
+    });
+  })());
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || './index.html';
+  event.waitUntil((async () => {
+    // Reuse a window that is already open rather than piling up copies of the app.
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const target = new URL(url, self.location.href).href;
+    const existing = open.find(c => c.url === target) || open[0];
+    if (existing) {
+      try { await existing.focus(); } catch (err) {}
+      if (existing.url !== target && 'navigate' in existing) {
+        try { await existing.navigate(target); } catch (err) {}
+      }
+      return;
+    }
+    await self.clients.openWindow(target);
+  })());
 });

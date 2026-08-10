@@ -80,6 +80,41 @@ test('the six copies of confirm-dialog.js are the same file', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 1b. push-model.js — two copies, and the only one that crosses the machine
+// ---------------------------------------------------------------------------
+
+// The app SCHEDULES an alarm and the server SENDS it, and both have to agree
+// about whether it is still wanted. That agreement is a judgement, not a fact —
+// cancelled, too early, too late — so two copies drifting means the phone
+// believes it cancelled something the server still believes in, and somebody's
+// pocket buzzes for a step finished ten minutes ago.
+//
+// ⚠️ IT CANNOT SIMPLY BE IMPORTED ACROSS. A Firebase functions deploy uploads only
+// the functions/ folder, so `../js/push-model.js` resolves on this machine and is
+// missing in the cloud — a failure that appears at deploy time, not here.
+//
+// ⚠️ AND THIS IS THE MOST DANGEROUS DUPLICATE IN THE PROJECT, because unlike
+// confirm-dialog.js the two halves run in different places: nothing on a phone
+// ever loads the server's copy, so no amount of driving the app can reveal that
+// they have parted. This test is the only thing that can.
+test('the server and the app share ONE push model, byte for byte', () => {
+  const reference = read('js/push-model.js');
+  const copy = read('functions/push-model.js');
+  const diff = firstDifference(reference, copy);
+  assert.equal(
+    diff,
+    null,
+    diff &&
+      `functions/push-model.js has drifted from js/push-model.js at line ${diff.line}.\n` +
+        `  js/push-model.js:        ${diff.expected}\n` +
+        `  functions/push-model.js: ${diff.actual}\n` +
+        'Copy the file across. The phone decides when to SCHEDULE an alarm and the ' +
+        'server decides whether to SEND it — if they disagree, a phone buzzes for a ' +
+        'step that was finished, or stays silent for one that was not.',
+  );
+});
+
+// ---------------------------------------------------------------------------
 // 2. dom.js — five copies, already different on purpose
 // ---------------------------------------------------------------------------
 

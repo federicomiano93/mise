@@ -72,6 +72,21 @@ export const firebaseConfig = {
   appId: "1:27778450817:web:74e1bab55d10c3f9279480"
 };
 
+// The Web Push key, for notifications that arrive with the app closed.
+//
+// ⚠️ PUBLIC CONFIG, NOT A SECRET (P1). It is the PUBLIC half of the Web Push
+// certificate pair and is handed to every visitor's browser at runtime; only the
+// private half, which never leaves the Firebase console, can send anything. It
+// belongs in this file exactly like the keys above.
+//
+// ⚠️ EMPTY UNTIL IT IS GENERATED, and that is a working state, not a broken one:
+// pushSupport() reports 'not-configured' and every screen says so in words rather
+// than offering a button that can never do anything.
+//
+// To fill it in: Firebase console → Project settings → Cloud Messaging → Web
+// configuration → Generate key pair, and paste the key here.
+export const VAPID_PUBLIC_KEY = '';
+
 // ── Initialization ────────────────────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);

@@ -57,3 +57,72 @@ jobs:
       # project, so CI cannot touch production even by accident. The harness
       # defaults to the same id (tests/rules/seed-emulator.mjs).
       - run: firebase emulators:exec --only auth,firestore --project demo-theitalianclub "npm run test:rules"
+
+  # ── The server half of the notifications ────────────────────────────────────
+  #
+  # ⚠️ `needs: [test, rules]` IS THE ENTIRE GUARANTEE OF THIS JOB, and it is the
+  # reason it exists at all. `firebase deploy --only functions` publishes whatever
+  # is on the machine it runs on — run by hand, it walks straight past the branch
+  # protection and the two suites above, which is the one thing this project has
+  # protected for two years. Here it cannot run until both are green.
+  #
+  # ⚠️ AND ONLY ON main, ONLY ON A PUSH. A pull request from anywhere must never
+  # be able to publish code to the live project.
+  deploy-functions:
+    needs: [test, rules]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      # ⚠️ SKIPS CLEANLY WHEN THE KEY IS NOT SET UP YET, rather than failing every
+      # merge to main until somebody creates it. The secret cannot be read in a
+      # job-level `if:`, so the check has to be a step, and every later step hangs
+      # off its answer.
+      - name: Is there a deploy key?
+        id: gate
+        env:
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No FIREBASE_SERVICE_ACCOUNT secret — skipping the functions deploy."
+            echo "Add it in Settings → Secrets and variables → Actions to switch this on."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Reproducible: the lockfile decides, not whatever npm feels like today.
+      - name: Install
+        if: steps.gate.outputs.ready == 'true'
+        run: npm ci
+        working-directory: functions
+
+      # ⚠️ `--audit-level=high` ON PURPOSE, AND THIS IS A JUDGEMENT WORTH RE-READING.
+      # The install carries 8 MODERATE advisories, every one of them the same
+      # `uuid` buffer-bounds issue reached through Google's own dependency chain
+      # inside firebase-admin. There is no fixed version — the newest release has
+      # the same class — and nothing here ever calls uuid. Failing on moderate
+      # would make this job permanently red for something nobody can fix, which
+      # teaches people to ignore it. A HIGH or CRITICAL still stops the deploy.
+      # Revisit when firebase-admin ships a clean tree.
+      - name: Vulnerability check (P11)
+        if: steps.gate.outputs.ready == 'true'
+        run: npm audit --audit-level=high
+        working-directory: functions
+
+      - name: Deploy
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
+          KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          # Written with printf, never echo: the key must not reach the log, and
+          # a stray -e or backslash in a JSON blob is exactly how that happens.
+          printf '%s' "$KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          npm install --global firebase-tools@15.26.0
+          firebase deploy --only functions --project bakery-app-ebf90 --non-interactive
+          rm -f "$GOOGLE_APPLICATION_CREDENTIALS"
