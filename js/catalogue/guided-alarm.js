@@ -45,10 +45,37 @@ let buzzTimer = null;
 
 function element() {
   if (audio) return audio;
-  audio = new Audio(ALARM_SRC);
-  audio.loop = true;
-  audio.preload = 'auto';
+  try {
+    audio = new Audio(ALARM_SRC);
+    audio.loop = true;
+    audio.preload = 'auto';
+    // ⚠️ ASK FOR THE FILE NOW, at the tap that starts the timer, rather than
+    // leaving it to `preload`. A browser is free to ignore preload, and the one
+    // moment the sound is needed — minutes later, on a phone in a bakery — is the
+    // worst possible moment to discover it still has to be fetched.
+    try { audio.load(); } catch (e) {}
+  } catch (e) {
+    audio = null;
+  }
   return audio;
+}
+
+// Every one of these can throw on its own (rewinding a clip the browser has not
+// loaded yet is the usual culprit), and each is wrapped alone for one reason:
+// ⚠️ THE ONLY LINE THAT MATTERS IS play(), AND IT MUST NEVER BE HOSTAGE TO THE
+// LINES AROUND IT. With rewind and play in one try block, a throw on the rewind
+// meant the alarm never even started — silently, because the catch was there to
+// keep a missing sound from breaking the screen.
+const attempt = (fn) => { try { fn(); } catch (e) { /* best-effort */ } };
+
+function play(el) {
+  try {
+    const started = el.play();
+    if (started && typeof started.then === 'function') started.catch(() => {});
+    return started;
+  } catch (e) {
+    return null;
+  }
 }
 
 // ⚠️ CALL THIS FROM A REAL TAP, AND ONLY FROM ONE. A browser refuses to play
@@ -58,28 +85,30 @@ function element() {
 // is played muted for an instant and stopped again, which is enough for the
 // browser to treat every later play as wanted.
 export function unlockAlarm() {
-  try {
-    const el = element();
-    el.muted = true;
-    const played = el.play();
-    const settle = () => { try { el.pause(); el.currentTime = 0; el.muted = false; } catch (e) {} };
-    if (played && typeof played.then === 'function') played.then(settle, settle);
-    else settle();
-  } catch (e) {
-    // No audio on this device, or the gesture was not accepted. The screen and
-    // the vibration still signal, so this is never fatal.
-  }
+  const el = element();
+  if (!el) return; // no audio on this device — the screen and buzz still signal
+  attempt(() => { el.muted = true; });
+  const started = play(el);
+  const settle = () => {
+    attempt(() => el.pause());
+    attempt(() => { el.currentTime = 0; });
+    attempt(() => { el.muted = false; });
+  };
+  if (started && typeof started.then === 'function') started.then(settle, settle);
+  else settle();
 }
 
 export function startAlarm() {
   stopAlarm();
-  try {
-    const el = element();
-    el.currentTime = 0;
-    el.muted = false;
-    const played = el.play();
-    if (played && typeof played.then === 'function') played.catch(() => {});
-  } catch (e) {}
+  const el = element();
+  if (el) {
+    // Order matters: unmute, then PLAY, and only then rewind. stopAlarm() above
+    // has already rewound it, so the rewind here is belt-and-braces — which is
+    // exactly why it must come after the line that actually makes a sound.
+    attempt(() => { el.muted = false; });
+    play(el);
+    attempt(() => { el.currentTime = 0; });
+  }
 
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
     try { navigator.vibrate(BUZZ); } catch (e) {}
@@ -93,9 +122,13 @@ export function startAlarm() {
 export function stopAlarm() {
   if (ringTimer) { clearTimeout(ringTimer); ringTimer = null; }
   if (buzzTimer) { clearInterval(buzzTimer); buzzTimer = null; }
-  try { if (audio) { audio.pause(); audio.currentTime = 0; } } catch (e) {}
+  if (audio) {
+    // Separately again: a failed rewind must not leave the sound still playing.
+    attempt(() => audio.pause());
+    attempt(() => { audio.currentTime = 0; });
+  }
   if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-    try { navigator.vibrate(0); } catch (e) {}
+    attempt(() => navigator.vibrate(0));
   }
 }
 
