@@ -19,20 +19,32 @@
 // anything either way: the rules decide what an account may touch, not which
 // JavaScript happens to be loaded next to it.
 
-import { firebaseConfig } from '../firebase.js';
+import { firebaseConfig, isLocalEmulator } from '../firebase.js';
+import { linkEmailFor } from '../client-order-model.js';
 import {
   initializeApp,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
-  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut,
+  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
-  getFirestore, doc, getDoc, setDoc,
+  getFirestore, doc, getDoc, setDoc, connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const app = initializeApp(firebaseConfig, 'client-orders');
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// ⚠️ THE SECOND APP HAS TO BE POINTED AT THE EMULATOR ITSELF. firebase.js's hostname
+// switch attaches to the DEFAULT app's auth and firestore; this app is a different
+// one, so without these two lines the client page would sign people in and write
+// their orders straight into PRODUCTION while being served from localhost — on a page
+// whose own console says "LOCAL EMULATOR mode". The decision itself is imported
+// rather than repeated, so the two apps can never disagree about where they are.
+if (isLocalEmulator) {
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, 'localhost', 8080);
+}
 
 // The location is not known until the link is read, and every path is built from it.
 // It THROWS rather than defaulting, for the same reason js/location.js does: a read
@@ -57,7 +69,7 @@ function pathFor(collectionName) {
 // they travel together, so splitting them would protect nothing (see
 // js/client-orders-data.js, where the link is minted).
 export function signInWithToken(token) {
-  return signInWithEmailAndPassword(auth, `c${token}@orders.theitalianclub.invalid`, token);
+  return signInWithEmailAndPassword(auth, linkEmailFor(token), token);
 }
 
 // Resolves with the signed-in user, or null. The session persists on the device, so a

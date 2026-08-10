@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {
   isISODate, toISODate, startOfDayMs,
   cutoffMinutes, closesAtMs, isDateOpen, orderableDates, defaultOrderDate,
-  isValidOrderClientId, orderDocId,
+  isValidOrderClientId, orderDocId, linkEmailFor,
   menuFor, menuChanged,
   normalizeQuantities, buildOrder, orderChangedSinceApplied, isApplied,
   orderRows, orderTotalLines, calculatorPatch,
@@ -140,6 +140,28 @@ test('an order id is built in one place, and refuses to guess', () => {
   assert.equal(orderDocId('2026-08-11', 'c-clubfish'), '2026-08-11_c-clubfish');
   assert.throws(() => orderDocId('11-08-2026', 'c-clubfish'), /Invalid order date/);
   assert.throws(() => orderDocId('2026-08-11', 'c_bad'), /Invalid client id/);
+});
+
+// ── The address behind a link ────────────────────────────────────────────────
+
+test('the link account\'s address is built in ONE place, and folded to lower case', () => {
+  // ⚠️ Firebase Auth stores an email folded to lower case, so a mixed-case token
+  // creates an account whose address does not match the string that created it.
+  // Sign-in happens to fold it the same way — this works by ACCIDENT unless the
+  // folding is done here, on purpose, by the one function both sides call.
+  assert.equal(linkEmailFor('AbC-123_xY'), 'cabc-123_xy@orders.theitalianclub.invalid');
+  assert.equal(linkEmailFor('abc-123_xy'), linkEmailFor('AbC-123_xY'));
+});
+
+test('…and it is a valid, unreachable address whatever the token starts with', () => {
+  // `.invalid` is reserved by RFC 2606: it can never receive mail and can never
+  // collide with somebody's real address. The leading letter keeps the local part
+  // valid for a token starting with a digit or a dash.
+  for (const token of ['9starts-with-a-digit', '-starts-with-a-dash', '_underscore']) {
+    const email = linkEmailFor(token);
+    assert.match(email, /^[a-z][a-z0-9\-_]*@orders\.theitalianclub\.invalid$/, email);
+  }
+  assert.equal(linkEmailFor(null), 'c@orders.theitalianclub.invalid');
 });
 
 // ── The published menu ───────────────────────────────────────────────────────

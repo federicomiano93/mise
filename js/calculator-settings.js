@@ -325,15 +325,31 @@ function shareText(client, link) {
   return `Hello ${client.name}, you can send your order to The Italian Club here: ${link}`;
 }
 
+// ⚠️ THE CLIPBOARD IS RACED AGAINST A CLOCK, AND THIS IS NOT BELT-AND-BRACES.
+// navigator.clipboard.writeText() can sit there and never settle — the page losing
+// focus at the wrong moment is enough — and it was the ONLY thing standing between
+// creating a link and being shown it. Observed while driving the app: the link was
+// made, the account and the grant reached the database, and the owner was told
+// nothing at all. A promise with no timeout is a feature that works until it hangs.
+//
+// Whatever happens, this function ends with the link on screen: copied if the
+// clipboard took it, spelled out if it did not.
+const CLIPBOARD_WAIT_MS = 2000;
+
 async function copyLink(client, link) {
+  let copied = false;
   try {
-    await navigator.clipboard.writeText(link);
-    await alertDialog(`The ordering link for ${client.name} is copied. Paste it into a message.`);
+    copied = await Promise.race([
+      navigator.clipboard.writeText(link).then(() => true),
+      new Promise(resolve => setTimeout(() => resolve(false), CLIPBOARD_WAIT_MS)),
+    ]);
   } catch (err) {
-    // Clipboard refused (an old browser, or permission). The link must still be
-    // reachable, so it is shown in full to be copied by hand — never lost.
-    await alertDialog(`Copy this link and send it to ${client.name}:\n\n${link}`);
+    // Refused outright (an old browser, a denied permission, an insecure origin).
+    copied = false;
   }
+  await alertDialog(copied
+    ? `The ordering link for ${client.name} is copied. Paste it into a message.`
+    : `Copy this link and send it to ${client.name}:\n\n${link}`);
 }
 
 function orderingLinkField(client) {

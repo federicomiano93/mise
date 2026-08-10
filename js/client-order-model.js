@@ -146,6 +146,28 @@ export function orderDocId(date, clientId) {
   return `${date}_${clientId}`;
 }
 
+// ── The account behind an ordering link ──────────────────────────────────────
+
+// ⚠️ THE ADDRESS IS BUILT HERE, IN ONE PLACE, AND BOTH SIDES IMPORT IT. The link
+// minter creates the account with this address and the client page signs in with it;
+// they are different files in different folders, and a second copy of this template
+// would mean a change in one silently locking every client out of the other. That is
+// the same reasoning that keeps price-model.js out of a feature folder — a copy of a
+// RULE is worse than a copy of a dialog.
+//
+// ⚠️ LOWERCASED EXPLICITLY. Firebase Auth stores an email folded to lower case, so a
+// mixed-case token produces an account whose address does not match the string that
+// created it. Sign-in happens to fold it the same way, which means this works by
+// accident today and would break the day that behaviour changed — with every existing
+// link dying at once and nothing in the code explaining why.
+//
+// `.invalid` is the TLD reserved by RFC 2606 for exactly this: an address that can
+// never receive mail and can never collide with a real one. The leading letter keeps
+// the local part valid whatever the token happens to start with.
+export function linkEmailFor(token) {
+  return `c${String(token || '').toLowerCase()}@orders.theitalianclub.invalid`;
+}
+
 // ── The published menu ───────────────────────────────────────────────────────
 // The thin slice of the address book a client is allowed to see. It exists so the
 // client NEVER reads config/calculator, which holds every client, every product,

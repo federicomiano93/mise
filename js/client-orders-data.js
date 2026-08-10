@@ -11,15 +11,17 @@
 // for one (an ES module's imports run before its body — see
 // tests/firebase-offline-cache.test.mjs).
 
-import { firebaseConfig, sessionReady } from './firebase.js';
+import { firebaseConfig, sessionReady, isLocalEmulator } from './firebase.js';
 import { currentLocationId, pathFor } from './location.js';
-import { menuFor, menuChanged, isValidOrderClientId, orderDocId, toISODate } from './client-order-model.js';
+import {
+  menuFor, menuChanged, isValidOrderClientId, orderDocId, toISODate, linkEmailFor,
+} from './client-order-model.js';
 import { getClients } from './calculator-config.js';
 import {
   getApps, getApp, initializeApp, deleteApp,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
-  getAuth, createUserWithEmailAndPassword, signOut,
+  getAuth, createUserWithEmailAndPassword, signOut, connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc,
@@ -84,12 +86,9 @@ function mintToken() {
 
 // ⚠️ ONE SECRET, USED FOR BOTH HALVES OF THE ACCOUNT, and that is not a shortcut: the
 // email and the password travel together in the same link, so splitting them into two
-// secrets would protect nothing and double what has to be stored to re-send it.
-//
-// `.invalid` is the TLD reserved by RFC 2606 for exactly this — an address that can
-// never receive mail and can never collide with a real one. The leading letter keeps
-// the local part valid whatever the token starts with.
-const linkEmail = token => `c${token}@orders.theitalianclub.invalid`;
+// secrets would protect nothing and double what has to be stored to re-send it. The
+// address itself is built by the shared model, so this side and the client page can
+// never disagree about it.
 
 // The address that IS the link. The secret sits in the FRAGMENT, after the #, because
 // a fragment is never sent to the server and never lands in a web-server log.
@@ -128,7 +127,14 @@ export async function createOrderingLink(client, { replacing = null } = {}) {
   let uid = null;
   try {
     const auth = getAuth(secondary);
-    const credential = await createUserWithEmailAndPassword(auth, linkEmail(token), token);
+    // ⚠️ A SECOND APP IS NOT COVERED BY firebase.js's EMULATOR SWITCH — that one
+    // attaches to the default app's instances. Without this line, creating a link on
+    // localhost would create a REAL account in the production Firebase project, on a
+    // page whose console says "LOCAL EMULATOR mode". Found by driving the app: the
+    // link creation failed, and the reason it failed was that it was trying to reach
+    // production from a machine that cannot.
+    if (isLocalEmulator) connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+    const credential = await createUserWithEmailAndPassword(auth, linkEmailFor(token), token);
     uid = credential.user.uid;
     await signOut(auth);
   } finally {

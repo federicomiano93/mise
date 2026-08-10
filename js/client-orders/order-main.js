@@ -260,6 +260,24 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
   form.setBusy(true);
   form.setStatus('Sending…', 'info');
 
+  // ⚠️ RE-READ THE ORDER IMMEDIATELY BEFORE WRITING IT. `existing` was fetched when
+  // this screen opened, and in between the BAKERY may have put the order into the
+  // Calculator — which stamps two fields onto the document that a correction has to
+  // carry forward untouched, or the rules refuse the write.
+  //
+  // Found by driving the app, and the shape of the failure is why it matters: the
+  // refusal arrived as a generic error and the page said "check your connection",
+  // which is a lie. A client would sit there with a working connection, resending an
+  // order that can never land, while the bakery makes yesterday's quantities.
+  let latest = existing;
+  try {
+    latest = await readOrder(orderId);
+  } catch (err) {
+    // Could not check. Fall through with what we have rather than refusing to send:
+    // the write may still succeed, and if it does not, the message below says so.
+    console.warn('Could not re-read the order before sending:', err);
+  }
+
   const order = buildOrder({
     date,
     clientId: grant.clientId,
@@ -268,7 +286,7 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
     note: state.note,
     menu: { products },
     nowIso: new Date().toISOString(),
-    existing,
+    existing: latest || existing,
   });
 
   try {
@@ -278,6 +296,16 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
     form.setBusy(false);
     // ⚠️ THE DRAFT IS DELIBERATELY LEFT ALONE. What was typed is still on the device,
     // so a failed send costs a retry and never the order itself (P17, P20).
+    //
+    // ⚠️ AND A REFUSAL IS NOT A CONNECTION PROBLEM. Telling somebody with full signal
+    // to check their connection sends them to fix the one thing that is working.
+    // A refusal here means the order moved underneath this screen or its day closed,
+    // and both are fixed by starting again from what the database now says.
+    if (err && err.code === 'permission-denied') {
+      form.setStatus('This order has changed since you opened it. Reloading…', 'bad');
+      setTimeout(() => openFor(currentUid()), 1200);
+      return;
+    }
     form.setStatus('Not sent — check your connection and try again.', 'bad');
     return;
   }
