@@ -87,7 +87,7 @@ async function seedAccess() {
   // reason. The fix in production is the same one line, typed in the console.
   await seedDoc('locations/trattoria-x', {
     name: 'Trattoria X',
-    sections: { orders: true, calculator: false, catalogue: false, pastries: false },
+    sections: { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false },
   });
 }
 
@@ -351,7 +351,7 @@ async function ingredientPrices() {
   // crossing between locations is involved.
   await seedDoc('locations/trattoria-x', {
     name: 'Trattoria X',
-    sections: { orders: false, calculator: false, catalogue: true, pastries: false },
+    sections: { orders: false, calculator: false, catalogue: true, pastries: false, foodcost: false },
   });
   await seedDoc('locations/trattoria-x/ingredients/ING_X', {
     bakery: 'trattoria-x', name: 'Olive oil', supplierId: '', active: true,
@@ -380,7 +380,7 @@ async function ingredientPrices() {
   // A venue that uses neither section reaches nothing at all.
   await seedDoc('locations/trattoria-x', {
     name: 'Trattoria X',
-    sections: { orders: false, calculator: true, catalogue: false, pastries: false },
+    sections: { orders: false, calculator: true, catalogue: false, pastries: false, foodcost: false },
   });
   await expectDenied('a venue with neither Orders nor the catalogue reads no ingredients',
     () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
@@ -1019,8 +1019,134 @@ async function pastryLogs() {
     () => deleteWrite('locations/trattoria-x/pastry-logs/2026-08-05_Monday', asAccount(ALICE)));
 }
 
+
+// Finished products and their append-only margin history. A brand-new collection
+// and a brand-new SECTION: the venues that must not have it list it false, exactly
+// as production must before this deploys.
+async function products() {
+  await wipe();
+  await seedAccess();
+
+  const P = 'locations/main/products';
+  const product = (over = {}) => ({
+    bakery: 'main', name: 'Cornetto',
+    components: [{ recipeId: 'DOUGH', qtyKg: 10 }],
+    packaging: [{ ingredientId: 'BOX', qtyPcs: 100 }],
+    sellingMode: 'piece', piecesPerBatch: 100,
+    sellingPrice: 1.2, vatRate: 20, foodCostTarget: 30, ...over,
+  });
+
+  await expectAllowed('save a finished product', () => wholeWrite(`${P}/P1`, product()));
+  await expectAllowed('create one with an auto id', () => createWrite(P, product()));
+
+  // A product is created before anybody knows its price, so a half-filled one has
+  // to be saveable — the screen says what is missing, it is not the rules' job.
+  await expectAllowed('save a product with nothing but a name', () =>
+    wholeWrite(`${P}/P2`, { bakery: 'main', name: 'Not filled in yet' }));
+  await expectAllowed('…and one whose fields are explicitly empty', () =>
+    wholeWrite(`${P}/P2`, {
+      bakery: 'main', name: 'Not filled in yet', components: [], packaging: [],
+      sellingMode: null, piecesPerBatch: null, sellingPrice: null,
+      vatRate: null, foodCostTarget: null,
+    }));
+
+  // ⚠️ ZERO IS A REAL VAT RATE. Most takeaway bakery in the UK is zero-rated, so a
+  // rule demanding a positive rate would refuse the bakery's main line.
+  await expectAllowed('a zero-rated product', () => wholeWrite(`${P}/P1`, product({ vatRate: 0 })));
+  await expectAllowed('sold by weight, with no pieces-per-batch', () =>
+    wholeWrite(`${P}/P1`, product({ sellingMode: 'weight', piecesPerBatch: null })));
+
+  await expectDenied('a product with no name', () =>
+    wholeWrite(`${P}/P3`, { bakery: 'main', components: [] }));
+  await expectDenied('a product with an empty name', () =>
+    wholeWrite(`${P}/P3`, { bakery: 'main', name: '' }));
+  await expectDenied('an unknown key on a product', () =>
+    wholeWrite(`${P}/P1`, product({ costPerKg: 3.2 })));
+  await expectDenied('a selling mode nobody writes', () =>
+    wholeWrite(`${P}/P1`, product({ sellingMode: 'pezzo' })));
+  await expectDenied('a negative VAT rate', () => wholeWrite(`${P}/P1`, product({ vatRate: -20 })));
+  await expectDenied('a VAT rate above 100', () => wholeWrite(`${P}/P1`, product({ vatRate: 120 })));
+  await expectDenied('a selling price of zero', () => wholeWrite(`${P}/P1`, product({ sellingPrice: 0 })));
+  await expectDenied('a price sent as text', () => wholeWrite(`${P}/P1`, product({ sellingPrice: '1.20' })));
+  await expectDenied('pieces-per-batch of zero — it is a divisor', () =>
+    wholeWrite(`${P}/P1`, product({ piecesPerBatch: 0 })));
+  await expectDenied('a food-cost target above 100', () =>
+    wholeWrite(`${P}/P1`, product({ foodCostTarget: 150 })));
+  await expectDenied('a runaway number of components', () =>
+    wholeWrite(`${P}/P1`, product({ components: Array.from({ length: 101 }, () => ({ recipeId: 'X', qtyKg: 1 })) })));
+  await expectDenied('a product stamped for another location', () =>
+    wholeWrite(`${P}/P1`, product({ bakery: 'trattoria-x' })));
+
+  await expectAllowed('a member may delete a product', () => deleteWrite(`${P}/P2`));
+
+  // ── The margin history ──
+  const SNAPS = `${P}/P1/snapshots`;
+  const snap = (over = {}) => ({
+    bakery: 'main', recordedAt: '2026-08-10T09:00:00.000Z',
+    unitCost: 0.32, foodCostPct: 32, sellingPrice: 1.2, vatRate: 20,
+    sellingMode: 'piece', frozenPrices: { FLOUR: 2, BUTTER: 8 }, ...over,
+  });
+
+  await expectAllowed('record what a product cost today', () => createWrite(SNAPS, snap()));
+  await expectAllowed('record a second one later', () =>
+    createWrite(SNAPS, snap({ recordedAt: '2026-08-11T09:00:00.000Z', foodCostPct: 35 })));
+  await expectAllowed('a zero-rated snapshot', () => createWrite(SNAPS, snap({ vatRate: 0 })));
+  await expectAllowed('a product that costs nothing to make is still a valid point', () =>
+    createWrite(SNAPS, snap({ unitCost: 0, foodCostPct: 0 })));
+
+  // ⚠️ APPEND-ONLY IS THE POINT. A margin series that can be rewritten afterwards
+  // answers nothing about what was actually decided.
+  await seedDoc(`${SNAPS}/SEEDED`, snap());
+  await expectDenied('editing a recorded margin', () =>
+    mergeWrite(`${SNAPS}/SEEDED`, { foodCostPct: 1, bakery: 'main' }));
+  await expectDenied('replacing a recorded margin', () =>
+    wholeWrite(`${SNAPS}/SEEDED`, snap({ foodCostPct: 1 })));
+  await expectDenied('deleting a recorded margin', () => deleteWrite(`${SNAPS}/SEEDED`));
+
+  await expectDenied('a snapshot with no frozen VAT rate', () => {
+    const s2 = snap(); delete s2.vatRate; return createWrite(SNAPS, s2);
+  });
+  await expectDenied('a snapshot with no date', () => {
+    const s2 = snap(); delete s2.recordedAt; return createWrite(SNAPS, s2);
+  });
+  await expectDenied('a snapshot with no frozen prices', () => {
+    const s2 = snap(); delete s2.frozenPrices; return createWrite(SNAPS, s2);
+  });
+  // Added after a mutation test came back GREEN: relaxing the frozen rate's range
+  // broke nothing, which meant the guard was not tested at all. A run that stays
+  // green after a real mutation proves the check is missing, not that it is safe.
+  await expectDenied('a snapshot with a negative VAT rate', () => createWrite(SNAPS, snap({ vatRate: -20 })));
+  await expectDenied('a snapshot with a VAT rate above 100', () => createWrite(SNAPS, snap({ vatRate: 120 })));
+  await expectDenied('a snapshot with a negative cost', () => createWrite(SNAPS, snap({ unitCost: -1 })));
+  await expectDenied('a snapshot with a selling mode nobody writes', () =>
+    createWrite(SNAPS, snap({ sellingMode: 'pezzo' })));
+  await expectDenied('an unknown key on a snapshot', () => createWrite(SNAPS, snap({ evil: 'x' })));
+  await expectDenied('a snapshot stamped for another location', () =>
+    createWrite(SNAPS, snap({ bakery: 'trattoria-x' })));
+  await expectDenied('a signed-out device records nothing', () =>
+    createWrite(SNAPS, snap(), noAuth()));
+
+  // ── The section gate, and the boundary ──
+  await expectDenied('a venue without Food Cost reads no products',
+    () => fetch(`${FS}/locations/trattoria-x/products/P1`, { headers: asAccount(BOB) }));
+  await expectDenied('…and writes none', () =>
+    wholeWrite('locations/trattoria-x/products/P1',
+      { bakery: 'trattoria-x', name: 'Theirs' }, asAccount(BOB)));
+  await expectDenied('reading another location\'s products',
+    () => fetch(`${FS}/locations/trattoria-x/products/P1`, { headers: asAccount(ALICE) }));
+  await expectDenied('writing a product into another location', () =>
+    wholeWrite('locations/trattoria-x/products/P1',
+      { bakery: 'trattoria-x', name: 'Theirs' }, asAccount(ALICE)));
+
+  // Food Cost costs a product FROM the recipes, so it must be able to read them.
+  await seedDoc('locations/main/recipes/R1', { bakery: 'main', name: 'Dough', ingredients: [] });
+  await expectAllowed('Food Cost may read the recipes it costs from',
+    () => fetch(`${FS}/locations/main/recipes/R1`, { headers: asUser() }));
+}
+
 for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
-                        locationTree, isolation, configAndLogs, pastries, pastryLogs]) {
+                        locationTree, isolation, configAndLogs, pastries, pastryLogs,
+                        products]) {
   await scenario();
 }
 

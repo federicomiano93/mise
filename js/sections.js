@@ -22,7 +22,7 @@ import { isValidLocationId } from './location.js';
 // new name. A venue that should not have it needs `sections.<name>: false` typed
 // into its document in the Firebase console — and until that is done, the same
 // default in firestore.rules lets that venue WRITE the new collection too.
-export const SECTIONS = Object.freeze(['orders', 'calculator', 'catalogue', 'pastries']);
+export const SECTIONS = Object.freeze(['orders', 'calculator', 'catalogue', 'pastries', 'foodcost']);
 
 // Read a field by name, accepting a name typed with stray spaces around it.
 //

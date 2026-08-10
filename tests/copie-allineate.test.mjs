@@ -48,7 +48,7 @@ function firstDifference(a, b) {
 // ---------------------------------------------------------------------------
 
 // THE styled confirm/alert dialog (CLAUDE.md, "Confirmations: ONE dialog"). It is
-// copied rather than imported so a feature stays extractable; the four copies must
+// copied rather than imported so a feature stays extractable; the five copies must
 // stay identical, because a fix to the focus trap or the z-index that reaches only
 // some of them leaves the others quietly broken.
 const REFERENCE_DIALOG = 'js/confirm-dialog.js';
@@ -56,9 +56,10 @@ const DIALOG_COPIES = [
   'js/orders/confirm-dialog.js',
   'js/catalogue/confirm-dialog.js',
   'js/pastries/confirm-dialog.js',
+  'js/foodcost/confirm-dialog.js',
 ];
 
-test('the four copies of confirm-dialog.js are the same file', () => {
+test('the five copies of confirm-dialog.js are the same file', () => {
   const reference = read(REFERENCE_DIALOG);
 
   for (const copy of DIALOG_COPIES) {
@@ -71,13 +72,14 @@ test('the four copies of confirm-dialog.js are the same file', () => {
         `${copy} has drifted from ${REFERENCE_DIALOG} at line ${diff.line}.\n` +
           `  ${REFERENCE_DIALOG}: ${diff.expected}\n` +
           `  ${copy}: ${diff.actual}\n` +
-          'Apply the change to ALL FOUR copies: js/, js/orders/, js/catalogue/, js/pastries/.',
+          'Apply the change to ALL FIVE copies: js/, js/orders/, js/catalogue/, ' +
+          'js/pastries/, js/foodcost/.',
     );
   }
 });
 
 // ---------------------------------------------------------------------------
-// 2. dom.js — three copies, already different on purpose
+// 2. dom.js — four copies, already different on purpose
 // ---------------------------------------------------------------------------
 
 // These three were never identical, so demanding equality would fail on day one
@@ -109,23 +111,31 @@ const DOM_SNAPSHOT = [
     // a header naming Pastries and the copy it came from.
     why: 'the catalogue copy with a Pastries header',
   },
+  {
+    file: 'js/foodcost/dom.js',
+    sha256: '02aea52bb04819e85b52b8b602b79244d65fa74e5252c0d3e1e7b629c9fa2fd7',
+    // Copied from the catalogue's copy, like the Pastries one: same absence of
+    // groupBy, same wrapping, and a header naming Food Cost and where it came from.
+    why: 'the catalogue copy with a Food Cost header',
+  },
 ];
 
-test('the three copies of dom.js differ only as photographed', () => {
+test('the four copies of dom.js differ only as photographed', () => {
   for (const { file, sha256: expected, why } of DOM_SNAPSHOT) {
     assert.equal(
       sha256(read(file)),
       expected,
-      `${file} has changed. It is one of three copies of dom.js, photographed here as: ${why}.\n` +
-        'If the change is intended, ask FIRST whether the other two copies need it too ' +
-        '(js/orders/dom.js, js/catalogue/dom.js, js/pastries/dom.js), then update the hash above.',
+      `${file} has changed. It is one of four copies of dom.js, photographed here as: ${why}.\n` +
+        'If the change is intended, ask FIRST whether the other three copies need it too ' +
+        '(js/orders/dom.js, js/catalogue/dom.js, js/pastries/dom.js, js/foodcost/dom.js), ' +
+        'then update the hash above.',
     );
   }
 });
 
 // The snapshot above catches "a copy changed", but not the failure it exists for:
-// fixing el() in two copies out of three updates two hashes and leaves the third
-// behind, looking deliberate. el() is the code all three actually share, so it is
+// fixing el() in three copies out of four updates three hashes and leaves the last
+// behind, looking deliberate. el() is the code all four actually share, so it is
 // compared directly.
 function elFunction(source) {
   const lines = source.split('\n');
@@ -136,7 +146,7 @@ function elFunction(source) {
   return lines.slice(start, end + 1).join('\n');
 }
 
-test('el() is the same code in all three copies of dom.js', () => {
+test('el() is the same code in all four copies of dom.js', () => {
   const [reference, ...rest] = DOM_SNAPSHOT.map(({ file }) => ({ file, el: elFunction(read(file)) }));
 
   for (const copy of rest) {
