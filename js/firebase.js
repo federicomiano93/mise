@@ -79,13 +79,18 @@ export const firebaseConfig = {
 // private half, which never leaves the Firebase console, can send anything. It
 // belongs in this file exactly like the keys above.
 //
-// ⚠️ EMPTY UNTIL IT IS GENERATED, and that is a working state, not a broken one:
-// pushSupport() reports 'not-configured' and every screen says so in words rather
-// than offering a button that can never do anything.
+// Verified before committing rather than trusted: it decodes to 65 bytes starting
+// 0x04 — an uncompressed P-256 point, which is what a PUBLIC key is. The private
+// half is 32 bytes and would never be recognisable by shape alone if it were
+// pasted here by mistake, so the check is worth the thirty seconds.
 //
-// To fill it in: Firebase console → Project settings → Cloud Messaging → Web
-// configuration → Generate key pair, and paste the key here.
-export const VAPID_PUBLIC_KEY = '';
+// Empty is a valid state, and was the state this shipped in: pushSupport() then
+// reports 'not-configured' and every screen says so in words rather than offering
+// a button that can never do anything.
+//
+// Regenerate at: Firebase console → Project settings → Cloud Messaging → Web
+// configuration → Generate key pair.
+export const VAPID_PUBLIC_KEY = 'BD2mUu9H_bxvaxiYdEYGmhFHA_kybZN84Oxzl5Y43Cuni6e41O1asMt8kr7TyAPIGU6FsnJKDaJVoujDOCgB3zU';
 
 // ── Initialization ────────────────────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
