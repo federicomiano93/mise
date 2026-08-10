@@ -174,6 +174,11 @@ export const FIXTURE = {
       active: true,
       priceUnit: 'kg',
       pricePerUnit: 6.5,
+      // ⚠️ DELIBERATELY THE OLD TWO-BOX SHAPE. The rate is typed now and these two
+      // are retired, but every price entered before that carries them and this is
+      // the fixture that proves such an ingredient still opens showing 6.50 in the
+      // single box — and that saving it clears these without inventing a price
+      // change in its history. Do not "tidy" them away.
       packPrice: 6.5,
       packSize: 1,
       unitWeightKg: null,
