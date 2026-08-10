@@ -145,6 +145,14 @@ test('a tick-list waiting for a choice counts as busy', () => {
   assert.equal(isBusy(screenWith('.preview-overlay')), true);
 });
 
+test('A GUIDED MIX IN PROGRESS COUNTS AS BUSY', () => {
+  // An update reloads the page. Doing that to somebody standing at a mixer with a
+  // timer running is the worst moment this app has, so the gate waits and appears
+  // by itself once the mix is over.
+  assert.equal(isBusy(screenWith('.guided-run')), true);
+  assert.equal(isBusy(screenWith('.guided-edit')), true);
+});
+
 test('EVERY selector for a statically declared element demands .visible', () => {
   // The trap this guards: the Calculator declares its sixteen overlays in the HTML
   // and merely hides them, so they are in the document from page load. A selector

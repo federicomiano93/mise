@@ -45,6 +45,17 @@ function resetIfIdle() {
   // is gone with the page.
   if (document.querySelector('.app-dialog')) return;
 
+  // Never navigate out of a guided mix either, and this one is not a question on
+  // screen but a job in progress. A rest step is twenty minutes; glancing at
+  // another app during it is the normal way to spend them. Without this guard you
+  // come back with your hands in flour to the Home screen, and the step you were
+  // on is somewhere behind two taps. (The run is saved and could be resumed, so
+  // nothing is LOST — being thrown out mid-dough is itself the defect.)
+  //
+  // Same shape as the guard above, and the same family as the v1.12.0 bug where
+  // "Order sent — mark as placed?" vanished after five minutes in WhatsApp.
+  if (document.querySelector('.guided-run')) return;
+
   // replace() so the stale page is not left in history (no "back" to it)
   location.replace(HOME_URL);
 }

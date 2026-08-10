@@ -50,6 +50,7 @@ export const HELP = {
     title: 'Recipe catalogue',
     lines: [
       'Every recipe you have, searchable. Open one and scale it to any total weight in kg.',
+      'Guided mixing walks a recipe step by step with timers — keep that screen open, or the alarm cannot ring.',
       'Link a row to an ingredient and the recipe can tell you what a kilo of it costs.',
       'If only some rows are linked, the cost shown is of THOSE rows — not of the whole recipe.',
     ],

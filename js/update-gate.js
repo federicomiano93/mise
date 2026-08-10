@@ -41,6 +41,12 @@ export const BUSY_SELECTORS = Object.freeze([
   '.mgmt-form',                 // adding or editing a supplier / ingredient
   '.hist-edit-list',            // correcting a recorded order
   '.cat-editor',                // writing a recipe
+  '.guided-edit',               // writing a mixing procedure
+  // ⚠️ A guided mix in progress. An update RELOADS the page, and doing that to
+  // somebody standing at a mixer with a timer running is the worst moment this
+  // app has. The element is built when the run opens and torn down when it
+  // closes, so it exists only while the mix is on screen.
+  '.guided-run',
   '.preview-overlay',           // a tick-list waiting for a choice
   // The Calculator's own screens: Settings, the recipe editor, the log editors,
   // and the "Save this dough for: Today / Tomorrow" chooser raised by Confirm.

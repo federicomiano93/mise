@@ -11,8 +11,11 @@ import {
 import { renderList } from './catalogue-list.js';
 import { renderDetail } from './catalogue-detail.js';
 import { renderEditor } from './catalogue-editor.js';
+import { renderGuidedEditor } from './guided-editor.js';
+import { renderRun, resumableSession, clearSession } from './guided-run.js';
 import { importRecipeIntoCalculator, isRecipeLinkedToCalculator } from './import-to-calculator.js';
 import { nonWeighableLabels, weighableTotalGrams } from './catalogue-model.js';
+import { normalizeSteps, progressText } from './guided-model.js';
 import { confirmDialog } from './confirm-dialog.js';
 
 const screen = document.getElementById('catScreen');
@@ -23,12 +26,14 @@ const backBtn = document.getElementById('catBack');
 const addBtn = document.getElementById('catAdd');
 const editBtn = document.getElementById('catEdit');
 
-let view = 'list';        // 'list' | 'detail' | 'editor'
+let view = 'list';        // 'list' | 'detail' | 'editor' | 'steps' | 'run'
 let searchQuery = '';
 let activeList = null;     // { root, refresh } while the list is shown
 let activeDetail = null;   // { root, refreshCost } while a recipe is shown
+let activeRun = null;      // { root, confirmLeave, stop } while a guided mix is on screen
 let currentRecipe = null;  // the recipe shown in detail (for the header Edit button)
 let leaveGuard = null;     // async () => boolean; blocks Back when there are unsaved edits
+let resumeOffered = false; // the "you were mixing" offer is made once per page load
 
 // ── Header + view helpers ───────────────────────────────────────────────────────
 
@@ -51,7 +56,16 @@ function swap(node) {
   try { node.focus({ preventScroll: true }); } catch (e) { /* focus is best-effort */ }
 }
 
+// ⚠️ EVERY ROUTE OUT OF THE RUN GOES THROUGH HERE. The run holds a repeating
+// timer, a visibilitychange listener, the alarm and the screen wake lock; leaving
+// the screen without releasing them leaves a phone that never sleeps and, worse,
+// an alarm that can still go off on a screen showing something else.
+function stopRun() {
+  if (activeRun) { activeRun.stop(); activeRun = null; }
+}
+
 function showList() {
+  stopRun();
   view = 'list';
   activeDetail = null;
   leaveGuard = null;
@@ -67,6 +81,7 @@ function showList() {
 }
 
 function openDetail(recipe) {
+  stopRun();
   view = 'detail';
   activeList = null;
   currentRecipe = recipe;
@@ -78,6 +93,7 @@ function openDetail(recipe) {
 }
 
 function openEditor(recipe) {
+  stopRun();
   view = 'editor';
   activeList = null;
   activeDetail = null;
@@ -86,6 +102,53 @@ function openEditor(recipe) {
     sub: 'Recipe catalogue', back: true, add: false,
   });
   swap(renderEditor({ recipe, allRecipes: getRecipes(), app }));
+}
+
+function openGuidedEditor(recipe) {
+  stopRun();
+  view = 'steps';
+  activeList = null;
+  activeDetail = null;
+  currentRecipe = recipe;
+  setHeader({ title: 'Mixing steps', sub: recipe.name || 'Recipe', back: true, add: false });
+  swap(renderGuidedEditor({ recipe, app }));
+}
+
+// Start a mix, or pick one back up. `resume` is a saved session or null.
+//
+// ⚠️ THE HEADER PENCIL IS HIDDEN HERE (edit: false). It opens the recipe editor,
+// which rebuilds the ingredient rows — reachable from a running mix, it is one tap
+// between somebody's hands in dough and the amounts they are working to.
+function openRun(recipe, targetGrams, resume) {
+  stopRun();
+  view = 'run';
+  activeList = null;
+  activeDetail = null;
+  currentRecipe = recipe;
+  setHeader({ title: recipe.name || 'Recipe', sub: 'Guided mixing', back: true, add: false, edit: false });
+  activeRun = renderRun({ recipe, targetGrams, app, resume });
+  leaveGuard = activeRun.confirmLeave;
+  swap(activeRun.root);
+}
+
+// Offered once per page load, and only when there is genuinely a dough on the go
+// — see isResumable() in the model for what "genuinely" rules out (another day, a
+// clock that moved, a recipe since deleted).
+async function offerResume() {
+  if (resumeOffered) return;
+  const saved = resumableSession(getRecipes());
+  if (!saved) return;
+  resumeOffered = true;
+  const recipe = getRecipes().find(r => r.id === saved.recipeId);
+  const total = normalizeSteps(saved.snapshot.steps).length;
+  const ok = await confirmDialog({
+    title: 'Carry on mixing?',
+    message: `You were part-way through "${saved.snapshot.name || recipe.name}" — ${progressText(saved.stepIndex, total).toLowerCase()}.`,
+    okLabel: 'Carry on', cancelLabel: 'Not now',
+  });
+  // "Not now" KEEPS the session: it answers where to go next, never whether the
+  // dough exists. The recipe's own screen still offers to resume it.
+  if (ok) openRun(recipe, saved.snapshot.targetGrams, saved);
 }
 
 async function handleBack() {
@@ -111,11 +174,28 @@ const app = {
   confirm: confirmDialog,
   toast,
   showList,
+  openDetail,
   openEditor,
+  openGuidedEditor,
   saveRecipe,
   deleteRecipe,
   bumpUsage,
   setLeaveGuard: (fn) => { leaveGuard = fn; },
+  startGuided: (recipe, targetGrams) => openRun(recipe, targetGrams, null),
+  resumeGuided: (recipe) => {
+    const saved = resumableSession(getRecipes());
+    if (saved && saved.recipeId === recipe.id) openRun(recipe, saved.snapshot.targetGrams, saved);
+    // A session that has aged out (or belongs to another recipe) is not silently
+    // swapped for a fresh run: the button said "resume", and starting from step
+    // one instead would look identical and be a different dough.
+    else { clearSession(); toast('That mix is no longer available — start it again.'); openDetail(recipe); }
+  },
+  // The saved run, but only if it is this recipe's — so a recipe screen never
+  // offers to resume somebody else's dough.
+  guidedSessionFor: (recipeId) => {
+    const saved = resumableSession(getRecipes());
+    return saved && saved.recipeId === recipeId ? saved : null;
+  },
   // Live getters, not snapshots: the editor is open while the ingredient listener
   // is still streaming in, so a price corrected in Orders reaches an open recipe
   // without a reload — and a chooser opened before the first snapshot is not stuck
@@ -194,6 +274,9 @@ setSyncErrorHandler((msg) => toast(msg));
 initCatalogue(
   () => {
     if (view === 'list' && activeList) activeList.refresh(getRecipes(), getUsage());
+    // The offer needs the recipes to have arrived — a session is only worth
+    // resuming if its recipe is still in the catalogue.
+    if (view === 'list') offerResume();
     // A recipe on screen recomputes its cost whenever anything it depends on
     // arrives — the ingredient prices (still streaming in on a cold open), or the
     // recipe itself edited on another phone. The freshest copy wins; if it has

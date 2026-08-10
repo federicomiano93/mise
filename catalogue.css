@@ -423,3 +423,125 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-pick-name { display: block; font-size: .95rem; color: var(--cat-text); }
 .cat-pick-meta { display: block; margin-top: 3px; font-family: var(--cat-font-mono); font-size: .72rem; color: var(--cat-text-2); }
 .cat-pick-empty { padding: 24px 2px; text-align: center; font-size: .85rem; color: var(--cat-text-2); }
+/* ═══════════════════════════════════════════════════════════════════════════
+   GUIDED MIXING
+   A screen someone stands in front of with their hands in dough. Everything
+   here is sized for that: read from a step back, tapped with a floury finger.
+   No colour is invented — the alarm state borrows the app's own crust family
+   (the update banner's), which is already contrast-checked at 6.4:1.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --cat-crust:       var(--crust);
+  --cat-crust-ink:   var(--crust-ink);
+  --cat-crust-bg:    var(--crust-bg);
+  --cat-warn:        var(--warn);
+  --cat-warn-bg:     var(--warn-bg);
+  --cat-warn-border: var(--warn-border);
+  --cat-text-3:      var(--text-3);
+  --cat-accent-light: var(--accent-light);
+}
+
+/* ── On the recipe: the way in ───────────────────────────────────────────── */
+.cat-guided-panel { margin-top: 18px; }
+.cat-guided-go { width: 100%; padding: 15px; border: 0; border-radius: 12px; background: var(--cat-brand); color: var(--cat-brand-ink); font-family: var(--cat-font-round); font-size: 1rem; font-weight: 700; cursor: pointer; transition: transform .06s ease; }
+.cat-guided-go + .cat-guided-go { margin-top: 8px; background: var(--cat-surface-2); color: var(--cat-text-2); border: 1px solid var(--cat-border); font-weight: 600; }
+.cat-guided-go--resume { background: var(--cat-crust-ink); }
+.cat-guided-go:hover { background: var(--cat-brand-2); }
+.cat-guided-go--resume:hover { background: var(--cat-crust); }
+.cat-guided-go + .cat-guided-go:hover { background: var(--cat-surface); color: var(--cat-text); border-color: var(--cat-accent); }
+.cat-guided-go:active { transform: scale(.97); }
+.cat-guided-go:focus-visible, .cat-guided-write:focus-visible, .cat-guided-edit:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+.cat-guided-write { width: 100%; padding: 12px; border: 1px dashed var(--cat-border); border-radius: 12px; background: var(--cat-surface-2); color: var(--cat-text-2); font-family: var(--cat-font); font-size: .92rem; cursor: pointer; }
+.cat-guided-write:hover { color: var(--cat-text); border-color: var(--cat-accent); }
+.cat-guided-hint { text-align: center; font-size: .76rem; color: var(--cat-text-2); margin: 8px 2px 0; }
+.cat-guided-warn { margin: 8px 0 0; padding: 9px 12px; border-radius: 10px; background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border); color: var(--cat-warn); font-size: .8rem; }
+.cat-guided-edit { display: block; margin: 10px auto 0; padding: 8px 12px; background: none; border: 0; color: var(--cat-text-2); font-family: var(--cat-font); font-size: .85rem; text-decoration: underline; cursor: pointer; }
+.cat-guided-edit:hover { color: var(--cat-text); }
+
+/* ── The run ─────────────────────────────────────────────────────────────── */
+.guided-run { padding: 2px 0 8px; }
+.guided-card { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); padding: 20px 16px; text-align: center; box-shadow: var(--shadow-card); }
+/* Time is up. The card takes the app's attention colour and breathes once a
+   second so a glance from across the room catches it; the app-wide
+   prefers-reduced-motion switch in tokens.css neutralises the pulse. */
+.guided-card--due { background: var(--cat-crust-bg); border-color: var(--cat-crust); animation: guided-pulse 1s ease-in-out infinite; }
+@keyframes guided-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--cat-crust) 45%, transparent); }
+  50%      { box-shadow: 0 0 0 8px color-mix(in srgb, var(--cat-crust) 0%, transparent); }
+}
+
+.guided-count { margin: 0 0 10px; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
+.guided-text { margin: 0 0 4px; font-family: var(--cat-font-round); font-size: 1.3rem; font-weight: 700; line-height: 1.25; color: var(--cat-text); }
+
+/* The amounts. Bigger than anywhere else in the app on purpose: this is the one
+   number somebody reads while weighing, at arm's length, in a hurry. */
+.guided-ings { margin: 16px 0 4px; text-align: left; }
+.guided-ing { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--cat-border); }
+.guided-ing:last-child { border-bottom: 0; }
+.guided-ing-name { font-size: 1.05rem; font-weight: 600; color: var(--cat-text); min-width: 0; overflow-wrap: anywhere; }
+.guided-ing-amt { flex: none; display: flex; align-items: baseline; gap: 4px; }
+.guided-ing-num { font-family: var(--cat-font-mono); font-size: 1.45rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--cat-text); }
+.guided-ing-unit { font-size: .85rem; color: var(--cat-text-3); }
+/* An ingredient deleted from the recipe since the procedure was written. It keeps
+   its place and says so — never quietly one line shorter than it was. */
+.guided-ing--gone .guided-ing-name { color: var(--cat-danger); font-style: italic; font-weight: 500; font-size: .92rem; }
+
+.guided-clock { margin: 18px 0 2px; }
+.guided-time { font-family: var(--cat-font-mono); font-size: 3.2rem; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--cat-text); line-height: 1; }
+.guided-card--due .guided-time { color: var(--cat-crust-ink); }
+.guided-speed { display: inline-block; margin: 12px 0 0; padding: 5px 14px; border-radius: var(--radius-pill); background: var(--cat-accent-light); border: 1px solid var(--cat-border); font-family: var(--cat-font-round); font-size: .95rem; font-weight: 700; color: var(--cat-brand); }
+.guided-due { margin: 14px 0 0; font-size: .95rem; font-weight: 600; color: var(--cat-crust-ink); }
+
+.guided-actions { margin-top: 16px; }
+.guided-go { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 17px; border: 0; border-radius: 12px; background: var(--cat-brand); color: var(--cat-brand-ink); font-family: var(--cat-font-round); font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: transform .06s ease; }
+/* An icon in a <span> is an inline box, so the SVG sits on the text BASELINE —
+   the 2px-high-icon bug this project has shipped before. Flex centres it. */
+.guided-go > span { display: flex; align-items: center; }
+.guided-go:hover { background: var(--cat-brand-2); }
+.guided-go:active { transform: scale(.97); }
+.guided-go:focus-visible, .guided-skip:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+.guided-go--wait { background: var(--cat-surface-2); color: var(--cat-text-2); border: 1px solid var(--cat-border); cursor: default; }
+.guided-go--wait:hover { background: var(--cat-surface-2); }
+.guided-adjust { display: flex; gap: 8px; margin-top: 8px; }
+.guided-skip { flex: 1; width: 100%; margin-top: 8px; padding: 11px; background: none; border: 1px solid var(--cat-border); border-radius: 12px; color: var(--cat-text-2); font-family: var(--cat-font); font-size: .9rem; cursor: pointer; }
+.guided-adjust .guided-skip { margin-top: 0; }
+.guided-skip:hover { color: var(--cat-text); border-color: var(--cat-accent); }
+.guided-note { margin: 16px 2px 0; text-align: center; font-size: .76rem; color: var(--cat-text-2); }
+
+/* The last screen. The missed-ingredient block is the point of it. */
+.guided-card--end { text-align: center; }
+.guided-missed { margin-top: 18px; padding: 12px; border-radius: 12px; background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border); text-align: left; }
+.guided-missed-title { margin: 0 0 6px; font-size: .85rem; font-weight: 700; color: var(--cat-warn); }
+.guided-missed .guided-ing { border-bottom-color: var(--cat-warn-border); }
+.guided-missed .guided-ing-num { font-size: 1.2rem; }
+
+/* ── Writing the procedure ───────────────────────────────────────────────── */
+.guided-edit-top { margin-bottom: 14px; }
+.guided-edit-summary { margin: 0 0 8px; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--cat-text-3); }
+.guided-edit-ok { margin: 0; padding: 9px 12px; border-radius: 10px; background: var(--cat-surface-2); border: 1px solid var(--cat-border); font-size: .82rem; color: var(--cat-text-2); }
+.guided-edit-warn { margin: 0; padding: 9px 12px; border-radius: 10px 10px 0 0; background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border); border-bottom: 0; font-size: .82rem; font-weight: 600; color: var(--cat-warn); }
+.guided-edit-warn + .guided-edit-hint { margin: 0; padding: 0 12px 9px; border-radius: 0 0 10px 10px; background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border); border-top: 0; color: var(--cat-warn); }
+.guided-edit-hint { margin: 0; font-size: .78rem; color: var(--cat-text-2); }
+
+.guided-edit-card { margin-bottom: 12px; padding: 12px; border: 1px solid var(--cat-border); border-radius: 12px; background: var(--cat-surface); }
+.guided-edit-head { display: flex; align-items: center; gap: 2px; margin-bottom: 8px; }
+.guided-edit-n { flex: 1; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
+.guided-edit-head .cat-del-icon[disabled] { opacity: .3; cursor: default; }
+.guided-edit-text { width: 100%; padding: 10px 12px; font-family: var(--cat-font); font-size: .95rem; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
+.guided-edit-text:focus, .guided-edit-num:focus, .guided-edit-speed:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
+.guided-edit-field { margin-top: 10px; }
+.guided-edit-lbl { display: block; margin-bottom: 5px; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--cat-text-3); }
+.guided-edit-picks { display: flex; flex-direction: column; gap: 2px; }
+/* The word belongs to the target, so the whole label toggles (P18) — but it is a
+   flex ROW rather than a stretched block, so the amount on the right is not part
+   of the tap area for a checkbox two columns away. */
+.guided-edit-pick { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 8px; cursor: pointer; }
+.guided-edit-pick:hover { background: var(--cat-surface-2); }
+.guided-edit-check { flex: none; width: 20px; height: 20px; accent-color: var(--cat-brand); margin: 0; }
+.guided-edit-pick-name { flex: 1; min-width: 0; font-size: .9rem; color: var(--cat-text); overflow-wrap: anywhere; }
+.guided-edit-pick-amt { flex: none; font-family: var(--cat-font-mono); font-size: .75rem; color: var(--cat-text-3); }
+.guided-edit-time { display: flex; align-items: center; gap: 6px; }
+.guided-edit-num { width: 4.2rem; padding: 9px 10px; font-family: var(--cat-font-mono); font-size: .95rem; text-align: right; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
+.guided-edit-unit { font-size: .8rem; color: var(--cat-text-3); }
+.guided-edit-speed { width: 100%; padding: 9px 12px; font-family: var(--cat-font); font-size: .95rem; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
