@@ -6,9 +6,11 @@
 // the cached config (or the default) synchronously; Firestore then streams in
 // and, when it has data, updates the cache and notifies the app to re-render.
 
-import { DEFAULT_CONFIG, cloneConfig, normalizeConfig } from './calculator-config.js';
+import { DEFAULT_CONFIG, cloneConfig, normalizeConfig, getClients } from './calculator-config.js';
 import { watchCalculatorConfig, saveCalculatorConfig } from './firebase.js';
 import { alertDialog } from './confirm-dialog.js';
+import { publishMenus } from './client-orders-data.js';
+import { menuFor, menuChanged } from './client-order-model.js';
 
 const CACHE_KEY = 'calculator-config';
 
@@ -80,7 +82,18 @@ export function canSyncConfig() {
 // immediately so the change is instant and works offline; the Firestore write is
 // best-effort and its failure (e.g. offline, rules not yet deployed) is logged
 // but does not lose the local change or block the UI.
+// Whether any client's PUBLISHED product list would read differently after this save.
+// Everything else in the config — recipes, WhatsApp lists, log settings — is invisible
+// to a client, so a save that touches only those must not cost a read of every menu.
+function menusWouldChange(before, after) {
+  const was = new Map(getClients(before).map(c => [c.id, menuFor(c)]));
+  const now = getClients(after);
+  if (was.size !== now.length) return true;
+  return now.some(client => menuChanged(was.get(client.id), menuFor(client)));
+}
+
 export function saveConfig(config) {
+  const previous = current;
   current = normalizeConfig(config);
   writeCache(current);
   if (notify) notify(current);
@@ -101,8 +114,30 @@ export function saveConfig(config) {
     return Promise.resolve({ synced: false, reason: 'no-server-answer' });
   }
 
+  const willRepublish = menusWouldChange(previous, current);
+
   return saveCalculatorConfig(current)
-    .then(() => ({ synced: true }))
+    .then(async () => {
+      // ── Keep every client's ordering page in step with the address book ──
+      //
+      // ⚠️ IT HAS TO HAPPEN HERE, on the save, or it does not happen at all. A client
+      // cannot order a product whose published list never learnt about it, and that
+      // failure is invisible from this side: the owner adds a product, the client's
+      // page simply does not show it, and nobody finds out until somebody telephones.
+      //
+      // ⚠️ BEST-EFFORT, AND IT NEVER FAILS THE SAVE. The address book is the thing
+      // that matters and it is already stored; a menu that did not republish is a
+      // nuisance corrected by the next save, while a save reported as failed because
+      // of it would send the owner looking for a problem that is not there.
+      if (willRepublish) {
+        try {
+          await publishMenus(current);
+        } catch (err) {
+          console.warn('Client ordering menus not republished:', err);
+        }
+      }
+      return { synced: true };
+    })
     .catch(err => {
       console.warn('Calculator config saved locally but not synced to Firestore:', err);
       return { synced: false, reason: 'write-failed', error: err };

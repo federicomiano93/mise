@@ -1,7 +1,7 @@
 import './firebase.js';
 import {
   calc, copyRecipe, shareRecipeWA, buildDivisorBox,
-  restoreRevealed, clearRevealed, restoreLock, clearLock,
+  restoreRevealed, clearRevealed, restoreLock, clearLock, getLock,
 } from './calc.js';
 import { saveDay, editTab, renderLog } from './log.js';
 import { closeRecipes, goHomeFromRecipes } from './recipes.js';
@@ -14,6 +14,7 @@ import { renderTab, buildRecipePanel, el } from './calculator-render.js';
 import { getVisibleRecipes, getRecipeById, getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
 import { workDayIndex } from './log-model.js';
 import { confirmDialog } from './confirm-dialog.js';
+import { initClientOrders } from './calculator-client-orders.js';
 
 // Service-worker registration and the update banner live in js/sw-update.js,
 // shared by every page — nothing to do here.
@@ -72,6 +73,74 @@ function restoreQty(recipeId) {
 function saveParam(recipeId) {
   const e = document.getElementById(recipeId + '-param');
   if (e) localStorage.setItem('param-' + recipeId, e.value);
+}
+
+// ── Putting a client's own order into the quantity fields ────────────────────
+// The Calculator owns these fields, so it is the only thing that writes them. The
+// client-orders screen asks; it never reaches in.
+//
+// ⚠️ INSPECT AND APPLY ARE SEPARATE ON PURPOSE. The screen has to be able to say what
+// is about to change BEFORE anything does — which row already holds a different
+// number, which tab is confirmed and will not move — and a single "just do it"
+// function cannot be asked that question.
+
+// Every (client, product) quantity key currently on a tab, with the tab it belongs to.
+// Built fresh each time: a product added or paused a minute ago must not be answered
+// for from a map made at start-up.
+function qtyIndex() {
+  const config = getConfig();
+  const index = new Map();
+  for (const recipe of getVisibleRecipes(config)) {
+    for (const row of getTabProducts(config, recipe.id)) {
+      index.set(row.qtyId, { recipeId: recipe.id, recipeName: recipe.name, productName: row.name });
+    }
+  }
+  return index;
+}
+
+// What `patch` would do, row by row. A key with no field is simply absent from the
+// answer: the product is paused, deleted, or on a recipe that is not a visible tab,
+// and there is nothing to fill in either way.
+function inspectQuantities(patch) {
+  const index = qtyIndex();
+  const out = [];
+  for (const [qtyId, next] of Object.entries(patch || {})) {
+    const where = index.get(qtyId);
+    const field = document.getElementById(qtyId);
+    if (!where || !field) continue;
+    out.push({
+      qtyId,
+      recipeId: where.recipeId,
+      recipeName: where.recipeName,
+      productName: where.productName,
+      current: Number(field.value) || 0,
+      next: Number(next) || 0,
+      // A confirmed tab's fields are locked until Edit is tapped. Writing them anyway
+      // would put a number on screen that the recipe above it does not account for.
+      locked: getLock(where.recipeId).locked,
+    });
+  }
+  return out;
+}
+
+// Write them, persist them, and recalculate each affected tab ONCE. Persisting matters
+// as much as the value: a reload restores from localStorage, so a field set without
+// being saved silently reverts to what the client had NOT asked for.
+function applyQuantities(targets) {
+  const touched = new Set();
+  for (const target of (targets || [])) {
+    const field = document.getElementById(target.qtyId);
+    if (!field) continue;
+    field.value = String(target.next);
+    localStorage.setItem('qty-' + target.qtyId, field.value);
+    touched.add(target.recipeId);
+  }
+  for (const recipeId of touched) {
+    calc(recipeId);
+    // Stamped as used today, or the new-work-day sweep would clear these fields on the
+    // next opening as though nobody had touched the tab.
+    touchTab(recipeId);
+  }
 }
 
 // ── The work day ─────────────────────────────────────────────────────────────
@@ -359,3 +428,8 @@ initLogs(renderLog);
 // dynamic tabs must not wait on the network (P17, local-first).
 initConfig(renderAll);
 renderAll();
+
+// The orders clients have sent in themselves. It is given the two functions that touch
+// the quantity fields rather than importing them: app.js is the entry point, so an
+// import back from that module would be a cycle.
+initClientOrders({ inspect: inspectQuantities, apply: applyQuantities });

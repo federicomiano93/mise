@@ -1,0 +1,82 @@
+<!--
+  THE ITALIAN CLUB — client ordering page.
+
+  The ONE page served to people outside the business: a wholesale client opens their
+  personal link and types their own order, instead of sending it on WhatsApp for
+  somebody to copy into the Calculator by hand.
+
+  ⚠️ THIS PAGE IS NOT PART OF THE INSTALLED APP, ON PURPOSE.
+    * No <link rel="manifest">. The manifest's start_url is the staff home screen, so
+      a client who "added to home screen" from here would install the bakery's own app
+      and land on a sign-in wall they can never pass.
+    * No service worker registration, and its files are deliberately absent from the
+      precache list in sw.js. A staff phone must not carry a copy of this page, and a
+      client's phone must not carry a copy of the staff app.
+    * No js/auth-gate.js. That is the staff door; this page has its own, made of the
+      link itself.
+
+  Everything else about it is ordinary: same CSP bootstrap, same design tokens.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--
+  CSP bootstrap, byte-identical to the other pages on the live domain; on localhost
+  only, connect-src additionally allows the Auth (9099) and Firestore (8080)
+  emulators. A <meta> policy cannot be loosened at runtime (multiple policies combine
+  by intersection), so it is emitted here, before any CSP is in effect and before any
+  network request.
+-->
+<script>
+(function () {
+  var local = ['localhost', '127.0.0.1', '::1', '[::1]'].indexOf(location.hostname) !== -1;
+  var emu = local
+    ? ' http://localhost:8080 http://localhost:9099 http://127.0.0.1:8080 http://127.0.0.1:9099'
+    : '';
+  document.write(
+    '<meta http-equiv="Content-Security-Policy" content="' +
+    "default-src 'self'; " +
+    "script-src 'self' https://www.gstatic.com https://www.google.com; " +
+    "connect-src 'self' https://www.gstatic.com https://www.google.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "frame-src 'self' https://www.google.com; " +
+    "img-src 'self' data:; " +
+    "style-src 'self'; " +
+    "font-src 'self'; " +
+    "base-uri 'self'; " +
+    "form-action 'self'" +
+    '">'
+  );
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Send your order to The Italian Club Bakery.">
+<meta name="theme-color" content="#2E4A1B">
+<!--
+  ⚠️ noindex, and it matters. The link is a capability: anyone holding it can send
+  orders as that client. It is not a secret worth much — it reads nothing and the
+  bakery checks every order before using it — but a page that invites a search engine
+  to catalogue it is a different thing entirely.
+-->
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="order.css">
+<title>Send your order — The Italian Club</title>
+</head>
+<body>
+<!--
+  The page is built entirely from JavaScript, so this is the state before the link has
+  been read. It is deliberately not "Loading…": if the script never arrives, "Loading"
+  is a lie that never resolves, while this sentence is still true and still useful.
+-->
+<div id="order-root">
+  <div class="co-message">
+    <h1 class="co-message-title">The Italian Club</h1>
+    <p class="co-message-body">Open the ordering link the bakery sent you.</p>
+  </div>
+</div>
+
+<script type="module" src="js/client-orders/order-main.js"></script>
+</body>
+</html>

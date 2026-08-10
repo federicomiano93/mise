@@ -27,6 +27,9 @@ import { openRecipes } from './recipes.js';
 import { openWhatsapp } from './calculator-whatsapp-settings.js';
 import { confirmDiscard } from './calculator-confirm.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
+import {
+  listOrderingAccounts, createOrderingLink, revokeOrderingLink, orderingLinkFor,
+} from './client-orders-data.js';
 import Sortable from './vendor/sortable.esm.js';
 
 // A recipe's display name (falls back to its id if the recipe was deleted).
@@ -78,6 +81,11 @@ function openClients() {
   dirty = false;
   renderEditor();
   show('cp-overlay');
+  // Which clients already have an ordering link. Read in the background so the editor
+  // opens instantly; the screen is repainted when the answer arrives, and until then
+  // the link section simply offers to create one — which is also what it says if the
+  // read fails, so an offline phone gets a screen it can still read.
+  loadOrderingAccounts().then(() => { if (working) renderEditor(); });
 }
 
 // True when a just-added client was left untouched (no name, no products), so it should
@@ -283,7 +291,146 @@ function renderClientDetail(ci) {
   field.appendChild(addProd);
   content.appendChild(field);
 
+  content.appendChild(orderingLinkField(client));
   content.appendChild(saveBottomButton(saveClients));
+}
+
+// ── The client's own ordering link ────────────────────────────────────────────
+// One link per client. They open it and type their order straight into the app, so
+// nobody copies numbers out of a WhatsApp message any more.
+//
+// ⚠️ EVERY BUTTON HERE ACTS ON THE DATABASE IMMEDIATELY, unlike the rest of this
+// editor, which works on a copy and touches nothing until Save. That is not an
+// inconsistency to tidy away: a link is an account and a permission, not a field, and
+// there is no honest way to "un-save" one by tapping Back. It is why the whole
+// section refuses to do anything while there are unsaved changes — the link publishes
+// the products AS SAVED, so minting one from an edited-but-unsaved client would send
+// a customer a list of things the bakery has not agreed to yet.
+const orderingAccounts = new Map(); // clientId -> { uid, linkToken }
+
+async function loadOrderingAccounts() {
+  orderingAccounts.clear();
+  try {
+    for (const account of await listOrderingAccounts()) {
+      if (account && account.clientId) orderingAccounts.set(account.clientId, account);
+    }
+  } catch (err) {
+    // Offline, or a location that has never used this. The section simply offers to
+    // create a link; it must never block the Clients editor.
+    console.warn('Could not read the ordering links:', err);
+  }
+}
+
+function shareText(client, link) {
+  return `Hello ${client.name}, you can send your order to The Italian Club here: ${link}`;
+}
+
+// ⚠️ THE CLIPBOARD IS RACED AGAINST A CLOCK, AND THIS IS NOT BELT-AND-BRACES.
+// navigator.clipboard.writeText() can sit there and never settle — the page losing
+// focus at the wrong moment is enough — and it was the ONLY thing standing between
+// creating a link and being shown it. Observed while driving the app: the link was
+// made, the account and the grant reached the database, and the owner was told
+// nothing at all. A promise with no timeout is a feature that works until it hangs.
+//
+// Whatever happens, this function ends with the link on screen: copied if the
+// clipboard took it, spelled out if it did not.
+const CLIPBOARD_WAIT_MS = 2000;
+
+async function copyLink(client, link) {
+  let copied = false;
+  try {
+    copied = await Promise.race([
+      navigator.clipboard.writeText(link).then(() => true),
+      new Promise(resolve => setTimeout(() => resolve(false), CLIPBOARD_WAIT_MS)),
+    ]);
+  } catch (err) {
+    // Refused outright (an old browser, a denied permission, an insecure origin).
+    copied = false;
+  }
+  await alertDialog(copied
+    ? `The ordering link for ${client.name} is copied. Paste it into a message.`
+    : `Copy this link and send it to ${client.name}:\n\n${link}`);
+}
+
+function orderingLinkField(client) {
+  const field = el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label' }, 'Ordering link'),
+  ]);
+
+  if (dirty) {
+    field.appendChild(el('p', { class: 'cp-hint' },
+      'Save your changes first — the link shows this client the products as they are saved.'));
+    return field;
+  }
+
+  const account = orderingAccounts.get(client.id);
+  const link = account && account.linkToken ? orderingLinkFor(account.linkToken) : '';
+
+  field.appendChild(el('p', { class: 'cp-hint' }, account
+    ? `${client.name} can send orders straight into the app. Anyone with the link can order as this client, so send it to them and no one else.`
+    : 'Create a link and send it to this client. They will see only their own products, and can order without a password.'));
+
+  if (account && link) {
+    const copy = el('button', { class: 'cp-add-prod', type: 'button' }, 'Copy link');
+    copy.addEventListener('click', () => copyLink(client, link));
+    field.appendChild(copy);
+
+    const share = el('a', {
+      class: 'cp-add-prod cp-link-share',
+      href: `https://wa.me/?text=${encodeURIComponent(shareText(client, link))}`,
+      target: '_blank', rel: 'noopener',
+    }, 'Send on WhatsApp');
+    field.appendChild(share);
+  }
+
+  const make = el('button', { class: 'cp-add-prod', type: 'button' },
+    account ? 'Replace with a new link' : '+ Create ordering link');
+  make.addEventListener('click', async () => {
+    // ⚠️ REPLACING IS THE DESTRUCTIVE ONE, and it is the tap most likely to be made
+    // by mistake — somebody looking for "send it again" finds this first. The old
+    // link stops working the moment it is replaced, so it is spelled out.
+    if (account && !(await confirmDialog({
+      title: 'Replace this link?',
+      message: `${client.name}'s current link will stop working immediately, including on a phone that is using it right now. Use "Copy link" instead if you only want to send it again.`,
+      okLabel: 'Replace',
+      danger: true,
+    }))) return;
+
+    make.disabled = true;
+    try {
+      const created = await createOrderingLink(client, { replacing: account ? account.uid : null });
+      orderingAccounts.set(client.id, { uid: created.uid, clientId: client.id, linkToken: created.token });
+      renderEditor();
+      await copyLink(client, created.link);
+    } catch (err) {
+      console.error('Could not create the ordering link:', err);
+      await alertDialog('Could not create the link. Check your connection and try again.');
+      make.disabled = false;
+    }
+  });
+  field.appendChild(make);
+
+  if (account) {
+    const revoke = el('button', { class: 'cp-link-revoke', type: 'button' }, 'Turn off ordering');
+    revoke.addEventListener('click', async () => {
+      if (!(await confirmDialog({
+        message: `Stop ${client.name} sending orders through the app? Their link will stop working. Orders they have already sent are kept.`,
+        okLabel: 'Turn off',
+        danger: true,
+      }))) return;
+      try {
+        await revokeOrderingLink(account.uid);
+        orderingAccounts.delete(client.id);
+        renderEditor();
+      } catch (err) {
+        console.error('Could not revoke the ordering link:', err);
+        await alertDialog('Could not turn it off. Check your connection and try again.');
+      }
+    });
+    field.appendChild(revoke);
+  }
+
+  return field;
 }
 
 // One product of this client, described in full: name, the recipe it belongs to, its

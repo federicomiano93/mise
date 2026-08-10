@@ -67,6 +67,12 @@ async function account(label) {
 // prove what he CANNOT reach. NOBODY has an account but no access document.
 let ALICE = null, BOB = null, NOBODY = null;
 
+// CLIENT_A and CLIENT_B are ORDERING accounts: wholesale customers, the first people
+// outside the business ever to hold an account here. They have no users/{uid}
+// document at all — only a client-accounts document inside one location — so every
+// rule written for staff must refuse them without having been told about them.
+let CLIENT_A = null, CLIENT_B = null;
+
 let TOKEN = null;
 const asUser = () => ({ Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' });
 const asAccount = who => ({ Authorization: `Bearer ${who.token}`, 'Content-Type': 'application/json' });
@@ -852,6 +858,8 @@ await requireEmulators();
 ALICE = await account('alice');
 BOB = await account('bob');
 NOBODY = await account('nobody');
+CLIENT_A = await account('client-a');
+CLIENT_B = await account('client-b');
 TOKEN = ALICE.token;
 
 // ── pastries/{Weekday} ───────────────────────────────────────────────────────
@@ -1189,9 +1197,305 @@ async function products() {
     () => fetch(`${FS}/locations/main/recipes/R1`, { headers: asUser() }));
 }
 
+// ── A client orders for itself ───────────────────────────────────────────────
+// The first accounts in this app that belong to somebody OUTSIDE the business. The
+// checks below are in two halves, and the second half is the one that matters:
+// first that a client can do its own two things, then — at length — that it cannot
+// reach anything else in the database, including the things nobody thought to
+// mention when the feature was built.
+async function clientOrders() {
+  await wipe();
+  await seedAccess();
+
+  const L = 'locations/main';
+  const day = offset => {
+    const d = new Date(Date.now() + offset * 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const TOMORROW = day(1);
+
+  // The grant: one document per ordering account, inside the location.
+  await seedDoc(`${L}/client-accounts/${CLIENT_A.uid}`,
+    { bakery: 'main', clientId: 'c-one', clientName: 'CLIENT A', createdAt: '2026-08-10T09:00:00.000Z' });
+  await seedDoc(`${L}/client-accounts/${CLIENT_B.uid}`,
+    { bakery: 'main', clientId: 'c-two', clientName: 'CLIENT B', createdAt: '2026-08-10T09:00:00.000Z' });
+  await seedDoc(`${L}/client-menus/c-one`, {
+    bakery: 'main', clientName: 'CLIENT A', updatedAt: '2026-08-10T09:00:00.000Z',
+    products: [{ id: 'p-buns', name: 'Buns', kind: 'number' }],
+  });
+  await seedDoc(`${L}/client-menus/c-two`, {
+    bakery: 'main', clientName: 'CLIENT B', updatedAt: '2026-08-10T09:00:00.000Z', products: [],
+  });
+
+  const readAs = (who, path) => () => fetch(`${FS}/${path}`, { headers: asAccount(who) });
+  const order = (over = {}) => ({
+    bakery: 'main', date: TOMORROW, clientId: 'c-one', clientName: 'CLIENT A',
+    quantities: { 'p-buns': 40 }, names: { 'p-buns': 'Buns' }, note: 'half cut',
+    createdAt: '2026-08-10T09:00:00.000Z', updatedAt: '2026-08-10T09:00:00.000Z', ...over,
+  });
+  const ORDER_A = `${L}/client-orders/${TOMORROW}_c-one`;
+
+  // ── The ordering account's own two things ──
+  await expectAllowed('a client reads its own account document to learn who it is',
+    readAs(CLIENT_A, `${L}/client-accounts/${CLIENT_A.uid}`));
+  await expectAllowed('a client reads its own product list',
+    readAs(CLIENT_A, `${L}/client-menus/c-one`));
+  await expectAllowed('a client sends its order', () =>
+    wholeWrite(ORDER_A, order(), asAccount(CLIENT_A)));
+  await expectAllowed('a client reads its own order back', readAs(CLIENT_A, ORDER_A));
+  await expectAllowed('a client corrects its order', () =>
+    wholeWrite(ORDER_A, order({ quantities: { 'p-buns': 60 }, updatedAt: '2026-08-10T11:00:00.000Z' }),
+      asAccount(CLIENT_A)));
+  await expectAllowed('a client may order nothing at all — that is a statement too', () =>
+    wholeWrite(ORDER_A, order({ quantities: {}, names: {}, updatedAt: '2026-08-10T12:00:00.000Z' }),
+      asAccount(CLIENT_A)));
+  await expectAllowed('an order with no note and no frozen names (a future page version)', () => {
+    const o = order({ updatedAt: '2026-08-10T13:00:00.000Z' });
+    delete o.note; delete o.names;
+    return wholeWrite(ORDER_A, o, asAccount(CLIENT_A));
+  });
+
+  // ── One client is not another ──
+  await expectDenied('a client CANNOT read another client\'s product list',
+    readAs(CLIENT_A, `${L}/client-menus/c-two`));
+  await expectDenied('a client CANNOT read another client\'s account document',
+    readAs(CLIENT_A, `${L}/client-accounts/${CLIENT_B.uid}`));
+  await seedDoc(`${L}/client-orders/${TOMORROW}_c-two`,
+    { ...order({ clientId: 'c-two', clientName: 'CLIENT B' }) });
+  await expectDenied('a client CANNOT read another client\'s order',
+    readAs(CLIENT_A, `${L}/client-orders/${TOMORROW}_c-two`));
+  await expectDenied('a client CANNOT write an order as another client', () =>
+    wholeWrite(`${L}/client-orders/${TOMORROW}_c-two`,
+      order({ clientId: 'c-two', clientName: 'CLIENT B' }), asAccount(CLIENT_A)));
+  // The payload says one client, the folder says another. Pinning the id to the
+  // fields is what stops an order being filed where its own rules do not apply.
+  await expectDenied('a client CANNOT file its order under another client\'s id', () =>
+    wholeWrite(`${L}/client-orders/${TOMORROW}_c-two`, order(), asAccount(CLIENT_A)));
+  await expectDenied('…nor under a date that is not the one in the order', () =>
+    wholeWrite(`${L}/client-orders/${day(3)}_c-one`, order(), asAccount(CLIENT_A)));
+
+  // ── A client cannot promote itself ──
+  await expectDenied('a client CANNOT re-point its own account at another client', () =>
+    mergeWrite(`${L}/client-accounts/${CLIENT_A.uid}`,
+      { bakery: 'main', clientId: 'c-two' }, asAccount(CLIENT_A)));
+  await expectDenied('a client CANNOT create an account document for itself elsewhere', () =>
+    wholeWrite(`locations/trattoria-x/client-accounts/${CLIENT_A.uid}`,
+      { bakery: 'trattoria-x', clientId: 'c-one', clientName: 'X', createdAt: 'now' },
+      asAccount(CLIENT_A)));
+  await expectDenied('a client CANNOT make itself a member', () =>
+    mergeWrite(`users/${CLIENT_A.uid}`, { locations: { main: true } }, asAccount(CLIENT_A)));
+  await expectDenied('a client CANNOT publish its own product list', () =>
+    mergeWrite(`${L}/client-menus/c-one`,
+      { bakery: 'main', products: [{ id: 'p-free', name: 'Free bread', kind: 'number' }] },
+      asAccount(CLIENT_A)));
+
+  // ── THE HALF THAT MATTERS: everything else in the database ──
+  // Seeded first, so a refusal is the rules refusing and not the document missing.
+  await seedDoc(`${L}/config/calculator`, { bakery: 'main', clients: [] });
+  await seedDoc(`${L}/recipes/R1`, { bakery: 'main', name: 'Focaccia', ingredients: [] });
+  await seedDoc(`${L}/ingredients/I1`, { bakery: 'main', name: 'Flour', pricePerUnit: 7.2 });
+  await seedDoc(`${L}/suppliers/S1`, { bakery: 'main', name: 'A supplier' });
+  await seedDoc(`${L}/products/P1`, { bakery: 'main', name: 'A product' });
+  await seedDoc(`${L}/logs/G1`, { bakery: 'main', dough: 'Focaccia', versions: [] });
+  await seedDoc(`${L}/orders-history/2026-08-10_S1`, { bakery: 'main', date: '2026-08-10' });
+  await seedDoc(`${L}/pastries/Monday`, { bakery: 'main', day: 'Monday', items: [] });
+  await seedDoc(`${L}/drafts/current`, { bakery: 'main', entries: {} });
+
+  for (const [what, path] of [
+    ['the address book, every client and every recipe in one read', `${L}/config/calculator`],
+    ['a recipe', `${L}/recipes/R1`],
+    ['what an ingredient costs', `${L}/ingredients/I1`],
+    ['who the bakery buys from', `${L}/suppliers/S1`],
+    ['a product and its margin', `${L}/products/P1`],
+    ['a production log', `${L}/logs/G1`],
+    ['what was ordered from a supplier', `${L}/orders-history/2026-08-10_S1`],
+    ['the pastry list', `${L}/pastries/Monday`],
+    ['the order in progress', `${L}/drafts/current`],
+    ['the location\'s own settings', 'locations/main'],
+  ]) {
+    await expectDenied(`a client CANNOT read ${what}`, readAs(CLIENT_A, path));
+  }
+  await expectDenied('a client CANNOT write the address book', () =>
+    mergeWrite(`${L}/config/calculator`, { bakery: 'main', clients: [] }, asAccount(CLIENT_A)));
+  await expectDenied('a client CANNOT touch another location at all',
+    readAs(CLIENT_A, 'locations/trattoria-x/suppliers/S1'));
+  await expectDenied('an account with no grant anywhere sends no order', () =>
+    wholeWrite(`${L}/client-orders/${TOMORROW}_c-one`, order(), asAccount(NOBODY)));
+  await expectDenied('a signed-out device sends no order', () =>
+    wholeWrite(`${L}/client-orders/${TOMORROW}_c-one`, order(), noAuth()));
+
+  // ── "The bakery has used this" is the bakery's to say ──
+  await expectDenied('a client CANNOT claim its order was already used', () =>
+    wholeWrite(ORDER_A, order({ appliedAt: '2026-08-10T10:00:00.000Z' }), asAccount(CLIENT_A)));
+
+  // ⚠️ AND ON A FIRST ORDER TOO, WHERE THERE IS NOTHING TO COMPARE AGAINST. This
+  // needed its own check and would not have been written without one: the line above
+  // aims at a document that already exists, so it is the UPDATE branch that refuses
+  // it, and deleting the create branch's guard altogether left the whole suite green.
+  // Found by mutation, which is the only thing that could have found it — a guard
+  // whose removal changes nothing is a guard nobody is testing.
+  await expectDenied('…on a first order as well, where there is nothing to compare against', () =>
+    wholeWrite(`${L}/client-orders/${day(5)}_c-one`,
+      order({ date: day(5), appliedAt: '2026-08-10T10:00:00.000Z' }), asAccount(CLIENT_A)));
+  await expectDenied('…including a first order that only claims WHICH version was used', () =>
+    wholeWrite(`${L}/client-orders/${day(6)}_c-one`,
+      order({ date: day(6), appliedFor: '2026-08-10T09:00:00.000Z' }), asAccount(CLIENT_A)));
+
+  await seedDoc(ORDER_A, order({
+    appliedAt: '2026-08-10T10:00:00.000Z', appliedFor: '2026-08-10T09:00:00.000Z',
+  }));
+  await expectAllowed('a client corrects an order the bakery has used, carrying that forward', () =>
+    wholeWrite(ORDER_A, order({
+      quantities: { 'p-buns': 99 }, updatedAt: '2026-08-10T14:00:00.000Z',
+      appliedAt: '2026-08-10T10:00:00.000Z', appliedFor: '2026-08-10T09:00:00.000Z',
+    }), asAccount(CLIENT_A)));
+
+  // ⚠️ THE SUBTLEST RULE IN THE BLOCK, and the one that bakes the wrong amount if it
+  // goes. A correction is written WHOLE, so a payload that merely OMITS these two
+  // erases the bakery's record that this order was already in the Calculator — and
+  // the screen stops warning that it changed afterwards.
+  await expectDenied('a client CANNOT erase the record that its order was already used', () =>
+    wholeWrite(ORDER_A, order({ quantities: { 'p-buns': 1 }, updatedAt: '2026-08-10T15:00:00.000Z' }),
+      asAccount(CLIENT_A)));
+  await expectDenied('…nor rewrite which version was used', () =>
+    wholeWrite(ORDER_A, order({
+      updatedAt: '2026-08-10T15:00:00.000Z',
+      appliedAt: '2026-08-10T10:00:00.000Z', appliedFor: '2026-08-10T15:00:00.000Z',
+    }), asAccount(CLIENT_A)));
+  await expectDenied('a client CANNOT delete an order the bakery may already have baked',
+    () => deleteWrite(ORDER_A, asAccount(CLIENT_A)));
+
+  // ── The coarse floor on dates ──
+  // Not the business deadline (that is the page's, and it is shown to the bakery) —
+  // just the two things no page may talk the database out of.
+  await expectDenied('a client CANNOT rewrite an order for a day well past', () =>
+    wholeWrite(`${L}/client-orders/${day(-5)}_c-one`,
+      order({ date: day(-5) }), asAccount(CLIENT_A)));
+  await expectDenied('a client CANNOT book a year of deliveries in an afternoon', () =>
+    wholeWrite(`${L}/client-orders/${day(400)}_c-one`,
+      order({ date: day(400) }), asAccount(CLIENT_A)));
+  await expectAllowed('…while an order a fortnight ahead is ordinary', () =>
+    wholeWrite(`${L}/client-orders/${day(14)}_c-one`,
+      order({ date: day(14) }), asAccount(CLIENT_A)));
+
+  // ── Shape ──
+  await expectDenied('an unknown key on an order', () =>
+    wholeWrite(ORDER_A, order({ evil: 'x' }), asAccount(CLIENT_A)));
+  await expectDenied('an order stamped for another location', () =>
+    wholeWrite(ORDER_A, order({ bakery: 'trattoria-x' }), asAccount(CLIENT_A)));
+  await expectDenied('quantities sent as a string instead of a map', () =>
+    wholeWrite(ORDER_A, order({ quantities: 'lots' }), asAccount(CLIENT_A)));
+  await expectDenied('a 5000-character note', () =>
+    wholeWrite(ORDER_A, order({ note: bigString(5000) }), asAccount(CLIENT_A)));
+  await expectDenied('a runaway number of lines', () => {
+    const many = {};
+    for (let i = 0; i < 201; i++) many[`p-${i}`] = 1;
+    return wholeWrite(ORDER_A, order({ quantities: many }), asAccount(CLIENT_A));
+  });
+  await expectDenied('a date that is not a date', () =>
+    wholeWrite(`${L}/client-orders/tomorrow_c-one`, order({ date: 'tomorrow' }), asAccount(CLIENT_A)));
+
+  // ⚠️ An underscore in a client id would split `{date}_{clientId}` into three pieces
+  // and make the rule compare the wrong half. Refused where ids are minted.
+  await expectDenied('an ordering account for a client id containing an underscore', () =>
+    wholeWrite(`${L}/client-accounts/${CLIENT_B.uid}`,
+      { bakery: 'main', clientId: 'c_two', clientName: 'B', createdAt: 'now' }));
+  await expectDenied('an unknown key on an ordering account', () =>
+    mergeWrite(`${L}/client-accounts/${CLIENT_A.uid}`, { bakery: 'main', evil: 'x' }));
+
+  // ── The one setting a client's page has to read ──
+  // It is a collection of its own precisely so it CAN be shared: config/calculator is
+  // the whole address book, and there is no way to share one field of that without
+  // sharing every client, every product and every recipe with it.
+  await seedDoc(`${L}/client-settings/orders`,
+    { bakery: 'main', cutoff: '16:00', updatedAt: '2026-08-10T09:00:00.000Z' });
+
+  await expectAllowed('a client reads when orders close',
+    readAs(CLIENT_A, `${L}/client-settings/orders`));
+  await expectAllowed('the bakery changes when orders close', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '15:30', updatedAt: '2026-08-10T18:00:00.000Z' }));
+  // ⚠️ An EMPTY cutoff is how "no deadline at all" is expressed. Refusing it would
+  // make switching the deadline off impossible, and a cleared box would silently keep
+  // the old time — the same trap as a VAT rate of 0 in Food Cost.
+  await expectAllowed('…and can switch the deadline off entirely', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '', updatedAt: '2026-08-10T18:00:00.000Z' }));
+
+  await expectDenied('a client CANNOT change when orders close', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '23:59', updatedAt: 'now' }, asAccount(CLIENT_A)));
+  await expectDenied('a deadline that is not a time', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: 'whenever', updatedAt: 'now' }));
+  await expectDenied('a 25th hour', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '25:00', updatedAt: 'now' }));
+  await expectDenied('an unknown key on the setting', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '16:00', updatedAt: 'now', evil: 'x' }));
+  await expectDenied('a second settings document nobody reads', () =>
+    wholeWrite(`${L}/client-settings/something-else`,
+      { bakery: 'main', cutoff: '16:00', updatedAt: 'now' }));
+  await expectDenied('the setting cannot be deleted, only changed', () =>
+    deleteWrite(`${L}/client-settings/orders`));
+  await expectDenied('another location cannot read this bakery\'s deadline',
+    readAs(BOB, `${L}/client-settings/orders`));
+  await expectDenied('an account with no grant anywhere reads no deadline',
+    readAs(NOBODY, `${L}/client-settings/orders`));
+
+  // ── The bakery's own side ──
+  await expectAllowed('the bakery reads the orders it has been sent', () =>
+    fetch(`${FS}/${ORDER_A}`, { headers: asUser() }));
+  await expectAllowed('the bakery records that it has put an order in the Calculator', () =>
+    wholeWrite(ORDER_A, order({
+      appliedAt: '2026-08-10T16:00:00.000Z', appliedFor: '2026-08-10T09:00:00.000Z',
+    })));
+  await expectAllowed('the bakery publishes a product list', () =>
+    wholeWrite(`${L}/client-menus/c-one`, {
+      bakery: 'main', clientName: 'CLIENT A', updatedAt: '2026-08-10T17:00:00.000Z',
+      products: [{ id: 'p-buns', name: 'Burger buns', kind: 'number' }],
+    }));
+  await expectAllowed('the bakery creates an ordering account', () =>
+    wholeWrite(`${L}/client-accounts/${NOBODY.uid}`,
+      { bakery: 'main', clientId: 'c-three', clientName: 'CLIENT C', createdAt: 'now' }));
+  // Kept so the owner can re-send a link to a client who changed phone without
+  // revoking the phone that still works. It is a capability token for an account
+  // that can do two things — not a person's password.
+  await expectAllowed('…carrying the token inside its ordering link', () =>
+    wholeWrite(`${L}/client-accounts/${NOBODY.uid}`, {
+      bakery: 'main', clientId: 'c-three', clientName: 'CLIENT C',
+      createdAt: 'now', linkToken: 'a'.repeat(43),
+    }));
+  await expectDenied('a link token cannot become a payload of its own', () =>
+    wholeWrite(`${L}/client-accounts/${NOBODY.uid}`, {
+      bakery: 'main', clientId: 'c-three', clientName: 'CLIENT C',
+      createdAt: 'now', linkToken: bigString(500),
+    }));
+  await expectDenied('a client CANNOT read the token of another client\'s link',
+    readAs(CLIENT_A, `${L}/client-accounts/${NOBODY.uid}`));
+  await expectAllowed('the bakery revokes a link', () =>
+    deleteWrite(`${L}/client-accounts/${NOBODY.uid}`));
+  await expectAllowed('the bakery deletes an order', () => deleteWrite(ORDER_A));
+
+  // ── And the boundary between the two businesses still holds ──
+  await expectDenied('another location cannot read these orders',
+    readAs(BOB, `${L}/client-orders/${TOMORROW}_c-two`));
+  await expectDenied('another location cannot read these product lists',
+    readAs(BOB, `${L}/client-menus/c-one`));
+  await expectDenied('another location cannot create an ordering account here', () =>
+    wholeWrite(`${L}/client-accounts/${CLIENT_B.uid}`,
+      { bakery: 'main', clientId: 'c-two', clientName: 'B', createdAt: 'now' }, asAccount(BOB)));
+
+  // A venue without the Calculator has no clients to take orders for.
+  await expectDenied('a venue without the Calculator publishes no product lists', () =>
+    wholeWrite('locations/trattoria-x/client-menus/c-one',
+      { bakery: 'trattoria-x', clientName: 'X', products: [], updatedAt: 'now' }, asAccount(BOB)));
+}
+
 for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
                         locationTree, isolation, configAndLogs, pastries, pastryLogs,
-                        products]) {
+                        products, clientOrders]) {
   await scenario();
 }
 

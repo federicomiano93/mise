@@ -127,9 +127,19 @@ const db = startFirestore();
 //
 // The production config above is unchanged; we only REDIRECT the SDK's traffic to
 // the local emulator ports (firebase.json: auth 9099, firestore 8080) when local.
-const isLocalhost =
+// ⚠️ EXPORTED, AND EVERY OTHER FIREBASE APP IN THIS REPO MUST USE IT. The client
+// ordering page and the link minter each create a SECOND Firebase app (so a client's
+// session can never displace a member of staff's), and a second app is NOT covered by
+// the connect*Emulator calls below — they attach to this app's instances only. A
+// second app that decided for itself, or forgot to decide, would sign people in and
+// write documents against PRODUCTION while the page it lives on says "LOCAL EMULATOR
+// mode" in the console. That is the exact accident this project's hostname switch
+// exists to make impossible, so the answer is asked once, here, and imported.
+export const isLocalEmulator =
   typeof location !== 'undefined' &&
   ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+
+const isLocalhost = isLocalEmulator;
 
 if (isLocalhost) {
   // connectAuthEmulator must run before any sign-in; connectFirestoreEmulator
