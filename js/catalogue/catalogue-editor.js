@@ -170,7 +170,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
     return button;
   }
 
-  // "→ Flour · Salvo · £2.00 / kg", or an invitation when there is no link.
+  // "→ Flour · Supplier · £2.00 / kg", or an invitation when there is no link.
   // The price is shown here because it is the number the cost is built from, and
   // seeing it beside the row is what catches a link to the wrong article.
   function linkText(ing) {
