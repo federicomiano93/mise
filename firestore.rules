@@ -67,6 +67,47 @@ service cloud.firestore {
       return member(lid) && sectionOn(lid, section);
     }
 
+    // ── Who may order AS a client ─────────────────────────────────────────
+    // A wholesale client types its own order into the app instead of sending it on
+    // WhatsApp, so for the first time an account belonging to somebody OUTSIDE the
+    // business can reach this database. Everything below exists to make that account
+    // able to do exactly two things and nothing else: read its own product list, and
+    // write its own order.
+    //
+    // ⚠️ THE GRANT LIVES INSIDE THE LOCATION, NOT IN users/{uid}, AND THE DIFFERENCE
+    // IS DELIBERATE. Membership is the boundary between two businesses, so it is
+    // console-only: no client may hand itself a location. This grant is smaller — it
+    // lets a location share ONE of its own client's product lists with that client —
+    // so it may be given by the people who already hold all of that location's data.
+    //
+    // The alternative was to let a member write another person's users/{uid}. That
+    // one rule would have been a master key to the whole database, across every
+    // location, for ever. This shape cannot do that: a client-accounts document
+    // grants strictly LESS than the member writing it already has, and only inside
+    // their own location.
+    //
+    // ⚠️ AN ORDERING ACCOUNT IS NEVER A member(). It has no users/{uid} document at
+    // all, so every rule written for staff refuses it by default rather than by
+    // remembering to ask. That is the property to preserve: safety here comes from
+    // the ordering account being invisible to the staff rules, not from those rules
+    // each carrying an exception.
+    //
+    // A missing document, a missing field or an empty value all mean "no client at
+    // all" — the same deny-by-default as membership, for the same reason.
+    function orderClientOf(lid) {
+      return exists(/databases/$(database)/documents/locations/$(lid)/client-accounts/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/locations/$(lid)/client-accounts/$(request.auth.uid))
+            .data.get('clientId', '')
+        : '';
+    }
+
+    function isOrderClient(lid, clientId) {
+      return signedIn()
+        && clientId is string
+        && clientId != ''
+        && orderClientOf(lid) == clientId;
+    }
+
     // ── Who may READ Orders' address book ─────────────────────────────────
     // Ingredients and suppliers belong to Orders and are still written only from
     // Orders, but they are no longer read only there: the Recipe catalogue links a
@@ -537,6 +578,200 @@ service cloud.firestore {
               || request.resource.data.orderPrefillWindow in ['both', 'yesterday', 'today']);
 
         allow delete: if false;
+      }
+
+      // ── A client's ordering account ─────────────────────────────────────
+      // One document per ordering account, named by its Firebase uid, saying which
+      // client of THIS location it may act as. Created when the owner makes an
+      // ordering link from the Clients screen; deleting it revokes that link
+      // instantly and leaves the account able to do nothing anywhere.
+      //
+      // The account reads its OWN document to learn which client it is — it cannot
+      // list the collection or read anybody else's, so one client can never discover
+      // that another exists, let alone who.
+      match /client-accounts/{uid} {
+        allow read: if member(lid) || (signedIn() && request.auth.uid == uid);
+
+        allow create, update: if canUse(lid, 'calculator')
+          && stampedFor(lid)
+          && request.resource.data.keys().hasOnly(
+               ['bakery', 'clientId', 'clientName', 'createdAt'])
+          && request.resource.data.clientId is string
+          && request.resource.data.clientId.size() > 0
+          && request.resource.data.clientId.size() <= 64
+          // ⚠️ NO UNDERSCORE, and this is not tidiness. An order document is named
+          // `{date}_{clientId}` and the rule below recovers the client by splitting
+          // on that underscore. One inside the id would split into three pieces and
+          // compare the wrong half — a rule that fails open or closed depending on
+          // the customer's name. Refused here, at the only place an id is minted.
+          && !request.resource.data.clientId.matches('.*_.*')
+          && request.resource.data.clientName is string
+          && request.resource.data.clientName.size() <= 200
+          && request.resource.data.createdAt is string
+          && request.resource.data.createdAt.size() <= 64;
+
+        allow delete: if canUse(lid, 'calculator');
+      }
+
+      // ── What a client is allowed to see of the address book ─────────────
+      // The thin slice: this client's own products, and nothing else.
+      //
+      // ⚠️ IT EXISTS SO A CLIENT NEVER READS config/calculator. That one document
+      // holds every client, every product of every client, every recipe and every
+      // setting — the whole business in a single read. Publishing a copy of the four
+      // fields a client actually needs is the only way to show someone their own
+      // order form without showing them everyone else's.
+      match /client-menus/{clientId} {
+        allow read: if member(lid) || isOrderClient(lid, clientId);
+
+        allow create, update: if canUse(lid, 'calculator')
+          && stampedFor(lid)
+          && request.resource.data.keys().hasOnly(
+               ['bakery', 'clientName', 'products', 'updatedAt'])
+          && request.resource.data.clientName is string
+          && request.resource.data.clientName.size() <= 200
+          // ⚠️ RULES CANNOT LOOK INSIDE A LIST, so the shape of each row
+          // ({ id, name, kind }) is guaranteed by js/client-order-model.js and NOT by
+          // this file. What is enforced here is the SIZE, which is what keeps the
+          // document away from the 1MB ceiling. Same division of labour as recipes.
+          && request.resource.data.products is list
+          && request.resource.data.products.size() <= 500
+          && request.resource.data.updatedAt is string
+          && request.resource.data.updatedAt.size() <= 64;
+
+        allow delete: if canUse(lid, 'calculator');
+      }
+
+      // ── An order a client typed themselves ──────────────────────────────
+      // One document per delivery DATE per client: 2026-08-11_c-clubfish. Correcting
+      // an order rewrites that document rather than adding a second, so what the
+      // bakery reads is always the client's current answer and never a pile of
+      // amendments to reconcile by hand.
+      //
+      // TWO allow branches, ORed by Firestore — the same shape orders-history uses.
+      // The bakery's branch may write everything; the client's branch is narrower in
+      // three specific ways, each of which is a real failure it prevents.
+      match /client-orders/{id} {
+
+        // The client half of `{date}_{clientId}`, or '' when the id is not that
+        // shape. Guarded rather than indexed blindly: an id with no underscore makes
+        // split()[1] an out-of-range access, and a rule that ERRORS is a rule whose
+        // outcome nobody reading this file can predict.
+        function orderIdClient(orderId) {
+          return orderId.split('_').size() == 2 ? orderId.split('_')[1] : '';
+        }
+
+        function orderDateOf(date) {
+          return timestamp.date(
+            int(date.split('-')[0]), int(date.split('-')[1]), int(date.split('-')[2]));
+        }
+
+        // ⚠️ A COARSE FLOOR, NOT THE BUSINESS DEADLINE, AND THE DIFFERENCE IS THE
+        // POINT. The real cutoff ("orders for a day close at 16:00 the day before")
+        // is applied by the client page and, more importantly, is SHOWN to the bakery
+        // — a late correction arrives with a mark on it rather than being silently
+        // accepted or silently refused.
+        //
+        // It is not written here because these rules have no idea what the local time
+        // is: the UK moves an hour twice a year, so an exact deadline expressed in
+        // UTC would be wrong for half of it. Being wrong by an hour, quietly, for six
+        // months is worse than being generous on purpose.
+        //
+        // What this DOES guarantee, and no page can talk it out of: nobody rewrites
+        // an order for a day that is well past (the archive of what was really asked
+        // for stays put), and nobody books a year of deliveries in an afternoon.
+        function orderDateSane(date) {
+          return request.time < orderDateOf(date) + duration.value(36, 'h')
+            && request.time > orderDateOf(date) - duration.value(60, 'd');
+        }
+
+        // `names` and `note` are OPTIONAL in both directions on purpose. The client
+        // page is the newest thing in this app and will change; rules reach every
+        // phone the instant they deploy while a page is re-fetched per device, so a
+        // field required here and absent there refuses every order until the cache
+        // turns over. Same reasoning as orders-history.names and pastries.note.
+        //
+        // ⚠️ RULES CANNOT LOOK INSIDE A MAP'S VALUES, so "a quantity is a positive
+        // number" is guaranteed by js/client-order-model.js and not by this file.
+        // What is enforced here is that `quantities` IS a map and how big it may get.
+        function validClientOrder(orderId) {
+          return request.resource.data.keys().hasOnly([
+                   'bakery', 'date', 'clientId', 'clientName', 'quantities',
+                   'names', 'note', 'createdAt', 'updatedAt', 'appliedAt', 'appliedFor'
+                 ])
+            && request.resource.data.date is string
+            && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+            && request.resource.data.clientId is string
+            && request.resource.data.clientId.size() > 0
+            && request.resource.data.clientId.size() <= 64
+            && !request.resource.data.clientId.matches('.*_.*')
+            // The folder and the fields can never disagree about whose order this is,
+            // or for which day — the same pinning as pastry-logs.
+            && orderId == request.resource.data.date + '_' + request.resource.data.clientId
+            && request.resource.data.clientName is string
+            && request.resource.data.clientName.size() <= 200
+            && request.resource.data.quantities is map
+            && request.resource.data.quantities.size() <= 200
+            && (!('names' in request.resource.data)
+                || (request.resource.data.names is map
+                    && request.resource.data.names.size() <= 200))
+            && (!('note' in request.resource.data)
+                || (request.resource.data.note is string
+                    && request.resource.data.note.size() <= 500))
+            && request.resource.data.createdAt is string
+            && request.resource.data.createdAt.size() <= 64
+            && request.resource.data.updatedAt is string
+            && request.resource.data.updatedAt.size() <= 64;
+        }
+
+        // ── The bakery ──
+        allow read: if canUse(lid, 'calculator');
+
+        allow create, update: if canUse(lid, 'calculator')
+          && stampedFor(lid)
+          && validClientOrder(id)
+          && (!('appliedAt' in request.resource.data)
+              || (request.resource.data.appliedAt is string
+                  && request.resource.data.appliedAt.size() <= 64))
+          && (!('appliedFor' in request.resource.data)
+              || (request.resource.data.appliedFor is string
+                  && request.resource.data.appliedFor.size() <= 64));
+
+        allow delete: if canUse(lid, 'calculator');
+
+        // ── The client ──
+        // Reads its own order back so the form opens on what it last sent. The client
+        // is recovered from the document ID, not from the payload, because a read has
+        // no payload — and because the id is the one thing the client cannot lie
+        // about: it is the path the request is addressed to.
+        allow read: if isOrderClient(lid, orderIdClient(id));
+
+        allow create: if isOrderClient(lid, request.resource.data.get('clientId', ''))
+          && stampedFor(lid)
+          && validClientOrder(id)
+          && orderDateSane(request.resource.data.date)
+          // Nothing about "the bakery has used this" may be invented by the client.
+          && !('appliedAt' in request.resource.data)
+          && !('appliedFor' in request.resource.data);
+
+        allow update: if isOrderClient(lid, request.resource.data.get('clientId', ''))
+          && stampedFor(lid)
+          && validClientOrder(id)
+          && orderDateSane(request.resource.data.date)
+          // ⚠️ THE CLIENT MUST CARRY THESE TWO FORWARD UNCHANGED, and this is the
+          // subtlest rule in the block. A correction is written WHOLE (a merge could
+          // never remove a row the client deleted), so a payload that simply omits
+          // them would ERASE the record that the bakery had already put this order
+          // into the Calculator — and the screen would stop warning that the order
+          // changed after it was used. That warning is the one thing standing between
+          // a late correction and the wrong amount of bread.
+          && request.resource.data.get('appliedAt', '') == resource.data.get('appliedAt', '')
+          && request.resource.data.get('appliedFor', '') == resource.data.get('appliedFor', '');
+
+        // No client delete, deliberately: an order that vanishes is indistinguishable
+        // from one that was never sent, and the bakery may already have baked it.
+        // Ordering nothing is an order with no lines, which is a different statement
+        // and reads as one on the screen.
       }
 
       // ── Recipe catalogue ────────────────────────────────────────────────
