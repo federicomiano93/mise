@@ -179,8 +179,13 @@ export const FIXTURE = {
       // the fixture that proves such an ingredient still opens showing 6.50 in the
       // single box — and that saving it clears these without inventing a price
       // change in its history. Do not "tidy" them away.
-      packPrice: 6.5,
-      packSize: 1,
+      //
+      // ⚠️ AND £13 FOR 2 kg RATHER THAN £6.50 FOR 1. The three numbers must all
+      // DIFFER, or a form that read the wrong field would show 6.5 anyway and the
+      // check that says "it opens showing the rate" would prove nothing. It was
+      // 6.5/1 for exactly one run, and passed for the wrong reason.
+      packPrice: 13,
+      packSize: 2,
       unitWeightKg: null,
       priceUpdatedAt: '2026-08-10T09:00:00.000Z',
     },
