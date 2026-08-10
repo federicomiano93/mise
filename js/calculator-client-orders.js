@@ -128,8 +128,13 @@ function render() {
   content.textContent = '';
 
   if (!orders.length) {
+    // ⚠️ IT SAYS WHAT IS MISSING AND WHY, because "no orders" has two very different
+    // meanings here: nobody has sent one, or the ones they sent were for days that
+    // have already been. Only the first is about today's work, and a screen that
+    // cannot tell you which is leaving you to guess whether something was lost.
     content.appendChild(el('p', { class: 'co-none' },
-      'No orders have come in yet. When a client sends one from their link, it appears here.'));
+      'Nothing for today or the days ahead. Orders a client has already been delivered are '
+      + 'not shown here — this screen is what is still coming.'));
     return;
   }
   sortOrders(orders).forEach(order => content.appendChild(orderCard(order)));
@@ -352,6 +357,19 @@ export function initClientOrders(injected) {
 
   const back = document.querySelector('.clientorders-back-btn');
   if (back) back.addEventListener('click', closeScreen);
+
+  // ⚠️ THE DOOR THAT IS ALWAYS THERE, and it exists because of a real defect: the
+  // banner above the tabs was the ONLY way in, and it hides itself once every order
+  // has been used. So the moment the last order went into the calculator there was no
+  // way back to look at what a client had actually asked for — the orders were still
+  // on the screen and the screen had become unreachable.
+  //
+  // The banner stays what it is: an ALARM that goes quiet at the end of the job,
+  // because a reminder still lit after the work is done is one people stop seeing.
+  // A doorway is a different thing and belongs where this app puts the ones that are
+  // always available — the bottom bar, beside Log and Settings.
+  const footerBtn = document.getElementById('clientorders-footer-btn');
+  if (footerBtn) footerBtn.addEventListener('click', openScreen);
   const settingsBack = document.querySelector('.cosettings-back-btn');
   if (settingsBack) settingsBack.addEventListener('click', closeCutoffSettings);
   const openSettingsBtn = document.getElementById('open-clientorders-btn');
