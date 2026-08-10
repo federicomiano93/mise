@@ -769,6 +769,23 @@ async function configAndLogs() {
   await expectAllowed('config: the Orders settings patch', () =>
     mergeWrite(`${A}/config/orders`, { bakery: 'main', showStock: false, historyDays: 15 }));
 
+  // ── Which days the WhatsApp order form fills itself from ──
+  // A closed set, because this value decides which quantities are offered for a
+  // message sent to a real client. An unrecognised one must not reach the database.
+  for (const w of ['both', 'yesterday', 'today']) {
+    await expectAllowed(`config: the order prefill window can be "${w}"`, () =>
+      mergeWrite(`${A}/config/calculator`, { bakery: 'main', orderPrefillWindow: w }));
+  }
+  await expectDenied('config: a prefill window nobody recognises',
+    () => mergeWrite(`${A}/config/calculator`, { bakery: 'main', orderPrefillWindow: 'ieri' }));
+  await expectDenied('config: a prefill window sent as a number',
+    () => mergeWrite(`${A}/config/calculator`, { bakery: 'main', orderPrefillWindow: 2 }));
+  // ⚠️ OPTIONAL, and it has to be: a phone still on older code writes this whole
+  // document without the field, and rules reach every phone the instant they deploy
+  // while code arrives per device.
+  await expectAllowed('config: a phone that never heard of the prefill window', () =>
+    mergeWrite(`${A}/config/calculator`, { bakery: 'main', clients: [] }));
+
   // ⚠️ An un-updated phone still sends the retired shared catalogue. Rules land
   // on every device instantly while code rolls out per device, so refusing this
   // would break saving for anyone who has not updated yet.
