@@ -325,3 +325,40 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ── The "?" in a screen's header ─────────────────────────────────────────────
+   One class, in the shared system, because the button appears on six differently
+   built headers and must look the same on all of them. It is the app's round rim
+   button — the same 36px circle, translucent fill and 1.5px white rim as every other
+   icon button in a green header — so it reads as part of the furniture rather than as
+   something bolted on.
+   ⚠️ The focus ring is the on-brand one: the app's default green ring is invisible
+   against the green header (P18). */
+.help-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--rim-bg);
+  border: 1.5px solid var(--rim-border);
+  color: var(--on-brand);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.help-btn:hover { background: var(--rim-bg-hover); }
+.help-btn:active { background: var(--rim-bg-active); }
+.help-btn:focus-visible {
+  outline: 2px solid var(--on-brand);
+  outline-offset: 2px;
+}
+/* On the Home the header is not green: there the button sits on the warm ground, so
+   it borrows the page's own ink and border instead of the white rim. */
+.home-header .help-btn {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+.home-header .help-btn:focus-visible { outline-color: var(--accent-2); }

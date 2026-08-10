@@ -60,10 +60,17 @@ body {
   padding: calc(16px + env(safe-area-inset-top)) 16px 20px;
   border-radius: 0 0 26px 26px;
   display: grid;
-  grid-template-columns: 36px 1fr 36px;
+  /* ⚠️ THE TWO SIDE TRACKS MUST STAY EQUAL, or the title stops being centred — the
+     whole reason this header is a grid and not a flex row. The right slot gained the
+     "?" beside the action it already had, so both tracks widened to hold two buttons
+     (36 + 12 gap + 36) and the slots align OUTWARD, which keeps Back and the action
+     exactly where they have always been and puts the "?" on the inside. */
+  grid-template-columns: 84px 1fr 84px;
   align-items: center;
   gap: 12px;
 }
+.pas-header > .pas-header-slot:first-child { justify-content: flex-start; }
+.pas-header > .pas-header-slot:last-child { justify-content: flex-end; gap: 12px; }
 .pas-header-slot { display: flex; align-items: center; justify-content: center; }
 .pas-icon-btn {
   appearance: none;
