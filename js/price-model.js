@@ -3,6 +3,17 @@
 // instead of being read back out of rendered markup (P15) — the same reason
 // archive.js, reminders.js and day.js exist.
 //
+// ⚠️ IT LIVES IN js/ ROOT, NOT IN js/orders/, AND THAT IS DELIBERATE. Orders owns
+// ingredients and enters their prices; the Recipe catalogue reads those prices to
+// cost a recipe. A feature folder must never import from another feature folder
+// (CLAUDE.md, "Modular by feature") — that rule is what keeps each feature liftable
+// into its own app — so the alternative was a second copy of this maths, kept in
+// step by a sentinel test. A copy of a CALCULATION is worse than a copy of a
+// dialog: two files that quietly disagree about what a kilo costs produce two
+// different food-cost percentages and nothing on screen says which is right.
+// So it sits in the shared base instead, beside location.js and sections.js, which
+// both features already import for exactly the same reason.
+//
 // WHY A PRICE LIVES ON THE INGREDIENT. A price is not a property of a thing, it is
 // a property of the RELATIONSHIP between a thing and the supplier who sells it —
 // and in Orders an ingredient document already IS that relationship (it carries a

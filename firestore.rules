@@ -67,11 +67,12 @@ service cloud.firestore {
       return member(lid) && sectionOn(lid, section);
     }
 
-    // ── Who may READ the ingredient list ──────────────────────────────────
-    // Ingredients belong to Orders and are still written only from Orders, but
-    // they are no longer read only there: the Recipe catalogue links a recipe row
-    // to an ingredient so it can cost it, and a screen that cannot read the list
-    // cannot offer it. Reading is widened; WRITING deliberately is not.
+    // ── Who may READ Orders' address book ─────────────────────────────────
+    // Ingredients and suppliers belong to Orders and are still written only from
+    // Orders, but they are no longer read only there: the Recipe catalogue links a
+    // recipe row to an ingredient so it can cost it, and the chooser names the
+    // supplier so two similar articles can be told apart. Reading is widened;
+    // WRITING deliberately is not.
     //
     // ⚠️ 'foodcost' IS ABSENT FROM THIS LIST ON PURPOSE, and it is not an
     // oversight to fix later without thinking. sectionOn() defaults to TRUE for a
@@ -81,7 +82,7 @@ service cloud.firestore {
     // the release that creates it, together with the `sections.foodcost: false`
     // typed into every venue that must not have it. Same trap, same fix, as the
     // note in js/sections.js.
-    function canReadIngredients(lid) {
+    function canReadOrdersData(lid) {
       return member(lid)
         && (sectionOn(lid, 'orders') || sectionOn(lid, 'catalogue'));
     }
@@ -180,7 +181,7 @@ service cloud.firestore {
       // present in production; removing it here stops every old supplier from
       // being writable, silently and permanently.
       match /suppliers/{id} {
-        allow read: if canUse(lid, 'orders');
+        allow read: if canReadOrdersData(lid);
 
         allow create, update: if canUse(lid, 'orders')
           && stampedFor(lid)
@@ -228,7 +229,7 @@ service cloud.firestore {
       // quoted per: kg, l, pcs) are different fields with confusingly similar
       // names. The first is how you count the order, the second is how you buy it.
       match /ingredients/{id} {
-        allow read: if canReadIngredients(lid);
+        allow read: if canReadOrdersData(lid);
 
         allow create, update: if canUse(lid, 'orders')
           && stampedFor(lid)
@@ -309,7 +310,7 @@ service cloud.firestore {
         // would simply be refused. Ordering is done by the `recordedAt` FIELD,
         // which is also the only thing Firestore can order descending.
         match /prices/{priceId} {
-          allow read: if canReadIngredients(lid);
+          allow read: if canReadOrdersData(lid);
 
           allow create: if canUse(lid, 'orders')
             && stampedFor(lid)
@@ -510,16 +511,36 @@ service cloud.firestore {
       }
 
       // ── Recipe catalogue ────────────────────────────────────────────────
+      // ⚠️ RULES CANNOT LOOK INSIDE A LIST, so the shape of each ingredient row —
+      // and in particular the `kind`/`refId` link that decides what a row COSTS —
+      // is guaranteed by js/catalogue/catalogue-model.js and NOT by this file.
+      // What is enforced here is the list's SIZE, which keeps the document away
+      // from the 1MB ceiling. Same limitation, same division of labour, as the
+      // pastries block below.
+      //
+      // `lossPct` is the weight a recipe loses on the way to being finished. It is
+      // OPTIONAL, in both directions on purpose: rules reach every phone the
+      // instant they deploy while code arrives per device, so required would refuse
+      // every save from a phone still on the previous version, and absent from the
+      // whitelist would refuse every save from an updated one. Same precedent as
+      // orders-history.names and pastries.note.
       match /recipes/{id} {
         allow read: if canUse(lid, 'catalogue');
         allow create, update: if canUse(lid, 'catalogue')
-          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients'])
+          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients', 'lossPct'])
           && stampedFor(lid)
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
           && request.resource.data.name.size() < 200
           && request.resource.data.ingredients is list
-          && request.resource.data.ingredients.size() <= 300;
+          && request.resource.data.ingredients.size() <= 300
+          // Capped at 99 here as well as in the model: the yield weight is the
+          // divisor of the price per kilo, and a stored 100 would make every
+          // recipe built on this one cost Infinity per kilo.
+          && (!('lossPct' in request.resource.data)
+              || (request.resource.data.lossPct is number
+                  && request.resource.data.lossPct >= 0
+                  && request.resource.data.lossPct <= 99));
         allow delete: if canUse(lid, 'catalogue');
       }
 

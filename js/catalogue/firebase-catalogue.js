@@ -33,6 +33,14 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
 const RECIPES = 'recipes';
+// Orders owns this collection and is the only place it is written; the catalogue
+// READS it so a recipe row can be linked to a real ingredient and costed. The rules
+// were widened to allow exactly that (canReadIngredients) and nothing more.
+//
+// This is a shared COLLECTION, not a shared module — js/catalogue/ still imports
+// nothing from js/orders/, so the feature stays liftable.
+const INGREDIENTS = 'ingredients';
+const SUPPLIERS = 'suppliers';
 
 // Resolves once a location is OPEN — not merely once someone is signed in.
 // It no longer needs its own timeout: a sign-in that cannot complete is now a
@@ -63,6 +71,36 @@ export async function watchRecipes(onChange, onError) {
     collection(db, pathFor(RECIPES)),
     snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
     err => { console.error('watchRecipes failed:', err); if (onError) onError(err); },
+  );
+}
+
+// Subscribe to the ingredient list in real time, so a price corrected in Orders
+// shows up in an open recipe without a reload.
+//
+// COST (P14): one listener over ~65 documents, attached only while the catalogue
+// page is open — the same discipline as watchRecipes above, and the reason neither
+// is attached at app boot.
+//
+// A venue that does not use Orders still resolves this listener; the rules simply
+// return nothing readable and the catalogue shows every row as unpriced, which is
+// the honest answer for a venue that keeps no ingredient list.
+export async function watchIngredients(onChange, onError) {
+  await authReady;
+  return onSnapshot(
+    collection(db, pathFor(INGREDIENTS)),
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => { console.error('watchIngredients failed:', err); if (onError) onError(err); },
+  );
+}
+
+// The supplier names, so the chooser can tell two similar articles apart. Six
+// documents; same read-only, fail-quietly treatment as the ingredients above.
+export async function watchSuppliers(onChange, onError) {
+  await authReady;
+  return onSnapshot(
+    collection(db, pathFor(SUPPLIERS)),
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => { console.warn('watchSuppliers failed:', err); if (onError) onError(err); },
   );
 }
 

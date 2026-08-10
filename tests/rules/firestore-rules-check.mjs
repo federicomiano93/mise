@@ -358,10 +358,19 @@ async function ingredientPrices() {
   });
   const X_PRICES = 'locations/trattoria-x/ingredients/ING_X/prices';
 
+  await seedDoc('locations/trattoria-x/suppliers/SUP_X', { bakery: 'trattoria-x', name: 'Theirs' });
+
   await expectAllowed('a catalogue-only venue may READ its own ingredients',
     () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
   await expectAllowed('…and read their price history',
     () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(BOB) }));
+  // The chooser names the supplier so two similar articles can be told apart, so
+  // the supplier LIST is readable on the same terms — and writable on the old ones.
+  await expectAllowed('…and read the supplier list the chooser names',
+    () => fetch(`${FS}/locations/trattoria-x/suppliers/SUP_X`, { headers: asAccount(BOB) }));
+  await expectDenied('…but may not WRITE a supplier', () =>
+    mergeWrite('locations/trattoria-x/suppliers/SUP_X',
+      { name: 'Renamed', bakery: 'trattoria-x' }, asAccount(BOB)));
   await expectDenied('…but may not WRITE an ingredient', () =>
     mergeWrite('locations/trattoria-x/ingredients/ING_X',
       { pricePerUnit: 9, bakery: 'trattoria-x' }, asAccount(BOB)));
@@ -377,6 +386,8 @@ async function ingredientPrices() {
     () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
   await expectDenied('…and no price history',
     () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(BOB) }));
+  await expectDenied('…and no supplier list',
+    () => fetch(`${FS}/locations/trattoria-x/suppliers/SUP_X`, { headers: asAccount(BOB) }));
 
   // Isolation: prices are business data, and they stay inside their own location.
   await expectDenied('reading another location\'s price history',
@@ -506,6 +517,39 @@ async function neighbours() {
 
   await expectAllowed('recipes still accepts a recipe', () =>
     wholeWrite('locations/main/recipes/r1', { bakery: 'main', name: 'Focaccia', ingredients: [] }));
+
+  // ── A recipe that knows what it costs ──
+  // The link a row carries (kind/refId) is NOT checked here and cannot be: rules
+  // cannot look inside a list. Only the recipe's own new field is.
+  await expectAllowed('a recipe may record the weight it loses', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: 12 }));
+  await expectAllowed('…including none at all', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: 0 }));
+  await expectAllowed('a recipe written by a phone that has not updated yet still saves', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [] }));
+  await expectAllowed('a linked row is stored, links and all', () =>
+    wholeWrite('locations/main/recipes/r1', {
+      bakery: 'main', name: 'Focaccia', lossPct: 8,
+      ingredients: [{ label: 'Flour', grams: 800, unit: 'g', kind: 'ingredient', refId: 'ING_MODERN' }],
+    }));
+
+  // ⚠️ A loss of 100 would divide the price per kilo by zero and make every
+  // recipe built on this one cost Infinity — capped in the model AND here.
+  await expectDenied('a weight loss of 100%', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: 100 }));
+  await expectDenied('a negative weight loss', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: -5 }));
+  await expectDenied('a weight loss sent as text', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], lossPct: '12' }));
+  await expectDenied('an unknown key on a recipe', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Focaccia', ingredients: [], costPerKg: 3.2 }));
 
   await expectDenied('config still refuses a delete', () => deleteWrite('locations/main/config/calculator'));
 }

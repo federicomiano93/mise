@@ -6,6 +6,7 @@
 
 import {
   initCatalogue, getRecipes, getUsage, bumpUsage, saveRecipe, deleteRecipe, setSyncErrorHandler,
+  getIngredients, getSuppliers,
 } from './catalogue-store.js';
 import { renderList } from './catalogue-list.js';
 import { renderDetail } from './catalogue-detail.js';
@@ -25,6 +26,7 @@ const editBtn = document.getElementById('catEdit');
 let view = 'list';        // 'list' | 'detail' | 'editor'
 let searchQuery = '';
 let activeList = null;     // { root, refresh } while the list is shown
+let activeDetail = null;   // { root, refreshCost } while a recipe is shown
 let currentRecipe = null;  // the recipe shown in detail (for the header Edit button)
 let leaveGuard = null;     // async () => boolean; blocks Back when there are unsaved edits
 
@@ -51,6 +53,7 @@ function swap(node) {
 
 function showList() {
   view = 'list';
+  activeDetail = null;
   leaveGuard = null;
   setHeader({ title: 'Recipes', sub: 'Recipe catalogue', back: false, add: true });
   activeList = renderList({
@@ -70,12 +73,14 @@ function openDetail(recipe) {
   leaveGuard = null;
   bumpUsage(recipe.id);
   setHeader({ title: recipe.name || 'Recipe', sub: 'Recipe', back: true, add: false, edit: true });
-  swap(renderDetail({ recipe, app }));
+  activeDetail = renderDetail({ recipe, app });
+  swap(activeDetail.root);
 }
 
 function openEditor(recipe) {
   view = 'editor';
   activeList = null;
+  activeDetail = null;
   setHeader({
     title: recipe ? 'Edit recipe' : 'New recipe',
     sub: 'Recipe catalogue', back: true, add: false,
@@ -111,6 +116,13 @@ const app = {
   deleteRecipe,
   bumpUsage,
   setLeaveGuard: (fn) => { leaveGuard = fn; },
+  // Live getters, not snapshots: the editor is open while the ingredient listener
+  // is still streaming in, so a price corrected in Orders reaches an open recipe
+  // without a reload — and a chooser opened before the first snapshot is not stuck
+  // showing an empty list for as long as the screen stays open.
+  ingredients: getIngredients,
+  suppliers: getSuppliers,
+  allRecipes: getRecipes,
   // Delete a catalogue recipe with a strong confirm, warning first if the recipe
   // was imported into the Calculator (the two are independent copies — deleting
   // here never touches the Calculator). The link check is raced with a short
@@ -180,7 +192,18 @@ setSyncErrorHandler((msg) => toast(msg));
 // its cards in place (without rebuilding the search box). If the live stream dies,
 // tell the user their view may be stale.
 initCatalogue(
-  () => { if (view === 'list' && activeList) activeList.refresh(getRecipes(), getUsage()); },
+  () => {
+    if (view === 'list' && activeList) activeList.refresh(getRecipes(), getUsage());
+    // A recipe on screen recomputes its cost whenever anything it depends on
+    // arrives — the ingredient prices (still streaming in on a cold open), or the
+    // recipe itself edited on another phone. The freshest copy wins; if it has
+    // been deleted elsewhere, the one already on screen is kept rather than
+    // blanking the panel under the reader.
+    if (view === 'detail' && activeDetail && currentRecipe) {
+      const latest = getRecipes().find(r => r.id === currentRecipe.id) || currentRecipe;
+      activeDetail.refreshCost(latest);
+    }
+  },
   () => toast('Live sync interrupted — recipes may be out of date.'),
 );
 

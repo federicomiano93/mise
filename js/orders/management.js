@@ -22,7 +22,7 @@ import {
   CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
   pricePatch, priceChanged, priceRecord, pricePerKg,
   formatPricePerUnit, formatPurchaseForm, formatRate, costReasonText,
-} from './price-model.js';
+} from '../price-model.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
 
@@ -359,7 +359,7 @@ export function buildManagement(data, actions) {
   // ── The price block inside the ingredient form ──────────────────────────────
   // Three boxes and a unit, never a typed phrase: "a 25kg box for £180" has to be
   // read back into numbers to be usable, and every misreading produces a wrong
-  // cost with nothing on screen looking wrong (see js/orders/price-model.js).
+  // cost with nothing on screen looking wrong (see js/price-model.js).
   //
   // Returns { node, read(), summary() } so the form above can stay readable.
   function priceBlock(item) {

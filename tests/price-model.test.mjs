@@ -14,7 +14,7 @@ import {
   normalizePrice, pricePerKg, costState, isCostable, costReasonText,
   formatMoney, formatRate, formatPricePerUnit, formatPurchaseForm,
   pricePatch, priceChanged, priceRecord,
-} from '../js/orders/price-model.js';
+} from '../js/price-model.js';
 
 const AT = '2026-08-10T09:00:00.000Z';
 

@@ -34,10 +34,14 @@ export function isWeighableUnit(unit) {
 }
 
 // One ingredient's amount converted to grams, or 0 when its unit isn't weighable.
-function ingGrams(ing) {
+// Exported because the cost model needs exactly this conversion: costing a row is
+// "how many grams is it" times "what does a gram cost", and a second copy of the
+// unit table is a second place for ml-to-g to drift.
+export function ingredientGrams(ing) {
   const factor = UNIT_TO_GRAMS[unitOf(ing)];
   return factor ? (Number(ing.grams) || 0) * factor : 0;
 }
+const ingGrams = ingredientGrams;
 
 // The recipe's total WEIGHABLE mass in grams (weight + volume rows only) — what the
 // "Total dough weight" scaling targets.
@@ -57,7 +61,33 @@ function normalizeIngredient(raw) {
   const label = String(raw.label != null ? raw.label : (raw.name || '')).trim();
   const grams = Number(raw.grams);
   const unit = (typeof raw.unit === 'string' && CATALOGUE_UNITS.includes(raw.unit)) ? raw.unit : DEFAULT_UNIT;
-  return { label, grams: Number.isFinite(grams) && grams >= 0 ? grams : 0, unit };
+  const row = { label, grams: Number.isFinite(grams) && grams >= 0 ? grams : 0, unit };
+
+  // ⚠️ THE LINK HAS TO BE CARRIED THROUGH HERE, AND THROUGH cleanWorking() IN THE
+  // EDITOR. This function rebuilds every row from scratch, so a field it does not
+  // mention is DROPPED — silently, on the way in from Firestore. Before this, a
+  // recipe opened to fix a typo in its name came back out with every ingredient
+  // link gone, and nothing anywhere would have said so.
+  //
+  // Absent rather than null when there is no link, so the rows written today are
+  // byte-identical to the rows written before this feature existed: no migration,
+  // and a recipe never touched again keeps exactly the shape it has now.
+  const link = linkOf(raw);
+  if (link) { row.kind = link.kind; row.refId = link.refId; }
+  return row;
+}
+
+// What a row points at, or null for a plain hand-typed row. `kind` decides where
+// refId is looked up — an ingredient in Orders, or another recipe in this
+// catalogue — and defaults to 'ingredient', which is what every link written by
+// the current editor is unless it says otherwise.
+export const ROW_KINDS = Object.freeze(['ingredient', 'recipe']);
+
+export function linkOf(raw) {
+  const refId = raw && raw.refId != null ? String(raw.refId).trim() : '';
+  if (!refId) return null;
+  const kind = ROW_KINDS.includes(raw.kind) ? raw.kind : 'ingredient';
+  return { kind, refId };
 }
 
 function normalizeIngredients(list) {
@@ -73,7 +103,24 @@ export function normalizeCatalogueRecipe(raw) {
     id: raw.id != null ? String(raw.id) : '',
     name: String(raw.name != null ? raw.name : '').trim(),
     ingredients: normalizeIngredients(raw.ingredients),
+    lossPct: normalizeLossPct(raw.lossPct),
   };
+}
+
+// How much weight this recipe loses on the way to being finished — evaporation in
+// the oven, mostly. 0 by default, which is what every recipe written before this
+// field existed means: nothing is assumed to be lost unless somebody says so.
+//
+// ⚠️ CAPPED AT 99, AND THE CAP IS LOAD-BEARING. The yield weight is the divisor of
+// the price per kilo, so a loss of 100 would divide by zero and a recipe would cost
+// Infinity per kilo — shown, and carried into every product built on it. Nothing
+// real loses all of its weight.
+export const MAX_LOSS_PCT = 99;
+
+export function normalizeLossPct(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(n, MAX_LOSS_PCT);
 }
 
 // A list of catalogue recipes, dropping junk entries.
@@ -100,6 +147,57 @@ export function filterByName(recipes, query) {
   const q = String(query || '').trim().toLowerCase();
   if (!q) return recipes;
   return recipes.filter(r => String(r.name).toLowerCase().includes(q));
+}
+
+// ── Choosing what a row points at ─────────────────────────────────────────────
+
+// Lower-cased and stripped of accents, so "però" is found by typing "pero".
+//
+// ⚠️ js/orders/ingredient-search.js has the same three lines, and that duplication
+// is ACCEPTED here where the price maths was not. The two failures are not
+// comparable: two copies of a price calculation that drift produce two different
+// food-cost percentages with nothing to say which is right, while two copies of
+// this produce a search that finds one row more or fewer. One is a wrong number,
+// the other is a shrug.
+export function normalizeSearchText(value) {
+  return String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+// The things a recipe row can be linked to, filtered by what was typed.
+//
+//   { ingredients: [{ id, name, supplierName, pricePerKg }], recipes: [{ id, name }] }
+//
+// Ingredients first, because they are what almost every row is. Deactivated ones
+// are left out — they are not orderable, so building a live cost on one would be
+// building on something the kitchen has stopped buying.
+//
+// `excludeRecipeId` keeps a recipe out of its own picker. The cost model catches a
+// cycle anyway, but offering the choice and then refusing it is a worse screen than
+// never offering it.
+export function linkOptions({ ingredients, recipes, suppliers, query, excludeRecipeId } = {}) {
+  const q = normalizeSearchText(query);
+  const matches = (...fields) => !q || fields.some(f => normalizeSearchText(f).includes(q));
+  const supplierName = id => (suppliers && (suppliers[id] || {}).name) || '';
+
+  const ingredientList = Object.values(ingredients || {})
+    .filter(ing => ing && ing.active !== false)
+    .map(ing => ({
+      id: ing.id,
+      name: String(ing.name || '').trim(),
+      weight: String(ing.weight || '').trim(),
+      supplierName: supplierName(ing.supplierId),
+      ingredient: ing,
+    }))
+    .filter(row => row.name && matches(row.name, row.weight, row.supplierName))
+    .sort((a, b) => a.name.localeCompare(b.name) || String(a.id).localeCompare(String(b.id)));
+
+  const recipeList = (Array.isArray(recipes) ? recipes : Object.values(recipes || {}))
+    .filter(r => r && r.id !== excludeRecipeId && String(r.name || '').trim())
+    .filter(r => matches(r.name))
+    .map(r => ({ id: r.id, name: String(r.name).trim() }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { ingredients: ingredientList, recipes: recipeList };
 }
 
 // ── kg scaling (pure pro-rata "total" — the catalogue's only calc logic) ──────

@@ -10,7 +10,11 @@ import { isSectionAllowed } from '../sections.js';
 import {
   scaleCatalogue, baseAmounts, weighableTotalGrams, unitOf, batchWarning, formatWeight,
 } from './catalogue-model.js';
-import { getScaledTarget, setScaledTarget, clearScaledTarget } from './catalogue-store.js';
+import {
+  getScaledTarget, setScaledTarget, clearScaledTarget, getIngredients, getRecipesById,
+} from './catalogue-store.js';
+import { costRecipe, partialCostText } from './recipe-cost-model.js';
+import { formatRate } from '../price-model.js';
 
 const IMPORT_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
@@ -32,6 +36,50 @@ const amountEl = ({ num, unit }) => el('span', { class: 'cat-ing-amt' }, [
   el('span', { class: 'cat-ing-num', text: num }),
   el('span', { class: 'cat-ing-unit', text: unit }),
 ]);
+
+// What a kilo of this recipe costs, from the prices entered in Orders.
+//
+// ⚠️ THE NUMBER AND ITS CAVEAT ARE ONE ELEMENT, NEVER TWO. If some rows are not
+// linked, the figure is the cost per kilo OF THE LINKED ROWS — a real, useful,
+// PARTIAL answer — and showing it without the note beside it is the one way this
+// screen can mislead: a food cost that reads complete and is too low.
+//
+// The whole panel is hidden when nothing at all is linked, rather than showing
+// "£0.00" or an empty box on the hundreds of recipes nobody has linked yet.
+function costPanel(recipe) {
+  const result = costRecipe(recipe, {
+    ingredients: getIngredients(),
+    recipes: getRecipesById(),
+  });
+
+  const panel = el('div', { class: 'cat-cost-panel' });
+  if (result.pricePerKg === null) {
+    // Nothing linked at all: say what to do, once, quietly — and only when the
+    // recipe has rows worth linking, so a brand-new empty recipe stays silent.
+    if (!result.unpriced.length) { panel.hidden = true; return panel; }
+    panel.appendChild(el('p', { class: 'cat-cost-none', text:
+      'No cost yet — link the ingredients to price this recipe.' }));
+    return panel;
+  }
+
+  panel.appendChild(el('div', { class: 'cat-cost-head' }, [
+    el('span', { class: 'cat-cost-label', text: 'Cost' }),
+    el('span', { class: 'cat-cost-value', text: `${formatRate(result.pricePerKg)} / kg` }),
+  ]));
+
+  // The weight it was worked out over, said plainly, because it is NOT the recipe
+  // total whenever a row is unlinked — and a reader comparing the two numbers
+  // deserves to know why they differ rather than doubting both.
+  const over = result.lossPct > 0
+    ? `over ${formatWeight(result.yieldGrams)} finished (${result.lossPct}% lost from ${formatWeight(result.costedGrams)})`
+    : `over ${formatWeight(result.yieldGrams)}`;
+  panel.appendChild(el('p', { class: 'cat-cost-basis', text: over }));
+
+  const note = partialCostText(result);
+  if (note) panel.appendChild(el('p', { class: 'cat-cost-partial', text: note }));
+
+  return panel;
+}
 
 export function renderDetail({ recipe, app }) {
   // Restore a recently calculated batch (kept per device until Clear or 12h), so
@@ -182,9 +230,14 @@ export function renderDetail({ recipe, app }) {
   // here. The recipe + weight panel are wrapped in .cat-detail-top, which is made
   // at least a screenful tall (CSS min-height), so Import/Delete always land BELOW
   // the fold and are reached only by scrolling — never competing with the recipe.
-  return el('div', { class: 'cat-view' }, [
+  // The cost panel is REPLACED in place when new data arrives, never the whole
+  // view: rebuilding the view would throw away a scaled batch the user is reading.
+  const costHost = el('div', { class: 'cat-cost-host' }, [costPanel(recipe)]);
+
+  const root = el('div', { class: 'cat-view' }, [
     el('div', { class: 'cat-detail-top' }, [
       ingList,
+      costHost,
       weightPanel,
     ]),
     el('div', { class: 'cat-detail-bottom' }, [
@@ -196,4 +249,18 @@ export function renderDetail({ recipe, app }) {
       deleteBtn,
     ]),
   ]);
+
+  // ⚠️ WITHOUT THIS THE COST IS COMPUTED ONCE AND NEVER AGAIN. The ingredient
+  // listener is still in flight while this screen is being opened — on a cold start,
+  // offline, or simply a slow network — so the first paint can legitimately find no
+  // prices at all. Computed once, the panel would say "no cost yet" for as long as
+  // the screen stayed open, and the only way to see the real number would be to
+  // leave and come back. It also keeps a price corrected in Orders, or the recipe
+  // edited on another phone, from being a stale figure on an open screen.
+  return {
+    root,
+    refreshCost(latest) {
+      costHost.replaceChildren(costPanel(latest || recipe));
+    },
+  };
 }
