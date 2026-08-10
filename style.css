@@ -1194,6 +1194,15 @@ input.cp-prod-weight {
   justify-content: flex-end;
   gap: 12px;
 }
+/* ⚠️ `.overlay-back-btn` IS THE ONE TO USE ON ANYTHING NEW. This rule used to be a
+   hand-kept list of thirteen per-screen class names, and the list itself was the bug:
+   two overlays added on 10 Aug 2026 were not on it, so their Back button fell back to
+   the browser's default — a grey rectangle where every other screen has the round
+   translucent circle. Federico spotted it immediately, because it was the one thing on
+   that screen that did not look like the app.
+   The thirteen names below are left as they are rather than churned; new screens carry
+   the shared class and cannot be forgotten. */
+.overlay-back-btn,
 .recipe-back-btn,
 .settings-back-btn, .extra-back-btn, .divisor-back-btn, .logsettings-back-btn,
 .wa-back-btn, .cp-back-btn,
@@ -1624,9 +1633,24 @@ input.cp-prod-weight {
    and the read-only / edit / history overlays. Reuses existing tokens & patterns.
    ───────────────────────────────────────────────────────────────────────────── */
 
-/* Footer now holds two buttons (Log + Settings) side by side. */
+/* Footer: two buttons (Log + Settings) side by side. */
 .recipe-footer { display: flex; gap: 10px; justify-content: center; }
 .recipe-footer-btn { flex: 1; max-width: 220px; }
+
+/* The Calculator has THREE — Log, Orders, Settings — and three across is too narrow to
+   read on a phone. Log and Orders share the top row (both are "look at today's work"),
+   Settings takes the row underneath on its own.
+   ⚠️ Scoped to the Calculator: Orders (orders.html) uses this same footer with a single
+   Settings button, and an unscoped grid would stretch it across the full width. The
+   columns keep the 220px cap the flex layout had, so nothing grows absurdly on a wide
+   screen, and the coloured band still spans the whole width. */
+body[data-section="calculator"] .recipe-footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  justify-content: center;
+}
+body[data-section="calculator"] .recipe-footer-btn { max-width: none; }
+body[data-section="calculator"] #settings-footer-btn { grid-column: 1 / -1; }
 
 /* Log list cards: a tappable body (opens the read-only sheet) + action row. */
 .log-card { padding: 0; overflow: hidden; }
