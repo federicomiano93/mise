@@ -74,6 +74,17 @@ function normalizeIngredient(raw) {
   // and a recipe never touched again keeps exactly the shape it has now.
   const link = linkOf(raw);
   if (link) { row.kind = link.kind; row.refId = link.refId; }
+
+  // ⚠️ SAME TRAP AGAIN, AND IT IS THE ONE THIS FUNCTION IS ALREADY SCARRED BY:
+  // `rid` is the stable id a guided mixing step points at, so dropping it here
+  // would unhook every step from its ingredient on the way in from Firestore —
+  // silently, and permanently once the recipe is next saved.
+  //
+  // Carried through, never MINTED here: an id invented on read would be a
+  // different one on every load and would match nothing. js/catalogue/
+  // guided-model.js withRowIds() assigns them, and only on save.
+  const rid = raw.rid != null ? String(raw.rid).trim() : '';
+  if (rid) row.rid = rid;
   return row;
 }
 
@@ -99,12 +110,22 @@ function normalizeIngredients(list) {
 // non-object input; an empty name is kept (the editor's validation blocks saving it).
 export function normalizeCatalogueRecipe(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  return {
+  const out = {
     id: raw.id != null ? String(raw.id) : '',
     name: String(raw.name != null ? raw.name : '').trim(),
     ingredients: normalizeIngredients(raw.ingredients),
     lossPct: normalizeLossPct(raw.lossPct),
   };
+  // The guided mixing procedure, carried through as it was stored and SHAPED
+  // elsewhere (js/catalogue/guided-model.js normalizeSteps), which is what keeps
+  // this file free of an import back from a module that already imports it — a
+  // cycle whose only symptom would be a screen that renders blank with nothing
+  // in the console, exactly as happened to the catalogue in v247.
+  //
+  // Absent rather than empty when there is no procedure, so the hundreds of
+  // recipes nobody has written one for stay byte-identical to what they are now.
+  if (Array.isArray(raw.steps) && raw.steps.length) out.steps = raw.steps;
+  return out;
 }
 
 // How much weight this recipe loses on the way to being finished — evaporation in
