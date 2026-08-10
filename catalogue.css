@@ -545,3 +545,10 @@ body.cat-zoom-lock { overflow: hidden; }
 .guided-edit-num { width: 4.2rem; padding: 9px 10px; font-family: var(--cat-font-mono); font-size: .95rem; text-align: right; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
 .guided-edit-unit { font-size: .8rem; color: var(--cat-text-3); }
 .guided-edit-speed { width: 100%; padding: 9px 12px; font-family: var(--cat-font); font-size: .95rem; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
+
+/* The line under the run that says what THIS phone can actually do. Three
+   states, three sentences — see pushNote() in guided-run.js. */
+.guided-note--on { color: var(--cat-brand); font-weight: 600; }
+.guided-note-sub { margin: 6px 2px 0; font-size: .76rem; color: var(--cat-text-3); }
+.guided-note .guided-skip { margin-top: 0; }
+.guided-note > p { margin: 6px 0 0; }
