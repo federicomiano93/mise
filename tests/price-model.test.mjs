@@ -12,57 +12,53 @@ import {
   CURRENCY, PRICE_UNITS, PRICE_FIELDS,
   roundTo, positiveNumber, isPriceUnit,
   normalizePrice, pricePerKg, costState, isCostable, costReasonText,
-  formatMoney, formatRate, formatPricePerUnit, formatPurchaseForm,
+  formatMoney, formatRate, formatPricePerUnit,
   pricePatch, priceChanged, priceRecord,
 } from '../js/price-model.js';
 
 const AT = '2026-08-10T09:00:00.000Z';
 
-// ── The purchase form becomes a rate ─────────────────────────────────────────
+// ── The typed rate becomes a stored rate ─────────────────────────────────────
 
-test('a box of 25 kg for £180 is £7.20 a kilo', () => {
-  const r = normalizePrice({ priceUnit: 'kg', packPrice: 180, packSize: 25 });
+test('the rate is taken as typed — £7.20 a kilo is £7.20 a kilo', () => {
+  const r = normalizePrice({ priceUnit: 'kg', pricePerUnit: 7.2 });
   assert.equal(r.ok, true);
   assert.equal(r.pricePerUnit, 7.2);
   assert.equal(r.reason, null);
 });
 
-test('a division that does not come out round is rounded, not left floating', () => {
-  // 10/3 is 3.3333333333333335 in binary floating point. Stored raw it would show
-  // as that, and would never compare equal to a later 3.3333.
-  const r = normalizePrice({ priceUnit: 'kg', packPrice: 10, packSize: 3 });
-  assert.equal(r.pricePerUnit, 3.3333);
+test('a rate with more precision than money is kept, not rounded to the penny', () => {
+  // A gelatine leaf at a third of a penny. Rounded to the penny this ingredient
+  // would cost nothing at all, and a free ingredient looks like a working one.
+  assert.equal(normalizePrice({ priceUnit: 'pcs', pricePerUnit: 0.035 }).pricePerUnit, 0.035);
+  assert.equal(normalizePrice({ priceUnit: 'kg', pricePerUnit: 3.3333 }).pricePerUnit, 3.3333);
 });
 
-test('a rate below a penny keeps its precision instead of rounding to zero', () => {
-  // 100 gelatine leaves for £3.50 — a third of a penny each. Rounded to the penny
-  // this ingredient would cost nothing at all.
-  const r = normalizePrice({ priceUnit: 'pcs', packPrice: 3.5, packSize: 100 });
-  assert.equal(r.pricePerUnit, 0.035);
+test('a rate pasted with floating-point noise is cleaned up', () => {
+  // What a spreadsheet hands over for 10/3. Stored raw it would never compare
+  // equal to a later 3.3333, so every save would look like a price change.
+  assert.equal(normalizePrice({ priceUnit: 'kg', pricePerUnit: 3.3333333333333335 }).pricePerUnit, 3.3333);
 });
 
-test('an incomplete form names the first box that is missing', () => {
+test('an incomplete form names the box that is missing', () => {
   assert.equal(normalizePrice({}).reason, 'unit');
   assert.equal(normalizePrice({ priceUnit: 'litres' }).reason, 'unit');
-  assert.equal(normalizePrice({ priceUnit: 'kg' }).reason, 'packPrice');
-  assert.equal(normalizePrice({ priceUnit: 'kg', packPrice: 180 }).reason, 'packSize');
+  assert.equal(normalizePrice({ priceUnit: 'kg' }).reason, 'price');
 });
 
 test('zero and negative numbers are refused, never treated as free', () => {
-  assert.equal(normalizePrice({ priceUnit: 'kg', packPrice: 0, packSize: 25 }).ok, false);
-  assert.equal(normalizePrice({ priceUnit: 'kg', packPrice: 180, packSize: 0 }).ok, false);
-  assert.equal(normalizePrice({ priceUnit: 'kg', packPrice: -180, packSize: 25 }).ok, false);
+  assert.equal(normalizePrice({ priceUnit: 'kg', pricePerUnit: 0 }).ok, false);
+  assert.equal(normalizePrice({ priceUnit: 'kg', pricePerUnit: -7.2 }).ok, false);
 });
 
-test('rubbish in a number box does not produce a rate', () => {
+test('rubbish in the number box does not produce a rate', () => {
   for (const bad of ['', ' ', 'abc', null, undefined, NaN, Infinity, {}]) {
-    assert.equal(normalizePrice({ priceUnit: 'kg', packPrice: bad, packSize: 25 }).ok, false, String(bad));
-    assert.equal(normalizePrice({ priceUnit: 'kg', packPrice: 180, packSize: bad }).ok, false, String(bad));
+    assert.equal(normalizePrice({ priceUnit: 'kg', pricePerUnit: bad }).ok, false, String(bad));
   }
 });
 
 test('a number typed as text still works — every input arrives as a string', () => {
-  const r = normalizePrice({ priceUnit: 'kg', packPrice: '180', packSize: '25' });
+  const r = normalizePrice({ priceUnit: 'kg', pricePerUnit: '7.20' });
   assert.equal(r.ok, true);
   assert.equal(r.pricePerUnit, 7.2);
 });
@@ -149,25 +145,12 @@ test('the headline rate reads "£7.20 / kg", and "each" for pieces', () => {
   assert.equal(formatPricePerUnit({}), '');
 });
 
-test('the purchase form is rebuilt from the numbers, never from a stored sentence', () => {
-  assert.equal(formatPurchaseForm({ priceUnit: 'kg', packPrice: 180, packSize: 25 }), '£180.00 for 25 kg');
-  assert.equal(formatPurchaseForm({ priceUnit: 'l', packPrice: 6, packSize: 5 }), '£6.00 for 5 l');
-  assert.equal(formatPurchaseForm({ priceUnit: 'pcs', packPrice: 3.5, packSize: 100 }), '£3.50 for 100 pieces');
-  assert.equal(formatPurchaseForm({ priceUnit: 'pcs', packPrice: 2.1, packSize: 1 }), '£2.10 for 1 piece');
-  assert.equal(formatPurchaseForm({ priceUnit: 'kg', packPrice: 180 }), '');
-});
-
-test('a pack size keeps its decimals but loses the trailing zeros', () => {
-  assert.equal(formatPurchaseForm({ priceUnit: 'kg', packPrice: 9, packSize: 2.5 }), '£9.00 for 2.5 kg');
-  assert.equal(formatPurchaseForm({ priceUnit: 'kg', packPrice: 9, packSize: 2.50 }), '£9.00 for 2.5 kg');
-});
-
 // ── The patch written to Firestore ───────────────────────────────────────────
 
 test('a complete form produces every field, so nothing stale is left behind', () => {
-  const patch = pricePatch({ priceUnit: 'kg', packPrice: '180', packSize: '25' }, AT);
+  const patch = pricePatch({ priceUnit: 'kg', pricePerUnit: '7.20' }, AT);
   assert.deepEqual(patch, {
-    priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25,
+    priceUnit: 'kg', pricePerUnit: 7.2, packPrice: null, packSize: null,
     unitWeightKg: null, priceUpdatedAt: AT,
   });
   // Every field this module owns is present in the patch — a merge write leaves
@@ -175,11 +158,18 @@ test('a complete form produces every field, so nothing stale is left behind', ()
   assert.deepEqual(Object.keys(patch).sort(), [...PRICE_FIELDS].sort());
 });
 
-test('clearing the price boxes really clears the stored price', () => {
-  const patch = pricePatch({ priceUnit: 'kg', packPrice: '', packSize: '' }, AT);
-  assert.equal(patch.pricePerUnit, null);
+test('saving clears the retired pack fields off an ingredient that still carries them', () => {
+  // The rate used to be packPrice ÷ packSize. Left in place they would sit under a
+  // rate somebody has since corrected, saying £180 for 25kg beside £7.50 a kilo —
+  // and a merge write cannot remove a field by leaving it out.
+  const patch = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.5 }, AT);
   assert.equal(patch.packPrice, null);
   assert.equal(patch.packSize, null);
+});
+
+test('clearing the price box really clears the stored price', () => {
+  const patch = pricePatch({ priceUnit: 'kg', pricePerUnit: '' }, AT);
+  assert.equal(patch.pricePerUnit, null);
   assert.equal(patch.priceUpdatedAt, null);
   assert.deepEqual(Object.keys(patch).sort(), [...PRICE_FIELDS].sort());
 });
@@ -195,32 +185,42 @@ test('the weight of one piece survives a half-filled price', () => {
 test('switching away from pieces clears the piece weight', () => {
   // A leftover divisor nothing shows on screen is the kind of number that later
   // gets divided by without anyone knowing it is there.
-  const patch = pricePatch({ priceUnit: 'kg', packPrice: 180, packSize: 25, unitWeightKg: 0.0035 }, AT);
+  const patch = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.2, unitWeightKg: 0.0035 }, AT);
   assert.equal(patch.unitWeightKg, null);
 });
 
 test('a piece weight keeps enough decimals for a gelatine leaf', () => {
   // 1.7 g. At four decimals this would be 0.0017 — a 2% error; six keeps it exact.
-  const patch = pricePatch({ priceUnit: 'pcs', packPrice: 3.5, packSize: 100, unitWeightKg: 0.0017 }, AT);
+  const patch = pricePatch({ priceUnit: 'pcs', pricePerUnit: 0.035, unitWeightKg: 0.0017 }, AT);
   assert.equal(patch.unitWeightKg, 0.0017);
 });
 
 // ── When a history entry is worth writing ────────────────────────────────────
 
 test('re-saving an ingredient without touching its price writes no history', () => {
+  const before = { priceUnit: 'kg', pricePerUnit: 7.2, unitWeightKg: null };
+  const after = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.2 }, AT);
+  assert.equal(priceChanged(before, after), false);
+});
+
+test('opening an old two-box price and saving it writes no history', () => {
+  // Its packPrice/packSize get cleared by the save. If that counted as a change,
+  // every ingredient priced before this rework would plant a history entry
+  // recording a rate that never moved, the first time anyone opened it.
   const before = { priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25, unitWeightKg: null };
-  const after = pricePatch({ priceUnit: 'kg', packPrice: 180, packSize: 25 }, AT);
+  const after = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.2 }, AT);
+  assert.equal(after.packPrice, null);
   assert.equal(priceChanged(before, after), false);
 });
 
 test('a real price change is recorded', () => {
-  const before = { priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25, unitWeightKg: null };
-  const after = pricePatch({ priceUnit: 'kg', packPrice: 190, packSize: 25 }, AT);
+  const before = { priceUnit: 'kg', pricePerUnit: 7.2, unitWeightKg: null };
+  const after = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.6 }, AT);
   assert.equal(priceChanged(before, after), true);
 });
 
 test('a first price on an ingredient that never had one is recorded', () => {
-  const after = pricePatch({ priceUnit: 'kg', packPrice: 180, packSize: 25 }, AT);
+  const after = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.2 }, AT);
   assert.equal(priceChanged({ name: 'Flour' }, after), true);
   assert.equal(priceChanged(null, after), true);
 });
@@ -228,16 +228,16 @@ test('a first price on an ingredient that never had one is recorded', () => {
 test('changing only the piece weight counts as a price change', () => {
   // No money moved, but every recipe using it just changed cost, so the history
   // has to be able to explain the step.
-  const before = { priceUnit: 'pcs', pricePerUnit: 2.1, packPrice: 2.1, packSize: 1, unitWeightKg: 0.0035 };
-  const after = pricePatch({ priceUnit: 'pcs', packPrice: 2.1, packSize: 1, unitWeightKg: 0.004 }, AT);
+  const before = { priceUnit: 'pcs', pricePerUnit: 2.1, unitWeightKg: 0.0035 };
+  const after = pricePatch({ priceUnit: 'pcs', pricePerUnit: 2.1, unitWeightKg: 0.004 }, AT);
   assert.equal(priceChanged(before, after), true);
 });
 
 test('a missing field and a null field are the same absence', () => {
   // The stored document omits a field it never had; the patch writes null. Without
   // this, every first save after the feature ships would look like a change.
-  assert.equal(priceChanged({ priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25 },
-                            { priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25, unitWeightKg: null }),
+  assert.equal(priceChanged({ priceUnit: 'kg', pricePerUnit: 7.2 },
+                            { priceUnit: 'kg', pricePerUnit: 7.2, unitWeightKg: null }),
                false);
 });
 
@@ -245,7 +245,7 @@ test('a missing field and a null field are the same absence', () => {
 
 test('a history entry carries the supplier and a date FIELD', () => {
   const ing = { name: 'Flour', supplierId: 'SUP_1' };
-  const patch = pricePatch({ priceUnit: 'kg', packPrice: 180, packSize: 25 }, AT);
+  const patch = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.2 }, AT);
   const record = priceRecord(ing, patch, AT);
 
   assert.equal(record.supplierId, 'SUP_1');
@@ -256,8 +256,17 @@ test('a history entry carries the supplier and a date FIELD', () => {
   assert.equal(record.recordedAt, AT);
 });
 
+test('a history entry carries no retired pack fields — not even as nulls', () => {
+  // The rules accept them for records written by a phone still on the old code,
+  // so a null would pass; it would just be a permanent empty column in an
+  // append-only archive nobody can go back and tidy.
+  const record = priceRecord({ supplierId: 'SUP_1' }, pricePatch({ priceUnit: 'kg', pricePerUnit: 7.2 }, AT), AT);
+  assert.deepEqual(Object.keys(record).sort(),
+    ['pricePerUnit', 'priceUnit', 'recordedAt', 'source', 'supplierId', 'unitWeightKg']);
+});
+
 test('a history entry for an ingredient with no supplier still records', () => {
-  const patch = pricePatch({ priceUnit: 'kg', packPrice: 180, packSize: 25 }, AT);
+  const patch = pricePatch({ priceUnit: 'kg', pricePerUnit: 7.2 }, AT);
   assert.equal(priceRecord({}, patch, AT).supplierId, '');
   assert.equal(priceRecord(null, patch, AT).supplierId, '');
 });

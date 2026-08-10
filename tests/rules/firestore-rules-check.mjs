@@ -236,7 +236,18 @@ async function ingredients() {
     () => mergeWrite('locations/main/ingredients/ING_MODERN', { active: 'yes', bakery: 'main' }));
 
   // ── Prices on the ingredient ──
+  // The shape written today: a typed rate, and the two retired pack fields
+  // explicitly nulled so they drain off the documents that still carry them.
   await expectAllowed('save an ingredient with a price', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      priceUnit: 'kg', pricePerUnit: 7.2, packPrice: null, packSize: null,
+      unitWeightKg: null, priceUpdatedAt: '2026-08-10T09:00:00.000Z', bakery: 'main',
+    }));
+
+  // ⚠️ AND THE SHAPE A PHONE STILL ON THE OLD CODE WRITES. Rules reach every phone
+  // the instant they are deployed; code arrives per device. Refuse the pack fields
+  // and every save from an un-updated phone is rejected until it happens to update.
+  await expectAllowed('save an ingredient from a phone still sending the pack fields', () =>
     mergeWrite('locations/main/ingredients/ING_MODERN', {
       priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25,
       unitWeightKg: null, priceUpdatedAt: '2026-08-10T09:00:00.000Z', bakery: 'main',
@@ -244,7 +255,7 @@ async function ingredients() {
 
   await expectAllowed('a per-piece price carries the weight of one piece', () =>
     mergeWrite('locations/main/ingredients/ING_MODERN', {
-      priceUnit: 'pcs', pricePerUnit: 2.1, packPrice: 2.1, packSize: 1,
+      priceUnit: 'pcs', pricePerUnit: 2.1, packPrice: null, packSize: null,
       unitWeightKg: 0.0035, priceUpdatedAt: '2026-08-10T09:00:00.000Z', bakery: 'main',
     }));
 
@@ -288,17 +299,28 @@ async function ingredientPrices() {
   const PRICES = 'locations/main/ingredients/ING_MODERN/prices';
   const entry = (over = {}) => ({
     recordedAt: '2026-08-10T09:00:00.000Z',
-    priceUnit: 'kg', pricePerUnit: 7.2, packPrice: 180, packSize: 25,
+    priceUnit: 'kg', pricePerUnit: 7.2,
     supplierId: 'SUP_MODERN', source: 'manual', bakery: 'main', ...over,
   });
 
   await expectAllowed('append a price to the history', () => createWrite(PRICES, entry()));
   await expectAllowed('append a second one — the history accumulates', () =>
-    createWrite(PRICES, entry({ recordedAt: '2026-08-11T09:00:00.000Z', packPrice: 190, pricePerUnit: 7.6 })));
+    createWrite(PRICES, entry({ recordedAt: '2026-08-11T09:00:00.000Z', pricePerUnit: 7.6 })));
   await expectAllowed('a per-piece price records the piece weight', () =>
-    createWrite(PRICES, entry({ priceUnit: 'pcs', pricePerUnit: 2.1, packPrice: 2.1, packSize: 1, unitWeightKg: 0.0035 })));
+    createWrite(PRICES, entry({ priceUnit: 'pcs', pricePerUnit: 2.1, unitWeightKg: 0.0035 })));
   await expectAllowed('an ingredient bought without a supplier still records', () =>
     createWrite(PRICES, entry({ supplierId: '' })));
+
+  // ⚠️ THE ROLLOUT CHECK, and the reason this rules change had to be deployed
+  // BEFORE the code merged. The rate used to be derived from a pack price and a
+  // pack size and both were REQUIRED here; a phone still on that code sends them,
+  // a phone on the new code sends neither, and for a while both are in the two
+  // kitchens at once. Whichever of the two this block refuses, somebody's price
+  // silently fails to record.
+  await expectAllowed('a price from a phone still on the old two-box form', () =>
+    createWrite(PRICES, entry({ packPrice: 180, packSize: 25 })));
+  await expectAllowed('a price from a phone that has updated', () =>
+    createWrite(PRICES, entry({ recordedAt: '2026-08-12T09:00:00.000Z' })));
 
   // ⚠️ APPEND-ONLY IS THE WHOLE POINT. A history that can be rewritten afterwards
   // answers nothing about what was actually paid, and this is the record the margin
@@ -328,8 +350,14 @@ async function ingredientPrices() {
     () => createWrite(PRICES, without('source')));
   await expectDenied('a rate of zero',
     () => createWrite(PRICES, entry({ pricePerUnit: 0 })));
+  // Optional does not mean unchecked: a retired field is still validated when it
+  // IS sent, or an old phone becomes the way to write junk into the archive.
   await expectDenied('a negative pack price',
     () => createWrite(PRICES, entry({ packPrice: -180 })));
+  await expectDenied('a pack size of zero — it was a divisor',
+    () => createWrite(PRICES, entry({ packSize: 0 })));
+  await expectDenied('a pack price sent as text',
+    () => createWrite(PRICES, entry({ packPrice: '180' })));
   await expectDenied('a price unit that is not one of the three',
     () => createWrite(PRICES, entry({ priceUnit: 'crate' })));
   await expectDenied('a source nobody writes',

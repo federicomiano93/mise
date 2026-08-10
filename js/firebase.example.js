@@ -448,11 +448,17 @@ export function saveCalculatorConfig(config) {
 //   - suppliers/{id}          { name, category, deliveryDays[], orderDays[], phone,
 //                               email, active }
 //   - ingredients/{id}        { name, supplierId, category, unit, active,
-//                               priceUnit, pricePerUnit, packPrice, packSize,
-//                               unitWeightKg, priceUpdatedAt }
+//                               priceUnit, pricePerUnit, unitWeightKg,
+//                               priceUpdatedAt }
 //   - ingredients/{id}/prices/{autoId}
-//                             { recordedAt, priceUnit, pricePerUnit, packPrice,
-//                               packSize, unitWeightKg, supplierId, source }
+//                             { recordedAt, priceUnit, pricePerUnit,
+//                               unitWeightKg, supplierId, source }
+//     pricePerUnit is the rate as TYPED (£ per kg / litre / piece, net of VAT).
+//     packPrice and packSize are RETIRED — the rate used to be their quotient.
+//     Both are still whitelisted in firestore.rules and still accepted here,
+//     because documents written before the change carry them and a merge write
+//     cannot remove a field by omission. Do not delete them from the rules until
+//     production has stopped carrying them.
 //   - drafts/current          { entries:{ id:{ qty, stock } },
 //                               days:{ supplierId: 'YYYY-MM-DD' }, updatedAt }
 //   - orders-history/{YYYY-MM-DD}_{supplierId}

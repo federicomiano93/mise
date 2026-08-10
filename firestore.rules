@@ -230,6 +230,13 @@ service cloud.firestore {
       // `unit` (the ORDER unit: casse, box) and `priceUnit` (what the price is
       // quoted per: kg, l, pcs) are different fields with confusingly similar
       // names. The first is how you count the order, the second is how you buy it.
+      //
+      // ⚠️ `packPrice` and `packSize` ARE RETIRED and stay whitelisted. The rate
+      // used to be derived from them; it is typed now, and every save sets them
+      // to null so they drain out of production. Take them out of this list
+      // before production has stopped carrying them and every affected ingredient
+      // becomes permanently unwritable — the same trap already documented for
+      // `notifyHoursBefore` and `weekId`.
       match /ingredients/{id} {
         allow read: if canReadOrdersData(lid);
 
@@ -326,11 +333,23 @@ service cloud.firestore {
             && request.resource.data.priceUnit in ['kg', 'l', 'pcs']
             && request.resource.data.pricePerUnit is number
             && request.resource.data.pricePerUnit > 0
-            && request.resource.data.packPrice is number
-            && request.resource.data.packPrice > 0
-            && request.resource.data.packSize is number
-            && request.resource.data.packSize > 0
-            // Only a per-piece price has one, so it is the single optional field.
+            // ⚠️ packPrice/packSize ARE RETIRED AND MUST STAY OPTIONAL IN BOTH
+            // DIRECTIONS. The rate used to be derived from them and is now typed,
+            // so a phone on the new code sends neither — but rules reach every
+            // phone the instant they are deployed while code arrives per device,
+            // and a phone still on the old code sends both. Require them and
+            // every price saved from an un-updated phone is refused; forbid them
+            // and the same happens in reverse. Old records keep them, and they
+            // are what makes "£180 for 25kg" still readable years later.
+            && (!('packPrice' in request.resource.data)
+                || request.resource.data.packPrice == null
+                || (request.resource.data.packPrice is number
+                    && request.resource.data.packPrice > 0))
+            && (!('packSize' in request.resource.data)
+                || request.resource.data.packSize == null
+                || (request.resource.data.packSize is number
+                    && request.resource.data.packSize > 0))
+            // Only a per-piece price has one.
             && (!('unitWeightKg' in request.resource.data)
                 || request.resource.data.unitWeightKg == null
                 || (request.resource.data.unitWeightKg is number

@@ -27,16 +27,33 @@
 // alternative is asking someone to record every substitution, which nobody does.
 //
 // ── HOW A PRICE IS ENTERED ───────────────────────────────────────────────────
-// Two numbers and a unit, never a sentence:
+// One number and a unit, never a sentence:
 //
-//     packPrice 180  ·  packSize 25  ·  priceUnit 'kg'   →   pricePerUnit 7.20 £/kg
+//     priceUnit 'kg'  ·  pricePerUnit 7.20   →   £7.20 / kg
 //
-// The purchase form is kept as those three fields rather than as the phrase
-// "a 25kg box for £180", so the readable phrase is REBUILT (formatPurchaseForm)
-// and can never drift away from the number it is supposed to explain. Reading a
-// hand-typed phrase back into numbers would have to cope with "25 kg", "25Kg",
-// "box of 25" and "6x4kg", and a misread produces a wrong cost silently — the one
-// failure mode this module exists to avoid (P19: do not hand-roll text parsing).
+// The RATE is typed. It used to be derived, from a pack price divided by a pack
+// size — two boxes whose only job was one division, and whose second box asked
+// again for the pack weight the ingredient already carries in its own `weight`
+// field a few lines higher in the same form ("2.27kg"). Two places holding one
+// fact drift, and the one nobody updates is the one every recipe cost is built
+// from.
+//
+// ⚠️ SO THE DIVISION MOVED TO THE PERSON, DELIBERATELY. An invoice reading
+// "£180 for a 25kg sack" is entered as 7.20, not as 180. One box that always
+// means the same thing, instead of two and a rule about which one the invoice
+// total goes in. Whoever enters prices has to know that — the form says it on
+// the field, which is the only place it can be said, because a number cannot be
+// inspected for what it is a price OF.
+//
+// ⚠️ PRICES ARE NET OF VAT. The business reclaims input VAT, so what an
+// ingredient really costs is the ex-VAT figure. Entering the gross one inflates
+// every recipe cost and every food-cost percentage by the VAT rate, and nothing
+// on any screen would look wrong. Same class of silent error, same remedy: it is
+// written on the label.
+//
+// `packPrice` and `packSize` are RETIRED rather than renamed — see PRICE_FIELDS.
+// `pricePerUnit` already held exactly this rate, so every price entered before
+// the change opens showing the right number and nothing had to be migrated.
 
 // The one place the currency is written. The business is in the UK — its bank
 // holidays come from gov.uk and its phone numbers start +44 — so prices are in
@@ -59,6 +76,15 @@ export const PRICE_UNIT_LABELS = Object.freeze({
 // Every field this module owns on an ingredient document. Exported because the
 // form, the data layer and the rules test all need the SAME list, and three
 // hand-written copies of it would drift the first time one is extended.
+//
+// ⚠️ `packPrice` and `packSize` ARE RETIRED AND ARE STILL LISTED ON PURPOSE.
+// Prices entered before the rate became a typed field carry both, and an
+// ingredient is saved with a MERGE — a field left out of the payload keeps
+// whatever it had. So the patch sets them to null EXPLICITLY, which is the only
+// way to remove them, and they drain out of production as prices get edited.
+// Drop them from this list and an old document keeps a pack price for ever that
+// contradicts its own rate: 180 and 25 sitting under a rate somebody has since
+// corrected to 7.50.
 export const PRICE_FIELDS = Object.freeze([
   'priceUnit', 'pricePerUnit', 'packPrice', 'packSize', 'unitWeightKg', 'priceUpdatedAt',
 ]);
@@ -96,23 +122,23 @@ export function isPriceUnit(unit) {
   return PRICE_UNITS.includes(unit);
 }
 
-// ── Turning a purchase form into a rate ──────────────────────────────────────
+// ── Reading what was typed into the price boxes ──────────────────────────────
 // Returns { ok, pricePerUnit, reason }. `reason` names the FIRST thing missing, so
 // the screen can say which box to fill rather than a blanket "invalid".
 //
 // It never throws and never guesses: a form that is not complete simply produces
 // ok:false, and an ingredient with no usable price is shown as "no price yet"
 // rather than blocking anything (the design's rule throughout — flag, never block).
-export function normalizePrice({ priceUnit, packPrice, packSize } = {}) {
+export function normalizePrice({ priceUnit, pricePerUnit } = {}) {
   if (!isPriceUnit(priceUnit)) return { ok: false, pricePerUnit: null, reason: 'unit' };
 
-  const price = positiveNumber(packPrice);
-  if (price === null) return { ok: false, pricePerUnit: null, reason: 'packPrice' };
+  const rate = positiveNumber(pricePerUnit);
+  if (rate === null) return { ok: false, pricePerUnit: null, reason: 'price' };
 
-  const size = positiveNumber(packSize);
-  if (size === null) return { ok: false, pricePerUnit: null, reason: 'packSize' };
-
-  return { ok: true, pricePerUnit: roundTo(price / size, RATE_DECIMALS), reason: null };
+  // Rounded even though it was typed: a rate pasted from a spreadsheet arrives as
+  // 7.199999999999999 often enough, and that number would be stored, shown, and
+  // then compared against a later 7.2 as if the price had moved.
+  return { ok: true, pricePerUnit: roundTo(rate, RATE_DECIMALS), reason: null };
 }
 
 // ── What one kilogram of this ingredient costs ───────────────────────────────
@@ -207,25 +233,6 @@ export function formatPricePerUnit(ingredient) {
   return `${formatRate(rate)} / ${ing.priceUnit === 'pcs' ? 'each' : ing.priceUnit}`;
 }
 
-// "£180.00 for 25 kg" — the purchase form, rebuilt from the numbers rather than
-// stored as a sentence (see the header). Empty when the form is incomplete.
-export function formatPurchaseForm(ingredient) {
-  const ing = ingredient || {};
-  const price = positiveNumber(ing.packPrice);
-  const size = positiveNumber(ing.packSize);
-  if (price === null || size === null || !isPriceUnit(ing.priceUnit)) return '';
-  const unit = ing.priceUnit === 'pcs' ? (size === 1 ? 'piece' : 'pieces') : ing.priceUnit;
-  return `${formatMoney(price)} for ${trimNumber(size)} ${unit}`;
-}
-
-// 25 → "25", 2.5 → "2.5", 2.50 → "2.5". Pack sizes are typed by hand and a
-// trailing zero on every one of them reads like a machine wrote it.
-function trimNumber(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '';
-  return String(roundTo(n, RATE_DECIMALS));
-}
-
 // ── Writing a price ──────────────────────────────────────────────────────────
 
 // The patch written onto the ingredient document. Every field is always present,
@@ -238,28 +245,22 @@ function trimNumber(value) {
 // boxes are still half filled. It IS cleared when the unit stops being 'pcs',
 // because a leftover piece weight nothing displays is the kind of stale number
 // that later gets divided by.
-export function pricePatch({ priceUnit, packPrice, packSize, unitWeightKg }, nowIso) {
+export function pricePatch({ priceUnit, pricePerUnit, unitWeightKg }, nowIso) {
   const unit = isPriceUnit(priceUnit) ? priceUnit : null;
   const pieceKg = unit === 'pcs' && positiveNumber(unitWeightKg) !== null
     ? roundTo(unitWeightKg, 6)
     : null;
 
-  const result = normalizePrice({ priceUnit: unit, packPrice, packSize });
-  if (!result.ok) {
-    return {
-      priceUnit: unit,
-      pricePerUnit: null, packPrice: null, packSize: null,
-      unitWeightKg: pieceKg,
-      priceUpdatedAt: null,
-    };
-  }
+  const result = normalizePrice({ priceUnit: unit, pricePerUnit });
   return {
     priceUnit: unit,
-    pricePerUnit: result.pricePerUnit,
-    packPrice: roundTo(positiveNumber(packPrice), MONEY_DECIMALS),
-    packSize: roundTo(positiveNumber(packSize), RATE_DECIMALS),
+    pricePerUnit: result.ok ? result.pricePerUnit : null,
+    // Retired, and cleared on every save so an old document stops carrying a pack
+    // price that disagrees with its own rate. See PRICE_FIELDS.
+    packPrice: null,
+    packSize: null,
     unitWeightKg: pieceKg,
-    priceUpdatedAt: nowIso,
+    priceUpdatedAt: result.ok ? nowIso : null,
   };
 }
 
@@ -270,10 +271,15 @@ export function pricePatch({ priceUnit, packPrice, packSize, unitWeightKg }, now
 //
 // The piece weight counts as part of the price: it is a divisor of the £/kg, so
 // changing it changes what a recipe costs even though no money moved.
+//
+// ⚠️ THE RETIRED PACK FIELDS ARE DELIBERATELY NOT COMPARED. Every save now clears
+// them, so an ingredient priced under the old form differs on them the first time
+// it is opened and saved — and comparing them would read that as a price change
+// and plant a history entry recording a rate that never moved.
 export function priceChanged(before, after) {
   const a = before || {};
   const b = after || {};
-  return ['priceUnit', 'pricePerUnit', 'packPrice', 'packSize', 'unitWeightKg']
+  return ['priceUnit', 'pricePerUnit', 'unitWeightKg']
     .some(key => (a[key] ?? null) !== (b[key] ?? null));
 }
 
@@ -291,8 +297,6 @@ export function priceRecord(ingredient, patch, nowIso, source = 'manual') {
     recordedAt: nowIso,
     priceUnit: patch.priceUnit,
     pricePerUnit: patch.pricePerUnit,
-    packPrice: patch.packPrice,
-    packSize: patch.packSize,
     unitWeightKg: patch.unitWeightKg,
     supplierId: (ingredient && ingredient.supplierId) || '',
     source,
