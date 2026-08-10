@@ -498,6 +498,7 @@ service cloud.firestore {
                'whatsappLists', 'whatsappClients',
                'extraDough', 'divisorIncluded',
                'logVisibility', 'logRetentionHours', 'logRetentionByDough',
+               'orderPrefillWindow',
                // Orders
                'showStock', 'historyDays',
                // Retired, still writable by an un-updated phone (see above)
@@ -526,7 +527,14 @@ service cloud.firestore {
           && (!('showStock' in request.resource.data)
               || request.resource.data.showStock is bool)
           && (!('historyDays' in request.resource.data)
-              || request.resource.data.historyDays is number);
+              || request.resource.data.historyDays is number)
+          // Which days the WhatsApp order form fills itself from. A closed set: this
+          // value decides which quantities are offered for a message sent to a real
+          // client, so an unrecognised one must not reach the database in the first
+          // place. OPTIONAL, because a phone still on older code writes this document
+          // without the field at all.
+          && (!('orderPrefillWindow' in request.resource.data)
+              || request.resource.data.orderPrefillWindow in ['both', 'yesterday', 'today']);
 
         allow delete: if false;
       }

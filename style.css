@@ -1220,7 +1220,7 @@ input.cp-prod-weight {
 .day-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* Order modal + list picker + day picker (same bottom-sheet style) */
-#loaf-modal, #list-select-modal, #day-modal {
+#loaf-modal, #list-select-modal, #day-modal, #send-who-modal {
   display: none;
   position: fixed;
   inset: 0;
@@ -1235,12 +1235,13 @@ input.cp-prod-weight {
    is anchored to — ~200ms, no bounce. (app-fade-in lives in tokens.css, loaded on
    every page; @keyframes are document-global. The reduced-motion kill-switch there
    neutralises both for anyone who asks the OS for less motion.) */
-#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible {
+#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible, #send-who-modal.visible {
   display: flex;
   animation: app-fade-in .15s ease-out;
 }
 #loaf-modal.visible #loaf-modal-box,
 #list-select-modal.visible #list-select-box,
+#send-who-modal.visible #send-who-box,
 #day-modal.visible #day-modal-box { animation: sheet-up .2s ease-out; }
 @keyframes sheet-up { from { transform: translateY(26px); opacity: 0; } }
 
@@ -1251,7 +1252,7 @@ input.cp-prod-weight {
 }
 .confirm-btn-primary:active, .day-btn:active, .cp-save-bottom:active,
 .reset-btn:active, .loaf-modal-send:active { transform: scale(.97); }
-#loaf-modal-box, #list-select-box, #day-modal-box {
+#loaf-modal-box, #list-select-box, #day-modal-box, #send-who-box {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
   padding: 24px 20px 32px;
@@ -1274,9 +1275,36 @@ input.cp-prod-weight {
 .order-prefill-note {
   font-size: 12px;
   color: var(--text3);
-  margin: 0 0 12px;
+  margin: 0;
   line-height: 1.4;
 }
+/* The note and "Clear all" share a row: the button empties exactly the quantities
+   the note is talking about, so it belongs beside it rather than down with
+   Cancel/Send — which stay a plain two-way choice. */
+.order-prefill-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.order-prefill-bar .order-prefill-note { flex: 1; }
+/* Same visual language as the Orders "Clear quantities" button, sized to its text:
+   transparent, a hairline border, danger red — de-emphasised so it never competes
+   with Send (P20). flex-shrink keeps it whole when the note runs to two lines. */
+.order-clear-btn {
+  flex-shrink: 0;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 60ms ease;
+}
+.order-clear-btn:active { transform: scale(.97); }
 .order-section-title {
   font-size: 15px;
   font-weight: 700;
@@ -1313,7 +1341,7 @@ input.cp-prod-weight {
 .order-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 .order-qty-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 .loaf-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-.loaf-modal-cancel, .list-select-cancel {
+.loaf-modal-cancel, .list-select-cancel, .send-who-cancel {
   flex: 1;
   padding: 13px;
   background: var(--surface2);

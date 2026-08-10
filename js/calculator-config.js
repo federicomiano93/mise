@@ -172,6 +172,9 @@ export const DEFAULT_CONFIG = {
   // How long (in hours) a log stays in the app's Log list. 24 or 48.
   logRetentionHours: 24,
   logRetentionByDough: { focaccia: 24, brioche: 24, sourdough: 24 },
+  // Which days the WhatsApp order form fills itself from. Default: both, because a
+  // day's order is normally assembled from two days' work.
+  orderPrefillWindow: 'both',
 };
 
 const KINDS = ['number', 'dropdown', 'kg'];
@@ -395,6 +398,31 @@ export function getLogRetentionForDough(config, tab) {
   const m = config && config.logRetentionByDough;
   const n = m && Number(m[tab]);
   return LOG_RETENTION_OPTIONS.includes(n) ? n : getLogRetentionHours(config);
+}
+
+// ── Which days the WhatsApp order form fills itself from ──────────────────────
+// A day's order is normally assembled from TWO days' work: some products are made
+// the day before it goes out, some the same morning. That is why 'both' is the
+// default — but which days apply is the bakery's own rhythm, not a fact the app can
+// derive, so it is a setting.
+//
+// ⚠️ 'yesterday' means yesterday ONLY, not "yesterday onwards". Someone who bakes
+// everything the day before wants today's half-finished calculations kept OUT of the
+// message, and an option that quietly included them would be the same as 'both'.
+export const ORDER_PREFILL_WINDOWS = ['both', 'yesterday', 'today'];
+export const ORDER_PREFILL_DEFAULT = 'both';
+
+// Wording for the setting, and for the sentence above the order form. Kept beside the
+// values so the two can never drift apart.
+export const ORDER_PREFILL_LABELS = {
+  both: 'Yesterday and today',
+  yesterday: 'Yesterday only',
+  today: 'Today only',
+};
+
+export function getOrderPrefillWindow(config) {
+  const v = config && config.orderPrefillWindow;
+  return ORDER_PREFILL_WINDOWS.includes(v) ? v : ORDER_PREFILL_DEFAULT;
 }
 
 // ── Tab view (catalogue + items → per-association rows) ────────────────────────
@@ -818,6 +846,9 @@ function assemble(clients, raw) {
     logVisibility: normalizeLogVisibility(raw.logVisibility, recipeIds),
     logRetentionHours: normalizeLogRetention(raw.logRetentionHours),
     logRetentionByDough: normalizeLogRetentionByDough(raw.logRetentionByDough, raw.logRetentionHours, recipeIds),
+    // An unknown or missing value falls back to 'both' — the widest window, so a
+    // corrupt setting never silently narrows what the order form offers.
+    orderPrefillWindow: getOrderPrefillWindow(raw),
   };
 }
 

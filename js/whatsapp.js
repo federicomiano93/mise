@@ -13,13 +13,14 @@
 // colliding with the calculator's own quantity fields living in the same document.
 
 import { getConfig } from './calculator-config-store.js';
-import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient } from './calculator-config.js';
+import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient, getOrderPrefillWindow } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
-import { alertDialog } from './confirm-dialog.js';
+import { alertDialog, confirmDialog } from './confirm-dialog.js';
 import { getLogs } from './log-store.js';
 import { latestVersion } from './log-model.js';
 import { prefillFromLogs, prefillNote } from './calculator-order-prefill.js';
+import { orderSections, buildOrderMessage, whatsappUrl } from './calculator-order-text.js';
 
 // The resolved client entries we are sending: [{ client, products }]. The order
 // message heading is the chosen list's title.
@@ -29,6 +30,29 @@ let selectedTitle = '';
 // Build the per-row input id for a product under a given client entry.
 function inputId(entryIndex, productId) {
   return 'wa-' + entryIndex + '-' + productId;
+}
+
+// Set every quantity in the order back to 0, after confirming (P20 — resetting is
+// confirmed, and this can throw away a whole order somebody has just typed).
+//
+// ⚠️ IT WALKS selectedEntries AND ADDRESSES EACH INPUT BY ITS OWN ID, rather than
+// sweeping a class. The calculator's own quantity fields live in the SAME document
+// as this modal — that collision is why these inputs are namespaced in the first
+// place (see the header) — and a broad selector would be one rename away from
+// clearing the dough tabs behind the modal instead.
+async function clearAllQuantities() {
+  if (!(await confirmDialog({
+    message: 'Set every quantity in this order back to 0?',
+    okLabel: 'Clear all',
+    danger: true,
+  }))) return;
+
+  selectedEntries.forEach((entry, ei) => {
+    (entry.products || []).forEach(p => {
+      const input = document.getElementById(inputId(ei, p.id));
+      if (input) input.value = '0';
+    });
+  });
 }
 
 // Entry point from the header WhatsApp button.
@@ -123,8 +147,20 @@ function renderOrderModal() {
   // Fill in what has already been calculated and logged, rather than making the same
   // numbers be typed twice. ⚠️ The note below is what makes this acceptable at all:
   // the numbers must never appear as if from nowhere (see calculator-order-prefill.js).
-  const prefilled = prefillFromLogs(selectedEntries, getLogs(), latestVersion);
-  body.appendChild(el('p', { class: 'order-prefill-note' }, prefillNote(Object.keys(prefilled).length)));
+  const prefillWindow = getOrderPrefillWindow(getConfig());
+  const prefilled = prefillFromLogs(selectedEntries, getLogs(), latestVersion,
+    { nowMs: Date.now(), window: prefillWindow });
+
+  // The note and the way to undo it, side by side: "Clear all" empties exactly the
+  // quantities the note has just explained. It stays OUT of the footer so Cancel and
+  // Send remain a plain two-way choice — a third button beside Send is one mis-tap
+  // away from wiping a finished order.
+  const clearBtn = el('button', { type: 'button', class: 'order-clear-btn' }, 'Clear all');
+  clearBtn.addEventListener('click', clearAllQuantities);
+  body.appendChild(el('div', { class: 'order-prefill-bar' }, [
+    el('p', { class: 'order-prefill-note' }, prefillNote(Object.keys(prefilled).length, prefillWindow)),
+    clearBtn,
+  ]));
 
   selectedEntries.forEach((entry, ei) => {
     const rows = entry.products.map(p => {
@@ -155,27 +191,66 @@ export function closeLoafModal() {
   document.getElementById('loaf-modal').classList.remove('visible');
 }
 
+// What was typed, read straight off the modal. The ONE place the page is consulted;
+// everything downstream is pure.
+function typedQty(entryIndex, productId) {
+  const input = document.getElementById(inputId(entryIndex, productId));
+  return input ? (+input.value || 0) : 0;
+}
+
+// Send. With more than one client holding quantities, ask WHO first — everything
+// together, or one client on its own.
+//
+// ⚠️ The chooser only appears when it has a real choice to offer. With a single
+// client filled in there is nothing to decide, and a step that always says the same
+// thing is a step people stop reading.
 export function sendWithLoaves() {
-  closeLoafModal();
-
-  const multi = selectedEntries.length > 1;
-  const sections = selectedEntries
-    .map((entry, ei) => {
-      const lines = entry.products
-        .map(p => {
-          const input = document.getElementById(inputId(ei, p.id));
-          return { name: p.name, val: input ? (+input.value || 0) : 0 };
-        })
-        .filter(p => p.val > 0)
-        .map(p => `- ${p.name}: ${p.val}`);
-      if (!lines.length) return null;
-      // A single-client order does not repeat the client name (it is the heading).
-      return (multi ? `*${entry.client.name}*\n` : '') + lines.join('\n');
-    })
-    .filter(Boolean);
-
+  const sections = orderSections(selectedEntries, typedQty);
   if (!sections.length) { alertDialog('No orders to share'); return; }
 
-  const text = `*${selectedTitle || 'Order'}*\n\n` + sections.join('\n\n');
-  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+  if (sections.length === 1) { sendSections(sections, selectedEntries.length > 1); return; }
+  openWhoPicker(sections);
+}
+
+// Build the message and hand it to WhatsApp. `multi` decides whether each section is
+// headed by its client's name — see buildOrderMessage for why it is not derived.
+function sendSections(sections, multi, title) {
+  closeLoafModal();
+  window.open(whatsappUrl(buildOrderMessage(title || selectedTitle, sections, multi)), '_blank');
+}
+
+// ── "Who is this for?" ────────────────────────────────────────────────────────
+// Everything together keeps exactly the message it always sent — same title, same
+// per-client headings. A single client is sent under ITS OWN name, so the recipient
+// reads their own order rather than the name of a list they are one line of.
+//
+// ⚠️ The modal id ends in `-modal` and it is shown with `.visible`, which is what
+// puts it in the update gate's busy list (update-gate.js keys on exactly that). A
+// compulsory update landing on top of this would throw away a typed order.
+function openWhoPicker(sections) {
+  const box = document.querySelector('#send-who-box .loaf-modal-title');
+  if (box) box.textContent = 'Send to';
+  const body = document.getElementById('send-who-body');
+  body.textContent = '';
+
+  body.appendChild(whoItem('All clients together', () => sendSections(sections, true)));
+  body.appendChild(el('div', { class: 'send-picker-label' }, 'Or one client'));
+  sections.forEach(section => {
+    body.appendChild(whoItem(section.name, () => sendSections([section], false, section.name)));
+  });
+
+  document.getElementById('send-who-modal').classList.add('visible');
+}
+
+function whoItem(label, onPick) {
+  const btn = el('button', { class: 'drill-item', type: 'button' }, [
+    el('span', {}, label),
+    el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
+  ]);
+  btn.addEventListener('click', () => { closeWhoPicker(); onPick(); });
+  return btn;
+}
+
+export function closeWhoPicker() {
+  document.getElementById('send-who-modal').classList.remove('visible');
 }

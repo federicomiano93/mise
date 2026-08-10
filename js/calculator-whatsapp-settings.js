@@ -25,7 +25,10 @@
 // representative product id is stored). Names resolve live from the address book.
 
 import { getConfig, saveConfig } from './calculator-config-store.js';
-import { cloneConfig, getClients, getClientById, getProductById, getAllProducts } from './calculator-config.js';
+import {
+  cloneConfig, getClients, getClientById, getProductById, getAllProducts,
+  getOrderPrefillWindow, ORDER_PREFILL_WINDOWS, ORDER_PREFILL_LABELS,
+} from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
@@ -206,6 +209,8 @@ function renderTopScreen() {
   const content = document.getElementById('wa-content');
   content.textContent = '';
 
+  content.appendChild(buildPrefillWindowField());
+
   content.appendChild(el('div', { class: 'send-picker-label' }, 'Lists'));
   lists().forEach((list, li) => {
     content.appendChild(topRow(
@@ -242,6 +247,54 @@ function renderTopScreen() {
     renderEditor();
   });
   content.appendChild(addClient);
+}
+
+// Which days the order form fills itself from. It sits on the TOP screen because it
+// governs every list, not one of them.
+//
+// ⚠️ APPLIED ON THE CHANGE, not behind a Save — and that is not a shortcut. This
+// screen deliberately has no Save (each list is saved from its own detail), so a
+// control waiting for one would never be saved at all. It is safe here for the same
+// reason as the Orders "Show stock" toggle: nothing is lost by getting it wrong, the
+// numbers are still shown before anything is sent, and one more tap undoes it.
+//
+// ⚠️ THE BOX IS NEVER PUT BACK ON A FAILED SYNC, and that is deliberate. saveConfig
+// is LOCAL-FIRST: it applies the change to memory and the cache before it sends
+// anything, and it never rejects — it resolves saying whether the write reached
+// Firestore. Reverting the box would therefore make the screen disagree with the
+// setting the app is actually using. What is owed instead is the truth: the change
+// works on this phone, and has not reached the others yet.
+function buildPrefillWindowField() {
+  const sel = el('select', { class: 'extra-unit-select', 'aria-label': 'Fill the order from' });
+  ORDER_PREFILL_WINDOWS.forEach(w => sel.appendChild(el('option', { value: w }, ORDER_PREFILL_LABELS[w])));
+  sel.value = getOrderPrefillWindow(getConfig());
+
+  sel.addEventListener('change', async () => {
+    const wanted = sel.value;
+    if (wanted === getOrderPrefillWindow(getConfig())) return;
+    sel.disabled = true;
+    const cfg = cloneConfig(getConfig());
+    cfg.orderPrefillWindow = wanted;
+    const result = await saveConfig(cfg);
+    sel.disabled = false;
+    // 'no-server-answer' has already explained itself inside saveConfig; saying it
+    // twice would be noise.
+    if (result && result.synced === false && result.reason === 'write-failed') {
+      await alertDialog('Saved on this phone, but not sent to the other phones yet — '
+        + 'check your connection.');
+    }
+  });
+
+  const row = el('label', { class: 'extra-toggle-row' }, [el('span', {}, 'Fill the order from')]);
+  row.appendChild(sel);
+
+  return el('div', {}, [
+    row,
+    el('p', { class: 'notif-note' },
+      'Which days of saved logs the order form offers quantities from. Most days an '
+      + 'order is made over two days — some products the day before, some the same '
+      + 'morning — so "Yesterday and today" is the usual choice.'),
+  ]);
 }
 
 // A top-screen row: a drill-in box (tap to edit) beside a low-key delete icon.
