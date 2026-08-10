@@ -1522,9 +1522,119 @@ async function clientOrders() {
       { bakery: 'trattoria-x', clientName: 'X', products: [], updatedAt: 'now' }, asAccount(BOB)));
 }
 
+// ── Notifications that arrive with the app closed ───────────────────────────
+//
+// Two collections a phone writes about ITSELF. The server reads them with the
+// Admin SDK, which bypasses rules entirely, so everything here is about what a
+// CLIENT may do — and the check that matters most is the last group: an ordering
+// account, the only account here belonging to somebody outside the business, must
+// not be able to touch either of them.
+async function pushNotifications() {
+  await wipe();
+  await seedAccess();
+
+  const L = 'locations/main';
+  const TOKEN_A = 'device-token-alice';
+  const TOKEN_B = 'device-token-somebody-else';
+  const soon = Date.now() + 20 * 60 * 1000;
+
+  await seedDoc(`${L}/client-accounts/${CLIENT_A.uid}`,
+    { bakery: 'main', clientId: 'c-one', clientName: 'CLIENT A', createdAt: '2026-08-10T09:00:00.000Z' });
+
+  const tokenDoc = (over = {}) => ({ bakery: 'main', uid: ALICE.uid, updatedAt: Date.now(), ...over });
+  const timer = (over = {}) => ({
+    bakery: 'main', uid: ALICE.uid, token: TOKEN_A, fireAt: soon,
+    title: 'Croissant', body: 'Add the butter', active: true, createdAt: Date.now(), ...over,
+  });
+  const readAs = (who, path) => () => fetch(`${FS}/${path}`, { headers: asAccount(who) });
+
+  // ── A phone registers itself ──
+  await expectAllowed('a phone registers itself for notifications', () =>
+    wholeWrite(`${L}/fcm-tokens/${TOKEN_A}`, tokenDoc()));
+  await expectAllowed('…and unregisters itself again', () =>
+    deleteWrite(`${L}/fcm-tokens/${TOKEN_A}`));
+
+  // ⚠️ WITHOUT THE uid CHECK a member could register a token belonging to
+  // somebody else and quietly redirect this location's alerts to another phone.
+  await expectDenied('a phone registered in somebody else\'s name', () =>
+    wholeWrite(`${L}/fcm-tokens/${TOKEN_B}`, tokenDoc({ uid: BOB.uid })));
+  await expectDenied('a token stamped for another location', () =>
+    wholeWrite(`${L}/fcm-tokens/${TOKEN_A}`, tokenDoc({ bakery: 'trattoria-x' })));
+  await expectDenied('an unknown key on a token', () =>
+    wholeWrite(`${L}/fcm-tokens/${TOKEN_A}`, tokenDoc({ evil: 'x' })));
+
+  await seedDoc(`${L}/fcm-tokens/${TOKEN_B}`, { bakery: 'main', uid: BOB.uid, updatedAt: Date.now() });
+  await expectDenied('deleting somebody else\'s registration', () =>
+    deleteWrite(`${L}/fcm-tokens/${TOKEN_B}`));
+
+  // ── A scheduled alarm ──
+  await expectAllowed('a phone schedules an alarm for itself', () =>
+    wholeWrite(`${L}/push-timers/t1`, timer()));
+  await expectAllowed('a fresh alarm always starts active', () =>
+    wholeWrite(`${L}/push-timers/t2`, timer()));
+
+  await expectDenied('an alarm scheduled in somebody else\'s name', () =>
+    wholeWrite(`${L}/push-timers/t3`, timer({ uid: BOB.uid })));
+  await expectDenied('an alarm created already cancelled', () =>
+    wholeWrite(`${L}/push-timers/t4`, timer({ active: false })));
+  await expectDenied('an alarm with nowhere to send it', () =>
+    wholeWrite(`${L}/push-timers/t5`, timer({ token: '' })));
+  await expectDenied('an alarm with nothing to say', () =>
+    wholeWrite(`${L}/push-timers/t6`, timer({ title: '' })));
+  await expectDenied('an alarm whose time is not a number', () =>
+    wholeWrite(`${L}/push-timers/t7`, timer({ fireAt: 'later' })));
+  await expectDenied('a runaway notification body', () =>
+    wholeWrite(`${L}/push-timers/t8`, timer({ body: 'x'.repeat(200) })));
+  await expectDenied('an unknown key on an alarm', () =>
+    wholeWrite(`${L}/push-timers/t9`, timer({ evil: 'x' })));
+
+  // ── Cancelling, which is the only update allowed ──
+  await expectAllowed('cancelling an alarm', () =>
+    mergeWrite(`${L}/push-timers/t1`, { active: false }));
+  // ⚠️ THE NARROW UPDATE IS THE POINT. An update that could also move `fireAt` or
+  // repoint `token` would let one member retime another's alarm, or send it to a
+  // different phone, while looking like an ordinary cancel.
+  await expectDenied('retiming an alarm instead of cancelling it', () =>
+    mergeWrite(`${L}/push-timers/t2`, { fireAt: Date.now() + 60000 }));
+  await expectDenied('repointing an alarm at another phone', () =>
+    mergeWrite(`${L}/push-timers/t2`, { token: TOKEN_B }));
+  await expectDenied('rewriting what an alarm says', () =>
+    mergeWrite(`${L}/push-timers/t2`, { body: 'something else' }));
+  await expectDenied('cancelling AND retiming in one write', () =>
+    mergeWrite(`${L}/push-timers/t2`, { active: false, fireAt: Date.now() + 60000 }));
+
+  await seedDoc(`${L}/push-timers/other`, {
+    bakery: 'main', uid: BOB.uid, token: TOKEN_B, fireAt: soon,
+    title: 'X', body: '', active: true, createdAt: Date.now(),
+  });
+  await expectDenied('cancelling somebody else\'s alarm', () =>
+    mergeWrite(`${L}/push-timers/other`, { active: false }));
+
+  // ── The boundary between two businesses ──
+  await expectDenied('another location cannot read these registrations',
+    readAs(BOB, `${L}/fcm-tokens/${TOKEN_B}`));
+  await expectDenied('another location cannot schedule an alarm here', () =>
+    wholeWrite(`${L}/push-timers/t10`, timer({ uid: BOB.uid }), asAccount(BOB)));
+
+  // ⚠️ THE CHECK THAT MATTERS MOST. An ordering account belongs to somebody
+  // OUTSIDE the business. It has no users/{uid} document, so member() refuses it
+  // by construction rather than because a rule remembered to ask — and that is
+  // the property these four checks exist to keep from being lost.
+  await expectDenied('a client cannot register a phone for notifications', () =>
+    wholeWrite(`${L}/fcm-tokens/client-token`,
+      { bakery: 'main', uid: CLIENT_A.uid, updatedAt: Date.now() }, asAccount(CLIENT_A)));
+  await expectDenied('a client cannot read who is registered',
+    readAs(CLIENT_A, `${L}/fcm-tokens/${TOKEN_B}`));
+  await expectDenied('a client cannot schedule an alarm', () =>
+    wholeWrite(`${L}/push-timers/client-timer`,
+      { bakery: 'main', uid: CLIENT_A.uid, token: 'x', fireAt: soon,
+        title: 'X', body: '', active: true, createdAt: Date.now() }, asAccount(CLIENT_A)));
+  await expectDenied('a client cannot read the alarms', readAs(CLIENT_A, `${L}/push-timers/t2`));
+}
+
 for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
                         locationTree, isolation, configAndLogs, pastries, pastryLogs,
-                        products, clientOrders]) {
+                        products, clientOrders, pushNotifications]) {
   await scenario();
 }
 

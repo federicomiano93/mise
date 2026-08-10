@@ -1077,6 +1077,77 @@ service cloud.firestore {
           && request.resource.data.updatedAt.size() <= 64;
         allow delete: if canUse(lid, 'pastries');
       }
+
+      // ── Notifications that arrive with the app closed ────────────────
+      //
+      // Two collections, both written by a phone about ITSELF and read only by
+      // the server (which uses the Admin SDK and bypasses these rules entirely).
+      //
+      // ⚠️ NEITHER IS REACHABLE BY AN ORDERING CLIENT, and not because a rule
+      // here remembers to ask. member() requires a users/{uid} document, an
+      // ordering account has none, so every rule below refuses it by
+      // construction. That is the property to preserve: safety comes from the
+      // client being invisible to the staff rules, not from each rule carrying
+      // an exception.
+      //
+      // ⚠️ NOT gated on any section. A notification is not a screen — the timers
+      // come from the Catalogue and the order alerts from the Calculator, and a
+      // venue that switches one off must not thereby lose the other's alerts, or
+      // worse, be left with a token nothing can ever clean up.
+
+      // Which phone may receive notifications for this location. The document id
+      // IS the device token; there is one per device, replaced when it rotates.
+      //
+      // ⚠️ `uid` MUST BE THE WRITER'S OWN. Without that a member could register a
+      // token belonging to somebody else and quietly redirect this location's
+      // alerts to another phone. The delete branch checks the STORED uid, because
+      // a delete carries no request.resource.
+      match /fcm-tokens/{token} {
+        allow read: if member(lid);
+        allow create, update: if member(lid)
+          && stampedFor(lid)
+          && request.resource.data.keys().hasOnly(['bakery', 'uid', 'updatedAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.updatedAt is number;
+        allow delete: if member(lid) && resource.data.uid == request.auth.uid;
+      }
+
+      // A single scheduled alarm: send this text to this phone at this instant.
+      //
+      // ⚠️ THE UPDATE BRANCH IS DELIBERATELY NARROW. Cancelling is the whole point
+      // of this collection, so an update may change `active` and nothing else —
+      // it cannot move `fireAt` (retiming somebody's alarm), repoint `token`
+      // (sending it to another phone) or rewrite the text. Everything else is
+      // pinned to what is already stored.
+      //
+      // ⚠️ A CANCELLED TIMER IS KEPT, NOT DELETED. The server re-reads this
+      // document an instant before sending; if cancelling deleted it, a read that
+      // failed for any other reason would look identical to "cancelled" and the
+      // two would be impossible to tell apart in a log.
+      match /push-timers/{id} {
+        allow read: if member(lid);
+        allow create: if member(lid)
+          && stampedFor(lid)
+          && request.resource.data.keys().hasOnly(
+               ['bakery', 'uid', 'token', 'fireAt', 'title', 'body', 'active', 'createdAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.token is string
+          && request.resource.data.token.size() > 0
+          && request.resource.data.token.size() <= 4096
+          && request.resource.data.fireAt is number
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 80
+          && request.resource.data.body is string
+          && request.resource.data.body.size() <= 160
+          && request.resource.data.active == true
+          && request.resource.data.createdAt is number;
+        allow update: if member(lid)
+          && resource.data.uid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active'])
+          && request.resource.data.active is bool;
+        allow delete: if member(lid) && resource.data.uid == request.auth.uid;
+      }
     }
 
     // The OLD FLAT COLLECTIONS (suppliers/…, ingredients/…, config/…) are gone
