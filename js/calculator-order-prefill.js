@@ -51,8 +51,21 @@ const WINDOW_OFFSETS = {
 // `nowMs` is the clock and `window` the chosen setting, both passed in so this stays
 // pure and testable.
 //
-// Only a quantity ABOVE ZERO counts as recorded: a log that lists a product with 0 is
-// saying it was not ordered, not that the answer is zero.
+// ⚠️ THE NEWEST LOG THAT MENTIONS A ROW DECIDES IT — **ZERO INCLUDED**. This is the
+// whole rule, and getting it wrong shipped a real defect: the code used to skip a
+// zero and keep searching backwards, on the reasoning that "0 means it was not
+// ordered, not that the answer is zero". That reasoning is wrong. A dough log lists
+// EVERY product of its recipe, for every client, including the ones at zero — so a
+// zero in the newest log is that log saying "none of these today", which is exactly
+// an answer.
+//
+// What it looked like in the bakery: today's brioche log said a client's buns were 0,
+// yesterday's said 10, and the order form offered 10 — a quantity nobody had asked
+// for, in a message about to be sent to that client, with today's log on screen
+// plainly showing zero. Reported the same day.
+//
+// So a row is decided ONCE, by the first log that names it; only decisions above zero
+// are offered, because a zero needs no filling in.
 //
 // ⚠️ AN UNREADABLE CLOCK OFFERS NOTHING, deliberately. Falling back to "no window"
 // would silently restore the unbounded behaviour above — the failure would look
@@ -67,7 +80,10 @@ export function prefillFromLogs(entries, logs, latestOf, { nowMs, window } = {})
   const today = workDayIndex(clock);
   const allowed = new Set(offsets.map(o => today - o));
 
-  const found = new Map();
+  // What each row was last recorded as. `logs` arrives newest first, so the FIRST
+  // log to name a row is the one that decides it — and it decides it even when the
+  // answer is zero, which is what stops an older number outliving today's.
+  const decided = new Map();
 
   for (const log of (Array.isArray(logs) ? logs : [])) {
     if (!log || typeof latestOf !== 'function') continue;
@@ -77,21 +93,21 @@ export function prefillFromLogs(entries, logs, latestOf, { nowMs, window } = {})
     const version = latestOf(log);
     for (const item of ((version && version.items) || [])) {
       if (!item) continue;
-      const qty = num(item.qty);
-      if (qty <= 0) continue;
       const key = rowKey(item.clientName, item.id);
-      if (!found.has(key)) found.set(key, qty); // newest first, so the first win stands
+      if (!decided.has(key)) decided.set(key, num(item.qty));
     }
   }
 
-  // Only answer for the rows the modal is actually showing.
+  // Only answer for the rows the modal is actually showing, and only where there is
+  // something to fill in — a row decided as zero is already zero on screen, and
+  // counting it would inflate the "N quantities filled in" note with nothing.
   const out = {};
   (Array.isArray(entries) ? entries : []).forEach((entry, entryIndex) => {
     if (!entry || !entry.client) return;
     for (const product of (entry.products || [])) {
       if (!product) continue;
-      const qty = found.get(rowKey(entry.client.name, product.id));
-      if (qty !== undefined) out[entryIndex + '|' + product.id] = qty;
+      const qty = decided.get(rowKey(entry.client.name, product.id));
+      if (qty > 0) out[entryIndex + '|' + product.id] = qty;
     }
   });
   return out;
