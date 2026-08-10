@@ -686,6 +686,37 @@ input.cp-prod-weight {
   cursor: pointer;
   width: 100%;
 }
+/* The ordering-link section of a client's screen. A hint that explains what the link
+   is before anyone taps anything — this is the one control in the app that hands
+   something to a person outside the business, so it says so in words first. */
+.cp-hint {
+  margin: 0 0 4px;
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* An <a>, because it navigates. It has to be told to look like the buttons beside
+   it: a link is inline and would otherwise sit at a different height with its text
+   off-centre — the icon-and-text baseline trap, in its plainest form. */
+.cp-link-share {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+/* Destructive, so it is quiet: no fill, no border, small (P20). It must never look
+   like it competes with creating or copying a link. */
+.cp-link-revoke {
+  margin-top: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+}
 .cp-add-client {
   background: var(--accent);
   border: none;

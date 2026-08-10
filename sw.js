@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v252';
+const CACHE_NAME = 'theitalianclub-v253';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -30,6 +30,15 @@ const ASSETS = [
   './js/calculator-icons.js',
   './js/hold-to-zoom.js',
   './js/price-model.js',
+  './js/client-order-model.js',
+  './js/client-orders-data.js',
+  // ⚠️ order.html AND js/client-orders/* ARE DELIBERATELY ABSENT FROM THIS LIST.
+  // They are the page a wholesale CLIENT opens from their own link — not part of the
+  // installed app, and no staff phone ever navigates to them. Precaching them would
+  // put a copy of the client page on every phone in the bakery for nothing, and the
+  // one failure this list exists to prevent (an installed user going offline and
+  // finding a newly added file missing) cannot happen to a page installed users never
+  // open. The two files above ARE listed: they are the Calculator's own half.
   './js/sw-update.js',
   './js/update-gate.js',
   './js/idle-reset.js',

@@ -1,0 +1,249 @@
+/* order.css — the client ordering page.
+ *
+ * A separate stylesheet, not a section of style.css, because this page is served to
+ * people outside the business and shares nothing with the staff app but the design
+ * tokens. Every value here is a var() from tokens.css: the page must look like the
+ * bakery it belongs to, and it must move when the shared system moves.
+ *
+ * ⚠️ THE FIELDS ARE DELIBERATELY LARGE. This is used one-handed, standing up, by
+ * somebody who does not know the app and will not be shown it. 44px controls, 16px
+ * type in every input — anything under 16px makes iOS Safari zoom the page on focus,
+ * which throws the layout sideways mid-order.
+ */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  min-height: 100dvh;
+}
+
+#order-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+.co-header {
+  background: var(--brand);
+  color: var(--on-brand);
+  padding: 20px 20px 18px;
+  /* The notch and the rounded corners of a modern phone. 0 on a desktop, which is
+     exactly why a desktop measurement of this page proves nothing about it. */
+  padding-top: calc(20px + env(safe-area-inset-top));
+}
+
+.co-bakery {
+  margin: 0 0 4px;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--on-brand-soft);
+}
+
+.co-client {
+  margin: 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+/* ── Body ───────────────────────────────────────────────────────────────── */
+
+.co-body {
+  flex: 1;
+  padding: 20px 16px 8px;
+}
+
+.co-field { margin-bottom: 24px; }
+
+.co-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.co-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+.co-day,
+.co-note {
+  width: 100%;
+  /* A fixed height, not a min-height: a <select> on iOS sizes itself from its own
+     metrics and grows straight past a minimum, which is how a row of "equal" fields
+     measured on a desktop turned out uneven on the phone (v236). */
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 12px;
+}
+
+.co-day { height: 44px; }
+
+.co-note {
+  padding: 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.co-day:focus-visible,
+.co-note:focus-visible,
+.co-qty:focus-visible,
+.co-send:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+/* ── The product rows ───────────────────────────────────────────────────── */
+
+.co-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.co-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.co-row:last-child { border-bottom: none; }
+
+.co-row-name {
+  flex: 1;
+  /* ⚠️ min-width:0 is load-bearing on a flex child: without it a long product name
+     refuses to wrap and pushes the quantity box off the right edge of the phone. */
+  min-width: 0;
+  font-size: 16px;
+  line-height: 1.3;
+  /* The label is the tap target for its own box, so it must look like one. */
+  cursor: pointer;
+}
+
+.co-qty {
+  flex: none;
+  width: 84px;
+  height: 44px;
+  font-size: 16px;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.co-qty::placeholder { color: var(--text-5); }
+
+.co-empty {
+  margin: 0;
+  padding: 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────────────── */
+
+.co-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+  /* ⚠️ THE BACKGROUND IS ON THE COLOURED ELEMENT, not on a transparent wrapper with
+     the inset outside it. That mistake shipped once (v1.14.1): a see-through gap
+     under a coloured bar with the list scrolling through it, invisible on a desktop
+     because the inset is 0 there. */
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.co-send {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--on-brand);
+  background: var(--brand);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-brand);
+  cursor: pointer;
+  transition: transform 60ms ease;
+}
+
+.co-send:active { transform: scale(.97); }
+
+.co-send:disabled {
+  background: var(--text-3);
+  box-shadow: none;
+  cursor: default;
+  transform: none;
+}
+
+.co-status {
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.co-status:empty { display: none; }
+
+.co-status--bad { color: var(--danger); font-weight: 600; }
+
+/* ── Whole-screen messages ──────────────────────────────────────────────── */
+
+.co-message {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 32px 24px calc(32px + env(safe-area-inset-bottom));
+  text-align: center;
+}
+
+.co-message-title {
+  margin: 0 0 12px;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 27px;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.co-message-body {
+  margin: 0 0 12px;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.co-sent .co-send { margin-top: 20px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .co-send { transition: none; }
+  .co-send:active { transform: none; }
+}
