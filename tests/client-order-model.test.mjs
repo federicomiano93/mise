@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import {
   isISODate, toISODate, startOfDayMs,
   cutoffMinutes, closesAtMs, isDateOpen, orderableDates, defaultOrderDate,
+  normalizeCutoff, arrivedLate, CUTOFF_DEFAULT,
   isValidOrderClientId, orderDocId, linkEmailFor,
   menuFor, menuChanged,
   normalizeQuantities, buildOrder, orderChangedSinceApplied, isApplied,
@@ -121,6 +122,52 @@ test('…and never on today, even when today is open', () => {
 
 test('nothing open means no default — the page must say so, not show an empty picker', () => {
   assert.equal(defaultOrderDate(MON_1730, '16:00', 1), '');
+});
+
+// ── The deadline as a setting ────────────────────────────────────────────────
+
+test('an EMPTY deadline is a real answer — no deadline at all', () => {
+  // ⚠️ A bakery that takes same-day orders clears the box. Treating empty as "not
+  // filled in" and substituting a default would impose a deadline nobody asked for,
+  // and the only symptom would be customers quietly unable to order for today.
+  assert.equal(normalizeCutoff(''), '');
+  assert.equal(normalizeCutoff(null), '');
+  assert.equal(isDateOpen('2026-08-10', MON_0900, normalizeCutoff('')), true);
+});
+
+test('a deadline that is not a time is treated as none, never as the default', () => {
+  assert.equal(normalizeCutoff('sixteen'), '');
+  assert.equal(normalizeCutoff('25:00'), '');
+  assert.equal(normalizeCutoff('16:00'), '16:00');
+  assert.equal(normalizeCutoff(' 16:00 '), '16:00');
+});
+
+// ── Arriving late ────────────────────────────────────────────────────────────
+
+test('an order sent before its deadline did not arrive late', () => {
+  const order = { date: '2026-08-11', updatedAt: new Date(MON_0900).toISOString() };
+  assert.equal(arrivedLate(order, '16:00'), false);
+});
+
+test('an order sent AFTER its deadline is flagged', () => {
+  // ⚠️ It is shown, not refused: the security rules keep only a coarse floor on dates
+  // (they cannot express a local clock time without being an hour wrong for half the
+  // year), so making a late one visible is what turns that from a hole into a
+  // decision the bakery gets to make.
+  const order = { date: '2026-08-11', updatedAt: new Date(MON_1730).toISOString() };
+  assert.equal(arrivedLate(order, '16:00'), true);
+});
+
+test('with no deadline, nothing can be late', () => {
+  const order = { date: '2026-08-11', updatedAt: new Date(MON_1730).toISOString() };
+  assert.equal(arrivedLate(order, ''), false);
+  assert.equal(arrivedLate(order, null), false);
+});
+
+test('an order with no timestamp is not accused of being late', () => {
+  assert.equal(arrivedLate({ date: '2026-08-11' }, '16:00'), false);
+  assert.equal(arrivedLate({ date: '2026-08-11', updatedAt: 'nonsense' }, '16:00'), false);
+  assert.equal(arrivedLate(null, '16:00'), false);
 });
 
 // ── Ids ──────────────────────────────────────────────────────────────────────

@@ -65,6 +65,32 @@ export function startOfDayMs(date) {
 
 export const CUTOFF_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
+// The bakery's default when nobody has chosen one. Late enough that a shop can decide
+// after its own lunchtime, early enough to be a real deadline for a night shift.
+export const CUTOFF_DEFAULT = '16:00';
+
+// ⚠️ EMPTY MEANS "NO DEADLINE", AND IT IS A REAL ANSWER, NOT A MISSING ONE. A bakery
+// that takes same-day orders clears the box, and then today is offered like any other
+// day. Treating empty as "not filled in" and substituting a default would impose a
+// deadline nobody asked for, and the only symptom would be customers quietly unable
+// to order for today — the same trap as a VAT rate of 0 in Food Cost.
+export function normalizeCutoff(value) {
+  if (value === '' || value === null) return '';
+  return cutoffMinutes(value) === null ? '' : String(value).trim();
+}
+
+// Did this order arrive (or change) after its own day's door had shut? Only possible
+// through a stale page or a determined client: the security rules keep a coarse floor
+// but cannot express a local clock time, so this is the thing that makes a late
+// arrival VISIBLE rather than silently accepted. Seen, it can be acted on.
+export function arrivedLate(order, cutoff) {
+  if (!order || !order.updatedAt) return false;
+  const closes = closesAtMs(order.date, cutoff);
+  if (closes === null) return false;
+  const at = Date.parse(order.updatedAt);
+  return Number.isFinite(at) && at > closes;
+}
+
 // 'HH:MM' → minutes past midnight, or null for "no cutoff". Anything unparseable is
 // null: a corrupt setting must leave the door OPEN, never silently shut a client out
 // of ordering with nothing on screen to explain it.

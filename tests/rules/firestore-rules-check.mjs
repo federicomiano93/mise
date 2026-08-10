@@ -1403,6 +1403,47 @@ async function clientOrders() {
   await expectDenied('an unknown key on an ordering account', () =>
     mergeWrite(`${L}/client-accounts/${CLIENT_A.uid}`, { bakery: 'main', evil: 'x' }));
 
+  // ── The one setting a client's page has to read ──
+  // It is a collection of its own precisely so it CAN be shared: config/calculator is
+  // the whole address book, and there is no way to share one field of that without
+  // sharing every client, every product and every recipe with it.
+  await seedDoc(`${L}/client-settings/orders`,
+    { bakery: 'main', cutoff: '16:00', updatedAt: '2026-08-10T09:00:00.000Z' });
+
+  await expectAllowed('a client reads when orders close',
+    readAs(CLIENT_A, `${L}/client-settings/orders`));
+  await expectAllowed('the bakery changes when orders close', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '15:30', updatedAt: '2026-08-10T18:00:00.000Z' }));
+  // ⚠️ An EMPTY cutoff is how "no deadline at all" is expressed. Refusing it would
+  // make switching the deadline off impossible, and a cleared box would silently keep
+  // the old time — the same trap as a VAT rate of 0 in Food Cost.
+  await expectAllowed('…and can switch the deadline off entirely', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '', updatedAt: '2026-08-10T18:00:00.000Z' }));
+
+  await expectDenied('a client CANNOT change when orders close', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '23:59', updatedAt: 'now' }, asAccount(CLIENT_A)));
+  await expectDenied('a deadline that is not a time', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: 'whenever', updatedAt: 'now' }));
+  await expectDenied('a 25th hour', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '25:00', updatedAt: 'now' }));
+  await expectDenied('an unknown key on the setting', () =>
+    wholeWrite(`${L}/client-settings/orders`,
+      { bakery: 'main', cutoff: '16:00', updatedAt: 'now', evil: 'x' }));
+  await expectDenied('a second settings document nobody reads', () =>
+    wholeWrite(`${L}/client-settings/something-else`,
+      { bakery: 'main', cutoff: '16:00', updatedAt: 'now' }));
+  await expectDenied('the setting cannot be deleted, only changed', () =>
+    deleteWrite(`${L}/client-settings/orders`));
+  await expectDenied('another location cannot read this bakery\'s deadline',
+    readAs(BOB, `${L}/client-settings/orders`));
+  await expectDenied('an account with no grant anywhere reads no deadline',
+    readAs(NOBODY, `${L}/client-settings/orders`));
+
   // ── The bakery's own side ──
   await expectAllowed('the bakery reads the orders it has been sent', () =>
     fetch(`${FS}/${ORDER_A}`, { headers: asUser() }));

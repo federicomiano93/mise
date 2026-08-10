@@ -17,9 +17,12 @@ import { el } from './calculator-render.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { getConfig } from './calculator-config-store.js';
 import { getClientById } from './calculator-config.js';
-import { watchUpcomingOrders, markOrderApplied } from './client-orders-data.js';
+import {
+  watchUpcomingOrders, markOrderApplied, watchClientCutoff, saveClientCutoff,
+} from './client-orders-data.js';
 import {
   orderRows, orderChangedSinceApplied, isApplied, calculatorPatch, toISODate,
+  arrivedLate, normalizeCutoff, CUTOFF_DEFAULT, CUTOFF_PATTERN,
 } from './client-order-model.js';
 
 // Injected by app.js rather than imported from it: app.js is the entry point, and
@@ -28,7 +31,9 @@ import {
 let fields = null;
 
 let orders = [];
+let cutoff = '';
 let unsubscribe = null;
+let unsubscribeCutoff = null;
 
 const BANNER = () => document.getElementById('client-orders-banner');
 const OVERLAY = () => document.getElementById('clientorders-overlay');
@@ -152,6 +157,16 @@ function orderCard(order) {
       `Sent ${arrivedLabel(order)}${used ? ' · already in the calculator' : ''}`),
   ]);
 
+  // ⚠️ A LATE ARRIVAL IS SHOWN, NOT REFUSED. The security rules keep only a coarse
+  // floor on dates — they cannot express a local clock time without being an hour
+  // wrong for half the year — so the deadline is really enforced by the client's page,
+  // which is code on somebody else's phone. Making a late one VISIBLE is what turns
+  // that from a hole into a thing the bakery can decide about.
+  if (arrivedLate(order, cutoff)) {
+    card.appendChild(el('p', { class: 'co-card-note co-card-note--warn' },
+      `This arrived after ${cutoff}, the deadline for that day. You can still use it — but it came in late.`));
+  }
+
   // ⚠️ THE LOUDEST THING ON THE CARD, because it is the one that bakes the wrong
   // amount. Somebody who used this order twenty minutes ago has no other way to know.
   if (changed) {
@@ -272,11 +287,88 @@ async function applyOrder(order, button) {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
+// ── When orders close ────────────────────────────────────────────────────────
+
+export function openCutoffSettings() {
+  renderCutoffSettings();
+  document.getElementById('cosettings-overlay').classList.add('visible');
+}
+
+function closeCutoffSettings() {
+  document.getElementById('cosettings-overlay').classList.remove('visible');
+}
+
+function renderCutoffSettings() {
+  const content = document.getElementById('cosettings-content');
+  if (!content) return;
+  content.textContent = '';
+
+  content.appendChild(el('p', { class: 'cp-hint' },
+    'An order for a day can be sent, and changed, until this time on the day before. '
+    + 'Clients see this time on their own screen.'));
+
+  const input = el('input', {
+    class: 'co-cutoff', id: 'co-cutoff', type: 'time', value: cutoff,
+  });
+
+  content.appendChild(el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label', for: 'co-cutoff' }, 'Orders close at'),
+    input,
+    // ⚠️ SAID OUT LOUD, because it is the one consequence nobody guesses: with a
+    // deadline set, TODAY can never be ordered for — its own door shut yesterday.
+    el('p', { class: 'cp-hint' },
+      'Leave it empty for no deadline. With a deadline, clients can order for tomorrow '
+      + 'onwards but never for the current day, because its deadline has already passed.'),
+  ]));
+
+  const save = el('button', { class: 'cp-add-prod', type: 'button' }, 'Save');
+  save.addEventListener('click', async () => {
+    const wanted = normalizeCutoff(input.value);
+    if (input.value && !CUTOFF_PATTERN.test(input.value)) {
+      await alertDialog('That is not a time. Use the clock, or leave it empty for no deadline.');
+      return;
+    }
+    if (!(await confirmDialog({
+      message: wanted
+        ? `Close orders at ${wanted} the day before? Every client sees this straight away.`
+        : 'Remove the deadline? Clients will be able to order for any day, including today.',
+      okLabel: 'Save',
+    }))) return;
+    save.disabled = true;
+    try {
+      await saveClientCutoff(wanted);
+      closeCutoffSettings();
+    } catch (err) {
+      console.error('Could not save the ordering deadline:', err);
+      await alertDialog('Not saved. Check your connection and try again.');
+    }
+    save.disabled = false;
+  });
+  content.appendChild(save);
+}
+
 export function initClientOrders(injected) {
   fields = injected;
 
   const back = document.querySelector('.clientorders-back-btn');
   if (back) back.addEventListener('click', closeScreen);
+  const settingsBack = document.querySelector('.cosettings-back-btn');
+  if (settingsBack) settingsBack.addEventListener('click', closeCutoffSettings);
+  const openSettingsBtn = document.getElementById('open-clientorders-btn');
+  if (openSettingsBtn) openSettingsBtn.addEventListener('click', openCutoffSettings);
+
+  // ⚠️ A MISSING SETTINGS DOCUMENT MEANS THE DEFAULT, NOT "NO DEADLINE" — the opposite
+  // of what the CLIENT page does with an unreadable one, and both directions are
+  // deliberate. Here it only decides what a screen SAYS, so the sensible default is
+  // the useful answer; there it decides whether somebody can order at all, and a
+  // deadline nobody confirmed would refuse orders the bakery would have accepted.
+  watchClientCutoff(value => {
+    cutoff = value === null ? CUTOFF_DEFAULT : normalizeCutoff(value);
+    paintBanner();
+    if (OVERLAY() && OVERLAY().classList.contains('visible')) render();
+  }, () => { cutoff = ''; })
+    .then(fn => { unsubscribeCutoff = fn; })
+    .catch(err => console.warn('Ordering deadline not watched:', err));
 
   watchUpcomingOrders(list => {
     // Only what is still to come. The query already bounds it by date, but a page left
@@ -296,4 +388,5 @@ export function initClientOrders(injected) {
 
 export function stopClientOrders() {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  if (unsubscribeCutoff) { unsubscribeCutoff(); unsubscribeCutoff = null; }
 }

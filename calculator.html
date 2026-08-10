@@ -152,6 +152,10 @@
         <span class="settings-menu-title">Extra dough</span>
         <span class="settings-menu-sub">Show or hide the extra-dough box in each recipe</span>
       </button>
+      <button id="open-clientorders-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Client ordering</span>
+        <span class="settings-menu-sub">When orders sent from a client's own link close</span>
+      </button>
       <button id="open-divisor-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Divisor</span>
         <span class="settings-menu-sub">Choose which products the divisor box splits, per recipe</span>
@@ -191,6 +195,19 @@
   </div>
   <div class="recipe-scroll">
     <div id="divisor-content"></div>
+  </div>
+</div>
+
+<div id="cosettings-overlay">
+  <div class="recipe-overlay-header">
+    <button class="cosettings-back-btn" type="button" aria-label="Back"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <span class="recipe-overlay-title">Client ordering</span>
+    <a class="overlay-home-btn" href="index.html" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </a>
+  </div>
+  <div class="recipe-scroll">
+    <div id="cosettings-content"></div>
   </div>
 </div>
 

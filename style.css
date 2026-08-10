@@ -819,6 +819,21 @@ input.cp-prod-weight {
 }
 /* Destructive, so it is quiet: no fill, no border, small (P20). It must never look
    like it competes with creating or copying a link. */
+.co-cutoff {
+  width: 100%;
+  /* A fixed height, not a min-height: an <input type=time> on iOS sizes itself from
+     its own metrics and grows straight past a minimum — the trap that made a row of
+     "equal" fields measured on a desktop turn out uneven on the phone (v236). */
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  /* 16px or iOS Safari zooms the page on focus and throws the layout sideways. */
+  font-size: 16px;
+}
 .cp-link-revoke {
   margin-top: 8px;
   width: 100%;
@@ -1041,6 +1056,7 @@ input.cp-prod-weight {
 #logsettings-overlay,
 #products-overlay,
 #ingredients-overlay,
+#cosettings-overlay,
 #clientorders-overlay {
   position: fixed;
   inset: 0;
@@ -1055,9 +1071,10 @@ input.cp-prod-weight {
 #logsettings-overlay.visible,
 #products-overlay.visible,
 #ingredients-overlay.visible,
+#cosettings-overlay.visible,
 #clientorders-overlay.visible { display: flex; }
 #extra-content, #divisor-content, #wa-content, #logsettings-content, #products-content, #ingredients-content,
-#clientorders-content { padding: 14px 16px; }
+#clientorders-content, #cosettings-content { padding: 14px 16px; }
 
 /* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
    remove icon beside it (the top screen deletes lists & direct clients there). */

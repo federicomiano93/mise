@@ -34,11 +34,37 @@ const db = getFirestore(app);
 export const MENUS = 'client-menus';
 export const ACCOUNTS = 'client-accounts';
 export const ORDERS = 'client-orders';
+export const SETTINGS = 'client-settings';
+const SETTINGS_DOC = 'orders';
 
 const nowIso = () => new Date().toISOString();
 
 function stamped(data) {
   return { ...data, bakery: currentLocationId() };
+}
+
+// ── The deadline, shared with every client's page ────────────────────────────
+// One document, one field. It lives outside config/calculator because the client page
+// has to read it and that document is the whole address book — see the rules.
+
+// Watch it, so changing the deadline reaches the Calculator's own screens without a
+// reload. onChange receives the cutoff string ('' meaning no deadline at all).
+export async function watchClientCutoff(onChange, onError) {
+  await sessionReady;
+  return onSnapshot(
+    doc(db, pathFor(SETTINGS), SETTINGS_DOC),
+    snap => onChange(snap.exists() ? String(snap.data().cutoff ?? '') : null),
+    err => {
+      console.error('watchClientCutoff failed:', err);
+      onError?.(err);
+    },
+  );
+}
+
+export async function saveClientCutoff(cutoff) {
+  await sessionReady;
+  return setDoc(doc(db, pathFor(SETTINGS), SETTINGS_DOC),
+    stamped({ cutoff: String(cutoff ?? ''), updatedAt: nowIso() }));
 }
 
 // ── Publishing what a client may order ───────────────────────────────────────
@@ -186,6 +212,18 @@ export async function watchUpcomingOrders(onChange, onError) {
       onError?.(err);
     },
   );
+}
+
+// The upcoming orders, read ONCE. The Home badge uses this rather than a listener:
+// the Home is a landing screen somebody passes through, and a live subscription there
+// would keep a connection open for a number that is read at a glance.
+export async function getUpcomingOrdersOnce() {
+  await sessionReady;
+  const snap = await getDocs(query(
+    collection(db, pathFor(ORDERS)),
+    where('date', '>=', toISODate(Date.now())),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 export async function getOrder(date, clientId) {

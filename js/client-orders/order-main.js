@@ -12,13 +12,14 @@
 
 import {
   setLocation, signInWithToken, onUser, currentUid, readGrant, readMenu, readOrder, writeOrder,
+  readCutoff,
 } from './firebase-client-orders.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { el } from './dom.js';
 import { mountOrderForm, dayLabel } from './order-form.js';
 import {
   orderableDates, defaultOrderDate, orderDocId, buildOrder, normalizeQuantities,
-  isDateOpen, isValidOrderClientId,
+  isDateOpen, isValidOrderClientId, normalizeCutoff,
 } from '../client-order-model.js';
 
 const HOST = document.getElementById('order-root');
@@ -28,14 +29,22 @@ const HOST = document.getElementById('order-root');
 // who it is in plain words instead, and the client's own name comes from their grant.
 const BAKERY_NAME = 'The Italian Club';
 
-// ⚠️ THE CUTOFF THE PAGE APPLIES. It is not yet a setting: PR 3 puts it in Settings
-// beside the other Calculator options. Until then it is one value, in one place, and
-// the sentence under the day picker is generated FROM it — so the two can never say
-// different things, which is the only way this stays honest.
-const CUTOFF = '16:00';
+// ⚠️ WHEN ORDERS CLOSE IS THE BAKERY'S SETTING, READ FROM THE DATABASE, and the
+// sentence under the day picker is generated FROM the same value. A fixed sentence
+// would start lying the moment the deadline changed — and that sentence is the only
+// thing that turns a day quietly missing from the picker into a rule somebody can
+// work with.
+//
+// ⚠️ UNREADABLE MEANS NO DEADLINE, NOT THE DEFAULT ONE. If this page cannot reach the
+// setting, imposing a deadline nobody confirmed would refuse orders the bakery would
+// have accepted, and the only symptom would be a customer unable to order with
+// nothing on screen explaining why. An open door is recoverable; a closed one that
+// nobody chose is invisible.
+let cutoff = '';
 
-const cutoffNote = () =>
-  `Orders for a day close at ${CUTOFF} the day before. You can change your order until then.`;
+const cutoffNote = () => (cutoff
+  ? `Orders for a day close at ${cutoff} the day before. You can change your order until then.`
+  : 'You can change your order until the bakery starts making it.');
 
 function show(node) {
   HOST.textContent = '';
@@ -171,18 +180,27 @@ async function openFor(uid) {
     return;
   }
 
+  // Read BEFORE the days are worked out: the deadline decides which of them are open.
+  try {
+    const settings = await readCutoff();
+    cutoff = normalizeCutoff(settings && settings.cutoff);
+  } catch (err) {
+    console.warn('Could not read the ordering deadline:', err);
+    cutoff = '';
+  }
+
   const products = (menu && Array.isArray(menu.products) ? menu.products : [])
     .filter(p => p && p.id && p.name);
   const clientName = String((menu && menu.clientName) || grant.clientName || 'Your order');
 
-  const dates = orderableDates(Date.now(), CUTOFF);
+  const dates = orderableDates(Date.now(), cutoff);
   if (!dates.length) {
     message('Ordering is closed for now',
-      `Orders for a day close at ${CUTOFF} the day before. Please try again later.`);
+      `Orders for a day close at ${cutoff} the day before. Please try again later.`);
     return;
   }
 
-  await openDay(grant, clientName, products, dates, defaultOrderDate(Date.now(), CUTOFF));
+  await openDay(grant, clientName, products, dates, defaultOrderDate(Date.now(), cutoff));
 }
 
 async function openDay(grant, clientName, products, dates, date) {
@@ -243,7 +261,7 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
   // phone left open on this screen all afternoon would otherwise send an order for a
   // day whose door shut two hours ago, and the refusal would arrive as a database
   // error nobody can act on.
-  if (!isDateOpen(date, Date.now(), CUTOFF)) {
+  if (!isDateOpen(date, Date.now(), cutoff)) {
     await alertDialog(
       `Orders for ${dayLabel(date, Date.now())} have closed. Please choose another day.`);
     openFor(currentUid());
@@ -319,7 +337,7 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
     el('p', { class: 'co-message-body' },
       lines === 0
         ? 'You have told the bakery you need nothing that day.'
-        : `${lines} ${lines === 1 ? 'item' : 'items'}. You can change it until ${CUTOFF} the day before.`),
+        : `${lines} ${lines === 1 ? 'item' : 'items'}. ${cutoff ? `You can change it until ${cutoff} the day before.` : 'You can still change it.'}`),
     (() => {
       const again = el('button', { class: 'co-send', type: 'button' }, 'Change this order');
       again.addEventListener('click', () => openFor(currentUid()));

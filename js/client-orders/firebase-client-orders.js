@@ -106,6 +106,14 @@ export function readOrder(orderId) {
   return readDoc('client-orders', orderId);
 }
 
+// When orders for a day close. Readable by every ordering account of this bakery —
+// it is one clock time, the same for all of them, and it is printed on their screens
+// anyway. It is NOT a field of config/calculator, because that document is the whole
+// address book and there is no way to share one field of it without sharing all of it.
+export function readCutoff() {
+  return readDoc('client-settings', 'orders');
+}
+
 // ⚠️ WRITTEN WHOLE, NEVER MERGED. A merge deep-merges maps, so a line the client
 // removed from the order would survive in Firestore and the bakery would make
 // something nobody asked for. Writing whole is also why the order has to carry the
