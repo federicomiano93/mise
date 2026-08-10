@@ -14,6 +14,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_CONFIG,
+  getOrderPrefillWindow,
+  ORDER_PREFILL_WINDOWS,
+  ORDER_PREFILL_LABELS,
   pairId,
   computeTarget,
   clampWeight,
@@ -426,11 +429,11 @@ test('migration: a product ordered by TWO clients keeps ONE id in both copies', 
   const raw = {
     products: [{ id: 'shared', name: 'Loaves of bread', recipeId: 'sourdough', weight: 905 }],
     clients: [
-      { id: 'cA', name: 'BAKERY', items: [{ productId: 'shared', kind: 'number' }] },
-      { id: 'cB', name: 'THE ITALIAN CLUB', items: [{ productId: 'shared', kind: 'number' }] },
+      { id: 'cA', name: 'CLIENT A', items: [{ productId: 'shared', kind: 'number' }] },
+      { id: 'cB', name: 'CLIENT B', items: [{ productId: 'shared', kind: 'number' }] },
     ],
     divisorIncluded: { sourdough: ['shared'] },
-    whatsappLists: [{ id: 'wl', title: 'Duke Street', clients: [{ clientId: 'cB', products: ['shared'] }] }],
+    whatsappLists: [{ id: 'wl', title: 'Morning list', clients: [{ clientId: 'cB', products: ['shared'] }] }],
   };
   const norm = normalizeConfig(raw);
   assert.deepEqual(getClientById(norm, 'cA').products.map(p => p.id), ['shared']);
@@ -715,4 +718,40 @@ test('a paused product still blocks deleting the recipe it belongs to', () => {
   // or deleting its recipe would leave it homeless.
   const config = normalizeConfig(paused({ active: false }));
   assert.equal(getProducts(config).filter(p => p.recipeId === 'focaccia').length, 2);
+});
+
+// ── Which days the WhatsApp order form fills itself from ──────────────────────
+// Stored in the shared config, so every phone in the bakery agrees. The default and
+// the fallback both widen rather than narrow: a missing or corrupt value must never
+// quietly hide a day's work from an order somebody is about to send.
+
+test('the setting defaults to both days', () => {
+  assert.equal(DEFAULT_CONFIG.orderPrefillWindow, 'both');
+  assert.equal(getOrderPrefillWindow(normalizeConfig({ clients: [] })), 'both');
+});
+
+test('each of the three choices survives normalisation', () => {
+  for (const w of ORDER_PREFILL_WINDOWS) {
+    assert.equal(normalizeConfig({ clients: [], orderPrefillWindow: w }).orderPrefillWindow, w, w);
+  }
+});
+
+test('a value nobody recognises falls back to both, never to nothing', () => {
+  for (const bad of [undefined, null, '', 'ieri', 'BOTH', 42, {}, []]) {
+    assert.equal(normalizeConfig({ clients: [], orderPrefillWindow: bad }).orderPrefillWindow,
+      'both', String(bad));
+  }
+});
+
+test('the reader tolerates a missing config entirely', () => {
+  assert.equal(getOrderPrefillWindow(null), 'both');
+  assert.equal(getOrderPrefillWindow(undefined), 'both');
+  assert.equal(getOrderPrefillWindow({}), 'both');
+});
+
+test('every choice has wording, or the settings screen shows a blank option', () => {
+  for (const w of ORDER_PREFILL_WINDOWS) {
+    assert.equal(typeof ORDER_PREFILL_LABELS[w], 'string');
+    assert.ok(ORDER_PREFILL_LABELS[w].length > 0, w);
+  }
 });

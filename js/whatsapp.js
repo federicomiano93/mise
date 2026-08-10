@@ -13,10 +13,10 @@
 // colliding with the calculator's own quantity fields living in the same document.
 
 import { getConfig } from './calculator-config-store.js';
-import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient } from './calculator-config.js';
+import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient, getOrderPrefillWindow } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
-import { alertDialog } from './confirm-dialog.js';
+import { alertDialog, confirmDialog } from './confirm-dialog.js';
 import { getLogs } from './log-store.js';
 import { latestVersion } from './log-model.js';
 import { prefillFromLogs, prefillNote } from './calculator-order-prefill.js';
@@ -29,6 +29,29 @@ let selectedTitle = '';
 // Build the per-row input id for a product under a given client entry.
 function inputId(entryIndex, productId) {
   return 'wa-' + entryIndex + '-' + productId;
+}
+
+// Set every quantity in the order back to 0, after confirming (P20 — resetting is
+// confirmed, and this can throw away a whole order somebody has just typed).
+//
+// ⚠️ IT WALKS selectedEntries AND ADDRESSES EACH INPUT BY ITS OWN ID, rather than
+// sweeping a class. The calculator's own quantity fields live in the SAME document
+// as this modal — that collision is why these inputs are namespaced in the first
+// place (see the header) — and a broad selector would be one rename away from
+// clearing the dough tabs behind the modal instead.
+async function clearAllQuantities() {
+  if (!(await confirmDialog({
+    message: 'Set every quantity in this order back to 0?',
+    okLabel: 'Clear all',
+    danger: true,
+  }))) return;
+
+  selectedEntries.forEach((entry, ei) => {
+    (entry.products || []).forEach(p => {
+      const input = document.getElementById(inputId(ei, p.id));
+      if (input) input.value = '0';
+    });
+  });
 }
 
 // Entry point from the header WhatsApp button.
@@ -123,8 +146,20 @@ function renderOrderModal() {
   // Fill in what has already been calculated and logged, rather than making the same
   // numbers be typed twice. ⚠️ The note below is what makes this acceptable at all:
   // the numbers must never appear as if from nowhere (see calculator-order-prefill.js).
-  const prefilled = prefillFromLogs(selectedEntries, getLogs(), latestVersion);
-  body.appendChild(el('p', { class: 'order-prefill-note' }, prefillNote(Object.keys(prefilled).length)));
+  const prefillWindow = getOrderPrefillWindow(getConfig());
+  const prefilled = prefillFromLogs(selectedEntries, getLogs(), latestVersion,
+    { nowMs: Date.now(), window: prefillWindow });
+
+  // The note and the way to undo it, side by side: "Clear all" empties exactly the
+  // quantities the note has just explained. It stays OUT of the footer so Cancel and
+  // Send remain a plain two-way choice — a third button beside Send is one mis-tap
+  // away from wiping a finished order.
+  const clearBtn = el('button', { type: 'button', class: 'order-clear-btn' }, 'Clear all');
+  clearBtn.addEventListener('click', clearAllQuantities);
+  body.appendChild(el('div', { class: 'order-prefill-bar' }, [
+    el('p', { class: 'order-prefill-note' }, prefillNote(Object.keys(prefilled).length, prefillWindow)),
+    clearBtn,
+  ]));
 
   selectedEntries.forEach((entry, ei) => {
     const rows = entry.products.map(p => {
