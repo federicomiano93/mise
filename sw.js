@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v258';
+const CACHE_NAME = 'theitalianclub-v259';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -17,6 +17,11 @@ const ASSETS = [
   './auth.css',
   './style.css',
   './orders.css',
+  // The guided-mixing alarm. ⚠️ It has to be HERE, not merely on the server: the
+  // one moment it is needed is a phone on a bench in a bakery, and a kitchen is
+  // exactly where the signal is worst. A sound that only rings online is a sound
+  // that fails on the days it matters.
+  './sounds/alarm.wav',
   './fonts/manrope-latin.woff2',
   './fonts/manrope-latin-ext.woff2',
   './fonts/dm-mono-400-latin.woff2',
@@ -122,6 +127,10 @@ const ASSETS = [
   './js/catalogue/catalogue-list.js',
   './js/catalogue/catalogue-detail.js',
   './js/catalogue/catalogue-editor.js',
+  './js/catalogue/guided-model.js',
+  './js/catalogue/guided-alarm.js',
+  './js/catalogue/guided-run.js',
+  './js/catalogue/guided-editor.js',
   './js/catalogue/import-to-calculator.js',
   './pastries.html',
   './pastries.css',

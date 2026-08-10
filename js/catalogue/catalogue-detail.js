@@ -15,6 +15,7 @@ import {
 } from './catalogue-store.js';
 import { costRecipe, partialCostText } from './recipe-cost-model.js';
 import { formatRate } from '../price-model.js';
+import { hasProcedure, normalizeSteps, unassignedRows, progressText, formatDuration } from './guided-model.js';
 
 const IMPORT_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
@@ -78,6 +79,64 @@ function costPanel(recipe) {
   const note = partialCostText(result);
   if (note) panel.appendChild(el('p', { class: 'cat-cost-partial', text: note }));
 
+  return panel;
+}
+
+// ── Guided mixing ─────────────────────────────────────────────────────────────
+//
+// The procedure, offered where the batch weight has just been chosen: the amounts
+// the run reads are the ones this screen is showing, so the two sit together.
+//
+// ⚠️ THE RESUME OFFER IS PART OF THIS PANEL, not only the dialog on opening the
+// catalogue. Somebody who dismissed that dialog, or who reopened the app hours
+// later, still has a dough on the go — and the only other way back in would be to
+// start again from step one.
+function guidedPanel(recipe, app, getTarget) {
+  const panel = el('div', { class: 'cat-guided-panel' });
+  const steps = normalizeSteps(recipe.steps);
+  const session = app.guidedSessionFor(recipe.id);
+
+  if (!steps.length) {
+    // Quiet, and honest about what it is for: hundreds of recipes will never have
+    // one, and this must not read as something missing from each of them.
+    panel.appendChild(el('button', {
+      class: 'cat-guided-write', type: 'button',
+      onclick: () => app.openGuidedEditor(recipe),
+    }, ['Write the mixing steps']));
+    panel.appendChild(el('p', { class: 'cat-guided-hint', text:
+      'A step at a time, with the amounts from this recipe, a timer and the mixer speed.' }));
+    return panel;
+  }
+
+  if (session) {
+    panel.appendChild(el('button', {
+      class: 'cat-guided-go cat-guided-go--resume', type: 'button',
+      onclick: () => app.resumeGuided(recipe),
+    }, [`Resume the guided mix — ${progressText(session.stepIndex, normalizeSteps(session.snapshot.steps).length).toLowerCase()}`]));
+  }
+
+  panel.appendChild(el('button', {
+    class: 'cat-guided-go', type: 'button',
+    onclick: () => app.startGuided(recipe, getTarget()),
+  }, [session ? 'Start again from the beginning' : 'Guided mixing']));
+
+  const timed = steps.reduce((sum, s) => sum + s.seconds, 0);
+  panel.appendChild(el('p', { class: 'cat-guided-hint', text:
+    `${steps.length} step${steps.length === 1 ? '' : 's'}${timed ? ` · ${formatDuration(timed)} of timers` : ''}` }));
+
+  // ⚠️ THE WARNING TRAVELS WITH THE PROCEDURE. It is shown while writing the steps
+  // and again at the end of a run, but somebody about to start deserves it too:
+  // this is the moment they decide to trust it.
+  const missed = unassignedRows(recipe);
+  if (missed.length) {
+    panel.appendChild(el('p', { class: 'cat-guided-warn', text:
+      `Not in any step: ${missed.map(r => r.label).join(', ')}` }));
+  }
+
+  panel.appendChild(el('button', {
+    class: 'cat-guided-edit', type: 'button', text: 'Edit the steps',
+    onclick: () => app.openGuidedEditor(recipe),
+  }));
   return panel;
 }
 
@@ -234,11 +293,18 @@ export function renderDetail({ recipe, app }) {
   // view: rebuilding the view would throw away a scaled batch the user is reading.
   const costHost = el('div', { class: 'cat-cost-host' }, [costPanel(recipe)]);
 
+  // The batch weight is read at the moment Start is tapped, not captured here:
+  // choosing a weight and then starting the mix is one gesture, and a panel built
+  // before the weight was typed would carry the old one into the dough.
+  const guidedHost = el('div', { class: 'cat-guided-host' },
+    [guidedPanel(recipe, app, () => displayTarget)]);
+
   const root = el('div', { class: 'cat-view' }, [
     el('div', { class: 'cat-detail-top' }, [
       ingList,
       costHost,
       weightPanel,
+      guidedHost,
     ]),
     el('div', { class: 'cat-detail-bottom' }, [
       importBtn,

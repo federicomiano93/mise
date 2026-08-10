@@ -14,6 +14,7 @@
 import {
   normalizeCatalogueRecipe, normalizeCatalogueRecipes, isScaledEntryFresh, normalizeLossPct,
 } from './catalogue-model.js';
+import { withRowIds, normalizeSteps } from './guided-model.js';
 import {
   watchRecipes,
   watchIngredients,
@@ -207,10 +208,22 @@ export function saveRecipe(recipe) {
   // The cost of that is this list has to be kept up to date: lossPct was added
   // here in the same commit that added it to the model, because a field the model
   // carries and this line does not is dropped on every save, silently.
+  // ⚠️ SAVE IS THE ONE PLACE ROW IDS ARE MINTED. Any row that has never had one
+  // gets one now, so a guided mixing step written today still points at the right
+  // ingredient in a year — through a rename, and through rows being inserted
+  // above it. Minting on READ instead would produce a different id every load and
+  // match nothing; minting only in the steps editor would leave a recipe edited
+  // anywhere else with rows no step can ever name.
+  const ingredients = withRowIds(recipe.ingredients);
   const data = {
     name: recipe.name,
-    ingredients: recipe.ingredients,
+    ingredients,
     lossPct: normalizeLossPct(recipe.lossPct),
+    // The mixing procedure. Written even when EMPTY, deliberately: setDoc runs
+    // with merge:true, which never deletes a field it is not sent, so omitting it
+    // would leave the old steps in the document and the screen would go on
+    // showing a procedure the owner had just deleted.
+    steps: normalizeSteps(recipe.steps),
   };
   const id = recipe.id || newRecipeId();
   const prev = recipes.find(r => r.id === id) || null;

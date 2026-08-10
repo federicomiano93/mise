@@ -585,6 +585,35 @@ async function neighbours() {
     wholeWrite('locations/main/recipes/r1',
       { bakery: 'main', name: 'Focaccia', ingredients: [], costPerKg: 3.2 }));
 
+  // ── The guided mixing procedure ──
+  // A step's own fields are NOT checked and cannot be (rules cannot look inside a
+  // list) — js/catalogue/guided-model.js owns that. Only the list itself is.
+  await expectAllowed('a recipe may carry its mixing steps', () =>
+    wholeWrite('locations/main/recipes/r1', {
+      bakery: 'main', name: 'Croissant', ingredients: [],
+      steps: [
+        { id: 's1', text: 'Add the flour and the water', rows: ['a'], seconds: 0, speed: '' },
+        { id: 's2', text: 'Mix', rows: [], seconds: 240, speed: '1' },
+      ],
+    }));
+  await expectAllowed('…and a procedure that has been emptied again', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Croissant', ingredients: [], steps: [] }));
+  // ⚠️ THE REGRESSION THAT MATTERS: hundreds of recipes carry no steps at all, and
+  // a phone still on the previous version never sends the field. Both must save.
+  await expectAllowed('a recipe with no procedure at all still saves', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Croissant', ingredients: [] }));
+
+  await expectDenied('a runaway number of mixing steps', () =>
+    wholeWrite('locations/main/recipes/r1', {
+      bakery: 'main', name: 'Croissant', ingredients: [],
+      steps: Array.from({ length: 101 }, (_, i) => ({ id: 's' + i, text: 'x' })),
+    }));
+  await expectDenied('a procedure sent as anything but a list', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Croissant', ingredients: [], steps: { s1: 'Mix' } }));
+
   await expectDenied('config still refuses a delete', () => deleteWrite('locations/main/config/calculator'));
 }
 

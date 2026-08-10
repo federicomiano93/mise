@@ -834,11 +834,12 @@ service cloud.firestore {
       // from the 1MB ceiling. Same limitation, same division of labour, as the
       // pastries block below.
       //
-      // `lossPct` is the weight a recipe loses on the way to being finished. It is
-      // OPTIONAL, in both directions on purpose: rules reach every phone the
-      // instant they deploy while code arrives per device, so required would refuse
-      // every save from a phone still on the previous version, and absent from the
-      // whitelist would refuse every save from an updated one. Same precedent as
+      // `lossPct` is the weight a recipe loses on the way to being finished, and
+      // `steps` is its guided mixing procedure. Both are OPTIONAL, in both
+      // directions on purpose: rules reach every phone the instant they deploy
+      // while code arrives per device, so required would refuse every save from a
+      // phone still on the previous version, and absent from the whitelist would
+      // refuse every save from an updated one. Same precedent as
       // orders-history.names and pastries.note.
       match /recipes/{id} {
         // Read by the catalogue that owns them AND by Food Cost, which costs a
@@ -846,7 +847,7 @@ service cloud.firestore {
         allow read: if member(lid)
           && (sectionOn(lid, 'catalogue') || sectionOn(lid, 'foodcost'));
         allow create, update: if canUse(lid, 'catalogue')
-          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients', 'lossPct'])
+          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients', 'lossPct', 'steps'])
           && stampedFor(lid)
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
@@ -859,7 +860,17 @@ service cloud.firestore {
           && (!('lossPct' in request.resource.data)
               || (request.resource.data.lossPct is number
                   && request.resource.data.lossPct >= 0
-                  && request.resource.data.lossPct <= 99));
+                  && request.resource.data.lossPct <= 99))
+          // The guided mixing procedure: an ordered list of steps, each naming the
+          // rows to add, how long to run, and at what speed. ⚠️ A STEP'S CONTENTS
+          // ARE NOT VALIDATED HERE AND CANNOT BE — same list limitation as the
+          // ingredient rows above, so the shape is guaranteed by
+          // js/catalogue/guided-model.js. What this holds is the SIZE, which is
+          // what keeps the document away from the 1MB ceiling; a real procedure is
+          // ten steps, so 100 is generous and still bounded.
+          && (!('steps' in request.resource.data)
+              || (request.resource.data.steps is list
+                  && request.resource.data.steps.size() <= 100));
         allow delete: if canUse(lid, 'catalogue');
       }
 
