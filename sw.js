@@ -124,6 +124,7 @@ const ASSETS = [
   './js/catalogue/catalogue-model.js',
   './js/catalogue/recipe-cost-model.js',
   './js/catalogue/recipe-allergen-model.js',
+  './js/catalogue/allergen-sheet.js',
   './js/catalogue/ingredient-picker.js',
   './js/catalogue/firebase-catalogue.js',
   './js/catalogue/catalogue-store.js',

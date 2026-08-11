@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recipeAllergens, canLabel, incompleteText, ALLERGEN_REASON_TEXT,
+  blockingIngredients,
 } from '../js/catalogue/recipe-allergen-model.js';
 import { MAX_RECIPE_DEPTH } from '../js/catalogue/recipe-cost-model.js';
 
@@ -198,4 +199,81 @@ test('junk never throws', () => {
   assert.equal(canLabel(null), false);
   assert.equal(canLabel(undefined), false);
   assert.equal(canLabel({ complete: 'yes' }), false, 'only a real boolean counts');
+});
+
+// ── Where to start ───────────────────────────────────────────────────────────
+//
+// ⚠️ THE ANSWER TO "DO I REALLY HAVE TO FILL IN 65 INGREDIENTS?" A handful appear
+// in almost everything; handed a flat list somebody starts at A and gives up at F
+// having unblocked nothing.
+
+test('the busiest undeclared ingredient comes first', () => {
+  const ings = ingredients();
+  ings.YEAST = { id: 'YEAST', name: 'Yeast' };        // undeclared, in three recipes
+  ings.SEEDS = { id: 'SEEDS', name: 'Seeds' };        // undeclared, in one
+  const recipes = [
+    recipe('A', [row('Flour', 'FLOUR'), row('Yeast', 'YEAST')]),
+    recipe('B', [row('Flour', 'FLOUR'), row('Yeast', 'YEAST')]),
+    recipe('C', [row('Yeast', 'YEAST'), row('Seeds', 'SEEDS')]),
+  ];
+  const out = blockingIngredients(recipes, { ingredients: ings });
+  assert.deepEqual(out.map(x => [x.name, x.blocks]), [['Yeast', 3], ['Seeds', 1]]);
+});
+
+test('a declared ingredient is not on the work list at all', () => {
+  const out = blockingIngredients([recipe('A', [row('Flour', 'FLOUR')])], { ingredients: ingredients() });
+  assert.deepEqual(out, []);
+});
+
+test('an ingredient blocking one recipe TWICE is counted once', () => {
+  // Two rows of the same undeclared thing is still one job.
+  const ings = ingredients();
+  ings.YEAST = { id: 'YEAST', name: 'Yeast' };
+  const out = blockingIngredients([recipe('A', [row('Yeast', 'YEAST'), row('More yeast', 'YEAST')])],
+    { ingredients: ings });
+  assert.deepEqual(out.map(x => x.blocks), [1]);
+});
+
+test('it reaches through a sub-recipe', () => {
+  const ings = ingredients();
+  ings.YEAST = { id: 'YEAST', name: 'Yeast' };
+  const sub = recipe('SUB', [row('Yeast', 'YEAST')]);
+  const out = blockingIngredients([recipe('A', [row('Filling', 'SUB', 100, 'recipe')])],
+    { ingredients: ings, recipes: { SUB: sub } });
+  assert.deepEqual(out.map(x => [x.name, x.blocks]), [['Yeast', 1]]);
+});
+
+test('A DELETED INGREDIENT IS NOT PUT ON THE WORK LIST', () => {
+  // It cannot be declared — it does not exist — so it would sit at the top for
+  // ever. The recipe's own gaps still report it, which is where it can be acted on.
+  const out = blockingIngredients([recipe('A', [row('Gone', 'DELETED')])], { ingredients: ingredients() });
+  assert.deepEqual(out, []);
+});
+
+test('an unlinked row is not on this list either — it is a different job', () => {
+  // "Link it" and "declare it" are two different actions; this list is the second.
+  const out = blockingIngredients([recipe('A', [{ label: 'Something', grams: 10, unit: 'g' }])],
+    { ingredients: ingredients() });
+  assert.deepEqual(out, []);
+});
+
+test('a cycle does not hang the work list', () => {
+  const self = recipe('A', [row('Itself', 'A', 100, 'recipe')]);
+  assert.deepEqual(blockingIngredients([self], { ingredients: ingredients(), recipes: { A: self } }), []);
+});
+
+test('the order is stable between two runs', () => {
+  const ings = ingredients();
+  ings.AAA = { id: 'AAA', name: 'Aaa' };
+  ings.BBB = { id: 'BBB', name: 'Bbb' };
+  const recipes = [recipe('A', [row('a', 'AAA'), row('b', 'BBB')])];
+  const first = blockingIngredients(recipes, { ingredients: ings }).map(x => x.name);
+  const second = blockingIngredients(recipes, { ingredients: ings }).map(x => x.name);
+  assert.deepEqual(first, second);
+  assert.deepEqual(first, ['Aaa', 'Bbb'], 'ties break by name, not by insertion order');
+});
+
+test('junk never throws', () => {
+  assert.deepEqual(blockingIngredients(null, {}), []);
+  assert.deepEqual(blockingIngredients([null, {}], {}), []);
 });

@@ -9,7 +9,7 @@ import { sortByUsage, filterByName } from './catalogue-model.js';
 const SEARCH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 
-export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange, onOpen }) {
+export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange, onOpen, onAllergenSheet }) {
   let query = initialQuery;
   let currentRecipes = recipes;
   let currentUsage = usageMap;
@@ -63,7 +63,13 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
 
   paint();
   const listPanel = el('div', { class: 'cat-list-panel' }, [listContainer]);
-  const root = el('div', { class: 'cat-view' }, [search, listPanel]);
+  // The way in to the allergen sheet. Below the search rather than in the header:
+  // the header's two side slots are 84px each and already full, and a fifth button
+  // there is exactly the change that has cost this project a release before.
+  const sheetBtn = el('button', {
+    class: 'cat-alg-sheet-btn', type: 'button', onclick: () => onAllergenSheet(),
+  }, ['Allergen sheet', el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]);
+  const root = el('div', { class: 'cat-view' }, [search, sheetBtn, listPanel]);
 
   return {
     root,

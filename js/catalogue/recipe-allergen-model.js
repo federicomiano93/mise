@@ -170,3 +170,69 @@ export function incompleteText(result) {
 export function canLabel(result) {
   return !!result && result.complete === true;
 }
+
+// ── Where to start ───────────────────────────────────────────────────────────
+//
+// ⚠️ THE ANSWER TO "DO I REALLY HAVE TO FILL IN 65 INGREDIENTS?" — and it is
+// usually no. A handful of ingredients appear in almost everything, so declaring
+// six of them can unblock twenty recipes while the other fifty-nine matter to one
+// recipe each. Handed a flat list, somebody starts at A and gives up at F having
+// unblocked nothing; handed this, the first afternoon's work is the whole point.
+//
+// Counts each UNDECLARED ingredient once per recipe that is waiting on it,
+// including through sub-recipes, and returns the busiest first.
+export function blockingIngredients(recipes, tables = {}) {
+  const list = Array.isArray(recipes) ? recipes : [];
+  const counts = new Map();   // id -> { id, name, recipes: Set }
+
+  for (const recipe of list) {
+    if (!recipe || !recipe.id) continue;
+    for (const id of undeclaredIdsIn(recipe, tables, 1, new Set())) {
+      if (!counts.has(id)) {
+        const ingredient = lookup(tables.ingredients, id);
+        counts.set(id, { id, name: (ingredient && ingredient.name) || 'Unknown ingredient', recipes: new Set() });
+      }
+      counts.get(id).recipes.add(recipe.id);
+    }
+  }
+
+  return [...counts.values()]
+    .map(entry => ({ id: entry.id, name: entry.name, blocks: entry.recipes.size }))
+    // Busiest first; ties by name so the order is stable between two openings of
+    // the screen rather than shuffling with Map insertion order.
+    .sort((a, b) => b.blocks - a.blocks || a.name.localeCompare(b.name));
+}
+
+// Which linked-but-undeclared ingredient ids this recipe waits on. Rows that are
+// not linked at all have no id to report — they are counted by the recipe's own
+// `gaps`, and are a different job (link it) from this one (declare it).
+function undeclaredIdsIn(recipe, tables, depth, branch) {
+  const rows = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
+  const here = recipe && recipe.id ? new Set([...branch, String(recipe.id)]) : branch;
+  const out = new Set();
+
+  for (const row of rows) {
+    const link = linkOf(row);
+    if (!link) continue;
+
+    if (link.kind === 'recipe') {
+      // The same guards as the walk above, for the same reasons — a cycle or a
+      // runaway nesting must end here rather than hang the screen this feeds.
+      if (here.has(link.refId) || depth >= MAX_RECIPE_DEPTH) continue;
+      const sub = lookup(tables.recipes, link.refId);
+      if (!sub) continue;
+      undeclaredIdsIn(sub, tables, depth + 1, new Set([...here, link.refId]))
+        .forEach(id => out.add(id));
+      continue;
+    }
+
+    const ingredient = lookup(tables.ingredients, link.refId);
+    // ⚠️ A DELETED INGREDIENT IS NOT A JOB FOR THIS LIST. It cannot be declared —
+    // it does not exist — so it would sit at the top of the work list for ever.
+    // The recipe's own gaps still report it, which is where it can be acted on.
+    if (!ingredient) continue;
+    if (!isDeclared(ingredient)) out.add(link.refId);
+  }
+
+  return out;
+}
