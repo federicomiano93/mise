@@ -15,6 +15,7 @@ import {
   isValidRole,
   roleOf,
   isOwner,
+  canManage,
   roleLabel,
 } from '../js/roles.js';
 import { locationsOf, accessValue } from '../js/sections.js';
@@ -64,10 +65,11 @@ test('a corrupt locations field resolves to no access rather than throwing', () 
 // ── A value nobody recognises is never access, and never MORE power ──────────
 
 test('a value from a future version of the app grants nothing at all', () => {
-  const doc = { locations: { bakery: 'manager' } };
+  const doc = { locations: { bakery: 'head-chef' } };
   assert.deepEqual(locationsOf(doc), [], 'not even membership');
   assert.equal(roleOf(doc, 'bakery'), 'staff');
   assert.equal(isOwner(doc, 'bakery'), false);
+  assert.equal(canManage(doc, 'bakery'), false);
 });
 
 test('the value is case sensitive: Owner is not owner', () => {
@@ -120,20 +122,72 @@ test('a location that is not yours at all', () => {
 
 // ── The small pieces ─────────────────────────────────────────────────────────
 
-test('there are two roles and no more', () => {
-  assert.deepEqual([...ROLES], ['owner', 'staff']);
+test('there are three roles and no more', () => {
+  assert.deepEqual([...ROLES], ['owner', 'manager', 'staff']);
 });
 
-test('isValidRole refuses everything that is not one of the two', () => {
+test('isValidRole refuses everything that is not one of the three', () => {
   assert.equal(isValidRole('owner'), true);
+  assert.equal(isValidRole('manager'), true);
   assert.equal(isValidRole('staff'), true);
-  for (const bad of ['manager', 'Owner', '', ' staff', null, undefined, 1, {}, true]) {
+  for (const bad of ['head-chef', 'Owner', 'Manager', '', ' staff', null, undefined, 1, {}, true]) {
     assert.equal(isValidRole(bad), false, String(bad));
   }
 });
 
 test('the label is a word a baker would use', () => {
   assert.equal(roleLabel('owner'), 'Owner');
-  assert.equal(roleLabel('staff'), 'Staff');
-  assert.equal(roleLabel('anything else'), 'Staff', 'an unknown role is never labelled Owner');
+  assert.equal(roleLabel('manager'), 'Manager');
+  assert.equal(roleLabel('staff'), 'Employee');
+  assert.equal(roleLabel('anything else'), 'Employee', 'an unknown role is never labelled Owner');
+});
+
+// ── The manager: runs the location, hires nobody ─────────────────────────────
+
+// ⚠️ THE DEFECT THIS CATCHES HAS ALREADY HAPPENED ONCE, with 'owner'.
+// locationsOf() filtered on `=== true`, so the very accounts holding the new
+// value could not enter the app AT ALL — the app opened on "no location yet"
+// while the database said they were members. Any new access value must be added
+// in BOTH places, and this is what says so.
+test('a manager is a member, and can actually enter', () => {
+  const doc = { locations: { bakery: 'manager' } };
+  assert.deepEqual(locationsOf(doc), ['bakery']);
+  assert.equal(accessValue(doc, 'bakery'), 'manager');
+  assert.equal(roleOf(doc, 'bakery'), 'manager');
+});
+
+// ⚠️ The two upper roles differ in EXACTLY ONE thing, and it is not deleting.
+test('a manager deletes like an owner, but hires like nobody', () => {
+  const manager = { locations: { bakery: 'manager' } };
+  assert.equal(canManage(manager, 'bakery'), true, 'runs the place');
+  assert.equal(isOwner(manager, 'bakery'), false, 'invites nobody');
+});
+
+test('an ordinary employee runs nothing and hires nobody', () => {
+  const employee = { locations: { bakery: true } };
+  assert.equal(roleOf(employee, 'bakery'), 'staff');
+  assert.equal(canManage(employee, 'bakery'), false);
+  assert.equal(isOwner(employee, 'bakery'), false);
+});
+
+test('an owner can do both', () => {
+  const owner = { locations: { bakery: 'owner' } };
+  assert.equal(canManage(owner, 'bakery'), true);
+  assert.equal(isOwner(owner, 'bakery'), true);
+});
+
+// The same case sensitivity the value has always had, now for the new word.
+test('Manager is not manager, and a stray space is not manager either', () => {
+  for (const bad of ['Manager', 'MANAGER', ' manager', 'manager ']) {
+    const doc = { locations: { bakery: bad } };
+    assert.deepEqual(locationsOf(doc), [], bad);
+    assert.equal(canManage(doc, 'bakery'), false, bad);
+  }
+});
+
+test('one person can be a manager in one location and an employee in another', () => {
+  const doc = { locations: { bakery: 'manager', restaurant: true } };
+  assert.deepEqual(locationsOf(doc), ['bakery', 'restaurant']);
+  assert.equal(canManage(doc, 'bakery'), true);
+  assert.equal(canManage(doc, 'restaurant'), false);
 });

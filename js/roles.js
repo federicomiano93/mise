@@ -22,13 +22,19 @@
 // role can no longer disagree with a membership — the earlier shape allowed
 // `roles: { someone-elses-place: 'owner' }` and had to defend against it.
 
-import { accessValue, OWNER } from './sections.js';
+import { accessValue, OWNER, MANAGER } from './sections.js';
 
-// The two roles, and deliberately only two. A third one ("manager", "read only")
-// is easy to add here and expensive to add everywhere else — every rule, every
-// hidden button, every test doubles. Two roles answer the question that actually
-// gets asked: is this the person whose business it is, or someone who works here.
-export const ROLES = Object.freeze([OWNER, 'staff']);
+// THREE roles, and the third one earns its place. Federico's own words for them
+// (11 Aug 2026): the proprietario, the head chef or manager, and the ordinary
+// employee. That is a real distinction in a kitchen, not a technical one — it
+// separates the person who HIRES from the people who WORK — which is why it will
+// still make sense when the software has changed.
+//
+// ⚠️ THREE IS ALSO THE CEILING. The reason is not effort, it is that a
+// permission system nobody can hold in their head fails the same way every
+// time: it becomes so tiring to work out who may do what that everybody is made
+// an owner to get the app working, and then there are no roles at all.
+export const ROLES = Object.freeze([OWNER, MANAGER, 'staff']);
 
 // ⚠️ THE DEFAULT IS THE WHOLE DESIGN, AND IT POINTS AT `staff`.
 //
@@ -49,25 +55,48 @@ export function isValidRole(value) {
 }
 
 // The role this account holds in one location. Anything that is not exactly
-// 'owner' — a plain `true`, a missing entry, a corrupt one, a role from a future
-// version of the app, a value with a stray space — is staff. A value nobody here
-// understands must never be read as more power than the least.
+// 'owner' or 'manager' — a plain `true`, a missing entry, a corrupt one, a role
+// from a future version of the app, a value with a stray space — is an ordinary
+// employee. A value nobody here understands must never be read as more power
+// than the least.
 export function roleOf(userDoc, locationId) {
-  return accessValue(userDoc, locationId) === OWNER ? OWNER : DEFAULT_ROLE;
+  const value = accessValue(userDoc, locationId);
+  if (value === OWNER) return OWNER;
+  if (value === MANAGER) return MANAGER;
+  return DEFAULT_ROLE;
 }
 
-// May this account take things away in this location?
+// May this account take things away in this location — suppliers, ingredients,
+// recipes, products, a client's ordering link?
 //
-// Membership no longer has to be checked separately: it IS this value. Only
-// `true` and 'owner' count as access at all (accessValue refuses everything
-// else), so an owner is a member by construction rather than by remembering to
-// ask. firestore.rules reads the same single value the same way.
+// ⚠️ THIS IS THE ONE THE RULES ASK, and it is deliberately NOT isOwner(). The
+// manager runs the place: everything an owner can do inside their location, the
+// manager can do too. What separates them is hiring, below — not destroying.
+//
+// ⚠️ WHICH MEANS A MANAGER CAN DO IRREVERSIBLE DAMAGE, exactly as an owner can.
+// Said plainly because it is easy to assume otherwise from the name: the guard
+// against a manager emptying a supplier list is not this function, it is the
+// nightly backup (restore tested 1 Aug 2026, 0 documents lost).
+export function canManage(userDoc, locationId) {
+  const value = accessValue(userDoc, locationId);
+  return value === OWNER || value === MANAGER;
+}
+
+// May this account invite people and decide their roles?
+//
+// ⚠️ OWNER ONLY, and this is the whole difference between the two upper roles.
+// It is enforced where it matters — requireOwner() in functions/onboarding.js,
+// which reads users/{uid} with the Admin SDK. firestore.rules never asks this,
+// because no client writes a membership or a join code: those documents are
+// `allow write: if false` and always will be.
 export function isOwner(userDoc, locationId) {
   return accessValue(userDoc, locationId) === OWNER;
 }
 
-// For the "who can get in" list. Plain words, because the person reading it is
-// the owner of a bakery, not an administrator of a system.
+// For the "who can get in" list. Plain words, because the person reading it runs
+// a bakery and is not an administrator of a system.
 export function roleLabel(role) {
-  return role === OWNER ? 'Owner' : 'Staff';
+  if (role === OWNER) return 'Owner';
+  if (role === MANAGER) return 'Manager';
+  return 'Employee';
 }

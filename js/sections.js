@@ -92,21 +92,35 @@ export function isSectionAllowed(locationDoc, name) {
 // lookup at all, because the rules already read this exact value to decide
 // membership.
 //
-//   true      → a member of this location, ordinary staff
-//   'owner'   → a member, and the person whose business it is
+//   true       → a member of this location, an ordinary employee
+//   'manager'  → a member who runs this location: deletes too, but hires nobody
+//   'owner'    → a member, and the person whose business it is
 //   anything else (false, missing, a typo) → no access at all
 //
-// ⚠️ `true` MEANS STAFF ON PURPOSE, and that is what makes this safe to deploy:
-// every users document in production says `true` today, so nobody loses access
-// the moment the rules land — they simply hold no owner powers until the
-// backfill turns the right ones into 'owner'.
+// ⚠️ `true` MEANS EMPLOYEE ON PURPOSE, and that is what makes this safe to
+// deploy: every users document in production says `true` today, so nobody loses
+// access — or any of the powers they already had — the moment the rules land.
+// The accounts that should hold more get it from a backfill.
+//
+// ⚠️ AND THE ORDER OF THAT BACKFILL IS NOT NEGOTIABLE: the rules must accept
+// 'manager' BEFORE any account is set to it. Written first, the value is one the
+// deployed rules do not recognise, and that account is locked out of everything
+// instantly. Same trap as 'owner' on 11 Aug 2026, and the fix is the same —
+// deploy, then write, then read it back from the API.
 export const OWNER = 'owner';
+export const MANAGER = 'manager';
+
+// The values that mean "this account may open this location", in order of power.
+// ⚠️ A value NOT in here is no access at all, never a lesser access. A role from
+// a later version of the app, a typo, a string with a stray space: all refused.
+// Being generous here would let an unrecognised value walk into a location.
+const ACCESS_VALUES = Object.freeze([true, MANAGER, OWNER]);
 
 export function accessValue(userDoc, locationId) {
   const raw = userDoc && typeof userDoc === 'object' ? userDoc.locations : null;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
   const value = raw[locationId];
-  return value === true || value === OWNER ? value : false;
+  return ACCESS_VALUES.includes(value) ? value : false;
 }
 
 export function locationsOf(userDoc) {
