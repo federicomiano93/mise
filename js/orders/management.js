@@ -1,12 +1,20 @@
 // management.js — management panel (settings icon).
 //
-// isAdmin is hardcoded true for now (placeholder — real role checks arrive with
-// real auth; note the panel being open is UX only, the Firestore rules still
-// validate every write). Lets an admin add/edit/deactivate/delete suppliers (with
-// delivery days, order days and contact details) and ingredients (with supplier,
-// category and unit). "Deactivate" sets active:false (reversible, hides from the
-// order screen); "Delete" removes the document permanently (irreversible, gated
-// by a strong confirm and by the Firestore rules).
+// Add/edit/deactivate/delete suppliers (with delivery days, order days and
+// contact details) and ingredients (with supplier, category and unit).
+// "Deactivate" sets active:false (reversible, hides from the order screen);
+// "Delete" removes the document permanently.
+//
+// ⚠️ THE PANEL IS OPEN TO EVERYBODY IN THE LOCATION, AND THAT IS THE DESIGN, not
+// a leftover. Adding a supplier, correcting a phone number and pausing an
+// ingredient are ordinary work — locking the whole panel would send somebody to
+// find the owner to fix a typo. What is gated is the irreversible half:
+// isOwnerHere() decides whether Delete is drawn at all, and firestore.rules
+// refuses it regardless of what this page decides to show (P2).
+//
+// isAdmin below is the old placeholder from before roles existed. It still reads
+// `true` because the panel really is for everybody now — the real check moved to
+// the one action that needed it.
 //
 // data: { suppliers(): [], ingredients(): [] } — live getters from orders-main.
 // actions: { onClose, saveSupplier(id,payload), saveIngredient(id,payload),
@@ -33,7 +41,7 @@ import {
   missingNutrients, buildAllergenFields,
 } from '../allergen-model.js';
 
-export const isAdmin = true; // placeholder until real auth/roles exist
+export const isAdmin = true; // the panel is for everybody; Delete is the gated part
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
