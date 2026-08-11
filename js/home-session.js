@@ -67,6 +67,18 @@ function renderSessionActions(session) {
     }));
   }
 
+  // ⚠️ OWNERS ONLY, and it lives here with Switch location and Log out rather
+  // than as a card. It is a rare, administrative errand — nobody opens the app
+  // to manage staff — so it belongs in the quiet strip at the bottom, not
+  // competing with the work (P20). Drawing it for staff would be an invitation
+  // to a screen where every button is refused.
+  if (session.isOwner) {
+    logoutHost.append(button('Who can get in', 'session-logout', async () => {
+      const { openPeople } = await import('./staff/people.js');
+      openPeople(session.user && session.user.uid);
+    }));
+  }
+
   logoutHost.append(button('Log out', 'session-logout', async () => {
     const ok = await confirmDialog({
       title: 'Log out?',

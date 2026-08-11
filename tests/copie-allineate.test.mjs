@@ -58,6 +58,7 @@ const DIALOG_COPIES = [
   'js/pastries/confirm-dialog.js',
   'js/foodcost/confirm-dialog.js',
   'js/client-orders/confirm-dialog.js',
+  'js/staff/confirm-dialog.js',
 ];
 
 test('the six copies of confirm-dialog.js are the same file', () => {
@@ -186,6 +187,15 @@ const DOM_SNAPSHOT = [
     why: 'the catalogue copy with a Food Cost header',
   },
   {
+    file: 'js/staff/dom.js',
+    sha256: '0eb18ed08c4e6bcbb657a87e3879d8882b460fae7c28c9114a1ce7e6b17c36ec',
+    // Copied from the catalogue's copy like the three below it: no groupBy, same
+    // wrapping, a header naming this screen and the copy it came from. Added with
+    // the onboarding screens — a new folder that quietly went unpinned would be
+    // exactly the drift this file exists to catch.
+    why: 'the catalogue copy with a staff-screen header',
+  },
+  {
     file: 'js/client-orders/dom.js',
     sha256: '8a8fcbe6f293e135ef90422a7a19574b9fc67589e2d58f17ded99e52838716f1',
     // Copied from the catalogue's copy like the two above, with a header naming the
@@ -223,7 +233,7 @@ function elFunction(source) {
   return lines.slice(start, end + 1).join('\n');
 }
 
-test('el() is the same code in all five copies of dom.js', () => {
+test('el() is the same code in all six copies of dom.js', () => {
   const [reference, ...rest] = DOM_SNAPSHOT.map(({ file }) => ({ file, el: elFunction(read(file)) }));
 
   for (const copy of rest) {

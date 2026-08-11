@@ -362,3 +362,101 @@
   color: var(--text-2);
 }
 .home-header .help-btn:focus-visible { outline-color: var(--accent-2); }
+
+/* ── "Who can get in", and the join-code field ──────────────────────────────
+   In tokens.css because it is not one feature's screen: the roster is opened
+   from the Home, and the code field lives on the sign-in gate, which every page
+   loads. Both consume the shared tokens and define nothing of their own. */
+
+.people-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* min-height:0 is load-bearing on a flex child that scrolls — without it iOS
+   miscomputes the height and the momentum scroll snaps to the top (v185). */
+.people-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.people-code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.people-hint, .people-note, .people-empty {
+  color: var(--text-2);
+  font-size: var(--text-3);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* Read aloud across a kitchen, so it is the largest thing on the screen and the
+   digits line up: tabular-nums stops "111" looking narrower than "888". */
+.people-digits {
+  margin: 0;
+  font-size: 2.4rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: var(--brand);
+}
+
+.people-add { align-self: stretch; }
+
+.people-list { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.people-row {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.people-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* An email is long and has no spaces, so it cannot wrap on its own: without this
+   one address pushes the row past the right edge on a 320px phone. */
+.people-email {
+  font-size: var(--text-3);
+  color: var(--text-1);
+  overflow-wrap: anywhere;
+}
+
+.people-role {
+  font-size: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+
+.people-row-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+/* Six digits typed once, by somebody who has just been read them out. */
+.auth-code {
+  font-size: 1.5rem;
+  letter-spacing: 0.24em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

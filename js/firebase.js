@@ -24,6 +24,7 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   connectAuthEmulator,
@@ -362,6 +363,24 @@ onAuthStateChanged(auth, user => {
 
   resolveMembership(user);
 });
+
+// Create an account, for somebody joining with a code.
+//
+// ⚠️ THIS GRANTS NOTHING BY ITSELF, and that is the whole safety of letting the
+// app do it. A brand-new account has no users/{uid} document, so every rule in
+// firestore.rules refuses it by construction rather than by remembering to ask —
+// it can sign in and see the "No location yet" screen, and nothing else. Access
+// arrives only when a Cloud Function accepts a join code and writes the
+// membership itself.
+//
+// ⚠️ AND IT SIGNS THE NEW ACCOUNT IN, on this app, replacing whoever was here.
+// That is right for this flow (the person creating the account IS the person at
+// the phone) and it is exactly what createOrderingLink must NOT do — which is
+// why that one mints on a second Firebase app. Do not copy this into a screen
+// where somebody creates an account for somebody else.
+export function signUp(email, password) {
+  return createUserWithEmailAndPassword(auth, String(email || '').trim(), String(password || ''));
+}
 
 export function signIn(email, password) {
   return signInWithEmailAndPassword(auth, String(email || '').trim(), String(password || ''));
