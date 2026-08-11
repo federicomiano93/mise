@@ -1,5 +1,5 @@
 // people.js — "Who can get in": the owner's list of everybody in this location,
-// and the six-digit code that adds one more.
+// what each of them may do, and the six-digit code that adds one more.
 //
 // ⚠️ IT IS AN OVERLAY ON THE HOME, NOT A PAGE OF ITS OWN, and that is a decision
 // worth keeping. A new page would need a name in js/sections.js — and a section
@@ -15,17 +15,40 @@
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import {
-  watchMembers, createJoinCode, setMemberRole, callFailureText,
+  watchMembers, createJoinCode, setMemberRole, setMemberName, callFailureText,
 } from './firebase-staff.js';
 import { expiresInWords } from '../join-code.js';
-import { roleLabel } from '../roles.js';
+import { ROLES, roleLabel } from '../roles.js';
+import { nameProblem, cleanName } from '../credentials.js';
 
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+
+// What each role means, in the words the person reading this screen would use.
+//
+// ⚠️ THESE SENTENCES ARE THE ONLY PLACE ANYBODY IS EVER TOLD what a role does.
+// Nothing else in the app explains it, so a wrong one here is a wrong decision
+// about a real person's access — made confidently, because the screen said so.
+const ROLE_MEANS = {
+  owner: 'Everything, including adding people and setting their roles.',
+  manager: 'Runs this location: can delete suppliers, ingredients, recipes and products. Cannot add people.',
+  staff: 'Does the daily work — quantities, doughs, orders. Cannot delete things or add people.',
+};
+
+// A person's name, falling back honestly rather than inventing one. The four
+// accounts made by hand in the Firebase console have no name at all, and saying
+// so is what tells the owner there is something to fix.
+function displayName(person) {
+  const full = [cleanName(person.firstName), cleanName(person.lastName)]
+    .filter(Boolean).join(' ');
+  return full || '(no name yet)';
+}
 
 export function openPeople(myUid) {
   let members = [];
   let stop = null;
-  let pending = null; // the code being shown, if any
+  let pending = null;      // the code being shown, if any
+  let newRole = 'staff';   // the role the next code will invite
+  let renaming = null;     // the uid whose row is currently two input boxes
 
   const list = el('div', { class: 'people-list' });
   const codeBox = el('div', { class: 'people-code' });
@@ -47,6 +70,29 @@ export function openPeople(myUid) {
     overlay.remove();
   }
 
+  // ── Choosing a role ────────────────────────────────────────────────────────
+  //
+  // ⚠️ THREE PILLS, NOT A TWO-WAY TOGGLE. With three roles a single button saying
+  // "Make owner" cannot express where somebody is going, and a toggle that cycles
+  // is worse: it puts a real person's access one mis-tap away from a role nobody
+  // chose. Every pill states its destination, and the current one is disabled —
+  // so the only taps that reach the server are real changes.
+  function rolePills(current, onPick) {
+    const wrap = el('div', { class: 'people-pills', role: 'group', 'aria-label': 'Role' });
+    for (const role of ROLES) {
+      const chosen = role === current;
+      const pill = el('button', {
+        type: 'button',
+        class: `people-pill${chosen ? ' people-pill--on' : ''}`,
+        'aria-pressed': chosen ? 'true' : 'false',
+      }, roleLabel(role));
+      if (chosen) pill.disabled = true;
+      else pill.addEventListener('click', () => onPick(role));
+      wrap.appendChild(pill);
+    }
+    return wrap;
+  }
+
   // ── The list ───────────────────────────────────────────────────────────────
 
   function paint() {
@@ -58,41 +104,46 @@ export function openPeople(myUid) {
       return;
     }
 
-    // The owners first, then everybody else, each half alphabetical: the
-    // question this screen is usually opened to answer is "who can delete
-    // things", and that should not need scrolling for.
+    // Most power first, then alphabetically by name: the question this screen is
+    // usually opened to answer is "who can delete things", and that should not
+    // need scrolling for.
+    const rank = r => (r === 'owner' ? 0 : r === 'manager' ? 1 : 2);
     const sorted = [...members].sort((a, b) =>
-      (b.role === 'owner') - (a.role === 'owner') ||
-      String(a.email || '').localeCompare(String(b.email || '')));
+      rank(a.role) - rank(b.role) || displayName(a).localeCompare(displayName(b)));
 
     for (const person of sorted) {
       const isMe = person.uid === myUid;
-      const owner = person.role === 'owner';
+
+      if (renaming === person.uid) {
+        list.appendChild(renameRow(person));
+        continue;
+      }
 
       const row = el('div', { class: 'people-row' }, [
         el('div', { class: 'people-row-main' }, [
+          el('span', { class: 'people-name', text: displayName(person) + (isMe ? ' · you' : '') }),
           el('span', { class: 'people-email', text: person.email || '(no email)' }),
-          el('span', { class: 'people-role', text: roleLabel(person.role) + (isMe ? ' · you' : '') }),
         ]),
       ]);
 
-      // ⚠️ NO CONTROLS ON YOUR OWN ROW. Demoting yourself is the one action on
-      // this screen that cannot be undone by the person who took it — you would
-      // need somebody else to put you back — so the button simply is not there.
-      // The server refuses the last owner as well, but a screen that offers a
-      // tap and then explains why not is a worse screen than one that does not
-      // offer it.
-      if (!isMe) {
-        const actions = el('div', { class: 'people-row-actions' });
-        actions.appendChild(el('button', {
-          type: 'button', class: 'mgmt-link',
-          onClick: () => change(person, owner ? 'staff' : 'owner'),
-        }, owner ? 'Make staff' : 'Make owner'));
-        actions.appendChild(el('button', {
-          type: 'button', class: 'mgmt-link danger',
-          onClick: () => remove(person),
-        }, 'Remove'));
-        row.appendChild(actions);
+      // ⚠️ NO CONTROLS ON YOUR OWN ROW. Demoting yourself is the one action here
+      // that cannot be undone by the person who took it — you would need somebody
+      // else to put you back — so the buttons simply are not there. The server
+      // refuses the last owner as well, but a screen that offers a tap and then
+      // explains why not is a worse screen than one that does not offer it.
+      if (isMe) {
+        row.appendChild(el('span', { class: 'people-role', text: roleLabel(person.role) }));
+      } else {
+        row.appendChild(rolePills(person.role, next => change(person, next)));
+        row.appendChild(el('div', { class: 'people-row-actions' }, [
+          el('button', {
+            type: 'button', class: 'mgmt-link',
+            onClick: () => { renaming = person.uid; paint(); },
+          }, 'Rename'),
+          el('button', {
+            type: 'button', class: 'mgmt-link danger', onClick: () => remove(person),
+          }, 'Remove'),
+        ]));
       }
 
       list.appendChild(row);
@@ -103,14 +154,70 @@ export function openPeople(myUid) {
     }
   }
 
+  // ── Giving somebody a name ─────────────────────────────────────────────────
+  //
+  // ⚠️ EDITED IN THE ROW, NOT IN A POP-UP. The browser's own prompt() is the grey
+  // system box this app removed everywhere in PR #28, and confirm-dialog.js only
+  // asks yes-or-no — it is byte-identical across six copies and must not grow a
+  // text field for one screen. Two inputs in the row need neither.
+  //
+  // ⚠️ AND IT IS WHAT THE ACCOUNTS MADE IN THE FIREBASE CONSOLE NEED. They never
+  // passed through the join screen, so they carry no name at all; without this
+  // the roster is a list of email addresses and no way to tell whose phone is
+  // whose.
+  function renameRow(person) {
+    const first = el('input', { class: 'people-input', type: 'text', value: cleanName(person.firstName) });
+    first.placeholder = 'First name';
+    first.autocomplete = 'given-name';
+    const last = el('input', { class: 'people-input', type: 'text', value: cleanName(person.lastName) });
+    last.placeholder = 'Surname';
+    last.autocomplete = 'family-name';
+
+    const status = el('p', { class: 'people-note' });
+    status.setAttribute('role', 'alert');
+
+    const save = el('button', { type: 'button', class: 'btn-primary people-save' }, 'Save');
+    save.addEventListener('click', async () => {
+      const problem = nameProblem(first.value, 'first') || nameProblem(last.value, 'last');
+      if (problem) {
+        status.textContent = problem;
+        (nameProblem(first.value, 'first') ? first : last).focus();
+        return;
+      }
+      save.disabled = true;
+      try {
+        await setMemberName(person.uid, first.value, last.value);
+        renaming = null;
+        paint();
+      } catch (err) {
+        save.disabled = false;
+        status.textContent = callFailureText(err, 'Could not save that name. Check your connection.');
+      }
+    });
+
+    const cancel = el('button', { type: 'button', class: 'btn-secondary people-save' }, 'Cancel');
+    cancel.addEventListener('click', () => { renaming = null; paint(); });
+
+    const row = el('div', { class: 'people-row people-row--editing' }, [
+      el('span', { class: 'people-email', text: person.email || '(no email)' }),
+      first, last, status,
+      el('div', { class: 'people-row-actions' }, [save, cancel]),
+    ]);
+    setTimeout(() => first.focus(), 0);
+    return row;
+  }
+
   async function change(person, role) {
+    // ⚠️ THE CONFIRMATION SAYS WHAT THE ROLE DOES, not just its name. "Make this
+    // person a manager?" means nothing to somebody deciding whether their baker
+    // should be one; the sentence about deleting is the whole decision.
+    const article = role === 'owner' ? 'an owner' : role === 'manager' ? 'a manager' : 'an employee';
     const ok = await confirmDialog({
-      title: role === 'owner' ? 'Make this person an owner?' : 'Make this person staff?',
-      message: role === 'owner'
-        ? `${person.email} will be able to delete suppliers, ingredients, recipes and products, and to invite other people.`
-        : `${person.email} will keep working as normal but will no longer be able to delete things or invite people.`,
-      okLabel: role === 'owner' ? 'Make owner' : 'Make staff',
-      danger: role !== 'owner',
+      title: `Make ${displayName(person)} ${article}?`,
+      message: ROLE_MEANS[role],
+      okLabel: `Make ${roleLabel(role).toLowerCase()}`,
+      // Taking power away is the direction that surprises somebody mid-shift.
+      danger: role === 'staff',
     });
     if (!ok) return;
     try { await setMemberRole(person.uid, role); }
@@ -122,7 +229,7 @@ export function openPeople(myUid) {
   async function remove(person) {
     const ok = await confirmDialog({
       title: 'Remove this person?',
-      message: `${person.email} will lose access to this location immediately. Everything they have entered stays.`,
+      message: `${displayName(person)} (${person.email || 'no email'}) will lose access to this location immediately. Everything they have entered stays.`,
       okLabel: 'Remove', danger: true,
     });
     if (!ok) return;
@@ -139,21 +246,28 @@ export function openPeople(myUid) {
 
     if (!pending) {
       codeBox.appendChild(el('p', { class: 'people-hint', text:
-        'Add someone who works here. They install the app, create their own account, and type the code you give them.' }));
-      const add = el('button', { type: 'button', class: 'btn-primary people-add' }, 'Add a person');
+        'Add someone who works here. They install the app, create their own account with their name, and type the code you give them.' }));
+      // ⚠️ THE ROLE IS CHOSEN BEFORE THE CODE, not after they arrive. A code is
+      // read out to somebody standing there, and going back to change their role
+      // afterwards is a second errand nobody remembers. It starts at Employee —
+      // the least power — so a distracted tap grants nothing.
+      codeBox.appendChild(rolePills(newRole, role => { newRole = role; paintCode(); }));
+      codeBox.appendChild(el('p', { class: 'people-note', text: ROLE_MEANS[newRole] }));
+      const add = el('button', { type: 'button', class: 'btn-primary people-add' },
+        `Add ${roleLabel(newRole).toLowerCase()}`);
       add.addEventListener('click', mint);
       codeBox.appendChild(add);
       return;
     }
 
-    // ⚠️ SHOWN ONCE AND NEVER STORED. The server keeps only a hash of it, so
-    // this screen is the only place the code exists in readable form — which is
-    // why it is large, and why the sentence under it says what happens next
-    // rather than leaving somebody holding six digits and no instructions.
+    // ⚠️ SHOWN ONCE AND NEVER STORED. The server keeps only a hash of it, so this
+    // screen is the only place the code exists in readable form — which is why it
+    // is large, and why the sentence under it says what happens next rather than
+    // leaving somebody holding six digits and no instructions.
     codeBox.appendChild(el('p', { class: 'people-hint', text: 'Read this out to them:' }));
     codeBox.appendChild(el('p', { class: 'people-digits', text: pending.code }));
     codeBox.appendChild(el('p', { class: 'people-note', text:
-      `${expiresInWords(pending)} · they open the app, tap “I have a code”, create their account and type it.` }));
+      `Joins as ${roleLabel(pending.role).toLowerCase()} · ${expiresInWords(pending)} · they open the app, tap “I have a code”, create their account and type it.` }));
 
     const again = el('button', { type: 'button', class: 'btn-secondary people-add' }, 'Done');
     again.addEventListener('click', () => { pending = null; paintCode(); });
@@ -162,8 +276,11 @@ export function openPeople(myUid) {
 
   async function mint() {
     try {
-      const made = await createJoinCode('staff');
-      pending = made;
+      // ⚠️ THE ROLE COMES BACK FROM THE SERVER AND THAT IS WHAT IS SHOWN. The
+      // function reduces a role it does not recognise to an employee, so echoing
+      // what was ASKED for could promise a manager where a code for an employee
+      // was actually made.
+      pending = await createJoinCode(newRole);
       paintCode();
     } catch (err) {
       await alertDialog(callFailureText(err, 'Could not make a code. Check your connection and try again.'));

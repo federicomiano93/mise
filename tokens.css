@@ -100,6 +100,12 @@
      Three were enough while every label was sentence case. The restyle adds
      two roles that had no colour of their own: the small uppercase mono
      labels that head each block, and placeholder text inside a field. */
+  /* ⚠️ THESE ARE COLOURS, NOT SIZES, AND THERE IS NO --text-1. Six rules on the
+     "Who can get in" screen shipped with `font-size: var(--text-3)` and
+     `color: var(--text-1)` — both invalid, so the browser dropped them and the
+     screen simply inherited whatever was around it. Nothing broke loudly; it
+     just never looked the way it was written. Font sizes in this file are
+     literal px. */
   --text:   #1F2416;      /* primary text */
   --text-2: #5E6650;      /* secondary / muted text */
   --text-3: #7C7566;      /* third level: units, timestamps, fine print */
@@ -402,7 +408,7 @@
 
 .people-hint, .people-note, .people-empty {
   color: var(--text-2);
-  font-size: var(--text-3);
+  font-size: 13px;
   line-height: 1.45;
   margin: 0;
 }
@@ -436,22 +442,99 @@
 
 .people-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 
+/* The name is what this row is now FOR, so it leads and the address follows in
+   the quieter style below. A row with no name says "(no name yet)" here, which
+   is the prompt to use Rename. */
+.people-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
 /* An email is long and has no spaces, so it cannot wrap on its own: without this
    one address pushes the row past the right edge on a 320px phone. */
 .people-email {
-  font-size: var(--text-3);
-  color: var(--text-1);
+  font-size: 13px;
+  color: var(--text-2);
   overflow-wrap: anywhere;
 }
 
 .people-role {
-  font-size: var(--text-4);
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-2);
 }
 
 .people-row-actions { display: flex; align-items: center; gap: var(--space-3); }
+
+/* ── Choosing a role ──────────────────────────────────────────────────────
+   Three pills, each stating where a tap sends this person. They WRAP on
+   purpose: at 320px "Owner Manager Employee" does not fit on one line, and a
+   row that scrolls sideways hides the third option — which is the one that
+   takes power away, so it is the one that must never be hard to find. */
+.people-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.people-pill {
+  flex: 1 1 auto;
+  /* 44px, the same target as the allergen ticks. A mis-tap here does not cost a
+     keystroke: it changes what a real person is allowed to do. */
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform 60ms ease;
+}
+
+.people-pill:active { transform: scale(.97); }
+
+/* The role somebody already holds. It is disabled, so it must not look
+   greyed-out-and-broken: it is the CHOSEN one, and reads as selected. */
+.people-pill--on {
+  background: var(--accent-light);
+  border-color: var(--brand-2);
+  color: var(--brand);
+  font-weight: 600;
+  cursor: default;
+}
+
+.people-pill--on:active { transform: none; }
+
+/* Editing a name in the row rather than in a pop-up: the browser's prompt() is
+   the grey system box this app removed in PR #28, and confirm-dialog.js is
+   byte-identical across six copies and only asks yes or no. */
+.people-row--editing { flex-direction: column; align-items: stretch; }
+
+.people-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.people-input:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 1px;
+  border-color: var(--crust);
+}
+
+.people-save { flex: 1 1 auto; }
 
 /* Six digits typed once, by somebody who has just been read them out. */
 .auth-code {

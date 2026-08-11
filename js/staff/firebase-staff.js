@@ -66,6 +66,17 @@ export async function redeemJoinCode(code, kind = 'digits', firstName = '', last
   return res.data;
 }
 
+// ⚠️ A NAME IS A LABEL AND THIS CALL PROVES IT: it reaches only the roster, never
+// users/{uid}. Renaming somebody cannot change what they can do, because the
+// document that decides that is not on this path at all.
+export async function setMemberName(uid, firstName, lastName) {
+  await sessionReady;
+  const res = await call('setMemberName')({
+    locationId: currentSession().locationId, uid, firstName, lastName,
+  });
+  return res.data;
+}
+
 export async function setMemberRole(uid, role) {
   await sessionReady;
   const res = await call('setMemberRole')({

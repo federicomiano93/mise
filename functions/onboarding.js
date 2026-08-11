@@ -386,3 +386,46 @@ export const setMemberRole = onCall(CALL, async (request) => {
   logger.info('Member role changed', { locationId, targetUid, role, by: uid });
   return { role };
 });
+
+// ── 5. Give somebody a name ──────────────────────────────────────────────────
+//
+// The roster is written by redeemJoinCode from what the person typed, so almost
+// every row names itself. This exists for the two cases where that is not true:
+// the accounts created BY HAND in the Firebase console years before any of this
+// existed and have no name at all, and the ordinary correction — a typo, or
+// "Luca (forno)" because there are two Lucas.
+//
+// ⚠️ IT WRITES ONLY THE ROSTER, NEVER users/{uid}. A name decides nothing: two
+// people may share one, and renaming somebody must never change what they can
+// do. Keeping this call away from the document that grants access is what makes
+// that structurally true rather than a promise.
+export const setMemberName = onCall(CALL, async (request) => {
+  const uid = requireAuth(request);
+  const { locationId, uid: targetUid, firstName, lastName } = request.data || {};
+  await requireOwner(uid, locationId);
+
+  if (typeof targetUid !== 'string' || !targetUid) {
+    throw new HttpsError('invalid-argument', 'Which person?');
+  }
+
+  const first = cleanName(firstName);
+  const last = cleanName(lastName);
+  // ⚠️ BOTH BLANK IS REFUSED HERE, though redeemJoinCode accepts it. The
+  // difference is what failing costs: there, refusing would lock somebody with a
+  // valid code out of the app over a blank box; here, the person is already in
+  // and the only outcome of an empty save is a row that silently loses the name
+  // it had.
+  if (!first && !last) {
+    throw new HttpsError('invalid-argument', 'Give them a name.');
+  }
+
+  const ref = db().doc(`locations/${locationId}/members/${targetUid}`);
+  const snap = await ref.get();
+  if (!snap.exists) {
+    throw new HttpsError('not-found', 'That person is not in this location.');
+  }
+
+  await ref.set({ firstName: first, lastName: last }, { merge: true });
+  logger.info('Member renamed', { locationId, targetUid, by: uid });
+  return { firstName: first, lastName: last };
+});
