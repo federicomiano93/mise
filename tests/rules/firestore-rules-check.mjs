@@ -1941,6 +1941,35 @@ async function roles() {
   // being a manager somewhere must not reach into another business at all.
   await expectDenied('a manager of one location is nobody in another',
     readAs(MAYA, 'locations/trattoria-x/suppliers/S1'));
+
+  // ── The money is the one thing an employee may not even READ ──
+  //
+  // ⚠️ THIS IS THE ONLY PLACE IN THE RULESET WHERE A ROLE GATES A READ. Everywhere
+  // else the role guards what cannot be undone and reading stays open to anybody
+  // in the location. Here the reading IS the thing: products carries what each
+  // one sells for and what it costs to make.
+  await seedDoc(`${L}/products/P3`, { ...stamp, name: 'P3' });
+  await seedDoc(`${L}/products/P3/snapshots/S1`, { ...stamp, takenAt: 1 });
+
+  await expectAllowed('the owner can read a Food Cost product',
+    readAs(ALICE, `${L}/products/P3`));
+  await expectAllowed('a manager can read a Food Cost product',
+    readAs(MAYA, `${L}/products/P3`));
+  await expectDenied('an employee cannot read a Food Cost product',
+    readAs(SAM, `${L}/products/P3`));
+  await expectDenied('an employee cannot read the margin history either',
+    readAs(SAM, `${L}/products/P3/snapshots/S1`));
+  await expectDenied('an employee cannot write one',
+    () => mergeWrite(`${L}/products/P9`, { ...stamp, name: 'Nope' }, asAccount(SAM)));
+
+  // ⚠️ AND THE DAILY WORK IS UNTOUCHED. An employee who lost Orders because the
+  // money moved would be a far worse outcome than seeing a margin.
+  // ⚠️ A FRESH ONE: I1 and I2 were deleted by the owner's and the manager's own
+  // checks above, and a read of a document that is not there answers 404 — which
+  // fails here for a reason that has nothing to do with permissions.
+  await seedDoc(`${L}/ingredients/I3`, { ...stamp, name: 'I3', active: true });
+  await expectAllowed('an employee can still read an ingredient',
+    readAs(SAM, `${L}/ingredients/I3`));
 }
 
 

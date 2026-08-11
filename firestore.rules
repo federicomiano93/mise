@@ -1128,10 +1128,22 @@ service cloud.firestore {
       // inside a list. Their shape is guaranteed by js/foodcost/foodcost-model.js.
       // What is enforced here is the LIST SIZE, which keeps the document far from
       // the 1MB ceiling. Same division of labour as recipes and pastries.
+      // ⚠️⚠️ canManage AND NOT canUse — READ INCLUDED, WHICH IS THE UNUSUAL PART.
+      // Everywhere else in this ruleset the role gates only what cannot be undone,
+      // and reading is open to anybody in the location. Here the READING is the
+      // thing being protected: this collection is what each product SELLS for and
+      // what it costs to make, and the whole reason Federico asked for a third role
+      // is that an employee should not see the money.
+      //
+      // ⚠️ AND IT IS HALF THE ANSWER UNTIL THE PURCHASE PRICE MOVES. `pricePerUnit`
+      // still sits on ingredients/{id}, which Orders must read to work at all — so
+      // an employee cannot see the MARGIN but can still see what a sack of flour
+      // costs. The other half is its own PR, and it must land before any real price
+      // is typed or it stops being a rename and becomes a data migration.
       match /products/{id} {
-        allow read: if canUse(lid, 'foodcost');
+        allow read: if canManage(lid, 'foodcost');
 
-        allow create, update: if canUse(lid, 'foodcost')
+        allow create, update: if canManage(lid, 'foodcost')
           && stampedFor(lid)
           && request.resource.data.keys().hasOnly([
                'bakery', 'name', 'components', 'packaging', 'sellingMode',
@@ -1186,9 +1198,9 @@ service cloud.firestore {
         // The frozen VAT rate is required, not optional: it is the whole reason a
         // past margin stays comparable after a rate changes by law.
         match /snapshots/{snapshotId} {
-          allow read: if canUse(lid, 'foodcost');
+          allow read: if canManage(lid, 'foodcost');
 
-          allow create: if canUse(lid, 'foodcost')
+          allow create: if canManage(lid, 'foodcost')
             && stampedFor(lid)
             && request.resource.data.keys().hasOnly([
                  'bakery', 'recordedAt', 'unitCost', 'foodCostPct',

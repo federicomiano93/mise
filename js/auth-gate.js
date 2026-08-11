@@ -18,7 +18,7 @@
 import { onSession, signIn, signUp, sendReset, chooseLocation, signOutNow } from './firebase.js';
 import { normalizeTyped, isWellFormed } from './join-code.js';
 import { nameProblem, passwordProblem, MIN_PASSWORD_LENGTH } from './credentials.js';
-import { isSectionAllowed } from './sections.js';
+import { isSectionAllowedFor } from './sections.js';
 
 const HOME = 'index.html';
 
@@ -484,7 +484,11 @@ onSession(session => {
       // A location that does not use this section should never sit on its
       // screen collecting permission errors — send it Home, where the cards it
       // does have are waiting.
-      if (pageSection && !isSectionAllowed(session.location, pageSection)) {
+      // ⚠️ THE ROLE IS ASKED HERE TOO, or hiding the card would be theatre:
+      // typing the address is all it would take. The rules refuse the DATA
+      // regardless — this is what stops the screen sitting there collecting
+      // permission errors instead of saying nothing at all.
+      if (pageSection && !isSectionAllowedFor(session.location, session.role, pageSection)) {
         location.replace(HOME);
         return;
       }

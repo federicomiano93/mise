@@ -60,6 +60,7 @@ export function isSectionAllowed(locationDoc, name) {
   return allowedSections(locationDoc)[name] === true;
 }
 
+
 // Which locations this person may enter, in a stable order.
 //
 // DEFAULT: NONE. The opposite bias to sections, and for the opposite reason —
@@ -121,6 +122,40 @@ export function accessValue(userDoc, locationId) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
   const value = raw[locationId];
   return ACCESS_VALUES.includes(value) ? value : false;
+}
+
+// ── Sections that also depend on WHO is looking ──────────────────────────────
+//
+// A location decides which parts of the app it bought. A role decides which of
+// those a given person sees. Food Cost is the only one so far, and the reason is
+// specific rather than general: it is the screen that says what the business PAYS
+// for its ingredients and what it EARNS on each product. Everything else in the
+// app is what to make and how much of it.
+//
+// ⚠️ THE DEFAULT IS THE OPPOSITE WAY ROUND FROM allowedSections ABOVE, and both
+// are right. A missing `sections` field must never empty a working app, so that
+// one defaults to ALLOWED. Here a role nobody recognises is not on the list, so
+// it is REFUSED — this is about who may see money, and power nobody granted does
+// not exist. Same reasoning as js/roles.js, and it has to be, because a role
+// arriving from a future version of the app must never open the one screen an
+// employee is not meant to open.
+const ROLE_ONLY = Object.freeze({ foodcost: [OWNER, MANAGER] });
+
+// Which sections this person sees in this location: the location's set NARROWED
+// by the role. Never widened — a role cannot turn on a section the venue does
+// not have, whatever it says.
+export function sectionsFor(locationDoc, role) {
+  const fromLocation = allowedSections(locationDoc);
+  const out = {};
+  SECTIONS.forEach(name => {
+    const roles = ROLE_ONLY[name];
+    out[name] = fromLocation[name] === true && (!roles || roles.includes(role));
+  });
+  return out;
+}
+
+export function isSectionAllowedFor(locationDoc, role, name) {
+  return sectionsFor(locationDoc, role)[name] === true;
 }
 
 export function locationsOf(userDoc) {
