@@ -535,11 +535,26 @@ body.cat-zoom-lock { overflow: hidden; }
   60%  { transform: scale(1);   background: var(--cat-brand); color: var(--cat-brand-ink); }
   100% { transform: scale(1);   background: var(--cat-accent-light); color: var(--cat-brand); }
 }
-.guided-speed--changed { border-color: var(--cat-crust); animation: guided-speed-alert 420ms ease-out 3; }
+/* ⚠️ THE CHANGED SPEED STAYS A SOLID BADGE, IT DOES NOT FADE BACK.
+   The first attempt kept only an orange BORDER once the pulses ended — measured
+   at 0.67px, on a pill otherwise identical to every other step's. Somebody
+   glancing back a minute later had nothing to see. The whole point is that
+   second gear looks different from first gear for as long as the step lasts, so
+   the resting state IS the announcement and the animation only draws the eye to
+   it.
+   Burnt orange rather than the lighter --cat-crust: measured 6.0:1 against the
+   pale ink instead of 3.2:1, and it still reads as a badge on the crust-tinted
+   card that "time is up" produces, where a pale fill would disappear. */
+.guided-speed--changed {
+  background: var(--cat-crust-ink);
+  border-color: var(--cat-crust-ink);
+  color: var(--cat-brand-ink);
+  animation: guided-speed-alert 420ms ease-out 3;
+}
 @keyframes guided-speed-alert {
-  0%   { transform: scale(1.16); background: var(--cat-crust); color: var(--cat-brand-ink); }
-  60%  { transform: scale(1);    background: var(--cat-crust); color: var(--cat-brand-ink); }
-  100% { transform: scale(1);    background: var(--cat-accent-light); color: var(--cat-brand); }
+  0%   { transform: scale(1.16); box-shadow: 0 0 0 0  color-mix(in srgb, var(--cat-crust-ink) 55%, transparent); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 12px color-mix(in srgb, var(--cat-crust-ink) 0%, transparent); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0  color-mix(in srgb, var(--cat-crust-ink) 0%, transparent); }
 }
 .guided-due { margin: 14px 0 0; font-size: .95rem; font-weight: 600; color: var(--cat-crust-ink); }
 
