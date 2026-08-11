@@ -67,6 +67,14 @@ async function account(label) {
 // prove what he CANNOT reach. NOBODY has an account but no access document.
 let ALICE = null, BOB = null, NOBODY = null;
 
+// SAM works at 'main' and is explicitly STAFF. LEGACY also works at 'main' and
+// has NO `roles` field at all — the shape of every users document in production
+// until the backfill runs, and the one that has to answer 'staff' cleanly
+// rather than throw. They are two accounts and not one on purpose: "written
+// down as staff" and "nobody has said" must be proved to behave the same, or
+// the backfill becomes load-bearing for safety instead of for convenience.
+let SAM = null, LEGACY = null;
+
 // CLIENT_A and CLIENT_B are ORDERING accounts: wholesale customers, the first people
 // outside the business ever to hold an account here. They have no users/{uid}
 // document at all — only a client-accounts document inside one location — so every
@@ -81,8 +89,15 @@ const noAuth = () => ({ 'Content-Type': 'application/json' });
 // wipe() empties the database, so the access documents have to go back in after
 // every scenario — without them, every check would fail for the wrong reason.
 async function seedAccess() {
-  await seedDoc(`users/${ALICE.uid}`, { locations: { main: true } });
+  // ALICE is the OWNER of main: most checks below run as her and expect the full
+  // set of powers, including the deletes that isOwner() now guards.
+  await seedDoc(`users/${ALICE.uid}`, { locations: { main: true }, roles: { main: 'owner' } });
+  // ⚠️ BOB DELIBERATELY HAS NO `roles` FIELD AT ALL. That is not laziness — it is
+  // the shape of EVERY users document in production until the backfill runs, and
+  // roleIn() has to answer 'staff' for it cleanly rather than throw.
   await seedDoc(`users/${BOB.uid}`, { locations: { 'trattoria-x': true } });
+  await seedDoc(`users/${SAM.uid}`, { locations: { main: true }, roles: { main: 'staff' } });
+  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: true } });
   await seedDoc('locations/main', { name: 'The Italian Club Bakery' });
   // ⚠️ EVERY SECTION THE VENUE DOES NOT USE MUST BE LISTED false, INCLUDING NEW
   // ONES. sectionOn() defaults to TRUE for a key that is not there, so a section
@@ -153,6 +168,34 @@ async function expectDenied(label, run) {
   if (res.status === 403) { passed++; return; }
   if (res.ok) { failures.push(`DENY expected — ${label}\n      but the write SUCCEEDED (${res.status})`); return; }
   failures.push(`DENY expected — ${label}\n      got ${res.status} (not 403): ${(await res.text()).slice(0, 200)}`);
+}
+
+// ⚠️ A REFUSAL AND A CRASH ARE BOTH 403, AND THEY ARE NOT THE SAME THING.
+// A rule that THROWS also denies the write, so expectDenied() above passes
+// either way — which is precisely how a broken guard ships looking healthy.
+// This one insists the rules ANSWERED the question rather than fell over.
+//
+// It exists because of a real defect caught while writing the roles: roleIn()
+// threw for every account with no `roles` field, and that is every account in
+// production until the backfill runs. The outcome happened to be "denied",
+// which is the right answer — reached by accident, from a rule that could not
+// be debugged and could never be safely used inside an `||`.
+async function expectDeniedCleanly(label, run) {
+  const res = await run();
+  if (res.ok) {
+    failures.push(`DENY expected — ${label}\n      but the write SUCCEEDED (${res.status})`);
+    return;
+  }
+  const body = await res.text();
+  if (res.status !== 403) {
+    failures.push(`DENY expected — ${label}\n      got ${res.status} (not 403): ${body.slice(0, 200)}`);
+    return;
+  }
+  if (body.includes('evaluation error')) {
+    failures.push(`DENIED, BUT BY THROWING — ${label}\n      the rule crashed instead of answering: ${body.slice(0, 240)}`);
+    return;
+  }
+  passed++;
 }
 
 function check(label, condition) {
@@ -970,6 +1013,8 @@ BOB = await account('bob');
 NOBODY = await account('nobody');
 CLIENT_A = await account('client-a');
 CLIENT_B = await account('client-b');
+SAM = await account('sam');
+LEGACY = await account('legacy');
 TOKEN = ALICE.token;
 
 // ── pastries/{Weekday} ───────────────────────────────────────────────────────
@@ -1713,9 +1758,126 @@ async function pushNotifications() {
   await expectDenied('a client cannot read the alarms', readAs(CLIENT_A, `${L}/push-timers/t2`));
 }
 
+// ── Roles: what a person may do inside a location they ALREADY belong to ─────
+//
+// Membership is the boundary between two businesses, and it is proved elsewhere
+// in this file. This is the smaller boundary between two people in the SAME
+// business. It exists because the app is going to be sold: with one owner's own
+// two venues, everybody being able to delete everything is a shrug; with a
+// paying customer it is their counter staff emptying their supplier list.
+//
+// ⚠️ THE SECOND HALF OF THIS SCENARIO MATTERS MORE THAN THE FIRST. Proving that
+// staff cannot delete a supplier is the easy, obvious half. Proving that staff
+// can STILL correct their own log is what stops this change from quietly making
+// the app useless to everybody who is not the owner — and a baker who cannot fix
+// a mistyped entry at 5am stops recording things altogether.
+async function roles() {
+  await wipe();
+  await seedAccess();
+  const L = 'locations/main';
+  const stamp = { bakery: 'main' };
+
+  await seedDoc(`${L}/suppliers/S1`, { ...stamp, name: 'S', active: true });
+  await seedDoc(`${L}/ingredients/I1`, { ...stamp, name: 'I', active: true });
+  await seedDoc(`${L}/recipes/R1`, { ...stamp, name: 'R', ingredients: [] });
+  await seedDoc(`${L}/products/P1`, { ...stamp, name: 'P' });
+  await seedDoc(`${L}/client-accounts/${CLIENT_A.uid}`,
+    { ...stamp, clientId: 'c-one', clientName: 'C ONE', createdAt: 'now' });
+  await seedDoc(`${L}/client-menus/c-one`,
+    { ...stamp, clientName: 'C ONE', products: [], updatedAt: 'now' });
+  await seedDoc(`${L}/logs/LG1`, { ...stamp, versions: [] });
+  await seedDoc(`${L}/log/focaccia`, { ...stamp, dough: 'focaccia', text: 'x' });
+  await seedDoc(`${L}/orders-history/2026-08-11_S1`, { ...stamp, date: '2026-08-11', supplierId: 'S1' });
+  await seedDoc(`${L}/client-orders/2026-08-11_c-one`, { ...stamp, date: '2026-08-11', clientId: 'c-one' });
+  await seedDoc(`${L}/pastry-logs/2026-08-11_Tuesday`, { ...stamp, date: '2026-08-11', day: 'Tuesday' });
+
+  // ── Staff may not take away what everybody else's work rests on ──
+  await expectDeniedCleanly('staff cannot delete a supplier',
+    () => deleteWrite(`${L}/suppliers/S1`, asAccount(SAM)));
+  await expectDeniedCleanly('staff cannot delete an ingredient',
+    () => deleteWrite(`${L}/ingredients/I1`, asAccount(SAM)));
+  await expectDeniedCleanly('staff cannot delete a recipe',
+    () => deleteWrite(`${L}/recipes/R1`, asAccount(SAM)));
+  await expectDeniedCleanly('staff cannot delete a Food Cost product',
+    () => deleteWrite(`${L}/products/P1`, asAccount(SAM)));
+
+  // Handing an account to somebody outside the business is the nearest thing
+  // this app has to granting access, so it is the owner's by definition.
+  await expectDeniedCleanly('staff cannot hand a client an ordering account', () =>
+    wholeWrite(`${L}/client-accounts/${NOBODY.uid}`,
+      { ...stamp, clientId: 'c-two', clientName: 'C TWO', createdAt: 'now' }, asAccount(SAM)));
+  await expectDeniedCleanly('staff cannot revoke a client ordering account',
+    () => deleteWrite(`${L}/client-accounts/${CLIENT_A.uid}`, asAccount(SAM)));
+  await expectDeniedCleanly('staff cannot delete a client menu',
+    () => deleteWrite(`${L}/client-menus/c-one`, asAccount(SAM)));
+
+  // ── …and an account nobody has said anything about behaves the SAME ──
+  // ⚠️ THIS IS THE PRODUCTION STATE. Not one users document has a `roles` field
+  // until the backfill runs, so if these threw instead of answering, the whole
+  // ruleset would be relying on a crash to be safe.
+  await expectDeniedCleanly('an account with NO roles field cannot delete a supplier',
+    () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
+  await expectDeniedCleanly('an account with NO roles field cannot delete an ingredient',
+    () => deleteWrite(`${L}/ingredients/I1`, asAccount(LEGACY)));
+  await expectDeniedCleanly('an account with NO roles field cannot delete a recipe',
+    () => deleteWrite(`${L}/recipes/R1`, asAccount(LEGACY)));
+
+  // A role is not a passport. Owner somewhere else is staff here.
+  await seedDoc(`users/${LEGACY.uid}`,
+    { locations: { main: true }, roles: { 'trattoria-x': 'owner' } });
+  await expectDeniedCleanly('owner of ANOTHER location is only staff in this one',
+    () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
+
+  // A role nobody recognises must never read as more power than staff — the
+  // same rule js/roles.js keeps, checked here against the database itself.
+  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: true }, roles: { main: 'manager' } });
+  await expectDeniedCleanly('an unrecognised role is not an owner',
+    () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
+  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: true }, roles: { main: 'Owner' } });
+  await expectDeniedCleanly('the role is case sensitive: Owner is not owner',
+    () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
+
+  // ── THE HALF THAT MATTERS MORE: staff can still do the work ──
+  // Every one of these is somebody correcting their OWN entry, and every one of
+  // them stays open on purpose. If a future change gates one of these, it should
+  // fail here loudly rather than be discovered by a baker at five in the morning.
+  await expectAllowed('staff can still delete a production log entry',
+    () => deleteWrite(`${L}/logs/LG1`, asAccount(SAM)));
+  await expectAllowed('staff can still delete a legacy per-dough log',
+    () => deleteWrite(`${L}/log/focaccia`, asAccount(SAM)));
+  await expectAllowed('staff can still delete a recorded order',
+    () => deleteWrite(`${L}/orders-history/2026-08-11_S1`, asAccount(SAM)));
+  await expectAllowed('staff can still delete a client order',
+    () => deleteWrite(`${L}/client-orders/2026-08-11_c-one`, asAccount(SAM)));
+  await expectAllowed('staff can still delete a pastry record',
+    () => deleteWrite(`${L}/pastry-logs/2026-08-11_Tuesday`, asAccount(SAM)));
+
+  // ⚠️ config/calculator is NOT gated, and that is a decision, not an oversight:
+  // it holds the address book, every client's products AND every recipe the
+  // Calculator owns. Gating it would stop a baker editing a recipe — the most
+  // ordinary act in this app — to protect a few settings that share the document
+  // by history. This check pins the decision so nobody "tightens" it by accident.
+  await expectAllowed('staff can still edit the address book and the recipes', () =>
+    mergeWrite(`${L}/config/calculator`, { ...stamp, clients: [] }, asAccount(SAM)));
+  await expectAllowed('staff can still type quantities into the draft', () =>
+    mergeWrite(`${L}/drafts/current`, { ...stamp, updatedAt: 'now' }, asAccount(SAM)));
+
+  // ── And the owner is still the owner ──
+  await expectAllowed('the owner can delete a supplier',
+    () => deleteWrite(`${L}/suppliers/S1`));
+  await expectAllowed('the owner can delete an ingredient',
+    () => deleteWrite(`${L}/ingredients/I1`));
+  await expectAllowed('the owner can delete a recipe',
+    () => deleteWrite(`${L}/recipes/R1`));
+  await expectAllowed('the owner can delete a product',
+    () => deleteWrite(`${L}/products/P1`));
+  await expectAllowed('the owner can revoke a client ordering account',
+    () => deleteWrite(`${L}/client-accounts/${CLIENT_A.uid}`));
+}
+
 for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
                         locationTree, isolation, configAndLogs, pastries, pastryLogs,
-                        products, clientOrders, pushNotifications]) {
+                        products, clientOrders, pushNotifications, roles]) {
   await scenario();
 }
 

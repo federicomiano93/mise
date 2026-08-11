@@ -67,6 +67,101 @@ service cloud.firestore {
       return member(lid) && sectionOn(lid, section);
     }
 
+    // ── What a person may do once they are INSIDE a location ──────────────
+    // member(lid) is the boundary between two businesses. This is the smaller
+    // boundary between two people in the same business, and it exists because
+    // the app is going to be sold: with one owner's own two venues, everybody
+    // being able to delete everything is a shrug; with a paying customer it is
+    // their counter staff emptying their supplier list.
+    //
+    // ⚠️ THE DEFAULT IS 'staff', AND IT HAS TO BE. Every users document written
+    // before today has no `roles` field at all, so a default of 'owner' would
+    // make the whole thing decorative — and any account whose role write was
+    // lost would silently hold another business's delete buttons. Power nobody
+    // granted does not exist. js/roles.js carries the same default, deliberately
+    // identical, and does NOT forgive a stray space in a key because this does
+    // not forgive one either.
+    //
+    // ⚠️ THE CONSEQUENCE, AND IT IS THE RISKY MOMENT OF THIS CHANGE: the
+    // accounts that exist today must have `roles` written BEFORE this ruleset is
+    // deployed, or their owners lose their own delete buttons. Read the backfill
+    // back from the API afterwards — a trailing space is invisible in the
+    // console, and that has already cost this project half an hour once.
+    //
+    // The exists() guard makes this safe to call on its own. It is not strictly
+    // needed while every call site goes through canUse() first (&& short-circuits,
+    // so member() has already proved the document is there), but a helper that
+    // errors depending on where it is called from is a trap for the next person.
+    // Firestore charges one access per document per evaluation, so it is free.
+    // ⚠️ IT DOES NOT USE THE `.get('roles', {}).get(...)` SHAPE member() USES ONE
+    // SCREEN UP, and the difference is not style. Calling .get() on the `{}`
+    // DEFAULT is an evaluation error, not a miss — the rule throws instead of
+    // answering. member() never meets it because every users document has a
+    // `locations` field; roleIn() meets it on EVERY account in the database
+    // today, because none of them has `roles` yet. Written the short way, all
+    // seven gated rules below threw on the accounts they most needed to answer
+    // for. (member() carries the same latent trap for a document with no
+    // `locations`; it is left alone because it fails towards deny, which is the
+    // safe direction there.)
+    //
+    // Asking `is map` as well is what makes a corrupt `roles` resolve to 'staff'
+    // instead of throwing, which is exactly what js/roles.js does with the same
+    // input. The two must agree, so they agree here too.
+    // ⚠️⚠️ THIS READS users/{uid} EXACTLY ONCE, AND THAT IS THE WHOLE REASON IT
+    // IS SHAPED LIKE THIS. The obvious version — canUse(lid, section) && a
+    // roleIn(lid) helper that fetches the document itself — is correct, readable,
+    // and DOES NOT WORK. Firestore allows 10 document accesses per request, and
+    // when an `allow` evaluates FALSE the engine carries on to the next matching
+    // rule and evaluates again, so every access is paid TWICE: member()'s
+    // exists+get, sectionOn()'s exists+get and roleIn()'s get come to 5, and 5
+    // doubled is the limit exactly.
+    //
+    // The failure is vicious because it is invisible from the owner's side: the
+    // owner's rule returns TRUE, evaluation stops at the first pass, and the
+    // budget is never exceeded. Only a STAFF member — the one person this whole
+    // change exists for — pushes it to a second pass, and what they get is not a
+    // clean refusal but an evaluation error. It denies, so the app behaves
+    // correctly by accident, and nothing anywhere says why.
+    //
+    // Found by a check that insists a denial is an ANSWER and not a crash
+    // (expectDeniedCleanly), after three wrong hypotheses. Do not "tidy" this
+    // back into two helpers: it reads worse and works.
+    function roleIn(lid) {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid))
+               .data.get('roles', {}).get(lid, 'staff');
+    }
+
+    // ⚠️ IT TAKES THE SECTION TOO, so an owner of a location that does not use
+    // Orders still cannot delete a supplier. A role narrows what membership and
+    // sections already granted; it can never widen either of them.
+    function isOwner(lid, section) {
+      return canUse(lid, section) && roleIn(lid) == 'owner';
+    }
+
+    // ── Where the line is drawn, and what is deliberately NOT behind it ────
+    //
+    // The test is "does deleting this take away work that is not yours". So
+    // isOwner() guards: suppliers, ingredients, recipes, products, and the
+    // client-ordering accounts and menus (creating one hands an outsider a way
+    // in; deleting one cuts off a customer's phone).
+    //
+    // These five stay open to anybody in the location, ON PURPOSE — they are how
+    // a person corrects their OWN work, and a baker who cannot fix a mistyped
+    // log at 5am will simply stop recording things:
+    //     logs/{id} · log/{dough} · orders-history/{id}
+    //     client-orders/{id} · pastry-logs/{id}
+    //
+    // ⚠️ AND `config/{doc}` IS DELIBERATELY NOT GATED, though it looks like the
+    // obvious candidate. config/calculator is not a settings document: it holds
+    // the whole address book, every client's products AND every recipe the
+    // Calculator owns. Gating it would stop a baker editing a recipe — the most
+    // ordinary act in this app — to protect a few settings that sit in the same
+    // document by history. Splitting that document is its own piece of work; a
+    // rule that breaks daily work is not a safer rule.
+    //
+    // Deleting is what earns the gate because deleting is what cannot be undone.
+    // Changing a setting is visible and reversible; a deleted supplier is not.
+
     // ── Who may order AS a client ─────────────────────────────────────────
     // A wholesale client types its own order into the app instead of sending it on
     // WhatsApp, so for the first time an account belonging to somebody OUTSIDE the
@@ -256,7 +351,10 @@ service cloud.firestore {
               || request.resource.data.notifyHoursBefore == null
               || request.resource.data.notifyHoursBefore is number);
 
-        allow delete: if canUse(lid, 'orders');
+        // OWNER ONLY. Every ingredient filed under this supplier stops being
+        // orderable the moment it goes, and every past order that named it
+        // loses its heading. Nobody's own work; everybody's.
+        allow delete: if isOwner(lid, 'orders');
       }
 
       // ── Ingredients ─────────────────────────────────────────────────────
@@ -371,7 +469,12 @@ service cloud.firestore {
                   && request.resource.data.nutrition.keys().hasOnly(
                        ['kj', 'kcal', 'fat', 'saturates', 'carbs', 'sugars', 'protein', 'salt'])));
 
-        allow delete: if canUse(lid, 'orders');
+        // OWNER ONLY, and this is the one that costs the most to undo: recipe
+        // rows link to it, Food Cost prices through it, and its allergen
+        // declaration is what lets a label be printed at all. Deleting it also
+        // resets its suggestion history for ever, because past orders are keyed
+        // by id and a re-created ingredient starts from scratch.
+        allow delete: if isOwner(lid, 'orders');
 
         // ── What this ingredient has cost over time ───────────────────────
         // APPEND-ONLY BY CONSTRUCTION: create is allowed, update and delete are
@@ -630,7 +733,13 @@ service cloud.firestore {
       match /client-accounts/{uid} {
         allow read: if member(lid) || (signedIn() && request.auth.uid == uid);
 
-        allow create, update: if canUse(lid, 'calculator')
+        // OWNER ONLY, and the only WRITE gated in this change rather than a
+        // delete. This document is what hands an account outside the business a
+        // way in — it is the nearest thing this app has to granting access, and
+        // granting access is the owner's job by definition. Revoking it (below)
+        // is owner-only for the same reason: a revoke cuts off a customer's
+        // phone mid-order.
+        allow create, update: if isOwner(lid, 'calculator')
           && stampedFor(lid)
           && request.resource.data.keys().hasOnly(
                ['bakery', 'clientId', 'clientName', 'createdAt', 'linkToken'])
@@ -665,7 +774,8 @@ service cloud.firestore {
               || (request.resource.data.linkToken is string
                   && request.resource.data.linkToken.size() <= 128));
 
-        allow delete: if canUse(lid, 'calculator');
+        // OWNER ONLY — see the create above. Deleting this IS the revoke.
+        allow delete: if isOwner(lid, 'calculator');
       }
 
       // ── The one setting a client's own page has to know ─────────────────
@@ -729,7 +839,12 @@ service cloud.firestore {
           && request.resource.data.updatedAt is string
           && request.resource.data.updatedAt.size() <= 64;
 
-        allow delete: if canUse(lid, 'calculator');
+        // OWNER ONLY, to travel with the account above — a menu without its
+        // account is a client that can sign in and see nothing. Nothing in the
+        // app deletes this today (checked), so gating it costs no daily work;
+        // the create/update stays open because saving the address book
+        // republishes every changed menu, and that is ordinary work.
+        allow delete: if isOwner(lid, 'calculator');
       }
 
       // ── An order a client typed themselves ──────────────────────────────
@@ -918,7 +1033,10 @@ service cloud.firestore {
           && (!('endNote' in request.resource.data)
               || (request.resource.data.endNote is string
                   && request.resource.data.endNote.size() <= 300));
-        allow delete: if canUse(lid, 'catalogue');
+        // OWNER ONLY. A recipe is the business. It also carries the guided
+        // procedure, the allergen links and whatever Food Cost products point
+        // at it, none of which say so from the delete button.
+        allow delete: if isOwner(lid, 'catalogue');
       }
 
       // ── Finished products, and what they earn ───────────────────────
@@ -977,7 +1095,10 @@ service cloud.firestore {
                   && request.resource.data.foodCostTarget > 0
                   && request.resource.data.foodCostTarget <= 100));
 
-        allow delete: if canUse(lid, 'foodcost');
+        // OWNER ONLY. Deleting a product takes its margin history (the nested
+        // snapshots) with it, and that history cannot be rebuilt — a snapshot
+        // only exists where somebody changed something on the day they changed it.
+        allow delete: if isOwner(lid, 'foodcost');
 
         // ── What this product cost, and earned, on a given day ─────────────
         // APPEND-ONLY, exactly like the ingredient price history and for the same
