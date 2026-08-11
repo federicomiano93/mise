@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recipeAllergens, canLabel, incompleteText, ALLERGEN_REASON_TEXT,
-  blockingIngredients,
+  blockingIngredients, unlinkedRowNames,
 } from '../js/catalogue/recipe-allergen-model.js';
 import { MAX_RECIPE_DEPTH } from '../js/catalogue/recipe-cost-model.js';
 
@@ -276,4 +276,46 @@ test('the order is stable between two runs', () => {
 test('junk never throws', () => {
   assert.deepEqual(blockingIngredients(null, {}), []);
   assert.deepEqual(blockingIngredients([null, {}], {}), []);
+});
+
+// ── The job BEFORE declaring ─────────────────────────────────────────────────
+//
+// ⚠️ THIS EXISTS BECAUSE THE WORK LIST WAS EMPTY ON THE REAL DATA. On 11 August
+// 2026 the bakery had 77 recipe rows and NONE of them linked, so
+// blockingIngredients() had nothing to count and the screen whose whole point is
+// "start here" showed nothing at all. Linking comes first, strictly: a
+// declaration cannot reach a recipe that does not point at the ingredient.
+
+test('THE ROWS THAT ARE NOT LINKED ARE THEIR OWN JOB, counted by name', () => {
+  const recipes = [
+    recipe('A', [{ label: 'Flour', grams: 1000, unit: 'g' }, { label: 'Salt', grams: 20, unit: 'g' }]),
+    recipe('B', [{ label: 'Flour', grams: 500, unit: 'g' }]),
+    recipe('C', [{ label: 'Flour', grams: 500, unit: 'g' }]),
+  ];
+  assert.deepEqual(unlinkedRowNames(recipes).map(x => [x.name, x.rows]), [['Flour', 3], ['Salt', 1]]);
+});
+
+test('a LINKED row is not on the linking list', () => {
+  assert.deepEqual(unlinkedRowNames([recipe('A', [row('Flour', 'FLOUR')])]), []);
+});
+
+test('the same name in one recipe twice is TWO links to make', () => {
+  // Unlike declaring, which is one job per ingredient however often it appears,
+  // linking is one action per ROW.
+  const r = recipe('A', [{ label: 'Flour', grams: 100, unit: 'g' }, { label: 'Flour', grams: 50, unit: 'g' }]);
+  assert.deepEqual(unlinkedRowNames([r]).map(x => x.rows), [2]);
+});
+
+test('a blank line is not a job here either', () => {
+  assert.deepEqual(unlinkedRowNames([recipe('A', [{ label: '  ', grams: 0 }])]), []);
+});
+
+test('the order is busiest first, ties by name, and stable', () => {
+  const recipes = [recipe('A', [{ label: 'Bbb', grams: 1 }, { label: 'Aaa', grams: 1 }])];
+  assert.deepEqual(unlinkedRowNames(recipes).map(x => x.name), ['Aaa', 'Bbb']);
+});
+
+test('junk never throws', () => {
+  assert.deepEqual(unlinkedRowNames(null), []);
+  assert.deepEqual(unlinkedRowNames([null, {}]), []);
 });
