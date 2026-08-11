@@ -82,11 +82,38 @@ export function isSectionAllowed(locationDoc, name) {
 // on it — so one stray space in this document crashed the sign-in instead of
 // producing the honest, recoverable "no location yet". Dropping is not
 // forgiveness: the id still grants nothing, it just fails gracefully.
+// What `locations.<id>` may say, and what each answer means.
+//
+// ⚠️ THE ROLE LIVES IN THIS VALUE, IT DOES NOT GET A FIELD OF ITS OWN. A
+// separate `roles` map was built first and abandoned: firestore.rules could not
+// read a second map without answering with an evaluation error instead of a
+// clean refusal — it denied, so the app looked right, but a security rule whose
+// failure mode nobody can explain is not one to keep. This shape needs no second
+// lookup at all, because the rules already read this exact value to decide
+// membership.
+//
+//   true      → a member of this location, ordinary staff
+//   'owner'   → a member, and the person whose business it is
+//   anything else (false, missing, a typo) → no access at all
+//
+// ⚠️ `true` MEANS STAFF ON PURPOSE, and that is what makes this safe to deploy:
+// every users document in production says `true` today, so nobody loses access
+// the moment the rules land — they simply hold no owner powers until the
+// backfill turns the right ones into 'owner'.
+export const OWNER = 'owner';
+
+export function accessValue(userDoc, locationId) {
+  const raw = userDoc && typeof userDoc === 'object' ? userDoc.locations : null;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  const value = raw[locationId];
+  return value === true || value === OWNER ? value : false;
+}
+
 export function locationsOf(userDoc) {
   const raw = userDoc && typeof userDoc === 'object' ? userDoc.locations : null;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
   return Object.keys(raw)
-    .filter(id => raw[id] === true && isValidLocationId(id))
+    .filter(id => accessValue(userDoc, id) !== false && isValidLocationId(id))
     .sort();
 }
 

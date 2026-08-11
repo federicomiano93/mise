@@ -346,7 +346,12 @@ export async function seedDemoWorld() {
     sections: { orders: true, calculator: false, catalogue: false, pastries: false },
   });
 
-  await seedAccount('club@club.test', DEMO_PASSWORD, { bakery: true });
+  // ⚠️ THE VALUE CARRIES THE ROLE: 'owner' is the person whose business it is,
+  // `true` is ordinary staff. Both are seeded for the same location on purpose —
+  // the roles are only ever visible by comparing two accounts side by side, and
+  // `true` is also exactly what every account in production says today.
+  await seedAccount('club@club.test', DEMO_PASSWORD, { bakery: 'owner' });
+  await seedAccount('staff@club.test', DEMO_PASSWORD, { bakery: true });
   await seedAccount('rosa@club.test', DEMO_PASSWORD, { 'trattoria-rosa': true });
   await seedAccount('restaurant@club.test', DEMO_PASSWORD, { restaurant: true });
   // Three locations, not two: with two, "Switch location" has only one place to
@@ -371,7 +376,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   locations/restaurant — The Italian Club, Orders only, COMPLETELY EMPTY
 
   Sign in with any of these (password: ${DEMO_PASSWORD}):
-    club@club.test       → The Italian Club Bakery
+    club@club.test       → The Italian Club Bakery (OWNER — can delete)
+    staff@club.test      → the same bakery as STAFF (no delete buttons)
     rosa@club.test       → Trattoria Rosa (Orders only)
     restaurant@club.test → The Italian Club (Orders only, no data at all)
     owner@club.test      → all three, so the location picker appears

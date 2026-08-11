@@ -9,6 +9,7 @@
 // before saving, Delete is low-key and confirmed, and leaving with unsaved edits
 // asks first.
 
+import { isOwnerHere } from './firebase-foodcost.js';
 import { el } from './dom.js';
 import {
   VAT_RATES, SELLING_MODES, costProduct, BLOCKER_TEXT, statusFor,
@@ -341,7 +342,12 @@ export function renderEditor({ product, app }) {
     el('div', { class: 'fc-actions' }, [
       el('button', { class: 'fc-save', type: 'button', text: 'Save', onclick: onSave }),
       historyBtn,
-      product ? el('button', { class: 'fc-delete', type: 'button', onclick: onDelete }, [
+      // ⚠️ Owner only. Deleting a product takes its margin history with it, and
+      // that history cannot be rebuilt — a snapshot exists only where somebody
+      // changed something, on the day they changed it. The trash icons on the
+      // component rows above are NOT this: they edit the working copy and touch
+      // nothing until Save, so they stay available to everybody.
+      product && isOwnerHere() ? el('button', { class: 'fc-delete', type: 'button', onclick: onDelete }, [
         el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }), 'Delete product',
       ]) : null,
     ]),

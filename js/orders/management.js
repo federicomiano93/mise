@@ -1,12 +1,20 @@
 // management.js — management panel (settings icon).
 //
-// isAdmin is hardcoded true for now (placeholder — real role checks arrive with
-// real auth; note the panel being open is UX only, the Firestore rules still
-// validate every write). Lets an admin add/edit/deactivate/delete suppliers (with
-// delivery days, order days and contact details) and ingredients (with supplier,
-// category and unit). "Deactivate" sets active:false (reversible, hides from the
-// order screen); "Delete" removes the document permanently (irreversible, gated
-// by a strong confirm and by the Firestore rules).
+// Add/edit/deactivate/delete suppliers (with delivery days, order days and
+// contact details) and ingredients (with supplier, category and unit).
+// "Deactivate" sets active:false (reversible, hides from the order screen);
+// "Delete" removes the document permanently.
+//
+// ⚠️ THE PANEL IS OPEN TO EVERYBODY IN THE LOCATION, AND THAT IS THE DESIGN, not
+// a leftover. Adding a supplier, correcting a phone number and pausing an
+// ingredient are ordinary work — locking the whole panel would send somebody to
+// find the owner to fix a typo. What is gated is the irreversible half:
+// isOwnerHere() decides whether Delete is drawn at all, and firestore.rules
+// refuses it regardless of what this page decides to show (P2).
+//
+// isAdmin below is the old placeholder from before roles existed. It still reads
+// `true` because the panel really is for everybody now — the real check moved to
+// the one action that needed it.
 //
 // data: { suppliers(): [], ingredients(): [] } — live getters from orders-main.
 // actions: { onClose, saveSupplier(id,payload), saveIngredient(id,payload),
@@ -14,6 +22,7 @@
 //            deleteSupplier(id), deleteIngredient(id) }
 
 import { el } from './dom.js';
+import { isOwnerHere } from './firebase-orders.js';
 import { renderNotificationSettings } from './notifications.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
@@ -32,7 +41,7 @@ import {
   missingNutrients, buildAllergenFields,
 } from '../allergen-model.js';
 
-export const isAdmin = true; // placeholder until real auth/roles exist
+export const isAdmin = true; // the panel is for everybody; Delete is the gated part
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -266,37 +275,49 @@ export function buildManagement(data, actions) {
   // A row with three actions: Edit, Deactivate/Activate (reversible), Delete
   // (permanent). Deactivate confirms only when hiding; Delete always confirms with
   // a strong, irreversible warning and is styled low-key in danger red (P20).
+  //
+  // ⚠️ STAFF GET THE FIRST TWO AND NOT THE THIRD, and the pair is the point.
+  // Deactivating hides a supplier from the order screen and can be undone in one
+  // tap; deleting takes it away from everybody, along with every ingredient filed
+  // under it. So the reversible half of the job stays with whoever is working and
+  // only the irreversible half needs the owner — the alternative, hiding both,
+  // would send somebody to find the owner to tidy a list.
   function mgmtRow(name, meta, active, onEdit, onToggle, onDelete) {
+    const actions = [
+      el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, 'Edit'),
+      el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
+        // Confirm before deactivating (guards against accidental taps);
+        // reactivating is harmless and needs no confirmation.
+        if (active) {
+          const ok = await confirmDialog({
+            message: `Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`,
+            okLabel: 'Deactivate', danger: true,
+          });
+          if (!ok) return;
+        }
+        try { await onToggle(); }
+        catch (err) { await reportFailure(active ? 'deactivate' : 'activate', name, err); }
+      } }, active ? 'Deactivate' : 'Activate'),
+    ];
+
+    if (isOwnerHere()) {
+      actions.push(el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
+        const ok = await confirmDialog({
+          message: `Permanently delete "${name}"? This cannot be undone.`,
+          okLabel: 'Delete', danger: true,
+        });
+        if (!ok) return;
+        try { await onDelete(); }
+        catch (err) { await reportFailure('delete', name, err); }
+      } }, 'Delete'));
+    }
+
     return el('div', { class: 'mgmt-item' + (active ? '' : ' inactive') }, [
       el('div', { class: 'mgmt-item-main' }, [
         el('span', { class: 'mgmt-item-name', text: name }),
         el('span', { class: 'mgmt-item-meta', text: meta }),
       ]),
-      el('div', { class: 'mgmt-item-actions' }, [
-        el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, 'Edit'),
-        el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
-          // Confirm before deactivating (guards against accidental taps);
-          // reactivating is harmless and needs no confirmation.
-          if (active) {
-            const ok = await confirmDialog({
-              message: `Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`,
-              okLabel: 'Deactivate', danger: true,
-            });
-            if (!ok) return;
-          }
-          try { await onToggle(); }
-          catch (err) { await reportFailure(active ? 'deactivate' : 'activate', name, err); }
-        } }, active ? 'Deactivate' : 'Activate'),
-        el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
-          const ok = await confirmDialog({
-            message: `Permanently delete "${name}"? This cannot be undone.`,
-            okLabel: 'Delete', danger: true,
-          });
-          if (!ok) return;
-          try { await onDelete(); }
-          catch (err) { await reportFailure('delete', name, err); }
-        } }, 'Delete'),
-      ]),
+      el('div', { class: 'mgmt-item-actions' }, actions),
     ]);
   }
 

@@ -58,6 +58,7 @@ import {
   locationDocPath,
 } from './location.js';
 import { allowedSections, pickLocation, locationsOf } from './sections.js';
+import { roleOf, isOwner } from './roles.js';
 import { clearLocalData, shouldClearLocalData } from './local-data.js';
 
 // ── Configuration (PUBLIC config, P1 — committed on purpose, see .gitignore) ──
@@ -209,8 +210,12 @@ if (!isLocalhost) {
 
 const ACTIVE_LOCATION_KEY = 'active-location';
 
+// ⚠️ isOwner STARTS false AND MUST. Every screen decides what to draw from this
+// object, and it exists before a location is open — so the safe starting answer
+// is "no owner powers", the same direction the rules take for a value nobody set.
 let session = { status: 'loading', user: null, locationId: null, location: null,
-                sections: allowedSections(null), options: [], optionNames: {} };
+                sections: allowedSections(null), options: [], optionNames: {},
+                role: 'staff', isOwner: false };
 let userDocCache = null;
 const sessionListeners = new Set();
 
@@ -293,6 +298,13 @@ async function enterLocation(locationId, options, user) {
     optionNames: options.length > 1 ? await readLocationNames(options) : {},
     name: (location && location.name) || locationId,
     sections: allowedSections(location),
+    // ⚠️ FROM users/{uid}, WHICH NO CLIENT CAN WRITE — never from the location
+    // document, which is also console-only but says nothing about people. The
+    // app uses this only to avoid drawing controls the database would refuse:
+    // it is UX, not security (P2). The rules are the security, and they read
+    // this same value themselves rather than trusting anything sent from here.
+    role: roleOf(userDocCache, locationId),
+    isOwner: isOwner(userDocCache, locationId),
   });
   markSessionReady(session);
 }
@@ -326,7 +338,8 @@ onAuthStateChanged(auth, user => {
   if (!user) {
     userDocCache = null;
     setSession({ status: 'signed-out', user: null, locationId: null, location: null,
-                 options: [], sections: allowedSections(null) });
+                 options: [], sections: allowedSections(null),
+                 role: 'staff', isOwner: false });
     return;
   }
 
