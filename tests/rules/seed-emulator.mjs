@@ -350,8 +350,30 @@ export async function seedDemoWorld() {
   // `true` is ordinary staff. Both are seeded for the same location on purpose —
   // the roles are only ever visible by comparing two accounts side by side, and
   // `true` is also exactly what every account in production says today.
-  await seedAccount('club@club.test', DEMO_PASSWORD, { bakery: 'owner' });
-  await seedAccount('staff@club.test', DEMO_PASSWORD, { bakery: true });
+  const clubUid = await seedAccount('club@club.test', DEMO_PASSWORD, { bakery: 'owner' });
+  const staffUid = await seedAccount('staff@club.test', DEMO_PASSWORD, { bakery: true });
+  // The third role, so "Who can get in" can be looked at with all three on screen
+  // — which is the only way to see whether the pills read as a choice.
+  const mgrUid = await seedAccount('manager@club.test', DEMO_PASSWORD, { bakery: 'manager' });
+
+  // ── The roster ─────────────────────────────────────────────────────────────
+  // ⚠️ THE THIRD ROW HAS NO NAME, AND THAT IS THE POINT. This collection is
+  // written only by redeemJoinCode, so every account created by hand in the
+  // Firebase console carries no name at all — which is the state of all four
+  // rows in production today. Seeding one proves "(no name yet)" renders and
+  // that the Rename button has something to do.
+  await seedDoc(`locations/bakery/members/${clubUid}`, {
+    bakery: 'bakery', email: 'club@club.test',
+    firstName: 'Federico', lastName: 'Miano', role: 'owner', joinedAt: Date.now(),
+  });
+  await seedDoc(`locations/bakery/members/${mgrUid}`, {
+    bakery: 'bakery', email: 'manager@club.test',
+    firstName: 'Giulia', lastName: 'Bernardi', role: 'manager', joinedAt: Date.now(),
+  });
+  await seedDoc(`locations/bakery/members/${staffUid}`, {
+    bakery: 'bakery', email: 'staff@club.test',
+    firstName: '', lastName: '', role: 'staff', joinedAt: Date.now(),
+  });
   await seedAccount('rosa@club.test', DEMO_PASSWORD, { 'trattoria-rosa': true });
   await seedAccount('restaurant@club.test', DEMO_PASSWORD, { restaurant: true });
   // Three locations, not two: with two, "Switch location" has only one place to
@@ -377,7 +399,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 
   Sign in with any of these (password: ${DEMO_PASSWORD}):
     club@club.test       → The Italian Club Bakery (OWNER — can delete)
-    staff@club.test      → the same bakery as STAFF (no delete buttons)
+    manager@club.test    → the same bakery as MANAGER (deletes, but invites nobody)
+    staff@club.test      → the same bakery as an EMPLOYEE (no delete buttons)
     rosa@club.test       → Trattoria Rosa (Orders only)
     restaurant@club.test → The Italian Club (Orders only, no data at all)
     owner@club.test      → all three, so the location picker appears
