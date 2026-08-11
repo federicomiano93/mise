@@ -287,7 +287,8 @@ service cloud.firestore {
                'bakery', 'name', 'supplierId', 'brand', 'weight',
                'category', 'unit', 'active',
                'priceUnit', 'pricePerUnit', 'packPrice', 'packSize',
-               'unitWeightKg', 'priceUpdatedAt'
+               'unitWeightKg', 'priceUpdatedAt',
+               'allergens', 'mayContain', 'allergensCheckedAt', 'nutrition'
              ])
           && (!('name' in request.resource.data)
               || (request.resource.data.name is string
@@ -331,7 +332,44 @@ service cloud.firestore {
           && (!('priceUpdatedAt' in request.resource.data)
               || request.resource.data.priceUpdatedAt == null
               || (request.resource.data.priceUpdatedAt is string
-                  && request.resource.data.priceUpdatedAt.size() <= 64));
+                  && request.resource.data.priceUpdatedAt.size() <= 64))
+
+          // ── Allergens and nutrition ───────────────────────────────────
+          // What this ingredient declares, so a product label can be built from
+          // it. ⚠️ THE CONTENTS OF THESE LISTS ARE NOT VALIDATED HERE AND CANNOT
+          // BE — rules cannot look inside a list, the same limitation as `steps`
+          // on a recipe. Which codes are legal is guaranteed by
+          // js/allergen-model.js, which walks a closed list and drops anything
+          // else. What this holds is the SIZE, which is what keeps a corrupt or
+          // hostile document away from the 1MB ceiling; there are 26 codes, so
+          // 40 is generous and still bounded.
+          //
+          // ⚠️ OPTIONAL IN BOTH DIRECTIONS ON PURPOSE, like every field added to
+          // a live collection here: rules land on every phone the instant they
+          // deploy while code arrives one device at a time, so a phone still on
+          // the old build sends none of these and must keep saving.
+          && (!('allergens' in request.resource.data)
+              || (request.resource.data.allergens is list
+                  && request.resource.data.allergens.size() <= 40))
+          && (!('mayContain' in request.resource.data)
+              || (request.resource.data.mayContain is list
+                  && request.resource.data.mayContain.size() <= 40))
+          // ⚠️ THE STAMP IS WHAT TELLS "checked, contains none" APART FROM "nobody
+          // has said anything", and an empty string is the SECOND of those. It is
+          // therefore accepted, not refused: refusing it would leave no way to
+          // un-verify an ingredient whose spec turned out to be wrong.
+          && (!('allergensCheckedAt' in request.resource.data)
+              || request.resource.data.allergensCheckedAt == null
+              || (request.resource.data.allergensCheckedAt is string
+                  && request.resource.data.allergensCheckedAt.size() <= 64))
+          // A map of seven numbers per 100 g, each of which may be null — null
+          // means "not filled in" and 0 means zero, and the two are different
+          // (water really is 0 kcal). The values themselves are bounded by the
+          // model; only the shape and the key count are checked here.
+          && (!('nutrition' in request.resource.data)
+              || (request.resource.data.nutrition is map
+                  && request.resource.data.nutrition.keys().hasOnly(
+                       ['kj', 'kcal', 'fat', 'saturates', 'carbs', 'sugars', 'protein', 'salt'])));
 
         allow delete: if canUse(lid, 'orders');
 

@@ -291,6 +291,65 @@ async function ingredients() {
     () => mergeWrite('locations/main/ingredients/ING_MODERN',
       { priceUpdatedAt: bigString(65), bakery: 'main' }));
 
+  // ── Allergens and nutrition on the ingredient ──
+  // ⚠️ THE CONTENTS OF THESE LISTS ARE NOT VALIDATED BY THE RULES AND CANNOT BE —
+  // rules cannot look inside a list, the same limitation as `steps` on a recipe.
+  // Which codes are legal is js/allergen-model.js's job, and it is tested there.
+  // What is checked here is the SHAPE and the SIZE.
+  await expectAllowed('an ingredient may declare its allergens and nutrition', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      allergens: ['gluten-wheat', 'milk'],
+      mayContain: ['nuts-hazelnut'],
+      allergensCheckedAt: '2026-08-11T09:00:00.000Z',
+      nutrition: { kj: 1400, kcal: 330, fat: 1.2, saturates: 0.2, carbs: 70, sugars: 1.5, protein: 11, salt: 0.01 },
+      bakery: 'main',
+    }));
+
+  // ⚠️ "CHECKED, CONTAINS NONE" IS A REAL ANSWER and must save: an empty list with
+  // a stamp is how water and salt are declared, and refusing it would leave them
+  // permanently "unknown" and block every label they appear in.
+  await expectAllowed('checked, contains none of the 14', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      allergens: [], mayContain: [], allergensCheckedAt: '2026-08-11T09:00:00.000Z', bakery: 'main',
+    }));
+
+  // ⚠️ AND THE STAMP MUST BE REMOVABLE. These documents are merge-written, so a
+  // field left out keeps its old value — "this was verified wrongly, un-verify it"
+  // can only be said by writing an empty string. Refuse it and a mistaken
+  // verification could never be taken back.
+  await expectAllowed('un-verify an ingredient by clearing the stamp', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', { allergensCheckedAt: '', bakery: 'main' }));
+
+  // A nutrition value not filled in is null, and null is NOT zero.
+  await expectAllowed('a half-filled nutrition table saves, with nulls', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      nutrition: { kj: null, kcal: 330, fat: null, saturates: null, carbs: null, sugars: null, protein: null, salt: null },
+      bakery: 'main',
+    }));
+
+  // ⚠️ THE REGRESSION THAT MATTERS, the same one as `steps` and `endNote`: rules
+  // land on every phone the instant they deploy while code arrives one device at a
+  // time, so a phone still on the old build sends NONE of these and must keep
+  // saving. Refuse that and every ingredient edit from an un-updated phone fails.
+  await expectAllowed('an ingredient with none of the new fields still saves', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', { name: 'Flour T45', bakery: 'main' }));
+
+  await expectDenied('a runaway allergen list', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN',
+      { allergens: Array.from({ length: 41 }, (_, i) => 'a' + i), bakery: 'main' }));
+  await expectDenied('a runaway may-contain list', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN',
+      { mayContain: Array.from({ length: 41 }, (_, i) => 'a' + i), bakery: 'main' }));
+  await expectDenied('allergens sent as anything but a list', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', { allergens: 'milk', bakery: 'main' }));
+  await expectDenied('a nutrition key nobody declared', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN',
+      { nutrition: { kcal: 330, sodium: 0.4 }, bakery: 'main' }));
+  await expectDenied('nutrition sent as anything but a map', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', { nutrition: [330], bakery: 'main' }));
+  await expectDenied('a stamp long enough to be a payload', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', { allergensCheckedAt: bigString(65), bakery: 'main' }));
+
   await expectAllowed('delete an ingredient', () => deleteWrite('locations/main/ingredients/ING_MODERN'));
 }
 
