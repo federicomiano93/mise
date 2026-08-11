@@ -4,6 +4,7 @@
 // (only once scaled) returns to the base; an Import button copies it into the
 // Calculator.
 
+import { isOwnerHere } from './firebase-catalogue.js';
 import { el } from './dom.js';
 import { currentSession } from '../firebase.js';
 import { isSectionAllowed } from '../sections.js';
@@ -350,7 +351,12 @@ export function renderDetail({ recipe, app }) {
   // Low-key delete (P20 — de-emphasised destructive action): routed through the
   // shared guard, which warns if the recipe was imported into the Calculator and
   // navigates back to the list once deleted.
-  const deleteBtn = el('button', {
+  //
+  // ⚠️ OWNER ONLY, and it is absent rather than disabled. A recipe carries its
+  // guided procedure, its ingredient links and whatever Food Cost products point
+  // at it, none of which the button mentions. Staff keep every other action on
+  // this screen — a disabled control just invites the tap that explains nothing.
+  const deleteBtn = !isOwnerHere() ? null : el('button', {
     class: 'cat-detail-del', type: 'button',
     onclick: () => app.confirmAndDelete(recipe),
   }, [

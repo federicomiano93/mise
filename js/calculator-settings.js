@@ -30,6 +30,7 @@ import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import {
   listOrderingAccounts, createOrderingLink, revokeOrderingLink, orderingLinkFor,
 } from './client-orders-data.js';
+import { currentSession } from './firebase.js';
 import Sortable from './vendor/sortable.esm.js';
 
 // A recipe's display name (falls back to its id if the recipe was deleted).
@@ -366,9 +367,14 @@ function orderingLinkField(client) {
   const account = orderingAccounts.get(client.id);
   const link = account && account.linkToken ? orderingLinkFor(account.linkToken) : '';
 
+  // The sentence has to follow what this person can actually do, or it promises
+  // a button that is not there and reads as a broken screen.
+  const isOwner = currentSession().isOwner === true;
   field.appendChild(el('p', { class: 'cp-hint' }, account
     ? `${client.name} can send orders straight into the app. Anyone with the link can order as this client, so send it to them and no one else.`
-    : 'Create a link and send it to this client. They will see only their own products, and can order without a password.'));
+    : isOwner
+      ? 'Create a link and send it to this client. They will see only their own products, and can order without a password.'
+      : 'This client cannot order through the app yet. The owner can set that up.'));
 
   if (account && link) {
     const copy = el('button', { class: 'cp-add-prod', type: 'button' }, 'Copy link');
@@ -408,9 +414,15 @@ function orderingLinkField(client) {
       make.disabled = false;
     }
   });
-  field.appendChild(make);
+  // ⚠️ MINTING AND REVOKING ARE OWNER-ONLY; COPYING AND SENDING ARE NOT.
+  // Handing an account to somebody outside the business, or cutting one off
+  // mid-order, is granting and removing access — the owner's job, and the rules
+  // refuse it from anybody else. Passing an EXISTING link on to the client who
+  // already has it is an errand, so "Copy link" and "Send on WhatsApp" above
+  // stay available to whoever is at the counter.
+  if (isOwner) field.appendChild(make);
 
-  if (account) {
+  if (account && isOwner) {
     const revoke = el('button', { class: 'cp-link-revoke', type: 'button' }, 'Turn off ordering');
     revoke.addEventListener('click', async () => {
       if (!(await confirmDialog({

@@ -14,6 +14,7 @@
 //            deleteSupplier(id), deleteIngredient(id) }
 
 import { el } from './dom.js';
+import { isOwnerHere } from './firebase-orders.js';
 import { renderNotificationSettings } from './notifications.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
@@ -266,37 +267,49 @@ export function buildManagement(data, actions) {
   // A row with three actions: Edit, Deactivate/Activate (reversible), Delete
   // (permanent). Deactivate confirms only when hiding; Delete always confirms with
   // a strong, irreversible warning and is styled low-key in danger red (P20).
+  //
+  // ⚠️ STAFF GET THE FIRST TWO AND NOT THE THIRD, and the pair is the point.
+  // Deactivating hides a supplier from the order screen and can be undone in one
+  // tap; deleting takes it away from everybody, along with every ingredient filed
+  // under it. So the reversible half of the job stays with whoever is working and
+  // only the irreversible half needs the owner — the alternative, hiding both,
+  // would send somebody to find the owner to tidy a list.
   function mgmtRow(name, meta, active, onEdit, onToggle, onDelete) {
+    const actions = [
+      el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, 'Edit'),
+      el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
+        // Confirm before deactivating (guards against accidental taps);
+        // reactivating is harmless and needs no confirmation.
+        if (active) {
+          const ok = await confirmDialog({
+            message: `Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`,
+            okLabel: 'Deactivate', danger: true,
+          });
+          if (!ok) return;
+        }
+        try { await onToggle(); }
+        catch (err) { await reportFailure(active ? 'deactivate' : 'activate', name, err); }
+      } }, active ? 'Deactivate' : 'Activate'),
+    ];
+
+    if (isOwnerHere()) {
+      actions.push(el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
+        const ok = await confirmDialog({
+          message: `Permanently delete "${name}"? This cannot be undone.`,
+          okLabel: 'Delete', danger: true,
+        });
+        if (!ok) return;
+        try { await onDelete(); }
+        catch (err) { await reportFailure('delete', name, err); }
+      } }, 'Delete'));
+    }
+
     return el('div', { class: 'mgmt-item' + (active ? '' : ' inactive') }, [
       el('div', { class: 'mgmt-item-main' }, [
         el('span', { class: 'mgmt-item-name', text: name }),
         el('span', { class: 'mgmt-item-meta', text: meta }),
       ]),
-      el('div', { class: 'mgmt-item-actions' }, [
-        el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, 'Edit'),
-        el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
-          // Confirm before deactivating (guards against accidental taps);
-          // reactivating is harmless and needs no confirmation.
-          if (active) {
-            const ok = await confirmDialog({
-              message: `Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`,
-              okLabel: 'Deactivate', danger: true,
-            });
-            if (!ok) return;
-          }
-          try { await onToggle(); }
-          catch (err) { await reportFailure(active ? 'deactivate' : 'activate', name, err); }
-        } }, active ? 'Deactivate' : 'Activate'),
-        el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
-          const ok = await confirmDialog({
-            message: `Permanently delete "${name}"? This cannot be undone.`,
-            okLabel: 'Delete', danger: true,
-          });
-          if (!ok) return;
-          try { await onDelete(); }
-          catch (err) { await reportFailure('delete', name, err); }
-        } }, 'Delete'),
-      ]),
+      el('div', { class: 'mgmt-item-actions' }, actions),
     ]);
   }
 

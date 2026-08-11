@@ -10,7 +10,7 @@
 // must match the folder it sits in (rules enforce it). js/location.js is the
 // only place that knows the path.
 
-import { firebaseConfig, sessionReady } from '../firebase.js';
+import { firebaseConfig, sessionReady, currentSession } from '../firebase.js';
 import { currentLocationId, pathFor } from '../location.js';
 import {
   getApps,
@@ -147,4 +147,14 @@ export async function updateConfigInTransaction(applyFn) {
     tx.set(ref, built);
   });
   return built;
+}
+
+// Whether this session may take things away in this location.
+//
+// ⚠️ UX ONLY (P2). The rules decide, and they read users/{uid} themselves rather
+// than trusting anything this page says. This exists so a screen does not draw a
+// button the database is going to refuse — a control that fails on tap teaches
+// people the app is broken, not that they lack the permission.
+export function isOwnerHere() {
+  return currentSession().isOwner === true;
 }
