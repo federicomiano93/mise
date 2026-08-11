@@ -23,6 +23,14 @@ import {
   pricePatch, priceChanged, priceRecord, pricePerKg,
   formatPricePerUnit, formatRate, costReasonText,
 } from '../price-model.js';
+// ⚠️ From js/ ROOT, not from a feature folder — see the header of that file. What
+// an ingredient declares is typed HERE, in Orders, and read by the catalogue and
+// by the labels screen, so the judgement lives in one place for all three.
+import {
+  ALLERGENS, ALLERGEN_GROUPS, NUTRIENTS,
+  allergenLabel, allergenState, checkedAt, isDeclared,
+  missingNutrients, buildAllergenFields,
+} from '../allergen-model.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
 
@@ -517,6 +525,126 @@ export function buildManagement(data, actions) {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
+  // ── Allergens and nutrition ─────────────────────────────────────────────────
+  //
+  // ⚠️ THE TICK THAT SAYS "I HAVE CHECKED THIS" IS A DELIBERATE ACT, NOT A SIDE
+  // EFFECT OF SAVING. If opening this form and pressing Save were enough to stamp
+  // an ingredient as verified, then correcting a spelling would declare it
+  // allergen-free — and that declaration is the one thing here that can put
+  // somebody in hospital. It has to be somebody saying so, on purpose.
+  function allergenBlock(item) {
+    const boxes = new Map();   // code -> { contains, may }
+
+    function tickRow(code) {
+      const contains = el('input', { type: 'checkbox' });
+      const may = el('input', { type: 'checkbox' });
+      contains.checked = (item?.allergens || []).includes(code);
+      may.checked = (item?.mayContain || []).includes(code);
+      boxes.set(code, { contains, may });
+      return el('div', { class: 'alg-row' }, [
+        el('span', { class: 'alg-name', text: allergenLabel(code) }),
+        el('label', { class: 'day-check alg-tick', title: `Contains ${allergenLabel(code)}` },
+          [contains, el('span', { text: 'has' })]),
+        el('label', { class: 'day-check alg-tick alg-tick--may', title: `May contain traces of ${allergenLabel(code)}` },
+          [may, el('span', { text: 'traces' })]),
+      ]);
+    }
+
+    // The two groups the law makes us name individually get their own heading, so
+    // 26 boxes read as a structured list rather than a wall of ticks.
+    const GROUP_TITLE = { gluten: 'Cereals containing gluten', nuts: 'Nuts' };
+    const sections = [];
+    for (const group of ALLERGEN_GROUPS) {
+      const codes = ALLERGENS.filter(a => a.group === group).map(a => a.code);
+      if (codes.length > 1) {
+        sections.push(el('p', { class: 'alg-group', text: GROUP_TITLE[group] || group }));
+        codes.forEach(code => sections.push(tickRow(code)));
+      }
+    }
+    const singles = ALLERGENS.filter(a => ALLERGENS.filter(x => x.group === a.group).length === 1);
+    sections.push(el('p', { class: 'alg-group', text: 'The rest' }));
+    singles.forEach(a => sections.push(tickRow(a.code)));
+
+    const checked = el('input', { type: 'checkbox' });
+    checked.checked = isDeclared(item);
+    const status = el('p', { class: 'alg-status' });
+
+    const nutrients = new Map();
+    const nutritionGrid = el('div', { class: 'alg-nutrition' });
+    for (const n of NUTRIENTS) {
+      const input = el('input', {
+        type: 'number', inputmode: 'decimal', step: 'any', min: '0', class: 'mgmt-input alg-num',
+        value: item?.nutrition && item.nutrition[n.key] != null ? String(item.nutrition[n.key]) : '',
+      });
+      nutrients.set(n.key, input);
+      nutritionGrid.appendChild(el('label', { class: 'alg-nut-field' }, [
+        el('span', { class: 'alg-nut-label', text: `${n.label} (${n.unit})` }),
+        input,
+      ]));
+    }
+
+    function read() {
+      const contains = [];
+      const may = [];
+      for (const [code, pair] of boxes) {
+        if (pair.contains.checked) contains.push(code);
+        if (pair.may.checked) may.push(code);
+      }
+      const nutrition = {};
+      for (const [key, input] of nutrients) nutrition[key] = input.value === '' ? null : input.value;
+      // ⚠️ The stamp is KEPT when it exists, so re-saving does not silently move
+      // the verification date and make a two-year-old check look like today's.
+      const stamp = checked.checked ? (checkedAt(item) || new Date().toISOString()) : '';
+      return buildAllergenFields({ allergens: contains, mayContain: may, checkedAt: stamp, nutrition });
+    }
+
+    // The live line at the top: which of the three states this ingredient is in.
+    // ⚠️ It says "not checked" in the app's warning colour on purpose — an
+    // ingredient nobody has declared blocks every label it appears in, and that
+    // has to look like a job rather than a blank.
+    function refresh() {
+      const draft = read();
+      const state = allergenState(draft);
+      const missing = missingNutrients({ nutrition: draft.nutrition });
+      const nutritionNote = missing.length === NUTRIENTS.length
+        ? 'No nutrition yet.'
+        : (missing.length ? `Nutrition: ${missing.length} of ${NUTRIENTS.length} still empty.` : 'Nutrition complete.');
+
+      if (state === 'unknown') {
+        status.textContent = `Not checked yet — this ingredient blocks any label it is used in. ${nutritionNote}`;
+        status.className = 'alg-status alg-status--unknown';
+        return;
+      }
+      const when = (checkedAt(draft) || '').slice(0, 10);
+      const what = state === 'none'
+        ? 'contains none of the 14'
+        : draft.allergens.map(allergenLabel).join(', ');
+      status.textContent = `Checked${when ? ` ${when}` : ''} — ${what}. ${nutritionNote}`;
+      status.className = 'alg-status alg-status--ok';
+    }
+
+    [...boxes.values()].forEach(p => {
+      p.contains.addEventListener('change', refresh);
+      p.may.addEventListener('change', refresh);
+    });
+    nutrients.forEach(input => input.addEventListener('input', refresh));
+    checked.addEventListener('change', refresh);
+    refresh();
+
+    const root = el('div', { class: 'mgmt-field alg-block' }, [
+      el('span', { class: 'mgmt-field-label', text: 'Allergens and nutrition' }),
+      status,
+      el('p', { class: 'notif-note', text:
+        'Copy this from the supplier’s specification, not from memory. "traces" is what the supplier declares — it cannot know about your own kitchen.' }),
+      el('div', { class: 'alg-list' }, sections),
+      el('label', { class: 'day-check alg-checked' }, [checked, el('span', { text: 'I have checked the supplier’s specification' })]),
+      el('p', { class: 'mgmt-field-label alg-nut-title', text: 'Per 100 g' }),
+      nutritionGrid,
+    ]);
+
+    return { root, read };
+  }
+
   function ingredientForm(item) {
     const name = el('input', { type: 'text', class: 'mgmt-input', value: item?.name || '' });
     const brand = el('input', { type: 'text', class: 'mgmt-input', value: item?.brand || '', placeholder: 'e.g. Galbani' });
@@ -543,6 +671,7 @@ export function buildManagement(data, actions) {
     });
 
     const price = priceBlock(item);
+    const allergens = allergenBlock(item);
 
     const save = el('button', { type: 'button', class: 'btn-primary', onClick: async () => {
       // The supplier is no longer required — only the name is.
@@ -562,6 +691,7 @@ export function buildManagement(data, actions) {
         unit: unit.value.trim(),
         active: item ? item.active !== false : true,
         ...patch,
+        ...allergens.read(),
       };
 
       // Record the price only when it is COMPLETE and actually different. Saving
@@ -588,6 +718,7 @@ export function buildManagement(data, actions) {
       field('Category', category),
       field('Order unit', unit),
       price.node,
+      allergens.root,
       formActions(save),
     ]);
   }

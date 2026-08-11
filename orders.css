@@ -1220,3 +1220,46 @@ a.home-reminder {
 @media (prefers-reduced-motion: reduce) {
   .splash { transition: none; }
 }
+
+/* ── Allergens and nutrition on an ingredient ──────────────────────────────────
+   The only form in this app whose contents can put somebody in hospital, so the
+   STATE is the first thing on it: an ingredient nobody has declared blocks every
+   label it is used in, and that has to read as a job rather than as a blank. */
+.alg-block { gap: 8px; }
+.alg-status {
+  margin: 0; padding: 10px 12px; border-radius: var(--radius-sm);
+  font-size: 13px; line-height: 1.45; font-weight: 600;
+}
+.alg-status--unknown { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn); }
+.alg-status--ok { background: var(--accent-light); border: 1px solid var(--border); color: var(--brand); }
+
+.alg-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.alg-group {
+  margin: 12px 0 2px; font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3);
+}
+/* Name on the left, the two ticks pinned right at a FIXED width, so 26 rows form
+   two straight columns instead of a ragged edge that has to be read one line at a
+   time. `minmax(0, 1fr)` on the name is what lets a long one wrap rather than
+   pushing the ticks off the screen — measured at 320px. */
+.alg-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 64px 78px;
+  align-items: center; gap: 6px;
+}
+.alg-name { font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+/* ⚠️ 44px TALL, NOT THE 31px THE SHARED .day-check GIVES. There are 52 of these
+   targets on one form, and a mis-tap here does not cost a keystroke — it declares
+   the wrong allergen on every product the ingredient is used in. This is the one
+   place in the app where the tap target matters more than the scroll length, so
+   the form is long on purpose. */
+.alg-tick { justify-content: center; padding: 0 4px; min-height: 44px; font-size: 11px; }
+.alg-tick--may { color: var(--text2); }
+.alg-checked { margin-top: 12px; font-size: 13px; font-weight: 600; align-items: flex-start; }
+
+.alg-nut-title { margin-top: 14px; }
+/* Two columns on a phone: eight single-column rows would push Save two screens
+   down, and these are short numbers. */
+.alg-nutrition { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.alg-nut-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.alg-nut-label { font-size: 11px; color: var(--text2); line-height: 1.3; }
+.alg-num { width: 100%; font-variant-numeric: tabular-nums; }
