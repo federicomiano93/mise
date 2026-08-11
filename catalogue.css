@@ -529,7 +529,12 @@ body.cat-zoom-lock { overflow: hidden; }
    hold two consecutive steps whose words are identical ("Keep mixing") and which
    differ only by speed; without this, moving from first to second gear is
    completely silent on screen. */
-.guided-speed--new { animation: guided-speed-tick 420ms ease-out 3; }
+/* ⚠️ TWO ORTHOGONAL MODIFIERS, and keeping them apart is the fix for a real
+   defect. --changed is the STATE and lasts the whole step; --flash is the
+   ANNOUNCEMENT and happens once. Tying the orange badge to the announcement made
+   it disappear on the very next repaint — the one that happens when the timer
+   runs out, i.e. exactly when somebody picks the phone up to look. */
+.guided-speed--flash { animation: guided-speed-tick 420ms ease-out 3; }
 @keyframes guided-speed-tick {
   0%   { transform: scale(1.1); background: var(--cat-brand); color: var(--cat-brand-ink); }
   60%  { transform: scale(1);   background: var(--cat-brand); color: var(--cat-brand-ink); }
@@ -549,8 +554,9 @@ body.cat-zoom-lock { overflow: hidden; }
   background: var(--cat-crust-ink);
   border-color: var(--cat-crust-ink);
   color: var(--cat-brand-ink);
-  animation: guided-speed-alert 420ms ease-out 3;
 }
+/* The louder announcement, chosen by the combination rather than by the caller. */
+.guided-speed--changed.guided-speed--flash { animation: guided-speed-alert 420ms ease-out 3; }
 @keyframes guided-speed-alert {
   0%   { transform: scale(1.16); box-shadow: 0 0 0 0  color-mix(in srgb, var(--cat-crust-ink) 55%, transparent); }
   70%  { transform: scale(1);    box-shadow: 0 0 0 12px color-mix(in srgb, var(--cat-crust-ink) 0%, transparent); }

@@ -103,6 +103,12 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
   // The speed the previous step ran at, so a CHANGE can be shouted rather than
   // merely shown. null means "we do not know", which is different from "the same".
   let lastSpeed = null;
+  // ⚠️ WHETHER *THIS* STEP CHANGED GEAR, REMEMBERED FOR THE WHOLE STEP — not just
+  // for the paint that announced it. Derived on the fly it would be lost on the
+  // very next repaint, which is the one that happens when the timer runs out:
+  // the badge would vanish at the exact moment somebody picks the phone up to
+  // look at it. The FLASH is once; the BADGE lasts as long as the step does.
+  let stepChangedSpeed = false;
   let finished = false;
   let ticker = null;
   // The id of the notification booked for the step being timed, so it can be
@@ -147,8 +153,11 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     // ⚠️ null means "we do not know what came before", NOT "the same". A resumed
     // run starts with no previous step, and shouting "it changed!" when we cannot
     // know is the same failure as an alarm that rings for nothing.
-    const speedChanged = fresh && lastSpeed !== null && current.speed !== lastSpeed;
-    if (fresh) { flashedFor = index; lastSpeed = current.speed; }
+    if (fresh) {
+      stepChangedSpeed = lastSpeed !== null && current.speed !== lastSpeed;
+      flashedFor = index;
+      lastSpeed = current.speed;
+    }
 
     if (current.text) {
       card.appendChild(el('h2', {
@@ -178,9 +187,15 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     // this — while the countdown is something you glance at. It used to sit under
     // the clock in the smallest type on the card, which is backwards for a screen
     // read standing up in a hurry.
+    // Two orthogonal modifiers: --changed is the STATE (this step runs at a
+    // different gear from the last), which lasts as long as the step; --flash is
+    // the ANNOUNCEMENT, which happens once. Their combination picks the louder
+    // animation, in the stylesheet rather than here.
     if (current.speed) {
       card.appendChild(el('p', {
-        class: 'guided-speed' + (fresh ? (speedChanged ? ' guided-speed--changed' : ' guided-speed--new') : ''),
+        class: 'guided-speed'
+          + (stepChangedSpeed ? ' guided-speed--changed' : '')
+          + (fresh ? ' guided-speed--flash' : ''),
         text: `Speed ${current.speed}`,
       }));
     }
