@@ -44,11 +44,22 @@ service cloud.firestore {
     // A missing users document therefore means NO access, never "all of them".
     // The .get() form with a default is used so that a missing field denies
     // quietly instead of erroring.
+    // ⚠️ THE VALUE CARRIES THE ROLE: `true` is ordinary staff, 'owner' is the
+    // person whose business it is. Anything else — false, missing, a typo, a
+    // value from a future version — is no access at all. The `in [...]` form is
+    // used rather than two comparisons so a boolean is never compared with a
+    // string, and so the document is read once.
+    //
+    // `true` MEANS STAFF ON PURPOSE. Every membership in production is written
+    // `true` today, so this ruleset takes nobody's access away on the day it
+    // lands; the accounts that should hold owner powers get them from a backfill
+    // that turns their `true` into 'owner'. js/sections.js reads the same value
+    // the same way, and js/roles.js turns it into a role.
     function member(lid) {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid))
         && get(/databases/$(database)/documents/users/$(request.auth.uid))
-             .data.get('locations', {}).get(lid, false) == true;
+             .data.get('locations', {}).get(lid, false) in [true, 'owner'];
     }
 
     // ── Which parts of the app a location uses ────────────────────────────
@@ -128,14 +139,24 @@ service cloud.firestore {
     // back into two helpers: it reads worse and works.
     function roleIn(lid) {
       return get(/databases/$(database)/documents/users/$(request.auth.uid))
-               .data.get('roles', {}).get(lid, 'staff');
+               .data.get('locations', {}).get(lid, false);
+    }
+
+    // ⚠️ THE `is string` GUARD IS DELIBERATE. This value is a BOOLEAN for
+    // ordinary staff (`true`) and a STRING for an owner ('owner'), and the rules
+    // language is strongly typed — comparing a boolean with a string is a type
+    // error rather than `false`. Asking the type first keeps the comparison
+    // honest whatever is in the document, including whatever a future version
+    // decides to store here.
+    function isOwnerValue(value) {
+      return value is string && value == 'owner';
     }
 
     // ⚠️ IT TAKES THE SECTION TOO, so an owner of a location that does not use
     // Orders still cannot delete a supplier. A role narrows what membership and
     // sections already granted; it can never widen either of them.
     function isOwner(lid, section) {
-      return canUse(lid, section) && roleIn(lid) == 'owner';
+      return canUse(lid, section) && isOwnerValue(roleIn(lid));
     }
 
     // ── Where the line is drawn, and what is deliberately NOT behind it ────

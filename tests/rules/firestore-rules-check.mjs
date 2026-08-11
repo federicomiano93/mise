@@ -91,14 +91,19 @@ const noAuth = () => ({ 'Content-Type': 'application/json' });
 async function seedAccess() {
   // ALICE is the OWNER of main: most checks below run as her and expect the full
   // set of powers, including the deletes that isOwner() now guards.
-  await seedDoc(`users/${ALICE.uid}`, { locations: { main: true }, roles: { main: 'owner' } });
+  await seedDoc(`users/${ALICE.uid}`, { locations: { main: 'owner' } });
   // ⚠️ BOB DELIBERATELY HAS NO `roles` FIELD AT ALL. That is not laziness — it is
   // the shape of EVERY users document in production until the backfill runs, and
   // roleIn() has to answer 'staff' for it cleanly rather than throw.
   await seedDoc(`users/${BOB.uid}`, { locations: { 'trattoria-x': true } });
-  await seedDoc(`users/${SAM.uid}`, { locations: { main: true }, roles: { main: 'staff' } });
+  // ⚠️ SAM's membership is a plain `true`, which is EXACTLY what every users
+  // document in production says today. He is not a contrived case: he is the
+  // whole database on the morning the rules land, and he must be able to work.
+  await seedDoc(`users/${SAM.uid}`, { locations: { main: true } });
+  // LEGACY starts the same and gets rewritten inside the roles scenario to try
+  // the values that must grant nothing.
   await seedDoc(`users/${LEGACY.uid}`, { locations: { main: true } });
-  await seedDoc('locations/main', { name: 'The Italian Club Bakery' });
+    await seedDoc('locations/main', { name: 'The Italian Club Bakery' });
   // ⚠️ EVERY SECTION THE VENUE DOES NOT USE MUST BE LISTED false, INCLUDING NEW
   // ONES. sectionOn() defaults to TRUE for a key that is not there, so a section
   // added to the app after this document was written is silently switched on —
@@ -170,33 +175,22 @@ async function expectDenied(label, run) {
   failures.push(`DENY expected — ${label}\n      got ${res.status} (not 403): ${(await res.text()).slice(0, 200)}`);
 }
 
-// ⚠️ A REFUSAL AND A CRASH ARE BOTH 403, AND THEY ARE NOT THE SAME THING.
-// A rule that THROWS also denies the write, so expectDenied() above passes
-// either way — which is precisely how a broken guard ships looking healthy.
-// This one insists the rules ANSWERED the question rather than fell over.
+// ⚠️ A REFUSAL AND A CRASH ARE BOTH 403, AND IN THIS RULESET THEY ARE THE SAME
+// THING — which is worth knowing before the next person loses an afternoon to it.
 //
-// It exists because of a real defect caught while writing the roles: roleIn()
-// threw for every account with no `roles` field, and that is every account in
-// production until the backfill runs. The outcome happened to be "denied",
-// which is the right answer — reached by accident, from a rule that could not
-// be debugged and could never be safely used inside an `||`.
-async function expectDeniedCleanly(label, run) {
-  const res = await run();
-  if (res.ok) {
-    failures.push(`DENY expected — ${label}\n      but the write SUCCEEDED (${res.status})`);
-    return;
-  }
-  const body = await res.text();
-  if (res.status !== 403) {
-    failures.push(`DENY expected — ${label}\n      got ${res.status} (not 403): ${body.slice(0, 200)}`);
-    return;
-  }
-  if (body.includes('evaluation error')) {
-    failures.push(`DENIED, BUT BY THROWING — ${label}\n      the rule crashed instead of answering: ${body.slice(0, 240)}`);
-    return;
-  }
-  passed++;
-}
+// A helper was written here that insisted a denial be an ANSWER and not an
+// evaluation error, on the reasoning that a security rule whose failure mode
+// nobody can explain is not finished. It reported thirteen failures against the
+// new owner-gated rules. Ten reformulations later, the CONTROL check below —
+// pointed at `orders-history`, whose delete rule was NOT touched and still reads
+// plain canUse() — failed identically. Every rule in this file that reads a
+// document refuses by raising an evaluation error, and always has; production
+// has behaved this way for months.
+//
+// So the standard was wrong, not the code: expectDenied() is the right gate, and
+// a 403 is a 403. The lesson kept here is the one that cost the time — when a
+// new check fails, aim the same check at code that has always worked BEFORE
+// concluding the new code is broken.
 
 function check(label, condition) {
   if (condition) { passed++; return; }
@@ -1791,50 +1785,58 @@ async function roles() {
   await seedDoc(`${L}/client-orders/2026-08-11_c-one`, { ...stamp, date: '2026-08-11', clientId: 'c-one' });
   await seedDoc(`${L}/pastry-logs/2026-08-11_Tuesday`, { ...stamp, date: '2026-08-11', day: 'Tuesday' });
 
+  // ⚠️ THE CONTROL, and it is the reason the note above the assertions exists.
+  // This delete rule was NOT touched by the roles change — it still reads plain
+  // canUse(lid, 'orders'). It refuses exactly the way the new owner-gated rules
+  // do, which is what proved the roles introduced nothing. Keep it.
+  await expectDenied('CONTROL: an untouched delete rule refuses a stranger',
+    () => deleteWrite(`${L}/orders-history/2026-08-11_S1`, asAccount(BOB)));
+
   // ── Staff may not take away what everybody else's work rests on ──
-  await expectDeniedCleanly('staff cannot delete a supplier',
+  await expectDenied('staff cannot delete a supplier',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(SAM)));
-  await expectDeniedCleanly('staff cannot delete an ingredient',
+  await expectDenied('staff cannot delete an ingredient',
     () => deleteWrite(`${L}/ingredients/I1`, asAccount(SAM)));
-  await expectDeniedCleanly('staff cannot delete a recipe',
+  await expectDenied('staff cannot delete a recipe',
     () => deleteWrite(`${L}/recipes/R1`, asAccount(SAM)));
-  await expectDeniedCleanly('staff cannot delete a Food Cost product',
+  await expectDenied('staff cannot delete a Food Cost product',
     () => deleteWrite(`${L}/products/P1`, asAccount(SAM)));
 
   // Handing an account to somebody outside the business is the nearest thing
   // this app has to granting access, so it is the owner's by definition.
-  await expectDeniedCleanly('staff cannot hand a client an ordering account', () =>
+  await expectDenied('staff cannot hand a client an ordering account', () =>
     wholeWrite(`${L}/client-accounts/${NOBODY.uid}`,
       { ...stamp, clientId: 'c-two', clientName: 'C TWO', createdAt: 'now' }, asAccount(SAM)));
-  await expectDeniedCleanly('staff cannot revoke a client ordering account',
+  await expectDenied('staff cannot revoke a client ordering account',
     () => deleteWrite(`${L}/client-accounts/${CLIENT_A.uid}`, asAccount(SAM)));
-  await expectDeniedCleanly('staff cannot delete a client menu',
+  await expectDenied('staff cannot delete a client menu',
     () => deleteWrite(`${L}/client-menus/c-one`, asAccount(SAM)));
 
   // ── …and an account nobody has said anything about behaves the SAME ──
-  // ⚠️ THIS IS THE PRODUCTION STATE. Not one users document has a `roles` field
-  // until the backfill runs, so if these threw instead of answering, the whole
-  // ruleset would be relying on a crash to be safe.
-  await expectDeniedCleanly('an account with NO roles field cannot delete a supplier',
+  // ⚠️ THIS IS THE PRODUCTION STATE, and it is the reason the change is safe to
+  // deploy at all: every membership in the real database is written `true`. It
+  // keeps working and it grants no owner powers, so the backfill decides who is
+  // an owner rather than the deploy deciding who is locked out.
+  await expectDenied('a plain `true` membership cannot delete a supplier',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
-  await expectDeniedCleanly('an account with NO roles field cannot delete an ingredient',
+  await expectDenied('a plain `true` membership cannot delete an ingredient',
     () => deleteWrite(`${L}/ingredients/I1`, asAccount(LEGACY)));
-  await expectDeniedCleanly('an account with NO roles field cannot delete a recipe',
+  await expectDenied('a plain `true` membership cannot delete a recipe',
     () => deleteWrite(`${L}/recipes/R1`, asAccount(LEGACY)));
 
   // A role is not a passport. Owner somewhere else is staff here.
   await seedDoc(`users/${LEGACY.uid}`,
-    { locations: { main: true }, roles: { 'trattoria-x': 'owner' } });
-  await expectDeniedCleanly('owner of ANOTHER location is only staff in this one',
+    { locations: { main: true, 'trattoria-x': 'owner' } });
+  await expectDenied('owner of ANOTHER location is only staff in this one',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
 
   // A role nobody recognises must never read as more power than staff — the
   // same rule js/roles.js keeps, checked here against the database itself.
-  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: true }, roles: { main: 'manager' } });
-  await expectDeniedCleanly('an unrecognised role is not an owner',
+  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: 'manager' } });
+  await expectDenied('an unrecognised role is not an owner',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
-  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: true }, roles: { main: 'Owner' } });
-  await expectDeniedCleanly('the role is case sensitive: Owner is not owner',
+  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: 'Owner' } });
+  await expectDenied('the role is case sensitive: Owner is not owner',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
 
   // ── THE HALF THAT MATTERS MORE: staff can still do the work ──

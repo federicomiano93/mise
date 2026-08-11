@@ -3,9 +3,9 @@
 //
 // ⚠️ ALMOST EVERY TEST HERE IS THE SAME ASSERTION FROM A DIFFERENT DIRECTION —
 // "this does NOT come out as owner". That is deliberate. There is exactly one
-// dangerous answer this module can give, and it is giving somebody the power to
-// delete another business's data because a field was missing, misspelled,
-// corrupt, or written for a different location. Everything else is recoverable.
+// dangerous answer this module can give, and it is handing somebody the power to
+// delete another business's data because a value was missing, misspelled or
+// corrupt. Everything else is recoverable.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,101 +17,105 @@ import {
   isOwner,
   roleLabel,
 } from '../js/roles.js';
+import { locationsOf, accessValue } from '../js/sections.js';
 
-const member = (extra = {}) => ({ locations: { bakery: true }, ...extra });
-
-// ── The default ──────────────────────────────────────────────────────────────
+// ── The default, and the shape production is in TODAY ────────────────────────
 
 test('the default is staff, not owner', () => {
   assert.equal(DEFAULT_ROLE, 'staff');
 });
 
-test('a document with no roles field at all: staff', () => {
-  assert.equal(roleOf(member(), 'bakery'), 'staff');
-  assert.equal(isOwner(member(), 'bakery'), false);
-});
-
-test('no document at all: staff', () => {
-  assert.equal(roleOf(null, 'bakery'), 'staff');
-  assert.equal(roleOf(undefined, 'bakery'), 'staff');
-  assert.equal(isOwner(null, 'bakery'), false);
-});
-
-test('a corrupt roles field resolves to staff rather than throwing', () => {
-  for (const broken of [[], 'owner', 42, true, null]) {
-    assert.equal(roleOf(member({ roles: broken }), 'bakery'), 'staff', String(broken));
-    assert.equal(isOwner(member({ roles: broken }), 'bakery'), false, String(broken));
-  }
-});
-
-// ── A value nobody recognises is never MORE power ────────────────────────────
-
-test('a role from a future version of the app reads as staff', () => {
-  assert.equal(roleOf(member({ roles: { bakery: 'manager' } }), 'bakery'), 'staff');
-  assert.equal(isOwner(member({ roles: { bakery: 'manager' } }), 'bakery'), false);
-});
-
-test('the wrong TYPE in the role slot reads as staff', () => {
-  for (const broken of [true, 1, null, {}, ['owner']]) {
-    assert.equal(roleOf(member({ roles: { bakery: broken } }), 'bakery'), 'staff', String(broken));
-  }
-});
-
-test('the role is case sensitive: Owner is not owner', () => {
-  assert.equal(roleOf(member({ roles: { bakery: 'Owner' } }), 'bakery'), 'staff');
-  assert.equal(roleOf(member({ roles: { bakery: 'OWNER' } }), 'bakery'), 'staff');
-});
-
-// ⚠️ The first roles in this database are typed BY HAND in the Firebase console
-// (the backfill for the accounts that exist today) and a trailing space is
-// invisible there. It cost half an hour on 30 July 2026 on the `sections` field.
-// Here it must NOT be forgiven, because firestore.rules does not forgive it
-// either — and drawing a delete button the database then refuses is worse than
-// not drawing it. This test pins the app to the rules, not to convenience.
-test('a location key typed with a stray space grants nothing', () => {
-  const doc = { locations: { bakery: true }, roles: { 'bakery ': 'owner' } };
+// ⚠️ THE MOST IMPORTANT TEST IN THIS FILE. Every membership in production is
+// written `true`, so this is what the whole database says on the day the rules
+// land: everyone keeps working, nobody holds owner powers until the backfill.
+test('a plain `true` membership is a member, and is staff', () => {
+  const doc = { locations: { bakery: true } };
+  assert.deepEqual(locationsOf(doc), ['bakery']);
   assert.equal(roleOf(doc, 'bakery'), 'staff');
   assert.equal(isOwner(doc, 'bakery'), false);
 });
 
-// ── Membership first, always ─────────────────────────────────────────────────
-
-test('owner of a location this account does not belong to grants nothing', () => {
-  const doc = { locations: { bakery: true }, roles: { restaurant: 'owner' } };
-  assert.equal(isOwner(doc, 'restaurant'), false);
-  assert.equal(isOwner(doc, 'bakery'), false);
-});
-
-test('a role without any membership at all grants nothing', () => {
-  const doc = { roles: { bakery: 'owner' } };
-  assert.equal(roleOf(doc, 'bakery'), 'owner', 'the field is readable on its own');
-  assert.equal(isOwner(doc, 'bakery'), false, 'but it cannot widen membership');
-});
-
-test('membership revoked while the role stays behind grants nothing', () => {
-  const doc = { locations: { bakery: false }, roles: { bakery: 'owner' } };
-  assert.equal(isOwner(doc, 'bakery'), false);
-});
-
-// ── The one case that says yes ───────────────────────────────────────────────
-
-test('a member explicitly marked owner is an owner, in that location only', () => {
-  const doc = {
-    locations: { bakery: true, restaurant: true },
-    roles: { bakery: 'owner' },
-  };
+// ⚠️ THE SECOND MOST IMPORTANT. locationsOf() used to filter on `=== true`, so
+// without this an OWNER would have had no locations at all and would have been
+// locked out of the app entirely by the change meant to give them more power.
+test('an owner is still a member, and can still open the location', () => {
+  const doc = { locations: { bakery: 'owner' } };
+  assert.deepEqual(locationsOf(doc), ['bakery']);
+  assert.equal(roleOf(doc, 'bakery'), 'owner');
   assert.equal(isOwner(doc, 'bakery'), true);
-  assert.equal(isOwner(doc, 'restaurant'), false, 'the other location falls back to staff');
+});
+
+test('no document at all: no access, and certainly not owner', () => {
+  for (const doc of [null, undefined, {}, { locations: null }]) {
+    assert.deepEqual(locationsOf(doc), [], String(doc));
+    assert.equal(roleOf(doc, 'bakery'), 'staff', String(doc));
+    assert.equal(isOwner(doc, 'bakery'), false, String(doc));
+  }
+});
+
+test('a corrupt locations field resolves to no access rather than throwing', () => {
+  for (const broken of [[], 'owner', 42, true]) {
+    const doc = { locations: broken };
+    assert.deepEqual(locationsOf(doc), [], String(broken));
+    assert.equal(isOwner(doc, 'bakery'), false, String(broken));
+  }
+});
+
+// ── A value nobody recognises is never access, and never MORE power ──────────
+
+test('a value from a future version of the app grants nothing at all', () => {
+  const doc = { locations: { bakery: 'manager' } };
+  assert.deepEqual(locationsOf(doc), [], 'not even membership');
+  assert.equal(roleOf(doc, 'bakery'), 'staff');
+  assert.equal(isOwner(doc, 'bakery'), false);
+});
+
+test('the value is case sensitive: Owner is not owner', () => {
+  for (const bad of ['Owner', 'OWNER', ' owner', 'owner ']) {
+    const doc = { locations: { bakery: bad } };
+    assert.equal(isOwner(doc, 'bakery'), false, bad);
+    assert.deepEqual(locationsOf(doc), [], bad);
+  }
+});
+
+test('false and truthy-but-wrong values are not access', () => {
+  for (const bad of [false, 0, 1, 'true', 'yes', null, {}, ['owner']]) {
+    const doc = { locations: { bakery: bad } };
+    assert.equal(accessValue(doc, 'bakery'), false, String(bad));
+    assert.equal(isOwner(doc, 'bakery'), false, String(bad));
+  }
+});
+
+// ⚠️ A stray space is invisible in the Firebase console and the backfill is
+// typed there by hand. locationsOf() has always refused one in the KEY, because
+// firestore.rules does not forgive one either; the VALUE is refused for the same
+// reason. Being kinder than the rules draws a delete button the database refuses.
+test('a location key typed with a stray space grants nothing', () => {
+  const doc = { locations: { 'bakery ': 'owner' } };
+  assert.deepEqual(locationsOf(doc), []);
+  assert.equal(isOwner(doc, 'bakery'), false);
+});
+
+// ── One location at a time ───────────────────────────────────────────────────
+
+test('owner of one location is only staff in the other', () => {
+  const doc = { locations: { bakery: 'owner', restaurant: true } };
+  assert.deepEqual(locationsOf(doc), ['bakery', 'restaurant']);
+  assert.equal(isOwner(doc, 'bakery'), true);
+  assert.equal(isOwner(doc, 'restaurant'), false);
   assert.equal(roleOf(doc, 'restaurant'), 'staff');
 });
 
 test('owner of two locations', () => {
-  const doc = {
-    locations: { bakery: true, restaurant: true },
-    roles: { bakery: 'owner', restaurant: 'owner' },
-  };
+  const doc = { locations: { bakery: 'owner', restaurant: 'owner' } };
   assert.equal(isOwner(doc, 'bakery'), true);
   assert.equal(isOwner(doc, 'restaurant'), true);
+});
+
+test('a location that is not yours at all', () => {
+  const doc = { locations: { bakery: 'owner' } };
+  assert.equal(isOwner(doc, 'somebody-else'), false);
+  assert.equal(roleOf(doc, 'somebody-else'), 'staff');
 });
 
 // ── The small pieces ─────────────────────────────────────────────────────────
@@ -123,7 +127,7 @@ test('there are two roles and no more', () => {
 test('isValidRole refuses everything that is not one of the two', () => {
   assert.equal(isValidRole('owner'), true);
   assert.equal(isValidRole('staff'), true);
-  for (const bad of ['manager', 'Owner', '', ' staff', null, undefined, 1, {}]) {
+  for (const bad of ['manager', 'Owner', '', ' staff', null, undefined, 1, {}, true]) {
     assert.equal(isValidRole(bad), false, String(bad));
   }
 });

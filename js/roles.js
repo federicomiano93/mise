@@ -10,17 +10,25 @@
 // is a shrug. With a paying customer it is a support call: their counter staff
 // empties their supplier list and the phone that rings is ours.
 //
-// Pure, for the same reason as sections.js: the awkward cases — no roles field
-// at all, a role nobody recognises, a role for a location this account is not in
-// — are exactly the ones that must be tested without a browser or a database.
+// ⚠️ THE ROLE HAS NO FIELD OF ITS OWN — it is the VALUE of the membership entry
+// (`locations.<id>`), and accessValue() in js/sections.js is the one place that
+// reads it. A separate `roles` map was built first and abandoned: firestore.rules
+// could not read a second map without answering with an evaluation error instead
+// of a clean refusal. It denied, so the app behaved correctly, but a security
+// rule whose failure mode nobody can explain is not one to keep. The full story
+// is in the comment on accessValue().
+//
+// The happy consequence is that membership and role became the SAME fact, so a
+// role can no longer disagree with a membership — the earlier shape allowed
+// `roles: { someone-elses-place: 'owner' }` and had to defend against it.
 
-import { locationsOf } from './sections.js';
+import { accessValue, OWNER } from './sections.js';
 
 // The two roles, and deliberately only two. A third one ("manager", "read only")
 // is easy to add here and expensive to add everywhere else — every rule, every
 // hidden button, every test doubles. Two roles answer the question that actually
 // gets asked: is this the person whose business it is, or someone who works here.
-export const ROLES = Object.freeze(['owner', 'staff']);
+export const ROLES = Object.freeze([OWNER, 'staff']);
 
 // ⚠️ THE DEFAULT IS THE WHOLE DESIGN, AND IT POINTS AT `staff`.
 //
@@ -30,57 +38,36 @@ export const ROLES = Object.freeze(['owner', 'staff']);
 // empty an app that is working.
 //
 // This one is about DESTRUCTIVE POWER, so it follows membership, not sections:
-// power that nobody explicitly granted does not exist. Compare the two failures.
-// Defaulting to `owner` means any account whose role write was lost — or that
-// was created before this file existed — silently becomes an owner of somebody
-// else's business, and the roles do nothing at all for every account already in
-// the database. Defaulting to `staff` means somebody temporarily cannot delete:
-// visible, recoverable, and it fails towards keeping data rather than losing it.
+// power that nobody explicitly granted does not exist. It is also what makes the
+// change safe to deploy — every membership in production is written `true`, which
+// reads as staff, so nobody is locked out on the day the rules land; the accounts
+// that should hold owner powers get them from the backfill.
 export const DEFAULT_ROLE = 'staff';
 
 export function isValidRole(value) {
   return typeof value === 'string' && ROLES.includes(value);
 }
 
-// The role this account holds in one location.
-//
-// ⚠️ IT DELIBERATELY DOES NOT FORGIVE A STRAY SPACE, and that is a departure
-// from allowedSections() two files over. The reason is the same one written into
-// locationsOf(): firestore.rules reads this same field with a plain
-// .get('roles', {}).get(lid, 'staff') and does NOT forgive — being kinder than
-// the rules would draw a delete button the database then refuses, which is worse
-// than not drawing it. Where the app and the rules must agree, the app matches
-// the rules exactly.
-//
-// ⚠️ AND IT MATTERS HERE MORE THAN ANYWHERE, because the first roles in this
-// database are typed BY HAND in the Firebase console (the backfill for the
-// accounts that exist today), and a trailing space is invisible there. That is
-// why the backfill has to be read back from the API rather than eyeballed.
-//
-// Anything unrecognised — a missing field, a corrupt one, a role from a future
-// version of the app, a role stored as a number — resolves to the default. A
-// value nobody here understands must never be read as more power than `staff`.
+// The role this account holds in one location. Anything that is not exactly
+// 'owner' — a plain `true`, a missing entry, a corrupt one, a role from a future
+// version of the app, a value with a stray space — is staff. A value nobody here
+// understands must never be read as more power than the least.
 export function roleOf(userDoc, locationId) {
-  const raw = userDoc && typeof userDoc === 'object' ? userDoc.roles : null;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return DEFAULT_ROLE;
-  const value = raw[locationId];
-  return isValidRole(value) ? value : DEFAULT_ROLE;
+  return accessValue(userDoc, locationId) === OWNER ? OWNER : DEFAULT_ROLE;
 }
 
 // May this account take things away in this location?
 //
-// ⚠️ MEMBERSHIP IS CHECKED FIRST, and not because it is tidy. A users document
-// carries a role PER LOCATION, so `roles: { 'someone-elses-place': 'owner' }` is
-// a shape the database can hold — and without this check it would read as owner
-// there. Membership is the thing that was never writable by any client; asking
-// it first means a role can only ever narrow what membership already granted, it
-// can never widen it. firestore.rules composes the two the same way round.
+// Membership no longer has to be checked separately: it IS this value. Only
+// `true` and 'owner' count as access at all (accessValue refuses everything
+// else), so an owner is a member by construction rather than by remembering to
+// ask. firestore.rules reads the same single value the same way.
 export function isOwner(userDoc, locationId) {
-  return locationsOf(userDoc).includes(locationId) && roleOf(userDoc, locationId) === 'owner';
+  return accessValue(userDoc, locationId) === OWNER;
 }
 
 // For the "who can get in" list. Plain words, because the person reading it is
 // the owner of a bakery, not an administrator of a system.
 export function roleLabel(role) {
-  return role === 'owner' ? 'Owner' : 'Staff';
+  return role === OWNER ? 'Owner' : 'Staff';
 }
