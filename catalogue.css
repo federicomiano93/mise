@@ -471,8 +471,6 @@ body.cat-zoom-lock { overflow: hidden; }
   50%      { box-shadow: 0 0 0 8px color-mix(in srgb, var(--cat-crust) 0%, transparent); }
 }
 
-.guided-count { margin: 0 0 10px; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
-
 /* Which step this is, ABOVE the card rather than inside it. Needs its own
    text-align: outside .guided-card it no longer inherits the centring. */
 .guided-progress { margin: 0 0 10px; text-align: center; font-family: var(--cat-font-mono); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }

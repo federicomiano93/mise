@@ -252,9 +252,11 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
   // procedure never mentioned. See unassignedRows() in the model.
   function finishCard() {
     const missed = unassignedRows(snapshot);
+    // ⚠️ NO RECIPE NAME HERE. The green header above this card already carries it,
+    // on every screen of the run, so repeating it spent the line under the title
+    // saying something the person can already see.
     const card = el('div', { class: 'guided-card guided-card--end' }, [
       el('h2', { class: 'guided-text', text: 'Dough finished' }),
-      el('p', { class: 'guided-count', text: snapshot.name }),
     ]);
 
     if (missed.length) {
@@ -333,8 +335,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     if (finished) { body.replaceChildren(finishCard()); return; }
     // ⚠️ THE COUNTER SITS OUTSIDE THE CARD, above it. Inside, it took the card's
     // first line — the most valuable line on a screen read in a hurry — to say
-    // something nobody acts on. It also gets its OWN class rather than reusing
-    // .guided-count, which finishCard() still uses for the recipe name.
+    // something nobody acts on.
     const parts = [
       el('p', { class: 'guided-progress', text: progressText(index, steps.length) }),
       stepCard(),
