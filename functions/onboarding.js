@@ -82,16 +82,26 @@ function requireAuth(request) {
   return uid;
 }
 
-// ⚠️ THE ROLE IS THE MEMBERSHIP VALUE — `true` is staff, 'owner' is the owner.
-// It is not a field of its own; see js/roles.js for why. Reading it here has to
-// agree with firestore.rules exactly, so it forgives nothing.
+// ⚠️ THE ROLE IS THE MEMBERSHIP VALUE — `true` is an ordinary employee,
+// 'manager' runs the location, 'owner' owns the business. It is not a field of
+// its own; see js/roles.js for why. Reading it here has to agree with
+// firestore.rules exactly, so it forgives nothing: no trimming, no case folding.
+//
+// ⚠️ EVERY NEW VALUE MUST BE ADDED HERE, AND FORGETTING IS NOT A DEMOTION — IT
+// IS A LOCKOUT. This function answers "is this account in this location at all",
+// so an unlisted value reads as no access rather than as less access. That
+// mistake has already been made twice with 'manager' alone: once in
+// js/sections.js locationsOf(), once in firestore.rules member(). Same cause,
+// same shape, three files that must be changed together.
+const ACCESS_VALUES = [true, 'manager', 'owner'];
+
 async function accessValue(uid, locationId) {
   const snap = await db().doc(`users/${uid}`).get();
   if (!snap.exists) return false;
   const locations = snap.data().locations;
   if (!locations || typeof locations !== 'object') return false;
   const value = locations[locationId];
-  return value === true || value === 'owner' ? value : false;
+  return ACCESS_VALUES.includes(value) ? value : false;
 }
 
 async function requireOwner(uid, locationId) {
@@ -170,6 +180,27 @@ export const createWorkspace = onCall(CALL, async (request) => {
   return { locationId, token, expiresAt };
 });
 
+// The membership value a role is written as.
+//
+// ⚠️ ONE PLACE, AND IT HAS TO BE ONE PLACE. Two writers store a membership —
+// redeemJoinCode when somebody joins, and setMemberRole when somebody is
+// promoted — and each used to do this conversion inline. Two copies of a mapping
+// drift, and the way they drift here is silent: a manager promoted through one
+// path and joined through the other would hold different powers with nothing on
+// any screen saying so.
+//
+// ⚠️ AND THE FALLBACK IS `true`, THE LEAST POWER. Anything this file does not
+// recognise is written as an ordinary employee, never as something more.
+// js/roles.js reads the same three values the same way, in the other direction.
+function membershipValue(role) {
+  if (role === 'owner') return 'owner';
+  if (role === 'manager') return 'manager';
+  return true;
+}
+
+// The three roles this file will write down, and nothing else.
+const WRITABLE_ROLES = ['owner', 'manager', 'staff'];
+
 // ── 2. A code for one person ─────────────────────────────────────────────────
 
 export const createJoinCode = onCall(CALL, async (request) => {
@@ -177,7 +208,12 @@ export const createJoinCode = onCall(CALL, async (request) => {
   const locationId = request.data && request.data.locationId;
   await requireOwner(uid, locationId);
 
-  const role = (request.data && request.data.role) === 'owner' ? 'owner' : 'staff';
+  // ⚠️ AN UNRECOGNISED ROLE BECOMES AN EMPLOYEE, it is never refused. A code is
+  // minted by the owner standing next to the person; failing the whole errand
+  // over a typo in a field nobody typed helps nobody, and the safe reading of an
+  // unknown role is the smallest one.
+  const asked = request.data && request.data.role;
+  const role = WRITABLE_ROLES.includes(asked) ? asked : 'staff';
   const code = mintDigits();
   const expiresAt = await storeCode({ code, kind: 'digits', locationId, role, createdBy: uid });
 
@@ -246,7 +282,7 @@ export const redeemJoinCode = onCall(CALL, async (request) => {
     }
 
     const { locationId, role } = doc;
-    const value = role === 'owner' ? 'owner' : true;
+    const value = membershipValue(role);
 
     // Both writes in one transaction. users/{uid} is the TRUTH — it is what the
     // rules read. The members roster below is for the screen only.
@@ -255,7 +291,7 @@ export const redeemJoinCode = onCall(CALL, async (request) => {
     tx.set(db().doc(`locations/${locationId}/members/${uid}`), {
       bakery: locationId,
       email: (request.auth.token && request.auth.token.email) || '',
-      role: role === 'owner' ? 'owner' : 'staff',
+      role: WRITABLE_ROLES.includes(role) ? role : 'staff',
       joinedAt: Date.now(),
     });
     tx.update(ref, { usedAt: Date.now(), usedBy: uid });
@@ -281,8 +317,14 @@ export const setMemberRole = onCall(CALL, async (request) => {
   if (typeof targetUid !== 'string' || !targetUid) {
     throw new HttpsError('invalid-argument', 'Which person?');
   }
-  if (role !== 'owner' && role !== 'staff' && role !== null) {
-    throw new HttpsError('invalid-argument', 'A person is an owner, or staff, or gone.');
+  // ⚠️ HERE AN UNKNOWN ROLE IS REFUSED rather than quietly reduced, which is the
+  // opposite of the join code above and is deliberate. This call names a person
+  // who is ALREADY in the roster: silently writing them down as an employee
+  // because a word was misspelled would take powers away from somebody who has
+  // them, and the screen would show the change as if it had been asked for.
+  if (role !== null && !WRITABLE_ROLES.includes(role)) {
+    throw new HttpsError('invalid-argument',
+      'A person is an owner, a manager, an employee, or gone.');
   }
 
   // ⚠️ THE LAST OWNER CANNOT BE DEMOTED OR REMOVED, and this is not politeness.
@@ -316,7 +358,7 @@ export const setMemberRole = onCall(CALL, async (request) => {
 
   await db().runTransaction(async (tx) => {
     tx.set(userRef,
-      { locations: { [locationId]: role === 'owner' ? 'owner' : true } }, { merge: true });
+      { locations: { [locationId]: membershipValue(role) } }, { merge: true });
     tx.set(memberRef, { role }, { merge: true });
   });
   logger.info('Member role changed', { locationId, targetUid, role, by: uid });
