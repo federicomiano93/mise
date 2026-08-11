@@ -15,7 +15,7 @@
 // second audience is the only one this screen can help.
 
 import { el } from './dom.js';
-import { recipeAllergens, canLabel, blockingIngredients } from './recipe-allergen-model.js';
+import { recipeAllergens, canLabel, blockingIngredients, unlinkedRowNames } from './recipe-allergen-model.js';
 import { allergenLabel } from '../allergen-model.js';
 
 export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen }) {
@@ -37,27 +37,50 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
       : 'Every recipe can be labelled.' }),
   ]));
 
-  // ── The work list ───────────────────────────────────────────────────────────
-  if (work.length) {
+  // ── The work, in the order it has to be done ────────────────────────────────
+  //
+  // ⚠️ LINKING COMES BEFORE DECLARING, AND THE SCREEN SAYS SO. An ingredient's
+  // declaration cannot reach a recipe that does not point at it, so a sheet that
+  // only ever said "declare these" was silent on the job that comes first — and on
+  // the real data, where nothing was linked at all, it was silent full stop.
+  const unlinked = unlinkedRowNames(list);
+
+  // Twelve is about a screenful; beyond that a plan turns back into the flat list
+  // it exists to replace.
+  const workBox = (title, sub, items, count, unit) => {
     const box = el('div', { class: 'alg-sheet-work' }, [
-      el('p', { class: 'alg-sheet-work-title', text: 'Declare these first' }),
-      el('p', { class: 'alg-sheet-work-sub', text:
-        'Each one is holding up this many recipes. Fill them in from Orders → Ingredients.' }),
+      el('p', { class: 'alg-sheet-work-title', text: title }),
+      el('p', { class: 'alg-sheet-work-sub', text: sub }),
     ]);
     const ul = el('ul', { class: 'alg-sheet-work-list' });
-    // Twelve is about a screenful; beyond that the list stops being a plan and
-    // becomes the flat list of 65 it exists to replace.
-    for (const item of work.slice(0, 12)) {
+    for (const item of items.slice(0, 12)) {
+      const n = count(item);
       ul.appendChild(el('li', {}, [
         el('span', { class: 'alg-sheet-work-name', text: item.name }),
-        el('span', { class: 'alg-sheet-work-n', text: `${item.blocks} ${item.blocks === 1 ? 'recipe' : 'recipes'}` }),
+        el('span', { class: 'alg-sheet-work-n', text: `${n} ${n === 1 ? unit : `${unit}s`}` }),
       ]));
     }
-    if (work.length > 12) {
-      ul.appendChild(el('li', { class: 'alg-sheet-work-more', text: `…and ${work.length - 12} more` }));
+    if (items.length > 12) {
+      ul.appendChild(el('li', { class: 'alg-sheet-work-more', text: `…and ${items.length - 12} more` }));
     }
     box.appendChild(ul);
-    root.appendChild(box);
+    return box;
+  };
+
+  if (unlinked.length) {
+    root.appendChild(workBox(
+      'Link these rows first',
+      'A recipe row has to point at an ingredient before anything can be known about it. Link them from the recipe’s own screen — the pencil, then the row.',
+      unlinked, item => item.rows, 'row',
+    ));
+  }
+
+  if (work.length) {
+    root.appendChild(workBox(
+      unlinked.length ? 'Then declare these' : 'Declare these first',
+      'Each one is holding up this many recipes. Fill them in from Orders → Ingredients.',
+      work, item => item.blocks, 'recipe',
+    ));
   }
 
   // ── Every recipe ────────────────────────────────────────────────────────────

@@ -203,6 +203,42 @@ export function blockingIngredients(recipes, tables = {}) {
     .sort((a, b) => b.blocks - a.blocks || a.name.localeCompare(b.name));
 }
 
+// ── The job BEFORE that one ──────────────────────────────────────────────────
+//
+// ⚠️ THIS EXISTS BECAUSE THE WORK LIST ABOVE WAS EMPTY ON THE REAL DATA, AND THAT
+// WAS WORSE THAN USELESS — a screen whose whole point is "start here" showing
+// nothing at all. blockingIngredients() counts ingredients that are LINKED and
+// undeclared; on 11 August 2026 the bakery had 77 recipe rows and **none of them
+// linked**, so it had nothing to count and no guidance appeared for the job that
+// actually comes first.
+//
+// Linking and declaring are two different actions, and they are strictly ordered:
+// an ingredient's declaration cannot reach a recipe that does not point at it. So
+// this is asked first, and the screen shows it first.
+//
+// Counted by row LABEL rather than by ingredient, because an unlinked row has no
+// ingredient — the label is the only handle it has. The same name across eleven
+// recipes is eleven separate links to make, and knowing that is the point.
+export function unlinkedRowNames(recipes) {
+  const list = Array.isArray(recipes) ? recipes : [];
+  const counts = new Map();
+
+  for (const recipe of list) {
+    const rows = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
+    for (const row of rows) {
+      if (linkOf(row)) continue;
+      const label = String((row && row.label) || '').trim();
+      // A blank line is somebody mid-edit, not a job — the same rule the walk uses.
+      if (!label) continue;
+      counts.set(label, (counts.get(label) || 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .map(([name, rows]) => ({ name, rows }))
+    .sort((a, b) => b.rows - a.rows || a.name.localeCompare(b.name));
+}
+
 // Which linked-but-undeclared ingredient ids this recipe waits on. Rows that are
 // not linked at all have no id to report — they are counted by the recipe's own
 // `gaps`, and are a different job (link it) from this one (declare it).
