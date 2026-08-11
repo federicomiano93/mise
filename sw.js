@@ -64,6 +64,7 @@ const ASSETS = [
   './js/sections.js',
   './js/roles.js',
   './js/join-code.js',
+  './js/credentials.js',
   './js/staff/dom.js',
   './js/staff/confirm-dialog.js',
   './js/staff/firebase-staff.js',

@@ -201,6 +201,23 @@ function membershipValue(role) {
 // The three roles this file will write down, and nothing else.
 const WRITABLE_ROLES = ['owner', 'manager', 'staff'];
 
+// A name for the roster: whitespace collapsed, capped, never trusted raw.
+//
+// ⚠️ IT IS A LABEL, NEVER AN IDENTITY. Nothing decides a permission from it —
+// two people may share one, and renaming somebody must never change what they
+// can do. The identity is the uid, and the powers are the membership value.
+//
+// ⚠️ A DELIBERATE MISMATCH WITH js/credentials.js: the app REFUSES an empty name
+// so the form cannot be skipped, while this ACCEPTS one and stores ''. A server
+// that refused would make the roster row the thing that can fail, and somebody
+// with a valid code would be left outside over a blank box. Better in with no
+// name — which the owner can then type — than out.
+const MAX_NAME = 60;
+function cleanName(value) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\s+/g, ' ').trim().slice(0, MAX_NAME);
+}
+
 // ── 2. A code for one person ─────────────────────────────────────────────────
 
 export const createJoinCode = onCall(CALL, async (request) => {
@@ -291,6 +308,11 @@ export const redeemJoinCode = onCall(CALL, async (request) => {
     tx.set(db().doc(`locations/${locationId}/members/${uid}`), {
       bakery: locationId,
       email: (request.auth.token && request.auth.token.email) || '',
+      // ⚠️ CLEANED AND CAPPED ON THE SERVER TOO, not only on the phone. The app's
+      // checks are what make the form usable; they are not what makes the data
+      // safe, because this function can be called without the app at all.
+      firstName: cleanName(request.data && request.data.firstName),
+      lastName: cleanName(request.data && request.data.lastName),
       role: WRITABLE_ROLES.includes(role) ? role : 'staff',
       joinedAt: Date.now(),
     });
