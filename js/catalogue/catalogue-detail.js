@@ -14,6 +14,8 @@ import {
   getScaledTarget, setScaledTarget, clearScaledTarget, getIngredients, getRecipesById,
 } from './catalogue-store.js';
 import { costRecipe, partialCostText } from './recipe-cost-model.js';
+import { recipeAllergens, canLabel, incompleteText, ALLERGEN_REASON_TEXT } from './recipe-allergen-model.js';
+import { allergenLabel } from '../allergen-model.js';
 import { formatRate } from '../price-model.js';
 import { hasProcedure, normalizeSteps, unassignedRows, progressText, formatDuration } from './guided-model.js';
 
@@ -78,6 +80,71 @@ function costPanel(recipe) {
 
   const note = partialCostText(result);
   if (note) panel.appendChild(el('p', { class: 'cat-cost-partial', text: note }));
+
+  return panel;
+}
+
+// What this recipe contains, for somebody at the counter being asked.
+//
+// ⚠️ IT IS THE COST PANEL'S TWIN AND ITS OPPOSITE. The panel above shows a
+// PARTIAL number with "3 ingredients are not priced yet" beside it, because a
+// slightly-too-low price is still a useful answer. Here a partial list is the
+// dangerous one — the unlinked row could be the one with the hazelnuts — so when
+// anything is missing this refuses to present a list at all and shows the JOB
+// instead.
+function allergenPanel(recipe) {
+  const result = recipeAllergens(recipe, {
+    ingredients: getIngredients(),
+    recipes: getRecipesById(),
+  });
+
+  const panel = el('div', { class: 'cat-alg-panel' });
+
+  if (!canLabel(result)) {
+    // A brand-new empty recipe stays silent, like the cost panel does: there is
+    // nothing to declare and nothing to go and fix.
+    if (!result.gaps.length) { panel.hidden = true; return panel; }
+
+    panel.appendChild(el('div', { class: 'cat-alg-head' }, [
+      el('span', { class: 'cat-alg-label', text: 'Allergens' }),
+      el('span', { class: 'cat-alg-blocked', text: 'not declared' }),
+    ]));
+    panel.appendChild(el('p', { class: 'cat-alg-warn', text: incompleteText(result) }));
+    // ⚠️ NAME THE ROWS. "Incomplete" leaves somebody hunting through twenty
+    // ingredients; this list IS the work, and it is why the panel appears long
+    // before the data is in.
+    const list = el('ul', { class: 'cat-alg-gaps' });
+    for (const gap of result.gaps.slice(0, 8)) {
+      list.appendChild(el('li', { text: `${gap.label} — ${ALLERGEN_REASON_TEXT[gap.reason] || gap.reason}` }));
+    }
+    if (result.gaps.length > 8) {
+      list.appendChild(el('li', { class: 'cat-alg-more', text: `…and ${result.gaps.length - 8} more` }));
+    }
+    panel.appendChild(list);
+    // What IS known so far, marked as explicitly NOT an answer.
+    if (result.allergens.length) {
+      panel.appendChild(el('p', { class: 'cat-alg-sofar', text:
+        `So far, from the rows that are declared: ${result.allergens.map(allergenLabel).join(', ')}. This is NOT the full list.` }));
+    }
+    return panel;
+  }
+
+  panel.appendChild(el('div', { class: 'cat-alg-head' }, [
+    el('span', { class: 'cat-alg-label', text: 'Allergens' }),
+    el('span', { class: 'cat-alg-ok', text: 'fully declared' }),
+  ]));
+  panel.appendChild(el('p', { class: 'cat-alg-list', text: result.allergens.length
+    ? result.allergens.map(allergenLabel).join(', ')
+    : 'None of the 14' }));
+  if (result.mayContain.length) {
+    panel.appendChild(el('p', { class: 'cat-alg-traces', text:
+      `May contain: ${result.mayContain.map(allergenLabel).join(', ')}` }));
+  }
+  // ⚠️ THE SENTENCE THAT MUST NOT BE DROPPED. The app gathers what it was told;
+  // it cannot know what happened on the bench this morning, and a screen that
+  // implies otherwise is worse than one that says nothing.
+  panel.appendChild(el('p', { class: 'cat-alg-caveat', text:
+    'From the suppliers’ specifications. It does not cover what your own kitchen may add.' }));
 
   return panel;
 }
@@ -291,7 +358,7 @@ export function renderDetail({ recipe, app }) {
   // the fold and are reached only by scrolling — never competing with the recipe.
   // The cost panel is REPLACED in place when new data arrives, never the whole
   // view: rebuilding the view would throw away a scaled batch the user is reading.
-  const costHost = el('div', { class: 'cat-cost-host' }, [costPanel(recipe)]);
+  const costHost = el('div', { class: 'cat-cost-host' }, [costPanel(recipe), allergenPanel(recipe)]);
 
   // The batch weight is read at the moment Start is tapped, not captured here:
   // choosing a weight and then starting the mix is one gesture, and a panel built

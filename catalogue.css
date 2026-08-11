@@ -655,3 +655,39 @@ body.cat-zoom-lock { overflow: hidden; }
 .guided-note-sub { margin: 6px 2px 0; font-size: .76rem; color: var(--cat-text-3); }
 .guided-note .guided-skip { margin-top: 0; }
 .guided-note > p { margin: 6px 0 0; }
+
+/* ── What a recipe contains ────────────────────────────────────────────────────
+   The cost panel's twin, and deliberately NOT its lookalike: when something is
+   missing this one turns into a job list instead of showing a number with a
+   caveat. A partial cost is useful; a partial allergen list is dangerous. */
+.cat-alg-panel {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius);
+  background: var(--cat-surface);
+}
+.cat-alg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cat-alg-label { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--cat-text-2); font-family: var(--cat-font-mono); }
+.cat-alg-ok { font-size: .74rem; font-weight: 700; color: var(--cat-brand); font-family: var(--cat-font-mono); text-transform: uppercase; letter-spacing: .06em; }
+.cat-alg-blocked { font-size: .74rem; font-weight: 700; color: var(--cat-warn); font-family: var(--cat-font-mono); text-transform: uppercase; letter-spacing: .06em; }
+
+/* The declared answer. Big, because somebody is reading it out to a customer who
+   asked whether it contains nuts. */
+.cat-alg-list { margin: 6px 0 0; font-size: 1.05rem; font-weight: 600; color: var(--cat-text); line-height: 1.35; }
+.cat-alg-traces { margin: 4px 0 0; font-size: .9rem; color: var(--cat-text-2); }
+.cat-alg-caveat { margin: 8px 0 0; font-size: .74rem; color: var(--cat-text-3); line-height: 1.4; }
+
+/* The blocked state: the warning, then the rows to go and fix. */
+.cat-alg-warn { margin: 6px 0 0; font-size: .92rem; font-weight: 600; color: var(--cat-warn); line-height: 1.4; }
+.cat-alg-gaps { margin: 8px 0 0; padding-left: 18px; font-size: .85rem; color: var(--cat-text-2); line-height: 1.5; }
+.cat-alg-gaps li { overflow-wrap: anywhere; }
+.cat-alg-more { list-style: none; margin-left: -18px; color: var(--cat-text-3); }
+/* ⚠️ The half-known list is shown in the WARNING colour, never as an answer. It
+   exists so somebody filling the data in can see progress — not so it can be read
+   out to a customer. */
+.cat-alg-sofar {
+  margin: 8px 0 0; padding: 8px 10px; border-radius: 10px;
+  background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border);
+  font-size: .8rem; color: var(--cat-warn); line-height: 1.4;
+}
