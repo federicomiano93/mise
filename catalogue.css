@@ -655,3 +655,93 @@ body.cat-zoom-lock { overflow: hidden; }
 .guided-note-sub { margin: 6px 2px 0; font-size: .76rem; color: var(--cat-text-3); }
 .guided-note .guided-skip { margin-top: 0; }
 .guided-note > p { margin: 6px 0 0; }
+
+/* ── What a recipe contains ────────────────────────────────────────────────────
+   The cost panel's twin, and deliberately NOT its lookalike: when something is
+   missing this one turns into a job list instead of showing a number with a
+   caveat. A partial cost is useful; a partial allergen list is dangerous. */
+.cat-alg-panel {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius);
+  background: var(--cat-surface);
+}
+.cat-alg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cat-alg-label { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--cat-text-2); font-family: var(--cat-font-mono); }
+.cat-alg-ok { font-size: .74rem; font-weight: 700; color: var(--cat-brand); font-family: var(--cat-font-mono); text-transform: uppercase; letter-spacing: .06em; }
+.cat-alg-blocked { font-size: .74rem; font-weight: 700; color: var(--cat-warn); font-family: var(--cat-font-mono); text-transform: uppercase; letter-spacing: .06em; }
+
+/* The declared answer. Big, because somebody is reading it out to a customer who
+   asked whether it contains nuts. */
+.cat-alg-list { margin: 6px 0 0; font-size: 1.05rem; font-weight: 600; color: var(--cat-text); line-height: 1.35; }
+.cat-alg-traces { margin: 4px 0 0; font-size: .9rem; color: var(--cat-text-2); }
+.cat-alg-caveat { margin: 8px 0 0; font-size: .74rem; color: var(--cat-text-3); line-height: 1.4; }
+
+/* The blocked state: the warning, then the rows to go and fix. */
+.cat-alg-warn { margin: 6px 0 0; font-size: .92rem; font-weight: 600; color: var(--cat-warn); line-height: 1.4; }
+.cat-alg-gaps { margin: 8px 0 0; padding-left: 18px; font-size: .85rem; color: var(--cat-text-2); line-height: 1.5; }
+.cat-alg-gaps li { overflow-wrap: anywhere; }
+.cat-alg-more { list-style: none; margin-left: -18px; color: var(--cat-text-3); }
+/* ⚠️ The half-known list is shown in the WARNING colour, never as an answer. It
+   exists so somebody filling the data in can see progress — not so it can be read
+   out to a customer. */
+.cat-alg-sofar {
+  margin: 8px 0 0; padding: 8px 10px; border-radius: 10px;
+  background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border);
+  font-size: .8rem; color: var(--cat-warn); line-height: 1.4;
+}
+
+/* ── The allergen sheet ────────────────────────────────────────────────────────
+   Two audiences: somebody at the counter who needs an answer now, and somebody
+   filling the data in who needs to know where to start. The work list comes
+   first, because until the data is in only the second can be helped. */
+.cat-alg-sheet-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; margin-top: 10px; padding: 13px 16px;
+  background: var(--cat-surface); border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius); cursor: pointer;
+  font-family: var(--cat-font-round); font-size: 1rem; font-weight: 600; color: var(--cat-text);
+}
+.cat-alg-sheet-btn:hover { border-color: var(--cat-accent); }
+.cat-alg-sheet-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+
+.alg-sheet-summary { margin-bottom: 12px; }
+.alg-sheet-count { margin: 0; font-family: var(--cat-font-round); font-size: 1.25rem; font-weight: 700; color: var(--cat-text); }
+.alg-sheet-sub { margin: 2px 0 0; font-size: .88rem; color: var(--cat-text-2); }
+
+.alg-sheet-work {
+  margin-bottom: 16px; padding: 12px 14px; border-radius: var(--cat-radius);
+  background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border);
+}
+.alg-sheet-work-title { margin: 0; font-size: .95rem; font-weight: 700; color: var(--cat-warn); }
+.alg-sheet-work-sub { margin: 3px 0 0; font-size: .78rem; color: var(--cat-warn); line-height: 1.4; }
+.alg-sheet-work-list { margin: 10px 0 0; padding: 0; list-style: none; }
+/* Name left, count right at a fixed width, so the numbers form one column and the
+   biggest job is findable at a glance instead of being read line by line. */
+.alg-sheet-work-list li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px;
+  align-items: baseline; padding: 5px 0; font-size: .88rem; color: var(--cat-warn);
+}
+.alg-sheet-work-name { overflow-wrap: anywhere; font-weight: 600; }
+.alg-sheet-work-n { font-family: var(--cat-font-mono); font-size: .78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.alg-sheet-work-more { display: block; font-style: italic; opacity: .8; }
+
+.alg-sheet-row {
+  appearance: none; text-align: left; width: 100%; cursor: pointer;
+  background: var(--cat-surface); border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius); padding: 12px 14px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 10px;
+}
+.alg-sheet-row:last-child { margin-bottom: 0; }
+.alg-sheet-row:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+.alg-sheet-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.alg-sheet-name { font-family: var(--cat-font-round); font-weight: 600; font-size: 1rem; color: var(--cat-text); overflow-wrap: anywhere; }
+.alg-sheet-what { font-size: .85rem; color: var(--cat-text-2); line-height: 1.35; overflow-wrap: anywhere; }
+/* ⚠️ A recipe with no answer is marked on its EDGE, not only by its words: this
+   screen's whole job is making "we do not know" impossible to miss while
+   scrolling past twenty rows. */
+.alg-sheet-row--blocked { border-left: 4px solid var(--cat-warn); }
+.alg-sheet-row--blocked .alg-sheet-what { color: var(--cat-warn); font-weight: 600; }
+
+.alg-sheet-caveat { margin: 14px 2px 0; font-size: .76rem; color: var(--cat-text-3); line-height: 1.5; }

@@ -6,9 +6,10 @@
 
 import {
   initCatalogue, getRecipes, getUsage, bumpUsage, saveRecipe, deleteRecipe, setSyncErrorHandler,
-  getIngredients, getSuppliers,
+  getIngredients, getSuppliers, getRecipesById,
 } from './catalogue-store.js';
 import { renderList } from './catalogue-list.js';
+import { renderAllergenSheet } from './allergen-sheet.js';
 import { renderDetail } from './catalogue-detail.js';
 import { renderEditor } from './catalogue-editor.js';
 import { renderGuidedEditor } from './guided-editor.js';
@@ -76,8 +77,26 @@ function showList() {
     initialQuery: searchQuery,
     onQueryChange: (q) => { searchQuery = q; },
     onOpen: openDetail,
+    onAllergenSheet: showAllergenSheet,
   });
   swap(activeList.root);
+}
+
+// Every recipe's allergens on one screen, plus the work list. Read-only, so it
+// needs no leave guard: nothing here can be half-typed and lost.
+function showAllergenSheet() {
+  stopRun();
+  view = 'allergens';
+  activeList = null;
+  activeDetail = null;
+  leaveGuard = null;
+  setHeader({ title: 'Allergens', sub: 'Recipe catalogue', back: true, add: false });
+  swap(renderAllergenSheet({
+    recipes: getRecipes(),
+    ingredients: getIngredients(),
+    recipesById: getRecipesById(),
+    onOpen: openDetail,
+  }).root);
 }
 
 function openDetail(recipe) {
