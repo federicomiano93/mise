@@ -9,7 +9,7 @@
 // before saving, Delete is low-key and confirmed, and leaving with unsaved edits
 // asks first.
 
-import { isOwnerHere } from './firebase-foodcost.js';
+import { canManageHere } from './firebase-foodcost.js';
 import { el } from './dom.js';
 import {
   VAT_RATES, SELLING_MODES, costProduct, BLOCKER_TEXT, statusFor,
@@ -347,7 +347,7 @@ export function renderEditor({ product, app }) {
       // changed something, on the day they changed it. The trash icons on the
       // component rows above are NOT this: they edit the working copy and touch
       // nothing until Save, so they stay available to everybody.
-      product && isOwnerHere() ? el('button', { class: 'fc-delete', type: 'button', onclick: onDelete }, [
+      product && canManageHere() ? el('button', { class: 'fc-delete', type: 'button', onclick: onDelete }, [
         el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }), 'Delete product',
       ]) : null,
     ]),

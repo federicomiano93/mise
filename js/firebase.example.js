@@ -57,7 +57,7 @@ import {
   locationDocPath,
 } from './location.js';
 import { allowedSections, pickLocation, locationsOf } from './sections.js';
-import { roleOf, isOwner } from './roles.js';
+import { roleOf, isOwner, canManage } from './roles.js';
 import { clearLocalData, shouldClearLocalData } from './local-data.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
@@ -182,12 +182,12 @@ if (!isLocalhost) {
 
 const ACTIVE_LOCATION_KEY = 'active-location';
 
-// ⚠️ isOwner STARTS false AND MUST. Every screen decides what to draw from this
+// ⚠️ canManage AND isOwner START false AND MUST. Every screen decides what to draw from this
 // object, and it exists before a location is open — so the safe starting answer
 // is "no owner powers", the same direction the rules take for a value nobody set.
 let session = { status: 'loading', user: null, locationId: null, location: null,
                 sections: allowedSections(null), options: [], optionNames: {},
-                role: 'staff', isOwner: false };
+                role: 'staff', canManage: false, isOwner: false };
 let userDocCache = null;
 const sessionListeners = new Set();
 
@@ -276,6 +276,11 @@ async function enterLocation(locationId, options, user) {
     // it is UX, not security (P2). The rules are the security, and they read
     // this same value themselves rather than trusting anything sent from here.
     role: roleOf(userDocCache, locationId),
+    // ⚠️ TWO ANSWERS, NOT ONE, AND THEY ARE NOT THE SAME QUESTION.
+    // canManage is "may take things away" — the owner AND the manager. isOwner
+    // is "may invite people and set roles" — the owner alone. Every delete
+    // button reads canManage; only the "who can get in" entry reads isOwner.
+    canManage: canManage(userDocCache, locationId),
     isOwner: isOwner(userDocCache, locationId),
   });
   markSessionReady(session);
@@ -311,7 +316,7 @@ onAuthStateChanged(auth, user => {
     userDocCache = null;
     setSession({ status: 'signed-out', user: null, locationId: null, location: null,
                  options: [], sections: allowedSections(null),
-                 role: 'staff', isOwner: false });
+                 role: 'staff', canManage: false, isOwner: false });
     return;
   }
   resolveMembership(user);
@@ -566,9 +571,18 @@ export function saveCalculatorConfig(config) {
 // recipes, products, client-ordering accounts and menus); everyday writing is
 // untouched, because somebody working a shift has to be able to work.
 //
-// ⚠️ session.role / session.isOwner are UX ONLY (P2). They stop the app drawing
-// a control the database would refuse; they are not the security. The security
-// is firestore.rules, and the rules trust nothing sent from here.
+// THREE roles: 'owner', 'manager' and the ordinary employee (`true`). The
+// manager does everything an owner does INSIDE a location, deleting included;
+// what separates them is hiring, which never reaches firestore.rules because
+// memberships and join codes are written only by functions/onboarding.js.
+//
+// ⚠️ SO THE SESSION CARRIES TWO ANSWERS, NOT ONE. session.canManage draws every
+// delete button; session.isOwner draws only the "who can get in" entry. Using
+// isOwner for a bin takes the bins away from every manager.
+//
+// ⚠️ AND BOTH ARE UX ONLY (P2). They stop the app drawing a control the database
+// would refuse; they are not the security. The security is firestore.rules, and
+// the rules trust nothing sent from here.
 //
 // ── Joining, without the Firebase console (js/staff/*, functions/onboarding.js) ─
 // The app can now let somebody in. It adds ONE export here — signUp() above —

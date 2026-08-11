@@ -9,7 +9,7 @@
 // a leftover. Adding a supplier, correcting a phone number and pausing an
 // ingredient are ordinary work — locking the whole panel would send somebody to
 // find the owner to fix a typo. What is gated is the irreversible half:
-// isOwnerHere() decides whether Delete is drawn at all, and firestore.rules
+// canManageHere() decides whether Delete is drawn at all, and firestore.rules
 // refuses it regardless of what this page decides to show (P2).
 //
 // isAdmin below is the old placeholder from before roles existed. It still reads
@@ -22,7 +22,7 @@
 //            deleteSupplier(id), deleteIngredient(id) }
 
 import { el } from './dom.js';
-import { isOwnerHere } from './firebase-orders.js';
+import { canManageHere } from './firebase-orders.js';
 import { renderNotificationSettings } from './notifications.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
@@ -300,7 +300,7 @@ export function buildManagement(data, actions) {
       } }, active ? 'Deactivate' : 'Activate'),
     ];
 
-    if (isOwnerHere()) {
+    if (canManageHere()) {
       actions.push(el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
         const ok = await confirmDialog({
           message: `Permanently delete "${name}"? This cannot be undone.`,
