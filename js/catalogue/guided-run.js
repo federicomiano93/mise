@@ -139,10 +139,14 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     // itself hangs off this one answer, and it is consumed here so the second
     // repaint of the same step is silent.
     const fresh = index !== flashedFor;
-    // ⚠️ COMPARED BEFORE lastSpeed IS UPDATED, and updated only on a fresh step.
-    // Updating it on every repaint would make the speed look unchanged the second
-    // time the card is drawn, and the one moment this exists for — 1 → 2 between
-    // two steps that say the same words — would never be announced.
+    // ⚠️ COMPARED BEFORE lastSpeed IS UPDATED, and the order is load-bearing:
+    // swap the two lines and the speed is compared with itself, so the one moment
+    // this exists for — 1 → 2 between two steps that say the same words — is never
+    // announced. (Proved by mutation: reversing them turns the check red.)
+    //
+    // ⚠️ null means "we do not know what came before", NOT "the same". A resumed
+    // run starts with no previous step, and shouting "it changed!" when we cannot
+    // know is the same failure as an alarm that rings for nothing.
     const speedChanged = fresh && lastSpeed !== null && current.speed !== lastSpeed;
     if (fresh) { flashedFor = index; lastSpeed = current.speed; }
 
