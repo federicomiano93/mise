@@ -10,6 +10,7 @@ import {
 } from './catalogue-store.js';
 import { renderList } from './catalogue-list.js';
 import { renderAllergenSheet } from './allergen-sheet.js';
+import { renderLabel } from './label-view.js';
 import { renderDetail } from './catalogue-detail.js';
 import { renderEditor } from './catalogue-editor.js';
 import { renderGuidedEditor } from './guided-editor.js';
@@ -27,6 +28,9 @@ const backBtn = document.getElementById('catBack');
 const addBtn = document.getElementById('catAdd');
 const editBtn = document.getElementById('catEdit');
 
+// Which of the three the label screen opens on. Session-only on purpose: it is a
+// property of this morning's job, not of a recipe.
+let labelShows = 'both';
 let view = 'list';        // 'list' | 'detail' | 'editor' | 'steps' | 'run'
 let searchQuery = '';
 let activeList = null;     // { root, refresh } while the list is shown
@@ -80,6 +84,30 @@ function showList() {
     onAllergenSheet: showAllergenSheet,
   });
   swap(activeList.root);
+}
+
+// The label for one recipe. Read-only like the sheet, so no leave guard.
+//
+// ⚠️ Back goes to the LIST, not to the recipe, because handleBack() is the app's
+// one way out and always goes there. Consistent with every other screen here, and
+// the recipe is one tap away from the list.
+function openLabel(recipe) {
+  stopRun();
+  view = 'label';
+  activeList = null;
+  activeDetail = null;
+  currentRecipe = recipe;
+  leaveGuard = null;
+  setHeader({ title: recipe.name || 'Label', sub: 'Label', back: true, add: false });
+  swap(renderLabel({
+    recipe,
+    ingredients: getIngredients(),
+    recipesById: getRecipesById(),
+    initialShows: labelShows,
+    // Remembered for the session only: which of the three somebody wants is a
+    // property of the job they are doing this morning, not of the recipe.
+    onShowsChange: (value) => { labelShows = value; },
+  }).root);
 }
 
 // Every recipe's allergens on one screen, plus the work list. Read-only, so it
@@ -195,6 +223,7 @@ const app = {
   showList,
   openDetail,
   openEditor,
+  openLabel,
   openGuidedEditor,
   saveRecipe,
   deleteRecipe,
