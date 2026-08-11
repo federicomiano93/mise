@@ -95,21 +95,25 @@ export function isAllergenCode(code) {
 }
 
 // ⚠️ A CODE THIS FILE DOES NOT KNOW IS DROPPED, NOT PASSED THROUGH. Anything that
-// reaches a label has to be printable and translatable; an unknown code would
-// appear as a blank or as raw text on a legal declaration. Dropping it is safe in
-// the only direction that matters here — it cannot invent an allergen — and the
-// rules cap the list size so a corrupt document cannot flood the screen either.
+// reaches a label has to be printable; an unknown code would appear as a blank or
+// as raw text on a legal declaration. Dropping it is safe in the only direction
+// that matters here — it cannot invent an allergen — and the rules cap the list
+// size so a corrupt document cannot flood the screen either.
+//
+// ⚠️ AND ONE LINE DECIDES ALL OF IT, deliberately. Walking the canonical list and
+// keeping what was asked for drops unknown codes, fixes the order, and makes
+// duplicates impossible, all at once. An earlier version ALSO tested each incoming
+// code with isAllergenCode() on the way in; that read as extra safety and was
+// DEAD — a mutation deleted it and all 927 tests stayed green, because this filter
+// had already covered it. Two places deciding one thing is how they drift apart.
+//
+// The canonical order matters beyond tidiness: two ingredients containing the same
+// things must produce the same list whatever order the boxes were ticked in, which
+// is what lets a label be compared with the one printed last month.
 export function normalizeAllergens(raw) {
   if (!Array.isArray(raw)) return [];
-  const out = [];
-  for (const value of raw) {
-    const code = String(value == null ? '' : value).trim();
-    if (isAllergenCode(code) && !out.includes(code)) out.push(code);
-  }
-  // Sorted by the canonical order, so two ingredients that contain the same
-  // things produce the same list whatever order they were ticked in — which is
-  // what lets a label be compared with the one printed last month.
-  return ALLERGEN_CODES.filter(code => out.includes(code));
+  const wanted = new Set(raw.map(value => String(value == null ? '' : value).trim()));
+  return ALLERGEN_CODES.filter(code => wanted.has(code));
 }
 
 // ── What state is this ingredient's allergen information in? ─────────────────
