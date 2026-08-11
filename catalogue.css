@@ -472,25 +472,75 @@ body.cat-zoom-lock { overflow: hidden; }
 }
 
 .guided-count { margin: 0 0 10px; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
-.guided-text { margin: 0 0 4px; font-family: var(--cat-font-round); font-size: 1.3rem; font-weight: 700; line-height: 1.25; color: var(--cat-text); }
+
+/* Which step this is, ABOVE the card rather than inside it. Needs its own
+   text-align: outside .guided-card it no longer inherits the centring. */
+.guided-progress { margin: 0 0 10px; text-align: center; font-family: var(--cat-font-mono); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
+
+/* ⚠️ THE SIZES ON THIS CARD ARE ORDERED BY WHAT YOU ACT ON, not by habit. It is
+   read standing at a mixer, in a hurry, so the instruction is the biggest thing
+   after the clock — it used to be SMALLER than the number beside it. */
+.guided-text { margin: 0 0 4px; font-family: var(--cat-font-round); font-size: 1.7rem; font-weight: 700; line-height: 1.2; color: var(--cat-text); }
+
+/* One pop when an instruction is NEW, so the eye lands on it without anything
+   moving on screen: transform and colour only, no reflow, and it reads the same
+   on the orange time-is-up card as on the plain one. The 100% frame is the
+   resting state, so the app-wide prefers-reduced-motion switch in tokens.css
+   collapses it to nothing instead of freezing the text green. */
+.guided-text--new { animation: guided-instruction 800ms ease-out 1; }
+@keyframes guided-instruction {
+  0%   { transform: scale(1.12); color: var(--cat-brand); }
+  55%  { transform: scale(1);    color: var(--cat-brand); }
+  100% { transform: scale(1);    color: var(--cat-text); }
+}
 
 /* The amounts. Bigger than anywhere else in the app on purpose: this is the one
    number somebody reads while weighing, at arm's length, in a hurry. */
 .guided-ings { margin: 16px 0 4px; text-align: left; }
 .guided-ing { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--cat-border); }
 .guided-ing:last-child { border-bottom: 0; }
-.guided-ing-name { font-size: 1.05rem; font-weight: 600; color: var(--cat-text); min-width: 0; overflow-wrap: anywhere; }
+/* ⚠️ ONE INGREDIENT ALONE KEEPS ITS LINE. :last-child removes the rule, so a
+   single-row step had no line at all and the ingredient floated between the
+   instruction and the clock instead of reading as a row. Scoped to .guided-ings
+   because .guided-ing is used by the finish card's "not in any step" list too. */
+.guided-ings > .guided-ing:only-child { border-bottom: 1px solid var(--cat-border); }
+.guided-ing-name { font-size: 1.15rem; font-weight: 600; color: var(--cat-text); min-width: 0; overflow-wrap: anywhere; }
 .guided-ing-amt { flex: none; display: flex; align-items: baseline; gap: 4px; }
-.guided-ing-num { font-family: var(--cat-font-mono); font-size: 1.45rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--cat-text); }
-.guided-ing-unit { font-size: .85rem; color: var(--cat-text-3); }
+.guided-ing-num { font-family: var(--cat-font-mono); font-size: 1.6rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--cat-text); }
+.guided-ing-unit { font-size: .95rem; color: var(--cat-text-3); }
 /* An ingredient deleted from the recipe since the procedure was written. It keeps
    its place and says so — never quietly one line shorter than it was. */
 .guided-ing--gone .guided-ing-name { color: var(--cat-danger); font-style: italic; font-weight: 500; font-size: .92rem; }
 
+/* The speed now comes FIRST, so it takes the full gap from the ingredients and
+   the clock tucks in under it. Written as a sibling rule and not as a flat
+   smaller margin because a step with NO speed (the last one of a procedure often
+   has none) must keep the full 18px between the ingredients and the clock. */
+.guided-speed { display: inline-block; margin: 18px 0 0; padding: 10px 22px; border-radius: var(--radius-pill); background: var(--cat-accent-light); border: 1px solid var(--cat-border); font-family: var(--cat-font-round); font-size: 1.5rem; font-weight: 700; color: var(--cat-brand); }
 .guided-clock { margin: 18px 0 2px; }
-.guided-time { font-family: var(--cat-font-mono); font-size: 3.2rem; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--cat-text); line-height: 1; }
+.guided-speed + .guided-clock { margin-top: 10px; }
+.guided-time { font-family: var(--cat-font-mono); font-size: 2.8rem; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--cat-text); line-height: 1; }
 .guided-card--due .guided-time { color: var(--cat-crust-ink); }
-.guided-speed { display: inline-block; margin: 12px 0 0; padding: 5px 14px; border-radius: var(--radius-pill); background: var(--cat-accent-light); border: 1px solid var(--cat-border); font-family: var(--cat-font-round); font-size: .95rem; font-weight: 700; color: var(--cat-brand); }
+
+/* The speed pulses three times when a step is new — and when it has CHANGED from
+   the step before, it does it in the app's attention colour and KEEPS the orange
+   rim afterwards.
+   ⚠️ THIS IS THE ONE ANIMATION HERE THAT PREVENTS A REAL MISTAKE. A procedure can
+   hold two consecutive steps whose words are identical ("Keep mixing") and which
+   differ only by speed; without this, moving from first to second gear is
+   completely silent on screen. */
+.guided-speed--new { animation: guided-speed-tick 420ms ease-out 3; }
+@keyframes guided-speed-tick {
+  0%   { transform: scale(1.1); background: var(--cat-brand); color: var(--cat-brand-ink); }
+  60%  { transform: scale(1);   background: var(--cat-brand); color: var(--cat-brand-ink); }
+  100% { transform: scale(1);   background: var(--cat-accent-light); color: var(--cat-brand); }
+}
+.guided-speed--changed { border-color: var(--cat-crust); animation: guided-speed-alert 420ms ease-out 3; }
+@keyframes guided-speed-alert {
+  0%   { transform: scale(1.16); background: var(--cat-crust); color: var(--cat-brand-ink); }
+  60%  { transform: scale(1);    background: var(--cat-crust); color: var(--cat-brand-ink); }
+  100% { transform: scale(1);    background: var(--cat-accent-light); color: var(--cat-brand); }
+}
 .guided-due { margin: 14px 0 0; font-size: .95rem; font-weight: 600; color: var(--cat-crust-ink); }
 
 .guided-actions { margin-top: 16px; }

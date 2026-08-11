@@ -94,6 +94,15 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
   // Which timer the alarm has already sounded for, so it rings once per step and
   // not once per repaint.
   let alarmedFor = 0;
+  // ⚠️ THE SAME SHAPE AS alarmedFor, AND FOR THE SAME REASON. paint() runs on
+  // every repaint — starting a timer, the timer ending, coming back to the app —
+  // and rebuilds the card each time, so a bare CSS animation would replay on all
+  // of them and stop meaning "this is the thing to do NOW". These two remember
+  // what has already been announced.
+  let flashedFor = -1;
+  // The speed the previous step ran at, so a CHANGE can be shouted rather than
+  // merely shown. null means "we do not know", which is different from "the same".
+  let lastSpeed = null;
   let finished = false;
   let ticker = null;
   // The id of the notification booked for the step being timed, so it can be
@@ -126,8 +135,23 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
 
     const card = el('div', { class: 'guided-card' + (state === 'finished' ? ' guided-card--due' : '') });
 
-    card.appendChild(el('p', { class: 'guided-count', text: progressText(index, steps.length) }));
-    if (current.text) card.appendChild(el('h2', { class: 'guided-text', text: current.text }));
+    // Is this the first time this step has been drawn? Everything that announces
+    // itself hangs off this one answer, and it is consumed here so the second
+    // repaint of the same step is silent.
+    const fresh = index !== flashedFor;
+    // ⚠️ COMPARED BEFORE lastSpeed IS UPDATED, and updated only on a fresh step.
+    // Updating it on every repaint would make the speed look unchanged the second
+    // time the card is drawn, and the one moment this exists for — 1 → 2 between
+    // two steps that say the same words — would never be announced.
+    const speedChanged = fresh && lastSpeed !== null && current.speed !== lastSpeed;
+    if (fresh) { flashedFor = index; lastSpeed = current.speed; }
+
+    if (current.text) {
+      card.appendChild(el('h2', {
+        class: 'guided-text' + (fresh ? ' guided-text--new' : ''),
+        text: current.text,
+      }));
+    }
 
     if (rows.length) {
       const list = el('div', { class: 'guided-ings' });
@@ -146,6 +170,17 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
       card.appendChild(list);
     }
 
+    // ⚠️ THE SPEED COMES BEFORE THE CLOCK. It is an instruction — set the mixer to
+    // this — while the countdown is something you glance at. It used to sit under
+    // the clock in the smallest type on the card, which is backwards for a screen
+    // read standing up in a hurry.
+    if (current.speed) {
+      card.appendChild(el('p', {
+        class: 'guided-speed' + (fresh ? (speedChanged ? ' guided-speed--changed' : ' guided-speed--new') : ''),
+        text: `Speed ${current.speed}`,
+      }));
+    }
+
     if (current.seconds > 0) {
       card.appendChild(el('div', { class: 'guided-clock' }, [
         el('span', {
@@ -154,7 +189,6 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
         }),
       ]));
     }
-    if (current.speed) card.appendChild(el('p', { class: 'guided-speed', text: `Speed ${current.speed}` }));
 
     if (state === 'finished') {
       card.appendChild(el('p', { class: 'guided-due', text: overdueText(endsAt, Date.now()) || 'Time is up.' }));
@@ -278,7 +312,15 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
 
   function paint() {
     if (finished) { body.replaceChildren(finishCard()); return; }
-    const parts = [stepCard(), actions()];
+    // ⚠️ THE COUNTER SITS OUTSIDE THE CARD, above it. Inside, it took the card's
+    // first line — the most valuable line on a screen read in a hurry — to say
+    // something nobody acts on. It also gets its OWN class rather than reusing
+    // .guided-count, which finishCard() still uses for the recipe name.
+    const parts = [
+      el('p', { class: 'guided-progress', text: progressText(index, steps.length) }),
+      stepCard(),
+      actions(),
+    ];
     // ⚠️ THE NOTE TELLS THE TRUTH ABOUT THIS PHONE, not a fixed sentence. Once
     // notifications are on, "the alarm cannot ring if you leave the app" is a LIE
     // — and a warning that is wrong is worse than none, because the next one is
