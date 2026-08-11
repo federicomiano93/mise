@@ -614,6 +614,28 @@ async function neighbours() {
     wholeWrite('locations/main/recipes/r1',
       { bakery: 'main', name: 'Croissant', ingredients: [], steps: { s1: 'Mix' } }));
 
+  // ── The closing message ──
+  await expectAllowed('a recipe may carry a closing message', () =>
+    wholeWrite('locations/main/recipes/r1', {
+      bakery: 'main', name: 'Croissant', ingredients: [],
+      endNote: 'Final dough temperature 24-26 degrees',
+    }));
+  await expectAllowed('…and one that has been cleared again', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Croissant', ingredients: [], endNote: '' }));
+  // ⚠️ THE SAME REGRESSION THAT MATTERS FOR steps, for the same reason: rules land
+  // on every phone the instant they deploy while code arrives one device at a
+  // time, so a phone still on the old build sends NO endNote and must keep saving.
+  await expectAllowed('a recipe with no closing message at all still saves', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Croissant', ingredients: [] }));
+  await expectDenied('a closing message longer than the cap', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Croissant', ingredients: [], endNote: 'x'.repeat(301) }));
+  await expectDenied('a closing message sent as anything but a string', () =>
+    wholeWrite('locations/main/recipes/r1',
+      { bakery: 'main', name: 'Croissant', ingredients: [], endNote: ['Mix'] }));
+
   await expectDenied('config still refuses a delete', () => deleteWrite('locations/main/config/calculator'));
 }
 

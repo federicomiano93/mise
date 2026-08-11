@@ -18,7 +18,7 @@
 
 import { el } from './dom.js';
 import {
-  normalizeSteps, amountsFor, stepRows, unassignedRows,
+  normalizeSteps, normalizeEndNote, amountsFor, stepRows, unassignedRows,
   timerState, formatRemaining, formatDuration, overdueText, progressText,
   isResumable, RESUME_TTL_MS,
 } from './guided-model.js';
@@ -77,6 +77,10 @@ export function snapshotOf(recipe, targetGrams) {
     name: String(recipe.name || ''),
     ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
     steps: normalizeSteps(recipe.steps),
+    // ⚠️ THE CLOSING MESSAGE TRAVELS WITH THE SNAPSHOT. Left out, a run resumed
+    // from a saved session reaches the end and shows nothing, because the resume
+    // path never sees the live recipe again.
+    endNote: normalizeEndNote(recipe.endNote),
     targetGrams: Number(targetGrams) > 0 ? Number(targetGrams) : 0,
   };
 }
@@ -94,6 +98,21 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
   // Which timer the alarm has already sounded for, so it rings once per step and
   // not once per repaint.
   let alarmedFor = 0;
+  // ⚠️ THE SAME SHAPE AS alarmedFor, AND FOR THE SAME REASON. paint() runs on
+  // every repaint — starting a timer, the timer ending, coming back to the app —
+  // and rebuilds the card each time, so a bare CSS animation would replay on all
+  // of them and stop meaning "this is the thing to do NOW". These two remember
+  // what has already been announced.
+  let flashedFor = -1;
+  // The speed the previous step ran at, so a CHANGE can be shouted rather than
+  // merely shown. null means "we do not know", which is different from "the same".
+  let lastSpeed = null;
+  // ⚠️ WHETHER *THIS* STEP CHANGED GEAR, REMEMBERED FOR THE WHOLE STEP — not just
+  // for the paint that announced it. Derived on the fly it would be lost on the
+  // very next repaint, which is the one that happens when the timer runs out:
+  // the badge would vanish at the exact moment somebody picks the phone up to
+  // look at it. The FLASH is once; the BADGE lasts as long as the step does.
+  let stepChangedSpeed = false;
   let finished = false;
   let ticker = null;
   // The id of the notification booked for the step being timed, so it can be
@@ -126,8 +145,30 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
 
     const card = el('div', { class: 'guided-card' + (state === 'finished' ? ' guided-card--due' : '') });
 
-    card.appendChild(el('p', { class: 'guided-count', text: progressText(index, steps.length) }));
-    if (current.text) card.appendChild(el('h2', { class: 'guided-text', text: current.text }));
+    // Is this the first time this step has been drawn? Everything that announces
+    // itself hangs off this one answer, and it is consumed here so the second
+    // repaint of the same step is silent.
+    const fresh = index !== flashedFor;
+    // ⚠️ COMPARED BEFORE lastSpeed IS UPDATED, and the order is load-bearing:
+    // swap the two lines and the speed is compared with itself, so the one moment
+    // this exists for — 1 → 2 between two steps that say the same words — is never
+    // announced. (Proved by mutation: reversing them turns the check red.)
+    //
+    // ⚠️ null means "we do not know what came before", NOT "the same". A resumed
+    // run starts with no previous step, and shouting "it changed!" when we cannot
+    // know is the same failure as an alarm that rings for nothing.
+    if (fresh) {
+      stepChangedSpeed = lastSpeed !== null && current.speed !== lastSpeed;
+      flashedFor = index;
+      lastSpeed = current.speed;
+    }
+
+    if (current.text) {
+      card.appendChild(el('h2', {
+        class: 'guided-text' + (fresh ? ' guided-text--new' : ''),
+        text: current.text,
+      }));
+    }
 
     if (rows.length) {
       const list = el('div', { class: 'guided-ings' });
@@ -146,6 +187,23 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
       card.appendChild(list);
     }
 
+    // ⚠️ THE SPEED COMES BEFORE THE CLOCK. It is an instruction — set the mixer to
+    // this — while the countdown is something you glance at. It used to sit under
+    // the clock in the smallest type on the card, which is backwards for a screen
+    // read standing up in a hurry.
+    // Two orthogonal modifiers: --changed is the STATE (this step runs at a
+    // different gear from the last), which lasts as long as the step; --flash is
+    // the ANNOUNCEMENT, which happens once. Their combination picks the louder
+    // animation, in the stylesheet rather than here.
+    if (current.speed) {
+      card.appendChild(el('p', {
+        class: 'guided-speed'
+          + (stepChangedSpeed ? ' guided-speed--changed' : '')
+          + (fresh ? ' guided-speed--flash' : ''),
+        text: `Speed ${current.speed}`,
+      }));
+    }
+
     if (current.seconds > 0) {
       card.appendChild(el('div', { class: 'guided-clock' }, [
         el('span', {
@@ -154,7 +212,6 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
         }),
       ]));
     }
-    if (current.speed) card.appendChild(el('p', { class: 'guided-speed', text: `Speed ${current.speed}` }));
 
     if (state === 'finished') {
       card.appendChild(el('p', { class: 'guided-due', text: overdueText(endsAt, Date.now()) || 'Time is up.' }));
@@ -199,10 +256,23 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
   // procedure never mentioned. See unassignedRows() in the model.
   function finishCard() {
     const missed = unassignedRows(snapshot);
+    // ⚠️ NO RECIPE NAME HERE. The green header above this card already carries it,
+    // on every screen of the run, so repeating it spent the line under the title
+    // saying something the person can already see.
+    //
+    // Three DIFFERENT kinds of thing can share this card, and each is dressed
+    // differently so a glance tells them apart: a status ("Dough finished"), the
+    // recipe's own closing instruction, and — if it applies — the warning about
+    // ingredients no step ever mentioned.
     const card = el('div', { class: 'guided-card guided-card--end' }, [
-      el('h2', { class: 'guided-text', text: 'Dough finished' }),
-      el('p', { class: 'guided-count', text: snapshot.name }),
+      el('p', { class: 'guided-done' }, [
+        el('span', { icon: CHECK_SVG, 'aria-hidden': 'true' }),
+        'Dough finished',
+      ]),
     ]);
+
+    const endNote = normalizeEndNote(snapshot.endNote);
+    if (endNote) card.appendChild(el('p', { class: 'guided-end-note', text: endNote }));
 
     if (missed.length) {
       const warn = el('div', { class: 'guided-missed' }, [
@@ -278,7 +348,14 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
 
   function paint() {
     if (finished) { body.replaceChildren(finishCard()); return; }
-    const parts = [stepCard(), actions()];
+    // ⚠️ THE COUNTER SITS OUTSIDE THE CARD, above it. Inside, it took the card's
+    // first line — the most valuable line on a screen read in a hurry — to say
+    // something nobody acts on.
+    const parts = [
+      el('p', { class: 'guided-progress', text: progressText(index, steps.length) }),
+      stepCard(),
+      actions(),
+    ];
     // ⚠️ THE NOTE TELLS THE TRUTH ABOUT THIS PHONE, not a fixed sentence. Once
     // notifications are on, "the alarm cannot ring if you leave the app" is a LIE
     // — and a warning that is wrong is worse than none, because the next one is

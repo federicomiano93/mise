@@ -471,26 +471,95 @@ body.cat-zoom-lock { overflow: hidden; }
   50%      { box-shadow: 0 0 0 8px color-mix(in srgb, var(--cat-crust) 0%, transparent); }
 }
 
-.guided-count { margin: 0 0 10px; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
-.guided-text { margin: 0 0 4px; font-family: var(--cat-font-round); font-size: 1.3rem; font-weight: 700; line-height: 1.25; color: var(--cat-text); }
+/* Which step this is, ABOVE the card rather than inside it. Needs its own
+   text-align: outside .guided-card it no longer inherits the centring. */
+.guided-progress { margin: 0 0 10px; text-align: center; font-family: var(--cat-font-mono); font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
+
+/* ⚠️ THE SIZES ON THIS CARD ARE ORDERED BY WHAT YOU ACT ON, not by habit. It is
+   read standing at a mixer, in a hurry, so the instruction is the biggest thing
+   after the clock — it used to be SMALLER than the number beside it. */
+.guided-text { margin: 0 0 4px; font-family: var(--cat-font-round); font-size: 1.7rem; font-weight: 700; line-height: 1.2; color: var(--cat-text); }
+
+/* One pop when an instruction is NEW, so the eye lands on it without anything
+   moving on screen: transform and colour only, no reflow, and it reads the same
+   on the orange time-is-up card as on the plain one. The 100% frame is the
+   resting state, so the app-wide prefers-reduced-motion switch in tokens.css
+   collapses it to nothing instead of freezing the text green. */
+.guided-text--new { animation: guided-instruction 800ms ease-out 1; }
+@keyframes guided-instruction {
+  0%   { transform: scale(1.12); color: var(--cat-brand); }
+  55%  { transform: scale(1);    color: var(--cat-brand); }
+  100% { transform: scale(1);    color: var(--cat-text); }
+}
 
 /* The amounts. Bigger than anywhere else in the app on purpose: this is the one
    number somebody reads while weighing, at arm's length, in a hurry. */
 .guided-ings { margin: 16px 0 4px; text-align: left; }
 .guided-ing { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--cat-border); }
 .guided-ing:last-child { border-bottom: 0; }
-.guided-ing-name { font-size: 1.05rem; font-weight: 600; color: var(--cat-text); min-width: 0; overflow-wrap: anywhere; }
+/* ⚠️ ONE INGREDIENT ALONE KEEPS ITS LINE. :last-child removes the rule, so a
+   single-row step had no line at all and the ingredient floated between the
+   instruction and the clock instead of reading as a row. Scoped to .guided-ings
+   because .guided-ing is used by the finish card's "not in any step" list too. */
+.guided-ings > .guided-ing:only-child { border-bottom: 1px solid var(--cat-border); }
+.guided-ing-name { font-size: 1.15rem; font-weight: 600; color: var(--cat-text); min-width: 0; overflow-wrap: anywhere; }
 .guided-ing-amt { flex: none; display: flex; align-items: baseline; gap: 4px; }
-.guided-ing-num { font-family: var(--cat-font-mono); font-size: 1.45rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--cat-text); }
-.guided-ing-unit { font-size: .85rem; color: var(--cat-text-3); }
+.guided-ing-num { font-family: var(--cat-font-mono); font-size: 1.6rem; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--cat-text); }
+.guided-ing-unit { font-size: .95rem; color: var(--cat-text-3); }
 /* An ingredient deleted from the recipe since the procedure was written. It keeps
    its place and says so — never quietly one line shorter than it was. */
 .guided-ing--gone .guided-ing-name { color: var(--cat-danger); font-style: italic; font-weight: 500; font-size: .92rem; }
 
+/* The speed now comes FIRST, so it takes the full gap from the ingredients and
+   the clock tucks in under it. Written as a sibling rule and not as a flat
+   smaller margin because a step with NO speed (the last one of a procedure often
+   has none) must keep the full 18px between the ingredients and the clock. */
+.guided-speed { display: inline-block; margin: 18px 0 0; padding: 10px 22px; border-radius: var(--radius-pill); background: var(--cat-accent-light); border: 1px solid var(--cat-border); font-family: var(--cat-font-round); font-size: 1.5rem; font-weight: 700; color: var(--cat-brand); }
 .guided-clock { margin: 18px 0 2px; }
-.guided-time { font-family: var(--cat-font-mono); font-size: 3.2rem; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--cat-text); line-height: 1; }
+.guided-speed + .guided-clock { margin-top: 10px; }
+.guided-time { font-family: var(--cat-font-mono); font-size: 2.8rem; font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--cat-text); line-height: 1; }
 .guided-card--due .guided-time { color: var(--cat-crust-ink); }
-.guided-speed { display: inline-block; margin: 12px 0 0; padding: 5px 14px; border-radius: var(--radius-pill); background: var(--cat-accent-light); border: 1px solid var(--cat-border); font-family: var(--cat-font-round); font-size: .95rem; font-weight: 700; color: var(--cat-brand); }
+
+/* The speed pulses three times when a step is new — and when it has CHANGED from
+   the step before, it does it in the app's attention colour and KEEPS the orange
+   rim afterwards.
+   ⚠️ THIS IS THE ONE ANIMATION HERE THAT PREVENTS A REAL MISTAKE. A procedure can
+   hold two consecutive steps whose words are identical ("Keep mixing") and which
+   differ only by speed; without this, moving from first to second gear is
+   completely silent on screen. */
+/* ⚠️ TWO ORTHOGONAL MODIFIERS, and keeping them apart is the fix for a real
+   defect. --changed is the STATE and lasts the whole step; --flash is the
+   ANNOUNCEMENT and happens once. Tying the orange badge to the announcement made
+   it disappear on the very next repaint — the one that happens when the timer
+   runs out, i.e. exactly when somebody picks the phone up to look. */
+.guided-speed--flash { animation: guided-speed-tick 420ms ease-out 3; }
+@keyframes guided-speed-tick {
+  0%   { transform: scale(1.1); background: var(--cat-brand); color: var(--cat-brand-ink); }
+  60%  { transform: scale(1);   background: var(--cat-brand); color: var(--cat-brand-ink); }
+  100% { transform: scale(1);   background: var(--cat-accent-light); color: var(--cat-brand); }
+}
+/* ⚠️ THE CHANGED SPEED STAYS A SOLID BADGE, IT DOES NOT FADE BACK.
+   The first attempt kept only an orange BORDER once the pulses ended — measured
+   at 0.67px, on a pill otherwise identical to every other step's. Somebody
+   glancing back a minute later had nothing to see. The whole point is that
+   second gear looks different from first gear for as long as the step lasts, so
+   the resting state IS the announcement and the animation only draws the eye to
+   it.
+   Burnt orange rather than the lighter --cat-crust: measured 6.0:1 against the
+   pale ink instead of 3.2:1, and it still reads as a badge on the crust-tinted
+   card that "time is up" produces, where a pale fill would disappear. */
+.guided-speed--changed {
+  background: var(--cat-crust-ink);
+  border-color: var(--cat-crust-ink);
+  color: var(--cat-brand-ink);
+}
+/* The louder announcement, chosen by the combination rather than by the caller. */
+.guided-speed--changed.guided-speed--flash { animation: guided-speed-alert 420ms ease-out 3; }
+@keyframes guided-speed-alert {
+  0%   { transform: scale(1.16); box-shadow: 0 0 0 0  color-mix(in srgb, var(--cat-crust-ink) 55%, transparent); }
+  70%  { transform: scale(1);    box-shadow: 0 0 0 12px color-mix(in srgb, var(--cat-crust-ink) 0%, transparent); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0  color-mix(in srgb, var(--cat-crust-ink) 0%, transparent); }
+}
 .guided-due { margin: 14px 0 0; font-size: .95rem; font-weight: 600; color: var(--cat-crust-ink); }
 
 .guided-actions { margin-top: 16px; }
@@ -509,8 +578,35 @@ body.cat-zoom-lock { overflow: hidden; }
 .guided-skip:hover { color: var(--cat-text); border-color: var(--cat-accent); }
 .guided-note { margin: 16px 2px 0; text-align: center; font-size: .76rem; color: var(--cat-text-2); }
 
-/* The last screen. The missed-ingredient block is the point of it. */
+/* The last screen. Up to three DIFFERENT kinds of thing share it, and each is
+   dressed differently so a glance tells them apart:
+     .guided-done      — a status. The app's own word: you are done.
+     .guided-end-note  — the recipe's closing instruction, written by the owner.
+                         The thing you still have to DO, so it is the biggest.
+     .guided-missed    — the warning, and the reason this screen exists at all.
+   Giving the middle one the same treatment as the status would make the
+   instruction read as decoration on a "finished" screen, which is the one place
+   somebody has already mentally stopped working. */
 .guided-card--end { text-align: center; }
+.guided-done {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 0; font-family: var(--cat-font-mono);
+  font-size: .82rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--cat-brand);
+}
+/* An SVG in a <span> is an inline box and would sit on the text BASELINE — the
+   2px-high-icon bug this app has shipped before. Flex centres it. */
+.guided-done > span { display: flex; align-items: center; }
+.guided-end-note {
+  margin: 14px 0 0; padding: 16px 14px;
+  border-radius: 12px;
+  background: var(--cat-accent-light);
+  border: 1px solid color-mix(in srgb, var(--cat-brand) 22%, var(--cat-border));
+  font-family: var(--cat-font-round);
+  font-size: 1.7rem; font-weight: 700; line-height: 1.2;
+  color: var(--cat-text);
+  text-wrap: balance;
+}
 .guided-missed { margin-top: 18px; padding: 12px; border-radius: 12px; background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border); text-align: left; }
 .guided-missed-title { margin: 0 0 6px; font-size: .85rem; font-weight: 700; color: var(--cat-warn); }
 .guided-missed .guided-ing { border-bottom-color: var(--cat-warn-border); }
@@ -529,7 +625,14 @@ body.cat-zoom-lock { overflow: hidden; }
 .guided-edit-n { flex: 1; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
 .guided-edit-head .cat-del-icon[disabled] { opacity: .3; cursor: default; }
 .guided-edit-text { width: 100%; padding: 10px 12px; font-family: var(--cat-font); font-size: .95rem; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
-.guided-edit-text:focus, .guided-edit-num:focus, .guided-edit-speed:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
+.guided-edit-text:focus, .guided-edit-num:focus, .guided-edit-speed:focus, .guided-edit-endnote:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
+
+/* The closing message, written at the bottom of the editor because that is where
+   it appears when the procedure runs. A textarea, not an input: two lines fit,
+   and a message that scrolls off the side of a one-line box is one nobody
+   proof-reads before saving. */
+.guided-edit-end { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--cat-border); }
+.guided-edit-endnote { width: 100%; padding: 10px 12px; font-family: var(--cat-font); font-size: .95rem; line-height: 1.4; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; resize: vertical; }
 .guided-edit-field { margin-top: 10px; }
 .guided-edit-lbl { display: block; margin-bottom: 5px; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--cat-text-3); }
 .guided-edit-picks { display: flex; flex-direction: column; gap: 2px; }

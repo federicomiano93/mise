@@ -125,6 +125,9 @@ export function normalizeCatalogueRecipe(raw) {
   // Absent rather than empty when there is no procedure, so the hundreds of
   // recipes nobody has written one for stay byte-identical to what they are now.
   if (Array.isArray(raw.steps) && raw.steps.length) out.steps = raw.steps;
+  // The closing message shown at the end of a guided mix, carried through on the
+  // same terms and for the same reason: absent rather than empty.
+  if (typeof raw.endNote === 'string' && raw.endNote.trim()) out.endNote = raw.endNote;
   return out;
 }
 

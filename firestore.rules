@@ -847,7 +847,7 @@ service cloud.firestore {
         allow read: if member(lid)
           && (sectionOn(lid, 'catalogue') || sectionOn(lid, 'foodcost'));
         allow create, update: if canUse(lid, 'catalogue')
-          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients', 'lossPct', 'steps'])
+          && request.resource.data.keys().hasOnly(['bakery', 'name', 'ingredients', 'lossPct', 'steps', 'endNote'])
           && stampedFor(lid)
           && request.resource.data.name is string
           && request.resource.data.name.size() > 0
@@ -870,7 +870,16 @@ service cloud.firestore {
           // ten steps, so 100 is generous and still bounded.
           && (!('steps' in request.resource.data)
               || (request.resource.data.steps is list
-                  && request.resource.data.steps.size() <= 100));
+                  && request.resource.data.steps.size() <= 100))
+          // The closing message shown when a guided mix finishes. OPTIONAL IN BOTH
+          // DIRECTIONS ON PURPOSE: rules reach every phone the instant they are
+          // deployed while code rolls out one device at a time, so a phone still on
+          // the old build sends no `endNote` and must keep saving, and a phone on
+          // the new build sends one — even an empty one — and must not be refused.
+          // Optional is not unchecked: when present it is still a bounded string.
+          && (!('endNote' in request.resource.data)
+              || (request.resource.data.endNote is string
+                  && request.resource.data.endNote.size() <= 300));
         allow delete: if canUse(lid, 'catalogue');
       }
 
