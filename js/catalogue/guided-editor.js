@@ -14,8 +14,8 @@
 import { el } from './dom.js';
 import { unitOf } from './catalogue-model.js';
 import {
-  withRowIds, ridOf, normalizeSteps, normalizeSeconds, unassignedRows,
-  MAX_STEPS, MAX_STEP_TEXT, MAX_SPEED_TEXT, formatDuration,
+  withRowIds, ridOf, normalizeSteps, normalizeSeconds, normalizeEndNote, unassignedRows,
+  MAX_STEPS, MAX_STEP_TEXT, MAX_SPEED_TEXT, MAX_END_NOTE, formatDuration,
 } from './guided-model.js';
 
 const TRASH_SVG =
@@ -38,6 +38,7 @@ export function renderGuidedEditor({ recipe, app }) {
   // Save is tapped.
   const ingredients = withRowIds(recipe.ingredients).map(i => ({ ...i, unit: unitOf(i) }));
   const steps = normalizeSteps(recipe.steps).map(s => ({ ...s, rows: s.rows.slice() }));
+  let endNote = normalizeEndNote(recipe.endNote);
 
   let dirty = false;
   let busy = false;
@@ -215,6 +216,29 @@ export function renderGuidedEditor({ recipe, app }) {
 
   const summary = el('p', { class: 'guided-edit-summary' });
 
+  // ── The closing message ─────────────────────────────────────────────────────
+  //
+  // At the BOTTOM, after the steps, because that is where it appears when the
+  // procedure runs — an editor whose order does not match the screen it produces
+  // makes people write things in the wrong place.
+  //
+  // A <textarea> rather than an <input>: it can hold two lines, and a message
+  // that runs off the side of a single-line box is one nobody proof-reads.
+  const endNoteInput = el('textarea', {
+    class: 'guided-edit-endnote', rows: '2', maxlength: String(MAX_END_NOTE),
+    placeholder: 'e.g. Final dough temperature 24-26 degrees',
+    'aria-label': 'Closing message, shown when the dough is finished',
+    oninput: (e) => { endNote = e.target.value; markDirty(); },
+  });
+  endNoteInput.value = endNote;
+
+  const endNoteBlock = el('div', { class: 'guided-edit-end' }, [
+    el('p', { class: 'guided-edit-summary', text: 'When the dough is finished' }),
+    endNoteInput,
+    el('p', { class: 'guided-edit-hint', text:
+      'Shown on its own at the end of the mix. Leave it empty for no message.' }),
+  ]);
+
   async function onSave() {
     if (busy) return;
     busy = true;
@@ -231,9 +255,10 @@ export function renderGuidedEditor({ recipe, app }) {
     // Ingredients go with it — see the note at the top of the file. Everything the
     // recipe carries is spread through, so nothing this editor does not know about
     // is dropped.
-    app.saveRecipe({ ...recipe, ingredients, steps: clean });
+    const saved = { ...recipe, ingredients, steps: clean, endNote: normalizeEndNote(endNote) };
+    app.saveRecipe(saved);
     app.toast('Procedure saved.');
-    app.openDetail({ ...recipe, ingredients, steps: clean });
+    app.openDetail(saved);
     busy = false;
   }
 
@@ -252,6 +277,7 @@ export function renderGuidedEditor({ recipe, app }) {
     el('div', { class: 'guided-edit-top' }, [summary, missedBox]),
     list,
     el('button', { class: 'cat-add-row', type: 'button', text: '+ Add step', onclick: add }),
+    endNoteBlock,
     el('div', { class: 'cat-editor-actions' }, [
       el('button', { class: 'cat-save-btn', type: 'button', text: 'Save', onclick: onSave }),
     ]),

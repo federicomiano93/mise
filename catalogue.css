@@ -578,8 +578,35 @@ body.cat-zoom-lock { overflow: hidden; }
 .guided-skip:hover { color: var(--cat-text); border-color: var(--cat-accent); }
 .guided-note { margin: 16px 2px 0; text-align: center; font-size: .76rem; color: var(--cat-text-2); }
 
-/* The last screen. The missed-ingredient block is the point of it. */
+/* The last screen. Up to three DIFFERENT kinds of thing share it, and each is
+   dressed differently so a glance tells them apart:
+     .guided-done      — a status. The app's own word: you are done.
+     .guided-end-note  — the recipe's closing instruction, written by the owner.
+                         The thing you still have to DO, so it is the biggest.
+     .guided-missed    — the warning, and the reason this screen exists at all.
+   Giving the middle one the same treatment as the status would make the
+   instruction read as decoration on a "finished" screen, which is the one place
+   somebody has already mentally stopped working. */
 .guided-card--end { text-align: center; }
+.guided-done {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 0; font-family: var(--cat-font-mono);
+  font-size: .82rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--cat-brand);
+}
+/* An SVG in a <span> is an inline box and would sit on the text BASELINE — the
+   2px-high-icon bug this app has shipped before. Flex centres it. */
+.guided-done > span { display: flex; align-items: center; }
+.guided-end-note {
+  margin: 14px 0 0; padding: 16px 14px;
+  border-radius: 12px;
+  background: var(--cat-accent-light);
+  border: 1px solid color-mix(in srgb, var(--cat-brand) 22%, var(--cat-border));
+  font-family: var(--cat-font-round);
+  font-size: 1.7rem; font-weight: 700; line-height: 1.2;
+  color: var(--cat-text);
+  text-wrap: balance;
+}
 .guided-missed { margin-top: 18px; padding: 12px; border-radius: 12px; background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border); text-align: left; }
 .guided-missed-title { margin: 0 0 6px; font-size: .85rem; font-weight: 700; color: var(--cat-warn); }
 .guided-missed .guided-ing { border-bottom-color: var(--cat-warn-border); }
@@ -598,7 +625,14 @@ body.cat-zoom-lock { overflow: hidden; }
 .guided-edit-n { flex: 1; font-family: var(--cat-font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--cat-text-3); }
 .guided-edit-head .cat-del-icon[disabled] { opacity: .3; cursor: default; }
 .guided-edit-text { width: 100%; padding: 10px 12px; font-family: var(--cat-font); font-size: .95rem; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
-.guided-edit-text:focus, .guided-edit-num:focus, .guided-edit-speed:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
+.guided-edit-text:focus, .guided-edit-num:focus, .guided-edit-speed:focus, .guided-edit-endnote:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
+
+/* The closing message, written at the bottom of the editor because that is where
+   it appears when the procedure runs. A textarea, not an input: two lines fit,
+   and a message that scrolls off the side of a one-line box is one nobody
+   proof-reads before saving. */
+.guided-edit-end { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--cat-border); }
+.guided-edit-endnote { width: 100%; padding: 10px 12px; font-family: var(--cat-font); font-size: .95rem; line-height: 1.4; color: var(--cat-text); background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; resize: vertical; }
 .guided-edit-field { margin-top: 10px; }
 .guided-edit-lbl { display: block; margin-bottom: 5px; font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--cat-text-3); }
 .guided-edit-picks { display: flex; flex-direction: column; gap: 2px; }

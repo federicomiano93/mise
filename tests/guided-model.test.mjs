@@ -8,9 +8,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_STEPS, MAX_STEP_SECONDS, MAX_STEP_TEXT, MAX_SPEED_TEXT, RESUME_TTL_MS,
+  MAX_STEPS, MAX_STEP_SECONDS, MAX_STEP_TEXT, MAX_SPEED_TEXT, MAX_END_NOTE, RESUME_TTL_MS,
   makeRowId, ridOf, withRowIds,
-  normalizeSeconds, normalizeStep, normalizeSteps, isEmptyStep, hasProcedure,
+  normalizeSeconds, normalizeStep, normalizeSteps, normalizeEndNote, isEmptyStep, hasProcedure,
   unassignedRows, missingRefs, amountsFor, stepRows,
   remainingMs, timerState, formatDuration, formatRemaining, overdueText,
   isResumable, progressText,
@@ -373,4 +373,56 @@ test('the resume offer says where you were', () => {
   assert.equal(progressText(0, 3), 'Step 1 of 3');
   assert.equal(progressText(0, 0), '');
   assert.equal(progressText('x', 9), '');
+});
+
+// ── The closing message ───────────────────────────────────────────────────────
+//
+// Shown on its own when a guided mix finishes. It is the recipe's last word about
+// the dough — "final dough temperature 24-26 degrees" — so it belongs to the
+// recipe rather than to a step, and it is bounded like a step's text is.
+
+test('a closing message is trimmed and kept', () => {
+  assert.equal(normalizeEndNote('  Final dough temperature 24-26 degrees  '),
+    'Final dough temperature 24-26 degrees');
+});
+
+test('no closing message is an empty string, never undefined or null', () => {
+  // The finish screen tests it for truthiness and the store writes it every time;
+  // a null reaching Firestore would be refused by the rules, which require a
+  // string whenever the field is present at all.
+  for (const nothing of [undefined, null, '', '   ']) {
+    assert.equal(normalizeEndNote(nothing), '', `${String(nothing)} did not become ''`);
+  }
+});
+
+test('junk becomes text rather than leaking a shape onto the screen', () => {
+  assert.equal(typeof normalizeEndNote(42), 'string');
+  assert.equal(normalizeEndNote(42), '42');
+  assert.equal(typeof normalizeEndNote({}), 'string');
+});
+
+test('a very long closing message is cut, not sent whole', () => {
+  // The rules cap it at 300 too. This is the half that gives a person a message
+  // that still fits the screen; that one is the half that keeps the document
+  // away from Firestore's 1MB ceiling.
+  assert.equal(normalizeEndNote('x'.repeat(1000)).length, MAX_END_NOTE);
+});
+
+test('the closing message survives a round trip through the recipe normaliser', () => {
+  // ⚠️ THE FIVE-PLACE TRAP. A field the model carries and one of the hand-listed
+  // field lists does not is dropped on every save, silently. This pins the
+  // catalogue end of it; the store end is pinned by the driven checks.
+  const withNote = normalizeCatalogueRecipe({
+    id: 'R9', name: 'Croissant', ingredients: [], endNote: 'Final dough temperature 24-26 degrees',
+  });
+  assert.equal(withNote.endNote, 'Final dough temperature 24-26 degrees');
+});
+
+test('a recipe with no closing message does not grow an empty one', () => {
+  // Absent rather than empty, exactly as `steps` behaves: the hundreds of recipes
+  // nobody has written a procedure for stay byte-identical to what they are now.
+  const plain = normalizeCatalogueRecipe({ id: 'R9', name: 'Croissant', ingredients: [] });
+  assert.equal('endNote' in plain, false);
+  const blank = normalizeCatalogueRecipe({ id: 'R9', name: 'Croissant', ingredients: [], endNote: '   ' });
+  assert.equal('endNote' in blank, false);
 });

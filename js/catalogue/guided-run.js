@@ -18,7 +18,7 @@
 
 import { el } from './dom.js';
 import {
-  normalizeSteps, amountsFor, stepRows, unassignedRows,
+  normalizeSteps, normalizeEndNote, amountsFor, stepRows, unassignedRows,
   timerState, formatRemaining, formatDuration, overdueText, progressText,
   isResumable, RESUME_TTL_MS,
 } from './guided-model.js';
@@ -77,6 +77,10 @@ export function snapshotOf(recipe, targetGrams) {
     name: String(recipe.name || ''),
     ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
     steps: normalizeSteps(recipe.steps),
+    // ⚠️ THE CLOSING MESSAGE TRAVELS WITH THE SNAPSHOT. Left out, a run resumed
+    // from a saved session reaches the end and shows nothing, because the resume
+    // path never sees the live recipe again.
+    endNote: normalizeEndNote(recipe.endNote),
     targetGrams: Number(targetGrams) > 0 ? Number(targetGrams) : 0,
   };
 }
@@ -255,9 +259,20 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     // ⚠️ NO RECIPE NAME HERE. The green header above this card already carries it,
     // on every screen of the run, so repeating it spent the line under the title
     // saying something the person can already see.
+    //
+    // Three DIFFERENT kinds of thing can share this card, and each is dressed
+    // differently so a glance tells them apart: a status ("Dough finished"), the
+    // recipe's own closing instruction, and — if it applies — the warning about
+    // ingredients no step ever mentioned.
     const card = el('div', { class: 'guided-card guided-card--end' }, [
-      el('h2', { class: 'guided-text', text: 'Dough finished' }),
+      el('p', { class: 'guided-done' }, [
+        el('span', { icon: CHECK_SVG, 'aria-hidden': 'true' }),
+        'Dough finished',
+      ]),
     ]);
+
+    const endNote = normalizeEndNote(snapshot.endNote);
+    if (endNote) card.appendChild(el('p', { class: 'guided-end-note', text: endNote }));
 
     if (missed.length) {
       const warn = el('div', { class: 'guided-missed' }, [

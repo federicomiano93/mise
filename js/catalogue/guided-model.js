@@ -27,6 +27,10 @@ export const MAX_SPEED_TEXT = 24;
 // 12 hours. Long enough for an overnight biga, short enough that a mistyped
 // number is refused rather than starting a countdown nobody will ever see end.
 export const MAX_STEP_SECONDS = 12 * 60 * 60;
+// The closing message, shown on the finish screen. Same cap as a step's text,
+// because it is the same kind of thing: one instruction somebody reads and acts
+// on — "final dough temperature 24-26 degrees" — not a paragraph.
+export const MAX_END_NOTE = 300;
 
 // ── Stable ingredient row ids ─────────────────────────────────────────────────
 //
@@ -107,6 +111,13 @@ function normalizeRows(raw) {
     if (rid && !out.includes(rid)) out.push(rid);
   }
   return out;
+}
+
+// The recipe's closing message. Not part of a step: a procedure's last word is
+// about the DOUGH, not about another thing to do, so it belongs to the recipe and
+// is shown once, at the end.
+export function normalizeEndNote(raw) {
+  return normalizeText(raw, MAX_END_NOTE);
 }
 
 export function normalizeStep(raw) {

@@ -14,7 +14,7 @@
 import {
   normalizeCatalogueRecipe, normalizeCatalogueRecipes, isScaledEntryFresh, normalizeLossPct,
 } from './catalogue-model.js';
-import { withRowIds, normalizeSteps } from './guided-model.js';
+import { withRowIds, normalizeSteps, normalizeEndNote } from './guided-model.js';
 import {
   watchRecipes,
   watchIngredients,
@@ -224,6 +224,10 @@ export function saveRecipe(recipe) {
     // would leave the old steps in the document and the screen would go on
     // showing a procedure the owner had just deleted.
     steps: normalizeSteps(recipe.steps),
+    // The closing message, on exactly the same terms and for the same reason:
+    // written even when empty, or clearing it would leave the old text in the
+    // document and the finish screen would keep showing a message just deleted.
+    endNote: normalizeEndNote(recipe.endNote),
   };
   const id = recipe.id || newRecipeId();
   const prev = recipes.find(r => r.id === id) || null;
