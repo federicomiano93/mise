@@ -80,6 +80,37 @@ test('the six copies of confirm-dialog.js are the same file', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 1c. join-code.js — the same trap, guarding the door instead of an alarm
+// ---------------------------------------------------------------------------
+
+// The phone decides whether what somebody typed is even worth sending, and the
+// SERVER decides whether the code may be redeemed. Both read this file. If they
+// part, the mild failure is a phone refusing a code the server would accept; the
+// serious one is the reverse — a limit relaxed on the server while the app still
+// believes it is enforced, and six digits stops being safe.
+//
+// ⚠️ Same reason it cannot be imported across as push-model.js, and same reason
+// no amount of driving the app can reveal the drift: nothing on a phone ever
+// loads the server's copy.
+test('the server and the app share ONE join-code model, byte for byte', () => {
+  const reference = read('js/join-code.js');
+  const copy = read('functions/join-code.js');
+  const diff = firstDifference(reference, copy);
+  assert.equal(
+    diff,
+    null,
+    diff &&
+      `functions/join-code.js has drifted from js/join-code.js at line ${diff.line}.
+` +
+        `  js/join-code.js:        ${diff.expected}
+` +
+        `  functions/join-code.js: ${diff.actual}
+` +
+        'Copy the file across. These are the limits that make a six-digit code ' +
+        'safe, and they only work together.',
+  );
+});
+
 // 1b. push-model.js — two copies, and the only one that crosses the machine
 // ---------------------------------------------------------------------------
 

@@ -1877,9 +1877,87 @@ async function roles() {
     () => deleteWrite(`${L}/client-accounts/${CLIENT_A.uid}`));
 }
 
+
+// ── The collections only the server may touch ────────────────────────────────
+//
+// Onboarding writes membership from a Cloud Function, because users/{uid} is the
+// boundary between two businesses and no client may write it. That server code
+// leans on four collections, and if any one of them were reachable from a phone
+// the whole arrangement would be theatre.
+async function onboardingCollections() {
+  await wipe();
+  await seedAccess();
+  const L = 'locations/main';
+
+  await seedDoc(`admins/${ALICE.uid}`, { note: 'the app owner' });
+  await seedDoc('join-codes/deadbeef', {
+    kind: 'digits', locationId: 'main', role: 'staff',
+    expiresAt: Date.now() + 60000, failedAttempts: 0, usedAt: null,
+  });
+  await seedDoc(`rate-limits/${ALICE.uid}`, { attempts: [Date.now()] });
+  await seedDoc(`${L}/members/${ALICE.uid}`,
+    { bakery: 'main', email: 'alice@example.com', role: 'owner', joinedAt: Date.now() });
+
+  // ⚠️ THE ONE THAT MATTERS MOST. If a code could be read, six digits would be
+  // worthless — anybody could list the collection and learn which location each
+  // code opens, and the guessing would be over before it started.
+  await expectDenied('nobody can read a join code, not even an owner',
+    () => fetch(`${FS}/join-codes/deadbeef`, { headers: asUser() }));
+  await expectDenied('nobody can LIST the join codes',
+    () => fetch(`${FS}/join-codes`, { headers: asUser() }));
+  await expectDenied('nobody can mint a join code from a phone', () =>
+    wholeWrite('join-codes/forged', {
+      kind: 'digits', locationId: 'main', role: 'owner',
+      expiresAt: Date.now() + 60000, failedAttempts: 0,
+    }, asUser()));
+  await expectDenied('nobody can revive a spent code',
+    () => mergeWrite('join-codes/deadbeef', { usedAt: null }, asUser()));
+
+  // ⚠️ IT IS THE ACCOUNT'S OWN DOCUMENT AND IT STILL MAY NOT TOUCH IT. A limit
+  // somebody can reset is not a limit, and this one is the whole reason a
+  // six-digit code is safe to hand out loud.
+  await expectDenied('an account cannot clear its own rate limit',
+    () => mergeWrite(`rate-limits/${ALICE.uid}`, { attempts: [] }, asUser()));
+  await expectDenied('an account cannot read its own rate limit',
+    () => fetch(`${FS}/rate-limits/${ALICE.uid}`, { headers: asUser() }));
+
+  // Making yourself the app's administrator would mean creating locations for
+  // anybody, so this collection is as closed as a collection gets.
+  await expectDenied('nobody can make themselves the app administrator',
+    () => wholeWrite(`admins/${BOB.uid}`, { note: 'me' }, asAccount(BOB)));
+  await expectDenied('nobody can read who the administrators are',
+    () => fetch(`${FS}/admins/${ALICE.uid}`, { headers: asUser() }));
+
+  // The roster is for the screen. Readable inside the location, writable nowhere
+  // — the functions write it in the same transaction as the membership itself.
+  await expectAllowed('a member can see who else works here',
+    () => fetch(`${FS}/${L}/members/${ALICE.uid}`, { headers: asUser() }));
+  await expectDenied('another location cannot see the people here',
+    () => fetch(`${FS}/${L}/members/${ALICE.uid}`, { headers: asAccount(BOB) }));
+  await expectDenied('a client ordering account cannot see the staff',
+    () => fetch(`${FS}/${L}/members/${ALICE.uid}`, { headers: asAccount(CLIENT_A) }));
+
+  // ⚠️ THE ROSTER MUST NOT BECOME A SECOND PLACE TO GRANT ACCESS. Nothing in the
+  // rules consults it, so writing it would grant nothing — but it would let
+  // somebody put a convincing lie on their colleague's screen, and the next
+  // person to add a shortcut that reads it would turn that lie into a key.
+  await expectDenied('an owner cannot write the roster by hand', () =>
+    mergeWrite(`${L}/members/${ALICE.uid}`, { role: 'owner' }, asUser()));
+  await expectDenied('staff cannot promote themselves on the roster', () =>
+    mergeWrite(`${L}/members/${SAM.uid}`, { role: 'owner' }, asAccount(SAM)));
+
+  // ⚠️ AND THE REAL PRIZE IS STILL SHUT. Everything above would be pointless if
+  // the document the RULES actually read were writable — this is the check that
+  // says the whole design still holds.
+  await expectDenied('and users/{uid} is STILL writable by nobody', () =>
+    mergeWrite(`users/${SAM.uid}`, { locations: { main: 'owner' } }, asAccount(SAM)));
+  await expectDenied('…not even by the owner of the location', () =>
+    mergeWrite(`users/${SAM.uid}`, { locations: { main: 'owner' } }, asUser()));
+}
+
 for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
                         locationTree, isolation, configAndLogs, pastries, pastryLogs,
-                        products, clientOrders, pushNotifications, roles]) {
+                        products, clientOrders, pushNotifications, roles, onboardingCollections]) {
   await scenario();
 }
 
