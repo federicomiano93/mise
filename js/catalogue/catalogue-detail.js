@@ -92,7 +92,7 @@ function costPanel(recipe) {
 // dangerous one — the unlinked row could be the one with the hazelnuts — so when
 // anything is missing this refuses to present a list at all and shows the JOB
 // instead.
-function allergenPanel(recipe) {
+function allergenPanel(recipe, app) {
   const result = recipeAllergens(recipe, {
     ingredients: getIngredients(),
     recipes: getRecipesById(),
@@ -145,6 +145,14 @@ function allergenPanel(recipe) {
   // implies otherwise is worse than one that says nothing.
   panel.appendChild(el('p', { class: 'cat-alg-caveat', text:
     'From the suppliers’ specifications. It does not cover what your own kitchen may add.' }));
+
+  // ⚠️ THE WAY TO THE LABEL EXISTS ONLY WHEN THERE IS A LABEL TO MAKE. Offering
+  // it on a recipe with gaps would mean tapping through to a refusal — and the
+  // refusal is already here, three lines above, naming exactly what is missing.
+  panel.appendChild(el('button', {
+    class: 'cat-alg-label-btn', type: 'button',
+    onclick: () => app.openLabel(recipe),
+  }, ['Make a label', el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]));
 
   return panel;
 }
@@ -358,7 +366,7 @@ export function renderDetail({ recipe, app }) {
   // the fold and are reached only by scrolling — never competing with the recipe.
   // The cost panel is REPLACED in place when new data arrives, never the whole
   // view: rebuilding the view would throw away a scaled batch the user is reading.
-  const costHost = el('div', { class: 'cat-cost-host' }, [costPanel(recipe), allergenPanel(recipe)]);
+  const costHost = el('div', { class: 'cat-cost-host' }, [costPanel(recipe), allergenPanel(recipe, app)]);
 
   // The batch weight is read at the moment Start is tapped, not captured here:
   // choosing a weight and then starting the mix is one gesture, and a panel built

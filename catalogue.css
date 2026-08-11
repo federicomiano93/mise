@@ -745,3 +745,70 @@ body.cat-zoom-lock { overflow: hidden; }
 .alg-sheet-row--blocked .alg-sheet-what { color: var(--cat-warn); font-weight: 600; }
 
 .alg-sheet-caveat { margin: 14px 2px 0; font-size: .76rem; color: var(--cat-text-3); line-height: 1.5; }
+
+/* ── The label ─────────────────────────────────────────────────────────────────
+   A draft for a human to check, and it says so where it cannot be scrolled past.
+   The card is deliberately plain and high-contrast: it is read, and it is what a
+   printed label will look like when printing is decided. */
+.cat-alg-label-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; margin-top: 10px; padding: 11px 14px;
+  background: var(--cat-brand); border: 0; border-radius: 12px; cursor: pointer;
+  font-family: var(--cat-font-round); font-size: .95rem; font-weight: 700; color: var(--cat-brand-ink);
+}
+.cat-alg-label-btn:hover { background: var(--cat-brand-2); }
+.cat-alg-label-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+
+.lab-switch { display: flex; gap: 6px; margin-bottom: 14px; }
+.lab-switch-btn {
+  flex: 1; padding: 10px 6px; min-height: 44px;
+  background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 12px;
+  font-family: var(--cat-font-round); font-size: .9rem; font-weight: 600; color: var(--cat-text-2);
+  cursor: pointer;
+}
+.lab-switch-btn--on { background: var(--cat-brand); border-color: var(--cat-brand); color: var(--cat-brand-ink); }
+.lab-switch-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+
+.lab-card {
+  padding: 16px; border: 1px solid var(--cat-border); border-radius: var(--cat-radius);
+  background: var(--cat-surface);
+}
+.lab-name { margin: 0 0 10px; font-family: var(--cat-font-round); font-size: 1.3rem; font-weight: 700; color: var(--cat-text); }
+.lab-ingredients { margin: 0; font-size: .95rem; line-height: 1.55; color: var(--cat-text); overflow-wrap: anywhere; }
+/* ⚠️ The allergen is emphasised INSIDE the list, which is what the regulation
+   asks for — not only summarised underneath. Bold AND a heavier colour, because
+   bold alone is weak at this size on a phone. */
+.lab-ing--allergen { font-weight: 800; color: var(--cat-text); text-decoration: underline; text-underline-offset: 2px; }
+.lab-contains { margin: 10px 0 0; font-size: 1rem; font-weight: 700; color: var(--cat-text); }
+.lab-traces { margin: 4px 0 0; font-size: .9rem; color: var(--cat-text-2); }
+
+.lab-nutrition { width: 100%; margin-top: 14px; border-collapse: collapse; font-size: .9rem; }
+.lab-nutrition th, .lab-nutrition td { padding: 6px 0; border-bottom: 1px solid var(--cat-border); text-align: left; }
+.lab-nutrition th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--cat-text-2); font-family: var(--cat-font-mono); }
+.lab-nutrition .lab-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lab-yield { margin: 8px 0 0; font-size: .76rem; color: var(--cat-text-3); }
+.lab-missing {
+  margin: 14px 0 0; padding: 10px 12px; border-radius: 10px;
+  background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border);
+  font-size: .84rem; color: var(--cat-warn); line-height: 1.45;
+}
+
+.lab-blocked {
+  padding: 16px; border-radius: var(--cat-radius);
+  background: var(--cat-warn-bg); border: 1px solid var(--cat-warn-border);
+}
+.lab-blocked-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--cat-warn); }
+.lab-blocked-text { margin: 6px 0 0; font-size: .9rem; color: var(--cat-warn); line-height: 1.45; }
+
+/* ⚠️ The caveat is a BLOCK, not a footnote, and it sits directly under the card
+   rather than at the bottom of a long scroll. A label that looks finished without
+   it is the one way this feature can do harm. */
+.lab-caveat {
+  margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+  background: var(--cat-surface-2); border-left: 4px solid var(--cat-crust);
+  font-size: .82rem; color: var(--cat-text-2); line-height: 1.5;
+}
+.lab-caveat-title { margin: 0 0 4px; font-weight: 700; color: var(--cat-crust-ink); }
+.lab-caveat p { margin: 0; }
+.lab-copy { margin-top: 12px; }
+.lab-copy-status { font-size: .8rem; font-weight: 400; color: var(--cat-text-2); }
