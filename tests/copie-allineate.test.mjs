@@ -58,6 +58,7 @@ const DIALOG_COPIES = [
   'js/pastries/confirm-dialog.js',
   'js/foodcost/confirm-dialog.js',
   'js/client-orders/confirm-dialog.js',
+  'js/staff/confirm-dialog.js',
 ];
 
 test('the six copies of confirm-dialog.js are the same file', () => {
@@ -80,6 +81,37 @@ test('the six copies of confirm-dialog.js are the same file', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 1c. join-code.js — the same trap, guarding the door instead of an alarm
+// ---------------------------------------------------------------------------
+
+// The phone decides whether what somebody typed is even worth sending, and the
+// SERVER decides whether the code may be redeemed. Both read this file. If they
+// part, the mild failure is a phone refusing a code the server would accept; the
+// serious one is the reverse — a limit relaxed on the server while the app still
+// believes it is enforced, and six digits stops being safe.
+//
+// ⚠️ Same reason it cannot be imported across as push-model.js, and same reason
+// no amount of driving the app can reveal the drift: nothing on a phone ever
+// loads the server's copy.
+test('the server and the app share ONE join-code model, byte for byte', () => {
+  const reference = read('js/join-code.js');
+  const copy = read('functions/join-code.js');
+  const diff = firstDifference(reference, copy);
+  assert.equal(
+    diff,
+    null,
+    diff &&
+      `functions/join-code.js has drifted from js/join-code.js at line ${diff.line}.
+` +
+        `  js/join-code.js:        ${diff.expected}
+` +
+        `  functions/join-code.js: ${diff.actual}
+` +
+        'Copy the file across. These are the limits that make a six-digit code ' +
+        'safe, and they only work together.',
+  );
+});
+
 // 1b. push-model.js — two copies, and the only one that crosses the machine
 // ---------------------------------------------------------------------------
 
@@ -155,6 +187,15 @@ const DOM_SNAPSHOT = [
     why: 'the catalogue copy with a Food Cost header',
   },
   {
+    file: 'js/staff/dom.js',
+    sha256: '0eb18ed08c4e6bcbb657a87e3879d8882b460fae7c28c9114a1ce7e6b17c36ec',
+    // Copied from the catalogue's copy like the three below it: no groupBy, same
+    // wrapping, a header naming this screen and the copy it came from. Added with
+    // the onboarding screens — a new folder that quietly went unpinned would be
+    // exactly the drift this file exists to catch.
+    why: 'the catalogue copy with a staff-screen header',
+  },
+  {
     file: 'js/client-orders/dom.js',
     sha256: '8a8fcbe6f293e135ef90422a7a19574b9fc67589e2d58f17ded99e52838716f1',
     // Copied from the catalogue's copy like the two above, with a header naming the
@@ -192,7 +233,7 @@ function elFunction(source) {
   return lines.slice(start, end + 1).join('\n');
 }
 
-test('el() is the same code in all five copies of dom.js', () => {
+test('el() is the same code in all six copies of dom.js', () => {
   const [reference, ...rest] = DOM_SNAPSHOT.map(({ file }) => ({ file, el: elFunction(read(file)) }));
 
   for (const copy of rest) {

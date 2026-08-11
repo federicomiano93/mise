@@ -47,20 +47,25 @@
   emulator on localhost WITHOUT touching the live site's policy, the meta is
   emitted here. On the live domain the string is byte-identical to the production
   policy; on localhost only, connect-src additionally allows the Auth (9099) and
-  Firestore (8080) emulators. This inline script runs before any CSP is in effect
+  Firestore (8080) and Functions (5001) emulators.
+  ⚠️ THE FUNCTIONS ORIGIN HAD TO BE ADDED TO THE LIVE POLICY TOO. Until the
+  onboarding calls, nothing in this app ever called a Cloud Function from a
+  browser — the existing ones are triggered by Firestore, server to server — so
+  connect-src had never needed it. Without it every callable fails with the
+  client's generic 'internal', which says nothing about a blocked request. This inline script runs before any CSP is in effect
   (only <meta charset> precedes it) and before any network request.
 -->
 <script>
 (function () {
   var local = ['localhost', '127.0.0.1', '::1', '[::1]'].indexOf(location.hostname) !== -1;
   var emu = local
-    ? ' http://localhost:8080 http://localhost:9099 http://127.0.0.1:8080 http://127.0.0.1:9099'
+    ? ' http://localhost:8080 http://localhost:9099 http://localhost:5001 http://127.0.0.1:8080 http://127.0.0.1:9099 http://127.0.0.1:5001'
     : '';
   document.write(
     '<meta http-equiv="Content-Security-Policy" content="' +
     "default-src 'self'; " +
     "script-src 'self' https://www.gstatic.com https://www.google.com; " +
-    "connect-src 'self' https://www.gstatic.com https://www.google.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "connect-src 'self' https://www.gstatic.com https://www.google.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://us-central1-bakery-app-ebf90.cloudfunctions.net" + emu + "; " +
     "frame-src 'self' https://www.google.com; " +
     "img-src 'self' data:; " +
     "style-src 'self'; " +

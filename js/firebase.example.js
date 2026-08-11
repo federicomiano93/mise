@@ -24,6 +24,7 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   connectAuthEmulator,
@@ -316,6 +317,24 @@ onAuthStateChanged(auth, user => {
   resolveMembership(user);
 });
 
+// Create an account, for somebody joining with a code.
+//
+// ⚠️ THIS GRANTS NOTHING BY ITSELF, and that is the whole safety of letting the
+// app do it. A brand-new account has no users/{uid} document, so every rule in
+// firestore.rules refuses it by construction rather than by remembering to ask —
+// it can sign in and see the "No location yet" screen, and nothing else. Access
+// arrives only when a Cloud Function accepts a join code and writes the
+// membership itself.
+//
+// ⚠️ AND IT SIGNS THE NEW ACCOUNT IN, on this app, replacing whoever was here.
+// That is right for this flow (the person creating the account IS the person at
+// the phone) and it is exactly what createOrderingLink must NOT do — which is
+// why that one mints on a second Firebase app. Do not copy this into a screen
+// where somebody creates an account for somebody else.
+export function signUp(email, password) {
+  return createUserWithEmailAndPassword(auth, String(email || '').trim(), String(password || ''));
+}
+
 export function signIn(email, password) {
   return signInWithEmailAndPassword(auth, String(email || '').trim(), String(password || ''));
 }
@@ -550,6 +569,29 @@ export function saveCalculatorConfig(config) {
 // ⚠️ session.role / session.isOwner are UX ONLY (P2). They stop the app drawing
 // a control the database would refuse; they are not the security. The security
 // is firestore.rules, and the rules trust nothing sent from here.
+//
+// ── Joining, without the Firebase console (js/staff/*, functions/onboarding.js) ─
+// The app can now let somebody in. It adds ONE export here — signUp() above —
+// and everything else goes through Cloud Functions, because the documents that
+// decide access are `allow write: if false` for every client and always will be.
+// Letting the app write another person's users/{uid} would be a master key to
+// the whole database, across every location, for ever.
+//
+// Collections, all written ONLY by the Admin SDK and readable by no client:
+//   - admins/{uid}                     the app's own owner; the only account that
+//                                      may create a customer's location
+//   - join-codes/{sha256(code)}        ⚠️ the code itself is NEVER stored, only
+//                                      its hash, so it cannot leak through a
+//                                      function log or a database export
+//   - rate-limits/{uid}                5 redeem attempts per account per hour
+//
+// One exception, readable by a location's own members:
+//   - locations/{lid}/members/{uid}    { email, role, joinedAt }
+//
+// ⚠️ members IS A COPY OF A FACT AND IS NOT THE ONE THAT DECIDES. The truth is
+// users/{uid}, which is what the rules read; members exists only so an owner can
+// SEE the list, since users/{uid} is readable by its own account alone. Both are
+// written in the SAME transaction, in the same function, so they cannot part.
 //
 // ── Push notifications (Firebase Cloud Messaging) — FUTURE / server step ──────
 // Client-side alerts (js/orders/notifications.js) already work while the app is

@@ -253,6 +253,31 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ── The three collections only the server may touch ───────────────────
+    //
+    // All three would be denied anyway by the default-deny at the foot of this
+    // file. They are written out because a collection that is invisible in the
+    // rules is one nobody reviews, and each of these is load-bearing:
+    //
+    //   admins/{uid}      who may create a new customer's location. One document,
+    //                     typed once in the console. If a client could write this
+    //                     it could make itself the app's administrator.
+    //
+    //   join-codes/{id}   the id is a sha256 of the code, so the code itself is
+    //                     never written down. ⚠️ IF THIS WERE READABLE, SIX DIGITS
+    //                     WOULD BE WORTHLESS — anyone could list the collection
+    //                     and read which location each code opens. Not listable,
+    //                     not readable, not writable, by anybody.
+    //
+    //   rate-limits/{uid} how many redemption attempts an account has made in the
+    //                     last hour. ⚠️ IT IS THE ACCOUNT'S OWN DOCUMENT AND IT
+    //                     STILL MAY NOT WRITE IT — a limit somebody can reset is
+    //                     not a limit, and this is the one thing standing between
+    //                     a million combinations and an afternoon.
+    match /admins/{uid}        { allow read, write: if false; }
+    match /join-codes/{codeId} { allow read, write: if false; }
+    match /rate-limits/{uid}   { allow read, write: if false; }
+
     match /locations/{lid} {
 
       // The location's own document: its display name and which sections of the
@@ -260,6 +285,25 @@ service cloud.firestore {
       // write this could rename a location or hand itself a section.
       allow read: if member(lid);
       allow write: if false;
+
+      // ── Who works here ──────────────────────────────────────────────────
+      //
+      // The roster behind the "Who can get in" screen: one document per person,
+      // with their email and role. Readable by anybody in the location — you
+      // should be able to see who your colleagues are — and writable by NO
+      // client, because the functions write it in the same transaction as the
+      // membership itself.
+      //
+      // ⚠️ IT IS A COPY OF A FACT, AND THE COPY IS NOT THE ONE THAT DECIDES.
+      // The truth is users/{uid}.locations, which is what member() and isOwner()
+      // read; this exists only because that document is readable solely by its
+      // owner, so an owner could otherwise never list their own staff. Nothing
+      // in this file consults it to decide anything, and nothing ever should —
+      // the moment it does, the roster becomes a second place to grant access.
+      match /members/{uid} {
+        allow read: if member(lid);
+        allow write: if false;
+      }
 
       // ── Production logs (current model) ─────────────────────────────────
       // Written WHOLE (saveLogDoc uses setDoc with no merge), so the keys can be

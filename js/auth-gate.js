@@ -15,7 +15,8 @@
 // signed out — shows one frame of somebody's data to whoever is holding the
 // phone. The cover is in the HTML from the start and is only ever REMOVED.
 
-import { onSession, signIn, sendReset, chooseLocation, signOutNow } from './firebase.js';
+import { onSession, signIn, signUp, sendReset, chooseLocation, signOutNow } from './firebase.js';
+import { normalizeTyped, isWellFormed } from './join-code.js';
 import { isSectionAllowed } from './sections.js';
 
 const HOME = 'index.html';
@@ -43,6 +44,8 @@ const MESSAGES = {
   'auth/too-many-requests': 'Too many attempts. Wait a minute and try again.',
   'auth/network-request-failed': 'No connection. The first sign-in on a device needs internet.',
   'auth/missing-password': 'Enter your password.',
+  'auth/email-already-in-use': 'That email already has an account. Sign in with it instead.',
+  'auth/weak-password': 'Pick a longer password — at least 6 characters.',
 };
 const messageFor = err =>
   MESSAGES[err && err.code] || 'Could not sign in. Please try again.';
@@ -157,6 +160,16 @@ function signInScreen() {
   // on exactly this screen: signed out, with no hint that instructions exist and no
   // idea they are supposed to "Add to Home Screen" first. An <a>, not a button:
   // it navigates, and the browser should treat it as such (P18).
+  // ⚠️ THE ONLY WAY IN FOR SOMEBODY WHO HAS NEVER BEEN HERE. Without this link
+  // a new employee holding a valid code has nowhere to type it: the form above
+  // asks for a password they do not have yet, and the guide explains installing,
+  // not joining. The same mistake — a screen nobody could reach — kept the
+  // install guide unseen for weeks (v1.19.0).
+  const join = el('button', 'auth-link', 'I have a join code');
+  join.type = 'button';
+  join.addEventListener('click', () => showGate(() => joinScreen({ needsAccount: true })));
+  card.append(join);
+
   const guide = el('a', 'auth-link auth-guide-link', 'How to install the app');
   guide.href = 'install-guide.html';
   card.append(guide);
@@ -197,6 +210,119 @@ function signInScreen() {
   });
 
   setTimeout(() => email.focus(), 0);
+  return card;
+}
+
+
+// ── Joining with a code ──────────────────────────────────────────────────────
+//
+// ⚠️ TWO ENTRANCES, ONE SCREEN, and the difference is whether an account exists
+// yet. Somebody handed a code by their new employer has neither; somebody who
+// signed up a minute ago and landed on "No location yet" has one already and
+// must not be asked to make a second. `needsAccount` is the whole difference.
+//
+// Creating the account here grants NOTHING — a brand-new account has no
+// users/{uid} document, so every rule refuses it until a Cloud Function accepts
+// the code and writes the membership. That is why it is safe for the app to do
+// this part at all.
+function joinScreen({ needsAccount }) {
+  const card = el('div', 'auth-card');
+  card.append(el('h1', 'auth-title', needsAccount ? 'Join with a code' : 'Enter your code'));
+  card.append(el('p', 'auth-sub', needsAccount
+    ? 'Create your account, then type the code you were given.'
+    : 'Type the code you were given.'));
+
+  const form = el('form', 'auth-form');
+  form.noValidate = true;
+
+  let email = null, password = null;
+  if (needsAccount) {
+    const emailLabel = el('label', 'auth-label', 'Your email');
+    emailLabel.htmlFor = 'join-email';
+    email = el('input', 'auth-input');
+    email.id = 'join-email';
+    email.type = 'email';
+    email.autocomplete = 'username';
+
+    const passLabel = el('label', 'auth-label', 'Choose a password');
+    passLabel.htmlFor = 'join-password';
+    password = el('input', 'auth-input');
+    password.id = 'join-password';
+    password.type = 'password';
+    password.autocomplete = 'new-password';
+
+    form.append(emailLabel, email, passLabel, password);
+  }
+
+  const codeLabel = el('label', 'auth-label', 'Code');
+  codeLabel.htmlFor = 'join-code';
+  const code = el('input', 'auth-input auth-code');
+  code.id = 'join-code';
+  code.type = 'text';
+  // A numeric keypad on a phone, and no autocorrect deciding six digits are a word.
+  code.inputMode = 'numeric';
+  code.autocomplete = 'one-time-code';
+  code.setAttribute('autocapitalize', 'off');
+  code.setAttribute('spellcheck', 'false');
+
+  const submit = el('button', 'auth-btn', 'Join');
+  submit.type = 'submit';
+
+  const status = el('p', 'auth-status');
+  status.setAttribute('role', 'alert');
+
+  form.append(codeLabel, code, submit, status);
+  card.append(form);
+
+  const back = el('button', 'auth-link', 'Back');
+  back.type = 'button';
+  back.addEventListener('click', () => { showGate(needsAccount ? signInScreen : noAccessScreen); });
+  card.append(back);
+
+  const setStatus = (text, kind = 'bad') => {
+    status.textContent = text;
+    status.className = `auth-status auth-status--${kind}`;
+  };
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const typed = normalizeTyped(code.value);
+    // ⚠️ CHECKED HERE BEFORE THE NETWORK, because every call — even a malformed
+    // one — spends one of this account's five attempts an hour. Letting a typo
+    // burn one of those would mean four real tries left after one slip.
+    if (!isWellFormed(typed)) {
+      setStatus('A code is six digits.');
+      code.focus();
+      return;
+    }
+
+    submit.disabled = true;
+    setStatus(needsAccount ? 'Creating your account…' : 'Checking…', 'busy');
+    try {
+      if (needsAccount) {
+        if (!email.value.trim()) { setStatus('Enter your email.'); email.focus(); submit.disabled = false; return; }
+        if (!password.value) { setStatus('Choose a password.'); password.focus(); submit.disabled = false; return; }
+        await signUp(email.value, password.value);
+        setStatus('Checking your code…', 'busy');
+      }
+      // Loaded only now: this screen is on the critical path of every app open,
+      // and the functions client is a chunk nobody needs until they are joining.
+      const { redeemJoinCode } = await import('./staff/firebase-staff.js');
+      await redeemJoinCode(typed);
+      // Everything downstream reads the membership once, at sign-in, so the
+      // honest way to pick up a brand-new one is to start again.
+      location.reload();
+    } catch (err) {
+      // A refused code arrives as the function's own message; anything from the
+      // sign-up half arrives as a Firebase auth code.
+      const fromAuth = err && typeof err.code === 'string' && err.code.startsWith('auth/');
+      setStatus(fromAuth ? messageFor(err)
+        : (err && err.message) || 'That code does not work. Ask for a new one.');
+      submit.disabled = false;
+    }
+  });
+
+  setTimeout(() => (needsAccount ? email : code).focus(), 0);
   return card;
 }
 
@@ -252,6 +378,34 @@ function messageScreen(title, body, { account = '' } = {}) {
   return card;
 }
 
+
+// The account exists and belongs nowhere. Two very different people land here:
+// somebody whose access was removed, and somebody who has just created an
+// account and is holding a code.
+//
+// ⚠️ THIS IS THE MOST IMPORTANT ENTRANCE IN THE WHOLE FLOW. Creating the account
+// and redeeming the code are two steps, and anything can happen between them —
+// a dropped connection, a mistyped code, a phone that locked. Whoever gets
+// separated from the first attempt arrives here, and without a way to type the
+// code from this screen their only options are to give up or make a SECOND
+// account, which cannot be joined either because the code is single use.
+let lastAccount = '';
+
+function noAccessScreen() {
+  const card = messageScreen(
+    'No location yet',
+    'This account is not linked to a location. If you were given a code, type it here.',
+    { account: lastAccount },
+  );
+  const join = el('button', 'auth-link', 'I have a join code');
+  join.type = 'button';
+  join.addEventListener('click', () => showGate(() => joinScreen({ needsAccount: false })));
+  // Above "Try again" and "Sign in with a different account", because for the
+  // person this screen is usually showing to, it is the answer and they are not.
+  card.insertBefore(join, card.querySelector('.auth-btn'));
+  return card;
+}
+
 // ── The gate ─────────────────────────────────────────────────────────────────
 
 onSession(session => {
@@ -269,11 +423,8 @@ onSession(session => {
       break;
 
     case 'no-access':
-      showGate(() => messageScreen(
-        'No location yet',
-        'This account is not linked to a location. Ask the owner to add it, then try again.',
-        { account: session.user?.email || session.user?.uid || '' },
-      ));
+      lastAccount = session.user?.email || session.user?.uid || '';
+      showGate(noAccessScreen);
       break;
 
     case 'error':
