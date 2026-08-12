@@ -83,6 +83,17 @@ function renderSessionActions(session) {
     }));
   }
 
+  // ⚠️ A DIFFERENT QUESTION FROM isOwner, and reading one for the other would
+  // offer every customer's owner the power to create businesses. This is the
+  // APP's administrator — one document in admins/{uid}, which the server checks
+  // again on every call and never takes from here.
+  if (session.isAppAdmin) {
+    logoutHost.append(button('New customer', 'session-logout', async () => {
+      const { openNewCustomer } = await import('./staff/new-customer.js');
+      openNewCustomer();
+    }));
+  }
+
   logoutHost.append(button('Log out', 'session-logout', async () => {
     const ok = await confirmDialog({
       title: 'Log out?',

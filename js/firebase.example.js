@@ -187,8 +187,11 @@ const ACTIVE_LOCATION_KEY = 'active-location';
 // is "no owner powers", the same direction the rules take for a value nobody set.
 let session = { status: 'loading', user: null, locationId: null, location: null,
                 sections: allowedSections(null), options: [], optionNames: {},
-                role: 'staff', canManage: false, isOwner: false };
+                role: 'staff', canManage: false, isOwner: false, isAppAdmin: false };
 let userDocCache = null;
+// ⚠️ STARTS false AND IS CLEARED ON SIGN-OUT. A stale `true` surviving a sign-out
+// would draw the "New customer" entry for whoever signs in next on that phone.
+let appAdminCache = false;
 const sessionListeners = new Set();
 
 let markSessionReady;
@@ -285,8 +288,29 @@ async function enterLocation(locationId, options, user) {
     // button reads canManage; only the "who can get in" entry reads isOwner.
     canManage: canManage(userDocCache, locationId),
     isOwner: isOwner(userDocCache, locationId),
+    // ⚠️ A THIRD ANSWER, AND NOT ABOUT THIS LOCATION AT ALL. isOwner is "may hire
+    // into THIS venue"; this is "may create a NEW customer's venue" — the app's
+    // own administrator. Reading one for the other would offer every customer's
+    // owner the power to mint businesses.
+    isAppAdmin: appAdminCache,
   });
   markSessionReady(session);
+}
+
+// May this account create a NEW CUSTOMER's location? Every other permission in
+// this file is about one location; this one sits above all of them.
+//
+// ⚠️ IT IS UX AND NOTHING ELSE (P2). createWorkspace reads the same document on
+// the server and never trusts what is sent from here. ⚠️ EVERY UNCERTAIN ANSWER
+// IS "NO" — a refused read, a dropped connection, a missing document.
+// ⚠️ COST (P14): one read per SIGN-IN, not per app open.
+async function resolveAppAdmin(user) {
+  try {
+    const snap = await getDoc(doc(db, 'admins', user.uid));
+    appAdminCache = snap.exists();
+  } catch {
+    appAdminCache = false;
+  }
 }
 
 // Which locations does this account have? The answer lives in users/{uid},
@@ -301,6 +325,8 @@ async function resolveMembership(user) {
     setSession({ status: 'error', user, error: 'network' });
     return;
   }
+
+  await resolveAppAdmin(user);
 
   const pick = pickLocation(userDocCache, readRememberedLocation());
   if (pick.status === 'none') { setSession({ status: 'no-access', user, options: [] }); return; }
@@ -317,9 +343,10 @@ async function resolveMembership(user) {
 onAuthStateChanged(auth, user => {
   if (!user) {
     userDocCache = null;
+    appAdminCache = false;
     setSession({ status: 'signed-out', user: null, locationId: null, location: null,
                  options: [], sections: allowedSections(null),
-                 role: 'staff', canManage: false, isOwner: false });
+                 role: 'staff', canManage: false, isOwner: false, isAppAdmin: false });
     return;
   }
   resolveMembership(user);

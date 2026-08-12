@@ -216,8 +216,12 @@ const ACTIVE_LOCATION_KEY = 'active-location';
 // is "no owner powers", the same direction the rules take for a value nobody set.
 let session = { status: 'loading', user: null, locationId: null, location: null,
                 sections: allowedSections(null), options: [], optionNames: {},
-                role: 'staff', canManage: false, isOwner: false };
+                role: 'staff', canManage: false, isOwner: false, isAppAdmin: false };
 let userDocCache = null;
+// ⚠️ STARTS false AND IS CLEARED ON SIGN-OUT, like userDocCache above. A stale
+// `true` surviving a sign-out would draw the "New customer" entry for whoever
+// signs in next on that phone.
+let appAdminCache = false;
 const sessionListeners = new Set();
 
 let markSessionReady;
@@ -315,8 +319,38 @@ async function enterLocation(locationId, options, user) {
     // Using isOwner for a bin would take the bins away from every manager.
     canManage: canManage(userDocCache, locationId),
     isOwner: isOwner(userDocCache, locationId),
+    // ⚠️ A THIRD ANSWER, AND IT IS NOT ABOUT THIS LOCATION AT ALL. isOwner is
+    // "may hire into THIS venue"; this is "may create a new customer's venue" —
+    // the app's own administrator, not the customer's. Reading one for the other
+    // would offer every bakery owner the power to mint businesses.
+    isAppAdmin: appAdminCache,
   });
   markSessionReady(session);
+}
+
+// May this account create a NEW CUSTOMER's location? That is a different question
+// from anything else in this file: every other permission is about one location,
+// and this one sits above all of them.
+//
+// ⚠️ IT IS UX AND NOTHING ELSE (P2). createWorkspace reads the same document on
+// the server and never trusts what is sent from here, so the worst a tampered
+// `true` can do is draw a button that is then refused. The read exists only so
+// the entry is not shown to the hundreds of people it would refuse, nor hidden
+// from the one person it is for.
+//
+// ⚠️ EVERY UNCERTAIN ANSWER IS "NO". A refused read, a dropped connection, a
+// document that is not there — all false. The opposite direction would draw an
+// administrator's door during a network blip.
+//
+// ⚠️ COST (P14): one read per SIGN-IN, not per app open — it sits in the same
+// place as the membership read, which the session already makes exactly once.
+async function resolveAppAdmin(user) {
+  try {
+    const snap = await getDoc(doc(db, 'admins', user.uid));
+    appAdminCache = snap.exists();
+  } catch {
+    appAdminCache = false;
+  }
 }
 
 // Which locations does this account have? The answer lives in users/{uid},
@@ -331,6 +365,8 @@ async function resolveMembership(user) {
     setSession({ status: 'error', user, error: 'network' });
     return;
   }
+
+  await resolveAppAdmin(user);
 
   const pick = pickLocation(userDocCache, readRememberedLocation());
   if (pick.status === 'none') { setSession({ status: 'no-access', user, options: [] }); return; }
@@ -347,9 +383,10 @@ async function resolveMembership(user) {
 onAuthStateChanged(auth, user => {
   if (!user) {
     userDocCache = null;
+    appAdminCache = false;
     setSession({ status: 'signed-out', user: null, locationId: null, location: null,
                  options: [], sections: allowedSections(null),
-                 role: 'staff', canManage: false, isOwner: false });
+                 role: 'staff', canManage: false, isOwner: false, isAppAdmin: false });
     return;
   }
 

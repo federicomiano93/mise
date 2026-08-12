@@ -2081,11 +2081,30 @@ async function onboardingCollections() {
     () => fetch(`${FS}/rate-limits/${ALICE.uid}`, { headers: asUser() }));
 
   // Making yourself the app's administrator would mean creating locations for
-  // anybody, so this collection is as closed as a collection gets.
+  // anybody, so WRITING here is closed to everybody, including an administrator.
   await expectDenied('nobody can make themselves the app administrator',
     () => wholeWrite(`admins/${BOB.uid}`, { note: 'me' }, asAccount(BOB)));
-  await expectDenied('nobody can read who the administrators are',
+  await expectDenied('an administrator cannot even rewrite their own row',
+    () => mergeWrite(`admins/${ALICE.uid}`, { note: 'still me' }, asUser()));
+
+  // ⚠️ READING YOUR OWN IS ALLOWED, and it is the whole reason the "New customer"
+  // entry can exist. Without it the app could only discover who may create a
+  // business by CALLING createWorkspace and being refused — so it would either
+  // show everybody a door that opens for one person, or hide it from the one
+  // person who needs it. Reading grants nothing: the function checks this same
+  // document server-side and never trusts what the app sends.
+  await expectAllowed('an administrator can read their OWN row, so the app can ask',
     () => fetch(`${FS}/admins/${ALICE.uid}`, { headers: asUser() }));
+
+  // ⚠️ AND ONLY THEIR OWN. These two are what keep "read your own" from becoming
+  // "read the collection": nobody can learn who the administrators are, and
+  // nobody can enumerate them.
+  await expectDenied('nobody can read somebody ELSE’s administrator row',
+    () => fetch(`${FS}/admins/${ALICE.uid}`, { headers: asAccount(BOB) }));
+  await expectDenied('nobody can LIST the administrators',
+    () => fetch(`${FS}/admins`, { headers: asUser() }));
+  await expectDenied('a client ordering account cannot read an administrator row',
+    () => fetch(`${FS}/admins/${ALICE.uid}`, { headers: asAccount(CLIENT_A) }));
 
   // The roster is for the screen. Readable inside the location, writable nowhere
   // — the functions write it in the same transaction as the membership itself.

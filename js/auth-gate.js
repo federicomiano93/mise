@@ -16,11 +16,28 @@
 // phone. The cover is in the HTML from the start and is only ever REMOVED.
 
 import { onSession, signIn, signUp, sendReset, chooseLocation, signOutNow } from './firebase.js';
-import { normalizeTyped, isWellFormed } from './join-code.js';
+import { normalizeTyped } from './join-code.js';
+import { kindOfTyped, readJoinToken, CODE_SHAPE_HINT } from './join-link.js';
 import { nameProblem, passwordProblem, MIN_PASSWORD_LENGTH } from './credentials.js';
 import { isSectionAllowedFor } from './sections.js';
 
 const HOME = 'index.html';
+
+// ⚠️ READ ONCE, AT LOAD, BEFORE ANYTHING CAN NAVIGATE. A link sent to a brand-new
+// customer arrives as index.html#join=<token>; without this the token would be in
+// the address bar and the only screen that could use it would be asking them to
+// type it out by hand — which is exactly the state this app shipped in until
+// 12 Aug 2026.
+let invitedWith = readJoinToken(window.location.href);
+
+// Take the spent secret out of the address bar (and out of the history entry)
+// once it has been used. It is single-use, so what is left behind is worthless —
+// but a secret with no reason to still be on screen should not be.
+function forgetInvite() {
+  try {
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+  } catch { /* an old browser: the fragment simply stays */ }
+}
 
 // Which section this page belongs to. Pages set it on the <body>; a page with no
 // section (the Home itself) is never gated by section, only by sign-in.
@@ -231,12 +248,23 @@ function signInScreen() {
 // users/{uid} document, so every rule refuses it until a Cloud Function accepts
 // the code and writes the membership. That is why it is safe for the app to do
 // this part at all.
-function joinScreen({ needsAccount }) {
+function joinScreen({ needsAccount, prefill = '' }) {
   const card = el('div', 'auth-card');
-  card.append(el('h1', 'auth-title', needsAccount ? 'Join with a code' : 'Enter your code'));
-  card.append(el('p', 'auth-sub', needsAccount
-    ? 'Create your account, then type the code you were given.'
-    : 'Type the code you were given.'));
+  // ⚠️ FOUR SITUATIONS, FOUR SENTENCES, NOT ONE HEDGED ONE. "Type the code you
+  // were given" is a LIE to somebody who arrived by link — their code is already
+  // in the box — and a sentence that is wrong about what is on screen teaches
+  // people to stop reading the next one.
+  card.append(el('h1', 'auth-title',
+    prefill ? 'You have been invited'
+      : needsAccount ? 'Join with a code' : 'Enter your code'));
+  card.append(el('p', 'auth-sub',
+    prefill
+      ? (needsAccount
+        ? 'Your code is already filled in. Add your name and choose a password.'
+        : 'Your code is already filled in. Add your name to finish.')
+      : (needsAccount
+        ? 'Create your account, then type the code you were given.'
+        : 'Type the code you were given.')));
 
   const form = el('form', 'auth-form');
   form.noValidate = true;
@@ -293,6 +321,13 @@ function joinScreen({ needsAccount }) {
   code.autocomplete = 'one-time-code';
   code.setAttribute('autocapitalize', 'off');
   code.setAttribute('spellcheck', 'false');
+  if (prefill) {
+    // Arrived by link: the code is already known, so it is filled in and the
+    // keypad hint dropped — a numeric keypad in front of a 32-character token
+    // would be the wrong keyboard for a box nobody has to type in.
+    code.value = prefill;
+    code.inputMode = 'text';
+  }
 
   const submit = el('button', 'auth-btn', 'Join');
   submit.type = 'submit';
@@ -334,7 +369,13 @@ function joinScreen({ needsAccount }) {
       const pass = passwordProblem(password.value, email.value);
       if (pass) return [pass, password];
     }
-    if (!isWellFormed(normalizeTyped(code.value))) return ['A code is six digits.', code];
+    // ⚠️ TWO SHAPES REACH THIS BOX, NOT ONE. Six digits are read down a phone;
+    // the owner of a brand-new business is sent a 32-character link instead,
+    // because nobody dictates thirty-two mixed-case characters and every mistype
+    // spends one of five attempts an hour. Until 12 Aug 2026 this line refused
+    // the link outright — the token createWorkspace mints could not be redeemed
+    // anywhere in the app.
+    if (!kindOfTyped(code.value)) return [CODE_SHAPE_HINT, code];
     return null;
   };
 
@@ -346,7 +387,10 @@ function joinScreen({ needsAccount }) {
       wrong[1].focus();
       return;
     }
-    const typed = normalizeTyped(code.value);
+    // The kind decides how the code is normalised as well as what it is called:
+    // case is folded for digits and KEPT for a link, where folding destroys it.
+    const kind = kindOfTyped(code.value);
+    const typed = normalizeTyped(code.value, kind);
 
     submit.disabled = true;
     setStatus(needsAccount ? 'Creating your account…' : 'Checking…', 'busy');
@@ -358,7 +402,8 @@ function joinScreen({ needsAccount }) {
       // Loaded only now: this screen is on the critical path of every app open,
       // and the functions client is a chunk nobody needs until they are joining.
       const { redeemJoinCode } = await import('./staff/firebase-staff.js');
-      await redeemJoinCode(typed, 'digits', firstName.value, lastName.value);
+      await redeemJoinCode(typed, kind, firstName.value, lastName.value);
+      forgetInvite();
       // Everything downstream reads the membership once, at sign-in, so the
       // honest way to pick up a brand-new one is to start again.
       location.reload();
@@ -458,14 +503,25 @@ function noAccessScreen() {
 
 // ── The gate ─────────────────────────────────────────────────────────────────
 
-onSession(session => {
+// The last thing the session said, kept so an invitation arriving AFTER the page
+// has settled can be answered without waiting for the session to change again.
+let lastSession = null;
+
+function render(session) {
+  lastSession = session;
   switch (session.status) {
     case 'loading':
       gateHost().hidden = false;
       break;
 
     case 'signed-out':
-      showGate(signInScreen);
+      // ⚠️ ARRIVED BY LINK: go straight to joining, not to sign-in. Whoever opens
+      // an invitation has no account here yet, so the sign-in form is a wall with
+      // the way round it three lines below in small type. They still get there by
+      // Back if they do have one.
+      showGate(invitedWith
+        ? () => joinScreen({ needsAccount: true, prefill: invitedWith })
+        : signInScreen);
       break;
 
     case 'choose-location':
@@ -474,7 +530,12 @@ onSession(session => {
 
     case 'no-access':
       lastAccount = session.user?.email || session.user?.uid || '';
-      showGate(noAccessScreen);
+      // Signed in already and holding an invitation — the second entrance, with
+      // the code filled in. Somebody who made an account and got separated from
+      // the first attempt must not be asked to make a second (v267).
+      showGate(invitedWith
+        ? () => joinScreen({ needsAccount: false, prefill: invitedWith })
+        : noAccessScreen);
       break;
 
     case 'error':
@@ -505,4 +566,22 @@ onSession(session => {
     default:
       break;
   }
+}
+
+onSession(render);
+
+// ⚠️ A LINK OPENED WHILE THE APP IS ALREADY ON THIS PAGE CHANGES ONLY THE
+// FRAGMENT, AND THE BROWSER DOES NOT RELOAD FOR THAT. Everything above runs once,
+// at load, so without this the invitation would be sitting in the address bar
+// doing nothing while the screen showed a sign-in form — silent, and impossible
+// for the person holding the phone to explain. Found by driving the app: opening
+// the link in a FRESH page always worked, which is why nothing else caught it.
+//
+// Nothing happens for somebody already inside a location: an invitation is not a
+// reason to throw a working session off its screen.
+window.addEventListener('hashchange', () => {
+  const found = readJoinToken(window.location.href);
+  if (!found || found === invitedWith) return;
+  invitedWith = found;
+  if (lastSession && lastSession.status !== 'ready') render(lastSession);
 });

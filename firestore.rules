@@ -268,8 +268,19 @@ service cloud.firestore {
     // rules is one nobody reviews, and each of these is load-bearing:
     //
     //   admins/{uid}      who may create a new customer's location. One document,
-    //                     typed once in the console. If a client could write this
+    //                     typed once in the console. If a client could WRITE this
     //                     it could make itself the app's administrator.
+    //                     ⚠️ READING YOUR OWN IS ALLOWED, and only your own. The
+    //                     app has to know whether to draw the "New customer" entry
+    //                     at all; without this it could only find out by CALLING
+    //                     createWorkspace and being refused, which means either
+    //                     showing everybody a door that opens for one person, or
+    //                     hiding it from the one person who needs it. Reading
+    //                     cannot grant anything — the function checks the same
+    //                     document server-side and never trusts this. It is the
+    //                     same shape as users/{uid}: read your own, write never,
+    //                     and no client may LIST the collection, so nobody can
+    //                     discover who the administrators are.
     //
     //   join-codes/{id}   the id is a sha256 of the code, so the code itself is
     //                     never written down. ⚠️ IF THIS WERE READABLE, SIX DIGITS
@@ -282,7 +293,8 @@ service cloud.firestore {
     //                     STILL MAY NOT WRITE IT — a limit somebody can reset is
     //                     not a limit, and this is the one thing standing between
     //                     a million combinations and an afternoon.
-    match /admins/{uid}        { allow read, write: if false; }
+    match /admins/{uid}        { allow read: if signedIn() && request.auth.uid == uid;
+                                 allow write: if false; }
     match /join-codes/{codeId} { allow read, write: if false; }
     match /rate-limits/{uid}   { allow read, write: if false; }
 
