@@ -86,9 +86,15 @@ export function openBusinesses({ host } = {}) {
   });
 
   top.append(
+    // ⚠️ THIS SENTENCE WENT STALE THE MOMENT THE SCREEN MOVED. It used to read
+    // "you switch to those from the Home", which was true while Businesses was
+    // opened from a venue's Home — and became false as soon as it moved above
+    // every venue. A sentence that is wrong about what is on screen teaches
+    // people to stop reading the next one. Found by looking at the rendered
+    // screen, not by any test.
     el('p', { class: 'people-hint', text:
-      'The businesses using this app. Your own venues are not here — you switch to '
-      + 'those from the Home.' }),
+      'The businesses using Misé. Your own venues are not here — they are behind '
+      + '“My businesses”.' }),
     add,
   );
 
