@@ -46,6 +46,28 @@ export async function createWorkspace(name, sections) {
   return res.data;
 }
 
+// ⚠️ BOTH AWAIT sessionReady, like createWorkspace and unlike redeemJoinCode.
+// The distinction is not about needing a location — these two reach businesses
+// their caller is deliberately NOT a member of — it is that sessionReady is also
+// what guarantees the auth token has been restored. Firing before it can arrive
+// as `unauthenticated`, which reads as "you are not allowed" when the truth is
+// "you were not asked yet". redeemJoinCode cannot await it only because the
+// person redeeming has no location for it to resolve on.
+//
+// ⚠️ And neither takes a locationId from currentSession(): these are about the
+// app's customers, never about the place you happen to have open.
+export async function listWorkspaces() {
+  await sessionReady;
+  const res = await call('listWorkspaces')({});
+  return (res.data && res.data.workspaces) || [];
+}
+
+export async function reissueOwnerLink(locationId) {
+  await sessionReady;
+  const res = await call('reissueOwnerLink')({ locationId });
+  return res.data;
+}
+
 export async function createJoinCode(role = 'staff') {
   await sessionReady;
   const res = await call('createJoinCode')({

@@ -116,9 +116,14 @@ async function requireOwner(uid, locationId) {
   }
 }
 
-// Federico, and nobody else. A document in a collection no client can read or
-// write, created once from the console — the same way everything else in this
-// project is bootstrapped, and it needs no new tooling or key.
+// Federico, and nobody else. One document, created once from the console — the
+// same way everything else in this project is bootstrapped, needing no new
+// tooling and no key.
+//
+// ⚠️ SINCE v272 AN ACCOUNT MAY READ ITS OWN admins/{uid}, so the app can decide
+// whether to draw the entry at all. Nobody may write one, nobody may read
+// somebody else's, and nobody may list the collection. This check is the real
+// gate and never trusts anything the caller sends.
 async function requireAppAdmin(uid) {
   const snap = await db().doc(`admins/${uid}`).get();
   if (!snap.exists) throw new HttpsError('permission-denied', 'Not allowed.');
@@ -178,6 +183,108 @@ export const createWorkspace = onCall(CALL, async (request) => {
   // belonging to somebody whose business this is.
   logger.info('Workspace created', { locationId, by: uid });
   return { locationId, token, expiresAt };
+});
+
+// ── 1b. The customers I have created, and a second chance at their link ──────
+//
+// ⚠️ WHY THESE EXIST AT ALL. locations/{lid} is readable only by a MEMBER, and
+// whoever creates a customer is deliberately not one — so without these two, a
+// business created here is invisible from the moment it is made, and the link
+// (stored only as a sha256) is unrecoverable if it never arrives. The Firebase
+// console was the only way back.
+//
+// ⚠️ AND WHY THEY ARE FUNCTIONS RATHER THAN A RULES CHANGE. Letting an
+// administrator read locations from the rules needs a get(admins/{uid}) inside
+// the locations rule, and that ruleset is at Firestore's exact 10-read ceiling —
+// one more read has already produced an evaluation error on 8 rules. The Admin
+// SDK is not subject to any of it.
+
+// ⚠️ `createdBy` HAS BEEN STORED SINCE createWorkspace EXISTED, so this needs no
+// backfill. Federico's OWN two venues predate it and therefore never appear here,
+// which is right: this screen is the customers of the app, not the places he runs.
+export const listWorkspaces = onCall(CALL, async (request) => {
+  const uid = requireAuth(request);
+  await requireAppAdmin(uid);
+
+  // Equality on a single field: no composite index to create or forget.
+  const snap = await db().collection('locations').where('createdBy', '==', uid).get();
+
+  // ⚠️ COST (P14): one extra read per location, and it is worth being deliberate
+  // about. `limit(1)` makes each one the cheapest question Firestore can answer —
+  // "is there anybody at all" — rather than fetching a roster nothing here shows.
+  const rows = await Promise.all(snap.docs.map(async (doc) => {
+    const data = doc.data() || {};
+    const members = await db().collection(`locations/${doc.id}/members`).limit(1).get();
+    return {
+      id: doc.id,
+      name: typeof data.name === 'string' ? data.name : doc.id,
+      sections: data.sections && typeof data.sections === 'object' ? data.sections : {},
+      createdAt: Number(data.createdAt) || 0,
+      // ⚠️ CLAIMED IS DECIDED BY THE ROSTER, NOT BY THE CODE. A code's usedAt is a
+      // fact about that code; a location can outlive several. redeemJoinCode
+      // writes the membership and the roster row in ONE transaction, so a member
+      // existing is the same fact as somebody having got in.
+      claimed: !members.empty,
+    };
+  }));
+
+  rows.sort((a, b) => b.createdAt - a.createdAt);
+  return { workspaces: rows };
+});
+
+// A fresh owner link for a business whose first one never arrived.
+export const reissueOwnerLink = onCall(CALL, async (request) => {
+  const uid = requireAuth(request);
+  await requireAppAdmin(uid);
+
+  const locationId = request.data && request.data.locationId;
+  if (typeof locationId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(locationId)) {
+    throw new HttpsError('invalid-argument', 'Which business?');
+  }
+
+  const doc = await db().doc(`locations/${locationId}`).get();
+  // Same message for "not there" and "not yours": an error that told them apart
+  // would confirm a location exists to somebody with no business knowing.
+  if (!doc.exists || (doc.data() || {}).createdBy !== uid) {
+    throw new HttpsError('permission-denied', 'Not allowed.');
+  }
+
+  // ⚠️⚠️ THE CONSTRAINT THE WHOLE FUNCTION RESTS ON. Without it, whoever runs this
+  // app could mint themselves the owner's way into a customer's LIVE business, at
+  // any time, for ever. With it, the power exists only while the place belongs to
+  // nobody — which is exactly the case this is for.
+  const members = await db().collection(`locations/${locationId}/members`).limit(1).get();
+  if (!members.empty) {
+    throw new HttpsError('failed-precondition',
+      'Somebody has already opened this business. Its owner can add people from inside it.');
+  }
+
+  // ⚠️ SPEND THE OLD LINKS FIRST. A link nobody used is still a working key: if
+  // the first one turns up later in somebody else's hands, it opens the business.
+  // Equality on locationId alone — a single field, so no composite index — with
+  // kind and usedAt filtered here, because a location has a handful of codes.
+  const codes = await db().collection('join-codes').where('locationId', '==', locationId).get();
+  const now = Date.now();
+  const batch = db().batch();
+  let revoked = 0;
+  codes.docs.forEach((code) => {
+    const value = code.data() || {};
+    if (value.kind === 'link' && !value.usedAt) {
+      // usedAt is what codeStatus() reads, so the old link now reports itself
+      // spent through exactly the path every other dead code takes.
+      batch.update(code.ref, { usedAt: now, revokedBy: uid });
+      revoked += 1;
+    }
+  });
+  if (revoked) await batch.commit();
+
+  const token = mintLinkToken();
+  const expiresAt = await storeCode({
+    code: token, kind: 'link', locationId, role: 'owner', createdBy: uid,
+  });
+
+  logger.info('Owner link reissued', { locationId, by: uid, revoked });
+  return { token, expiresAt };
 });
 
 // The membership value a role is written as.

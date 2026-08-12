@@ -87,10 +87,17 @@ function renderSessionActions(session) {
   // offer every customer's owner the power to create businesses. This is the
   // APP's administrator — one document in admins/{uid}, which the server checks
   // again on every call and never takes from here.
+  //
+  // ⚠️ IT LEADS TO A SCREEN RATHER THAN DOING SOMETHING. "New customer" used to
+  // act from here, and Federico spotted the problem on his own phone: the Home
+  // belongs to a VENUE — its header says the venue's name — so an action about
+  // the app's own customers sat between one about this venue and one about your
+  // account. Three scopes in one list. One door instead, and what is behind it
+  // is about the product.
   if (session.isAppAdmin) {
-    logoutHost.append(button('New customer', 'session-logout', async () => {
-      const { openNewCustomer } = await import('./staff/new-customer.js');
-      openNewCustomer();
+    logoutHost.append(button('Businesses', 'session-logout', async () => {
+      const { openBusinesses } = await import('./staff/businesses.js');
+      openBusinesses();
     }));
   }
 
