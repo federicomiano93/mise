@@ -356,6 +356,13 @@ export async function seedDemoWorld() {
   // — which is the only way to see whether the pills read as a choice.
   const mgrUid = await seedAccount('manager@club.test', DEMO_PASSWORD, { bakery: 'manager' });
 
+  // ⚠️ THE APP'S OWN ADMINISTRATOR, WHICH IS NOT THE SAME THING AS AN OWNER.
+  // An owner runs one venue; this is who may create a NEW CUSTOMER's venue, and
+  // it is the only permission in the app that sits above a location. Seeded on
+  // the same account because that is production's shape — Federico is both — and
+  // without it the "New customer" entry cannot be looked at at all.
+  await seedDoc(`admins/${clubUid}`, { note: 'the app owner', createdAt: Date.now() });
+
   // ── The roster ─────────────────────────────────────────────────────────────
   // ⚠️ THE THIRD ROW HAS NO NAME, AND THAT IS THE POINT. This collection is
   // written only by redeemJoinCode, so every account created by hand in the

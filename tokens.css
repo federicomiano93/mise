@@ -427,6 +427,65 @@
 
 .people-add { align-self: stretch; }
 
+/* ── New customer ──────────────────────────────────────────────────────────
+   The first screen of every sale. Shares the .people-* shell; only the pieces
+   that screen does not have are defined here.
+   ⚠️ --text-2 … --text-5 are COLOURS and there is no --text-1. Six rules on the
+   staff screen were written as `font-size: var(--text-3)` on 11 Aug 2026, were
+   invalid, and were dropped by the browser in silence. Sizes are in px here. */
+.people-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.nc-sections { display: flex; flex-direction: column; gap: var(--space-2); }
+
+/* ⚠️ 44px, not the 31px .day-check gives. A mis-tap sells the wrong section and
+   switching one back on afterwards needs the Firebase console. The whole row is
+   the target, label included — the words belong to it (P18). */
+.nc-section {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.nc-check {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.nc-section-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nc-section-name { font-size: 15px; color: var(--text); }
+.nc-section-what { font-size: 12px; color: var(--text-3); }
+
+/* The link is shown once and cannot be shown again, so it has to be readable
+   and fully selectable. Monospace because it is a token, and break-all because
+   32 characters must not push the card sideways on a 320px phone. */
+.nc-link {
+  margin: 0;
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
 .people-list { display: flex; flex-direction: column; gap: var(--space-3); }
 
 .people-row {
