@@ -236,6 +236,21 @@ function markHubPassed(passed) {
   } catch { /* private mode: the hub simply shows again, which is the safe way to fail */ }
 }
 
+// "The back arrow was tapped inside a venue: come back up on the venue list."
+//
+// ⚠️ IT IS READ ONCE AND CLEARED IMMEDIATELY. It decides one page load. Left set, the
+// app would return to the picker on every navigation for the rest of the session —
+// the multi-page trap the hub flag exists to avoid, wearing the opposite hat.
+const PICK_VENUE_KEY = 'pick-venue';
+
+function takePickVenue() {
+  try {
+    const wanted = sessionStorage.getItem(PICK_VENUE_KEY) === '1';
+    sessionStorage.removeItem(PICK_VENUE_KEY);
+    return wanted;
+  } catch { return false; }
+}
+
 // ⚠️ canManage AND isOwner START false AND MUST. Every screen decides what to draw from this
 // object, and it exists before a location is open — so the safe starting answer
 // is "no owner powers", the same direction the rules take for a value nobody set.
@@ -413,6 +428,8 @@ async function resolveMembership(user) {
   const pick = pickStart(userDocCache, {
     isAppAdmin: appAdminCache,
     hubPassed: hubPassed(),
+    // Read (and cleared) here, so it decides THIS page load and no other.
+    pickVenue: takePickVenue(),
     remembered: readRememberedLocation(),
   });
 
@@ -480,27 +497,31 @@ export async function enterMyBusinesses() {
 // because the flag below is exactly what survives one.
 //
 // ⚠️ ONLY FROM THE PICKER AND "No location yet", where NO location is open. Use
-// openHub() to come back from inside a venue: see the warning on it.
+// openVenuePicker() to come back up from INSIDE a venue: see the warning on it.
 export function backToHub() {
   markHubPassed(false);
   setSession({ status: 'hub', user: session.user, options: locationsOf(userDocCache),
                isAppAdmin: appAdminCache });
 }
 
-// Up to the app's own home from INSIDE an open venue.
+// The back arrow at the top-left of a venue's Home: up one level, to the list of
+// every venue this account has.
 //
-// ⚠️ IT RELOADS, AND THAT IS THE WHOLE DIFFERENCE FROM backToHub() ABOVE. A venue
-// that has been open is holding dozens of live Firestore listeners and a page of
-// in-memory state; simply covering it with the hub leaves every one of them
-// running, and the next venue opened would be quietly repainted by the previous
-// one's listeners. It is the same reason switchLocation reloads rather than
-// re-pointing, and the comment there is the longer version.
+// ⚠️ IT RELOADS, for the same reason switchLocation does: an open venue is holding
+// dozens of live Firestore listeners, and the next venue opened would be repainted by
+// the previous one's.
 //
-// The remembered location is deliberately KEPT: re-entering the same venue must
-// find its cache intact (the cache belongs to the location, not to the person),
-// and "My businesses" asks which venue regardless of what is remembered.
-export function openHub() {
-  markHubPassed(false);
+// ⚠️ AND IT DELIBERATELY DOES NOT CALL forgetLocation(), which is the short way to the
+// same screen. That one CLEARS THE LOCAL CACHE — the quantities typed and not yet
+// saved. Stepping up to look at your venues and coming back must never cost somebody
+// their morning's typing. Nothing is cleared until a DIFFERENT venue is actually
+// entered, which enterLocation still decides on its own (shouldClearLocalData).
+//
+// ⚠️ The remembered location is kept for the same reason: coming back to the same
+// venue must find its cache intact.
+export function openVenuePicker() {
+  try { sessionStorage.setItem(PICK_VENUE_KEY, '1'); } catch { /* private mode */ }
+  markHubPassed(true);   // the arrow asks for the venue list, not for the Misé home
   location.reload();
 }
 

@@ -45,7 +45,27 @@
   border-radius: 2px;
   background: linear-gradient(90deg, var(--crust) 0%, transparent 70%);
 }
-.home-header > div { display: flex; flex-direction: column-reverse; }
+/* The way up, top-left, where every other screen in this app puts it.
+   The LOOK comes from the shared .overlay-back-btn (the 36px translucent circle with
+   its 1.5px rim); only the two things this header needs differently are here.
+
+   ⚠️ SCOPED AS `.home-header .home-up-btn`, TWO CLASSES, ON PURPOSE. A bare
+   `.home-up-btn` ties with `.overlay-back-btn` on specificity and would be decided by
+   which stylesheet happens to load later — which is nobody's decision, and is exactly
+   how a 3px marker came out 1px wide this week. Two classes beat one, whatever the
+   order.
+
+   ⚠️ THE TITLE STAYS ON THE LEFT and does not become centred: `header` is
+   `justify-content: space-between`, so the shared class's `margin-right: auto` would
+   push the venue's name toward the middle. This heading is not an overlay title — it
+   is the venue's own name with its "HOME" eyebrow, read left to right. The auto
+   margin moves to the title block instead, which keeps the "?" at the right edge. */
+.home-header .home-up-btn { margin-right: 8px; }
+.home-header .home-up-btn:active { transform: scale(.92); }
+/* The app's green focus ring is invisible on the green header. */
+.home-header .home-up-btn:focus-visible { outline: 2px solid var(--on-brand); outline-offset: 2px; }
+
+.home-header > div { display: flex; flex-direction: column-reverse; margin-right: auto; }
 .home-header h1 { font-size: 30px; line-height: 1.05; }
 .home-header p { margin: 0 0 4px; letter-spacing: 0.18em; }
 

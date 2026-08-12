@@ -12,11 +12,12 @@
 // Log out sits here too, deliberately quiet next to the location name (P20:
 // a destructive action never competes with the thing you actually came to do).
 
-import { onSession, signOutNow, switchLocation, forgetLocation, openHub } from './firebase.js';
-import { sectionsFor } from './sections.js';
+import { onSession, signOutNow, switchLocation, forgetLocation, openVenuePicker } from './firebase.js';
+import { sectionsFor, hasLevelAbove } from './sections.js';
 import { confirmDialog } from './confirm-dialog.js';
 
 const logoutHost = document.getElementById('session-logout-host');
+const upBtn = document.getElementById('home-up-btn');
 
 function button(label, className, onClick) {
   const node = document.createElement('button');
@@ -51,18 +52,19 @@ function renderSessionActions(session) {
 
   const options = session.options || [];
 
-  // ⚠️ FOR THE APP'S ADMINISTRATOR THIS REPLACES "Switch location", it is not a
-  // fourth entry. The Misé home screen is where that person chooses a venue AND
-  // reaches the customer list, so one door that says where it goes beats two
-  // that overlap. Without it the back office would be unreachable from inside a
-  // venue: with exactly two venues "Switch location" goes straight to the other
-  // one and never passes the hub, so the only way back would be closing the app.
+  // ⚠️ "Back to Misé" HAS LEFT THIS STRIP. The back arrow at the top-left of the
+  // header does that job now, in the place this app puts every other way up, and
+  // two doors to the same floor — one at the top and one at the bottom — are the
+  // muddle Federico spotted here in the first place. The strip is also the wrong
+  // place for it in practice: with five cards the Home scrolls, so anything down
+  // here is below the edge of the screen until you look for it.
   //
-  // ⚠️ DRAWN WHATEVER THE VENUE COUNT, unlike "Switch location" below. An
-  // administrator with a single venue still has customers to look after.
-  if (session.isAppAdmin) {
-    logoutHost.append(button('Back to Misé', 'session-logout', () => openHub()));
-  } else if (options.length > 1) {
+  // ⚠️ "Switch location" STAYS for somebody with venues but no back office, and it
+  // is not a leftover. With exactly two venues it jumps STRAIGHT to the other one
+  // in a single tap, while the arrow steps up to the picker and costs two — two
+  // different errands, "take me to the other one" and "show me everything". With
+  // three it already only opens the picker, so nothing is lost by having both.
+  if (!session.isAppAdmin && options.length > 1) {
     logoutHost.append(button('Switch location', 'session-logout', async () => {
       const other = options.filter(id => id !== session.locationId);
       const names = session.optionNames || {};
@@ -113,8 +115,30 @@ function renderSessionActions(session) {
   }));
 }
 
+// The way up, in the header. Revealed rather than built, so it can appear the moment
+// the session says there is a level above without a repaint of anything else.
+//
+// ⚠️ ONLY WHERE THERE IS SOMEWHERE TO GO. hasLevelAbove() is the whole guard: an
+// employee with one venue has no "all my businesses" screen, and an arrow leading to
+// a list of one is a control that appears to be broken.
+function renderUpArrow(session) {
+  if (!upBtn) return;
+  const show = hasLevelAbove({ isAppAdmin: session.isAppAdmin, options: session.options });
+  upBtn.hidden = !show;
+  if (show && !upBtn.dataset.wired) {
+    upBtn.dataset.wired = '1';
+    // ⚠️ NO CONFIRMATION, and that is checked rather than assumed: stepping UP clears
+    // nothing. The local cache is only wiped when a DIFFERENT venue is entered, which
+    // enterLocation decides for itself. "Switch location" warns because it really does
+    // clear; warning here would teach people to tap through a dialog that never means
+    // anything, which is how the one that matters stops being read.
+    upBtn.addEventListener('click', () => openVenuePicker());
+  }
+}
+
 onSession(session => {
   if (session.status !== 'ready') return;
   filterCards(session.location, session.role);
+  renderUpArrow(session);
   renderSessionActions(session);
 });
