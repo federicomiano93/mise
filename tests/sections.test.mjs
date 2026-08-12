@@ -14,6 +14,7 @@ import {
   isSectionAllowed,
   locationsOf,
   pickLocation,
+  pickStart,
 } from '../js/sections.js';
 
 // ── Sections: default ALLOWED ────────────────────────────────────────────────
@@ -183,4 +184,79 @@ test('a remembered location that is no longer yours is ignored', () => {
 test('an account with no location is a named state, not a crash', () => {
   assert.deepEqual(pickLocation(null, 'main'), { status: 'none', options: [] });
   assert.deepEqual(pickLocation({ locations: {} }, null), { status: 'none', options: [] });
+});
+
+// ── Where opening the app LANDS ────────────────────────────────────────────
+//
+// One step above pickLocation. Everything here pushes in one direction: the hub
+// is the app administrator's screen and nobody else's, because for everybody
+// else it is a door they must open every morning to reach the only room behind it.
+
+const TWO = { locations: { main: 'owner', 'trattoria-x': 'owner' } };
+
+test('an ordinary account never sees the hub, whatever it holds', () => {
+  for (const doc of [TWO, { locations: { main: true } }, { locations: {} }, null]) {
+    assert.notEqual(pickStart(doc, { remembered: 'main' }).status, 'hub');
+  }
+});
+
+test('an ordinary account lands exactly where pickLocation says', () => {
+  assert.deepEqual(pickStart(TWO, { remembered: 'main' }), pickLocation(TWO, 'main'));
+  assert.deepEqual(pickStart(TWO, {}), pickLocation(TWO, ''));
+  assert.deepEqual(pickStart(null, {}), pickLocation(null, ''));
+});
+
+test('the app administrator opens on the hub', () => {
+  const out = pickStart(TWO, { isAppAdmin: true, remembered: 'main' });
+  assert.equal(out.status, 'hub');
+  assert.deepEqual(out.options, ['main', 'trattoria-x']);
+});
+
+// ⚠️ A remembered venue must NOT skip the hub. It is what "open the app and you
+// are in Misé" means; skipping it would make the hub reachable only on the very
+// first open of a device and never again.
+test('a remembered venue does not skip the hub', () => {
+  assert.equal(pickStart(TWO, { isAppAdmin: true, remembered: 'trattoria-x' }).status, 'hub');
+});
+
+// ⚠️ THE TEST THIS FEATURE LIVES OR DIES BY. Once past the hub the app is being
+// used — every page change re-asks this question, and answering "hub" again
+// would throw somebody out of the Calculator on the way to Orders.
+test('past the hub, a page change goes straight back to the venue', () => {
+  const out = pickStart(TWO, { isAppAdmin: true, hubPassed: true, remembered: 'trattoria-x' });
+  assert.equal(out.status, 'ready');
+  assert.equal(out.locationId, 'trattoria-x');
+});
+
+test('past the hub with nothing remembered, the picker still asks', () => {
+  assert.equal(pickStart(TWO, { isAppAdmin: true, hubPassed: true }).status, 'choose');
+});
+
+// ⚠️ The one case that would otherwise hide the whole back office behind a
+// message about a problem: an administrator who sells the app and runs no venue
+// of their own. "No location yet" would be the only screen they ever saw.
+test('an administrator with no venue of their own still gets the hub', () => {
+  const out = pickStart({ locations: {} }, { isAppAdmin: true });
+  assert.equal(out.status, 'hub');
+  assert.deepEqual(out.options, []);
+  assert.equal(pickStart(null, { isAppAdmin: true }).status, 'hub');
+});
+
+// Same bias as every other guard in this app: a value nobody understands is the
+// LEAST power, never the most. Only the boolean true is an administrator.
+test('anything that is not exactly true is not an administrator', () => {
+  for (const value of ['true', 1, {}, [], 'owner', 'yes']) {
+    assert.notEqual(pickStart(TWO, { isAppAdmin: value }).status, 'hub', String(value));
+  }
+});
+
+test('anything that is not exactly true has not passed the hub', () => {
+  for (const value of ['true', 1, {}, [], 'yes']) {
+    assert.equal(pickStart(TWO, { isAppAdmin: true, hubPassed: value }).status, 'hub', String(value));
+  }
+});
+
+test('no options at all is not a crash', () => {
+  assert.equal(pickStart(null, {}).status, 'none');
+  assert.equal(pickStart(undefined, undefined).status, 'none');
 });

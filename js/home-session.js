@@ -12,7 +12,7 @@
 // Log out sits here too, deliberately quiet next to the location name (P20:
 // a destructive action never competes with the thing you actually came to do).
 
-import { onSession, signOutNow, switchLocation, forgetLocation } from './firebase.js';
+import { onSession, signOutNow, switchLocation, forgetLocation, openHub } from './firebase.js';
 import { sectionsFor } from './sections.js';
 import { confirmDialog } from './confirm-dialog.js';
 
@@ -50,7 +50,19 @@ function renderSessionActions(session) {
   logoutHost.textContent = '';
 
   const options = session.options || [];
-  if (options.length > 1) {
+
+  // ⚠️ FOR THE APP'S ADMINISTRATOR THIS REPLACES "Switch location", it is not a
+  // fourth entry. The Misé home screen is where that person chooses a venue AND
+  // reaches the customer list, so one door that says where it goes beats two
+  // that overlap. Without it the back office would be unreachable from inside a
+  // venue: with exactly two venues "Switch location" goes straight to the other
+  // one and never passes the hub, so the only way back would be closing the app.
+  //
+  // ⚠️ DRAWN WHATEVER THE VENUE COUNT, unlike "Switch location" below. An
+  // administrator with a single venue still has customers to look after.
+  if (session.isAppAdmin) {
+    logoutHost.append(button('Back to Misé', 'session-logout', () => openHub()));
+  } else if (options.length > 1) {
     logoutHost.append(button('Switch location', 'session-logout', async () => {
       const other = options.filter(id => id !== session.locationId);
       const names = session.optionNames || {};
@@ -83,23 +95,12 @@ function renderSessionActions(session) {
     }));
   }
 
-  // ⚠️ A DIFFERENT QUESTION FROM isOwner, and reading one for the other would
-  // offer every customer's owner the power to create businesses. This is the
-  // APP's administrator — one document in admins/{uid}, which the server checks
-  // again on every call and never takes from here.
-  //
-  // ⚠️ IT LEADS TO A SCREEN RATHER THAN DOING SOMETHING. "New customer" used to
-  // act from here, and Federico spotted the problem on his own phone: the Home
-  // belongs to a VENUE — its header says the venue's name — so an action about
-  // the app's own customers sat between one about this venue and one about your
-  // account. Three scopes in one list. One door instead, and what is behind it
-  // is about the product.
-  if (session.isAppAdmin) {
-    logoutHost.append(button('Businesses', 'session-logout', async () => {
-      const { openBusinesses } = await import('./staff/businesses.js');
-      openBusinesses();
-    }));
-  }
+  // ⚠️ "Businesses" IS DELIBERATELY NOT HERE ANY MORE. It moved to the Misé home
+  // screen, above every venue (js/auth-gate.js hubScreen). This strip belongs to
+  // ONE customer's venue — the header above it says that venue's name — and the
+  // app's own customer list is not a drawer inside it. "Back to Misé" above is
+  // how an administrator reaches it. Putting it back here would restore the
+  // three-scopes-in-one-list problem Federico spotted on his own phone.
 
   logoutHost.append(button('Log out', 'session-logout', async () => {
     const ok = await confirmDialog({

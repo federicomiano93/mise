@@ -56,7 +56,7 @@ import {
   setCurrentLocationId,
   locationDocPath,
 } from './location.js';
-import { allowedSections, sectionsFor, pickLocation, locationsOf } from './sections.js';
+import { allowedSections, sectionsFor, pickStart, locationsOf } from './sections.js';
 import { roleOf, isOwner, canManage } from './roles.js';
 import { clearLocalData, shouldClearLocalData } from './local-data.js';
 
@@ -177,10 +177,35 @@ if (!isLocalhost) {
 // then, so a read that jumps the queue fails loudly instead of quietly using
 // somebody else's folder.
 //
-// States a page can be in: loading · signed-out · choose-location · no-access
-// · error · ready. js/auth-gate.js turns each one into a screen.
+// States a page can be in: loading · signed-out · hub · choose-location ·
+// no-access · error · ready. js/auth-gate.js turns each one into a screen.
 
 const ACTIVE_LOCATION_KEY = 'active-location';
+
+// Has this opening of the app already been past the Misé home screen?
+//
+// ⚠️ sessionStorage, NOT localStorage, AND THE FEATURE DEPENDS ON IT. This app is
+// several pages — the Home, the Calculator, Orders — and every one of them is a
+// fresh document that runs this file again from the top. In localStorage the hub
+// would be seen once per DEVICE, for ever; in memory it would be seen on every
+// single page change, which throws somebody out of the Calculator on their way
+// to Orders. sessionStorage is the one that means "once per opening": it
+// survives a navigation and a reload, and dies with the window.
+//
+// Same storage and the same reasoning as js/update-gate.js (an update refused at
+// 7am is offered again tomorrow) and js/splash-init.js.
+const HUB_PASSED_KEY = 'hub-passed';
+
+function hubPassed() {
+  try { return sessionStorage.getItem(HUB_PASSED_KEY) === '1'; } catch { return false; }
+}
+
+function markHubPassed(passed) {
+  try {
+    if (passed) sessionStorage.setItem(HUB_PASSED_KEY, '1');
+    else sessionStorage.removeItem(HUB_PASSED_KEY);
+  } catch { /* private mode: the hub simply shows again, which is the safe way to fail */ }
+}
 
 // ⚠️ canManage AND isOwner START false AND MUST. Every screen decides what to draw from this
 // object, and it exists before a location is open — so the safe starting answer
@@ -198,6 +223,23 @@ let markSessionReady;
 // Resolves the first time a location is open for business. Never rejects: a
 // signed-out app simply never resolves it, and the gate is covering the screen.
 export const sessionReady = new Promise(resolve => { markSessionReady = resolve; });
+
+let markSignedIn;
+// Resolves as soon as a REAL account is signed in — before any location is open,
+// and whether or not one ever is.
+//
+// ⚠️ IT EXISTS BECAUSE THE MISÉ HOME SCREEN SITS ABOVE EVERY LOCATION. The calls
+// made from there are about the app's own customers, and their caller is
+// deliberately not a member of any of them, so there is no location to wait for.
+// They used to await sessionReady — which never resolves on that screen — and the
+// Businesses list simply sat on "Loading…" for ever, saying nothing. Silent, and
+// impossible for the person holding the phone to explain.
+//
+// ⚠️ IT GIVES THE GUARANTEE THOSE CALLS ACTUALLY NEEDED, which was never "a
+// location is open": it is that the auth token has been restored. Firing before
+// that, a callable answers `unauthenticated`, which reads as "you are not
+// allowed" when the truth is "you were not asked yet".
+export const signedInReady = new Promise(resolve => { markSignedIn = resolve; });
 
 function setSession(next) {
   session = { ...session, ...next };
@@ -328,27 +370,138 @@ async function resolveMembership(user) {
 
   await resolveAppAdmin(user);
 
-  const pick = pickLocation(userDocCache, readRememberedLocation());
-  if (pick.status === 'none') { setSession({ status: 'no-access', user, options: [] }); return; }
+  const pick = pickStart(userDocCache, {
+    isAppAdmin: appAdminCache,
+    hubPassed: hubPassed(),
+    remembered: readRememberedLocation(),
+  });
+
+  // ⚠️ isAppAdmin IS SET ON EVERY BRANCH BELOW, not only inside enterLocation.
+  // The hub is drawn before any location is open, so a session object still
+  // carrying the starting `false` would draw the app's own home with the
+  // administrator's door missing — for the one account it exists for.
+  if (pick.status === 'hub') {
+    // ⚠️ NO NAMES ARE READ HERE. The hub says "My businesses", not which ones,
+    // so fetching each location's name would be one Firestore read per venue on
+    // every app open, spent on text nobody sees (P14). The picker one step later
+    // reads them, because that is the screen that shows them.
+    setSession({ status: 'hub', user, options: pick.options, isAppAdmin: appAdminCache });
+    return;
+  }
+  if (pick.status === 'none') {
+    setSession({ status: 'no-access', user, options: [], isAppAdmin: appAdminCache });
+    return;
+  }
   if (pick.status === 'choose') {
     setSession({
       status: 'choose-location', user, options: pick.options,
       optionNames: await readLocationNames(pick.options),
+      isAppAdmin: appAdminCache,
     });
     return;
   }
   await enterLocation(pick.locationId, pick.options, user);
 }
 
+// "My businesses" on the hub: leave the app's own home and go to the venues.
+//
+// ⚠️ IT ASKS WHICH VENUE EVERY TIME, ignoring the remembered one, and that is
+// Federico's own description of the screen ("mi chiede quale dei miei profili
+// voglio aprire"). The remembered location is still honoured everywhere else —
+// on a page change, and after a "Switch location" that has already named where
+// it is going — because there the question has been answered and asking again
+// would be re-asking it.
+//
+// One venue opens straight into it: there is nothing to choose between.
+export async function enterMyBusinesses() {
+  markHubPassed(true);
+  const user = session.user;
+  const options = locationsOf(userDocCache);
+  if (options.length === 0) {
+    setSession({ status: 'no-access', user, options: [], isAppAdmin: appAdminCache });
+    return;
+  }
+  if (options.length === 1) {
+    await enterLocation(options[0], options, user);
+    return;
+  }
+  setSession({
+    status: 'choose-location', user, options,
+    optionNames: await readLocationNames(options),
+    isAppAdmin: appAdminCache,
+  });
+}
+
+// Back to the app's own home, from the screens the hub leads to.
+//
+// ⚠️ A SCREEN WITH NO WAY BACK IS THE SHAPE THIS PROJECT KEEPS SHIPPING. Without
+// this, an administrator who taps "My businesses" and then wants the customer
+// list has to close the whole app to get it — and a reload would not even do,
+// because the flag below is exactly what survives one.
+//
+// ⚠️ ONLY FROM THE PICKER AND "No location yet", where NO location is open. Use
+// openHub() to come back from inside a venue: see the warning on it.
+export function backToHub() {
+  markHubPassed(false);
+  setSession({ status: 'hub', user: session.user, options: locationsOf(userDocCache),
+               isAppAdmin: appAdminCache });
+}
+
+// Up to the app's own home from INSIDE an open venue.
+//
+// ⚠️ IT RELOADS, AND THAT IS THE WHOLE DIFFERENCE FROM backToHub() ABOVE. A venue
+// that has been open is holding dozens of live Firestore listeners and a page of
+// in-memory state; simply covering it with the hub leaves every one of them
+// running, and the next venue opened would be quietly repainted by the previous
+// one's listeners. It is the same reason switchLocation reloads rather than
+// re-pointing, and the comment there is the longer version.
+//
+// The remembered location is deliberately KEPT: re-entering the same venue must
+// find its cache intact (the cache belongs to the location, not to the person),
+// and "My businesses" asks which venue regardless of what is remembered.
+export function openHub() {
+  markHubPassed(false);
+  location.reload();
+}
+
 onAuthStateChanged(auth, user => {
   if (!user) {
     userDocCache = null;
     appAdminCache = false;
+    // Signing back in is opening the app again, so it starts at the app's own
+    // home — the same reason appAdminCache above must not survive either.
+    markHubPassed(false);
     setSession({ status: 'signed-out', user: null, locationId: null, location: null,
                  options: [], sections: allowedSections(null),
                  role: 'staff', canManage: false, isOwner: false, isAppAdmin: false });
     return;
   }
+
+  // ⚠️ A LEFTOVER ANONYMOUS SESSION IS NOT A SIGNED-IN PERSON.
+  //
+  // Before this release the app signed itself in anonymously, and that session is
+  // still sitting in the browser's storage on every phone that has used the app.
+  // Treated as a sign-in it belongs to no account, so it resolves to no location
+  // and parks the phone on "No location yet" — WITHOUT ever showing the sign-in
+  // form, because as far as the app is concerned somebody is already in. Every
+  // existing phone would have hit that, and the way out is not discoverable.
+  //
+  // Nothing uses anonymous auth any more, so the only correct reading of one is
+  // "stale": drop it, which brings us back through here with no user and shows
+  // the form.
+  //
+  // ⚠️ THIS BRANCH WAS MISSING FROM THIS TEMPLATE UNTIL 12 Aug 2026, while
+  // js/firebase.js had carried it since v200. The example is what a new project
+  // is built from, so the gap was a working app with a known emergency already
+  // in it (P7 — the example must be complete, not merely illustrative).
+  if (user.isAnonymous) {
+    signOut(auth).catch(err => console.error('Could not clear the old session:', err));
+    return;
+  }
+
+  // Below the anonymous check on purpose: a leftover anonymous session is not a
+  // signed-in person, and nothing that waits on this should be woken by one.
+  markSignedIn(user);
   resolveMembership(user);
 });
 
@@ -384,6 +537,7 @@ export function sendReset(email) {
 export async function signOutNow() {
   await signOut(auth);
   clearLocalData();
+  markHubPassed(false);
   try { localStorage.removeItem(ACTIVE_LOCATION_KEY); } catch { /* private mode */ }
   location.reload();
 }

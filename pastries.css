@@ -31,6 +31,13 @@
   --pas-shadow:      var(--shadow);
   --pas-radius:      var(--radius);
   --pas-radius-sm:   var(--radius-sm);
+  /* ⚠️ WAS MISSING while .pas-log-badge already asked for it, so that badge's
+     whole border-radius declaration was invalid and the browser dropped it in
+     silence: square corners where a pill was written. The value is not invented
+     — it aliases the shared --radius-pill, exactly as the two lines above alias
+     their own, and the badge is the twin of style.css's (same 3px 9px padding,
+     same accent-light fill). */
+  --pas-radius-pill: var(--radius-pill);
   --pas-font:        var(--font);
   --pas-font-mono:   var(--font-mono);
 }

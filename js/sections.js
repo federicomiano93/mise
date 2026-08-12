@@ -184,3 +184,38 @@ export function pickLocation(userDoc, remembered) {
   }
   return { status: 'choose', options };
 }
+
+// Where does opening the app LAND? One step above pickLocation, and the only
+// thing it adds is the app's own home screen.
+//
+// ⚠️ THE HUB IS FOR THE APP'S ADMINISTRATOR ALONE, and that is the whole guard.
+// Everybody else — every customer's owner, every manager, every employee — must
+// go on landing exactly where they landed yesterday: inside their venue. A
+// screen offering them one door marked "my venues" is a tax paid every morning
+// for nothing, by people who have no idea what the other door would have been.
+//
+// ⚠️ AND `hubPassed` MUST OUTLIVE A PAGE LOAD. This app is several pages, not
+// one — the Home, the Calculator and Orders are separate documents, and the code
+// asking this question runs again on each of them. Answered from memory, every
+// tap on a card would bounce back to the hub and the app would be unusable. The
+// caller keeps it in sessionStorage: it survives a navigation and dies when the
+// app is closed, which is exactly "once per opening". Same shape, and the same
+// reasoning, as js/update-gate.js and js/splash-init.js.
+//
+// ⚠️ AN ADMINISTRATOR WITH NO VENUE OF THEIR OWN STILL GETS THE HUB. Sending
+// them to "No location yet" instead would hide the one screen they signed in
+// for behind a message about a problem they do not have — the same shape as the
+// install guide nothing linked to (v1.19.0) and the sale nothing could redeem
+// (v1.39.0). The hub is a place to stand, not a reward for owning a venue.
+//
+// ⚠️ `remembered` IS STILL HONOURED HERE. It is what makes a page change, and a
+// "Switch location" that has just named its venue, go straight in. Being ASKED
+// which venue is a property of tapping "My businesses" on the hub, not of being
+// an administrator — putting it here would answer the picker to a switch that
+// had already been answered.
+export function pickStart(userDoc, { isAppAdmin = false, hubPassed = false, remembered = '' } = {}) {
+  if (isAppAdmin === true && hubPassed !== true) {
+    return { status: 'hub', options: locationsOf(userDoc) };
+  }
+  return pickLocation(userDoc, remembered);
+}

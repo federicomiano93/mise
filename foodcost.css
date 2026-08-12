@@ -59,7 +59,14 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1.5px solid var(--rim);
+  /* ⚠️ --rim-border, NOT --rim. It was written `var(--rim)` — a name defined
+     nowhere — which made the whole declaration invalid, so the browser dropped
+     it in SILENCE and this button carried no rim at all while the identical
+     buttons on Orders, the Catalogue and the help screens carried one. Found by
+     diffing every var() use against the definitions, which is the only thing
+     that finds this: the CSS reads as correct and deliberate. Third one in two
+     days (--text-3, --space-2/3/4). */
+  border: 1.5px solid var(--rim-border);
   background: var(--rim-bg);
   color: inherit;
   cursor: pointer;

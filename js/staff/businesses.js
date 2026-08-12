@@ -51,7 +51,12 @@ async function handOver(name, link, expiresAt) {
     : `Copy this link and send it to ${name}:\n\n${link}`);
 }
 
-export function openBusinesses() {
+// `host` is where the overlay is mounted, and it matters in exactly one case.
+// Opened from the Misé home screen the sign-in cover is still up, and that cover
+// marks every OTHER child of <body> `inert` — so a panel appended to the body
+// there would be drawn and could not be touched. Mounted inside the cover it is
+// part of the topmost layer instead. Everywhere else the body is right.
+export function openBusinesses({ host } = {}) {
   let rows = [];
 
   const list = el('div', { class: 'people-list' });
@@ -81,9 +86,15 @@ export function openBusinesses() {
   });
 
   top.append(
+    // ⚠️ THIS SENTENCE WENT STALE THE MOMENT THE SCREEN MOVED. It used to read
+    // "you switch to those from the Home", which was true while Businesses was
+    // opened from a venue's Home — and became false as soon as it moved above
+    // every venue. A sentence that is wrong about what is on screen teaches
+    // people to stop reading the next one. Found by looking at the rendered
+    // screen, not by any test.
     el('p', { class: 'people-hint', text:
-      'The businesses using this app. Your own venues are not here — you switch to '
-      + 'those from the Home.' }),
+      'The businesses using Misé. Your own venues are not here — they are behind '
+      + '“My businesses”.' }),
     add,
   );
 
@@ -175,7 +186,7 @@ export function openBusinesses() {
     }
   }
 
-  document.body.appendChild(overlay);
+  (host || document.body).appendChild(overlay);
   load();
   return overlay;
 }
