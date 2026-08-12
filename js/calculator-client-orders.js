@@ -19,11 +19,15 @@ import { getConfig } from './calculator-config-store.js';
 import { getClientById } from './calculator-config.js';
 import {
   watchUpcomingOrders, markOrderApplied, watchClientCutoff, saveClientCutoff,
+  getPastOrders, hasAnyClientOrder,
 } from './client-orders-data.js';
 import {
   orderRows, orderChangedSinceApplied, isApplied, calculatorPatch, toISODate,
   arrivedLate, normalizeCutoff, CUTOFF_DEFAULT, CUTOFF_PATTERN,
 } from './client-order-model.js';
+import {
+  pastWindow, groupByDay, linesLabel, emptyWords, HISTORY_WINDOW_DAYS,
+} from './client-order-history.js';
 
 // Injected by app.js rather than imported from it: app.js is the entry point, and
 // importing it back would be a cycle. It owns the quantity fields, so it is the only
@@ -34,6 +38,16 @@ let orders = [];
 let cutoff = '';
 let unsubscribe = null;
 let unsubscribeCutoff = null;
+
+// ── The history half ─────────────────────────────────────────────────────────
+// Which of the two views is on screen, how many 15-day windows back the reader has
+// asked for, and what the last read returned. All page-lifetime state: the history is
+// read on demand, never watched, because a past order does not change.
+let view = 'upcoming';          // 'upcoming' | 'history'
+let windowsBack = 1;
+let past = [];
+let pastState = 'idle';         // 'idle' | 'loading' | 'ready' | 'failed'
+let everReceived = false;
 
 const BANNER = () => document.getElementById('client-orders-banner');
 const OVERLAY = () => document.getElementById('clientorders-overlay');
@@ -114,6 +128,9 @@ function paintBanner() {
 // ── The screen ───────────────────────────────────────────────────────────────
 
 export function openScreen() {
+  // Always opens on what is still coming — that is the screen about today's work.
+  // The history is a place you go deliberately.
+  view = 'upcoming';
   render();
   OVERLAY().classList.add('visible');
 }
@@ -122,22 +139,161 @@ export function closeScreen() {
   OVERLAY().classList.remove('visible');
 }
 
+// The two views, chosen above the list.
+//
+// ⚠️ THE HISTORY LIVES HERE AND NOT BEHIND A FOURTH FOOTER BUTTON. The Calculator's
+// bottom bar holds exactly three (Log · Orders · Settings), and a fourth is precisely
+// the change that cost this project a release when a tab wrapped by 3px (v256). It
+// also belongs here on merit: the empty state below USED to apologise for the history
+// not existing — "orders already delivered are not shown here" — and that apology is
+// now the door.
+function viewSwitch() {
+  const row = el('div', { class: 'co-views' });
+  [['upcoming', 'Still coming'], ['history', 'History']].forEach(([name, label]) => {
+    const btn = el('button', {
+      class: `co-view${view === name ? ' co-view--on' : ''}`,
+      type: 'button',
+    }, label);
+    btn.setAttribute('aria-pressed', view === name ? 'true' : 'false');
+    btn.addEventListener('click', () => {
+      if (view === name) return;
+      view = name;
+      render();
+      if (name === 'history' && pastState === 'idle') loadHistory();
+    });
+    row.appendChild(btn);
+  });
+  return row;
+}
+
 function render() {
   const content = CONTENT();
   if (!content) return;
   content.textContent = '';
+  content.appendChild(viewSwitch());
+  if (view === 'history') renderHistory(content);
+  else renderUpcoming(content);
+}
 
+function renderUpcoming(content) {
   if (!orders.length) {
     // ⚠️ IT SAYS WHAT IS MISSING AND WHY, because "no orders" has two very different
     // meanings here: nobody has sent one, or the ones they sent were for days that
     // have already been. Only the first is about today's work, and a screen that
     // cannot tell you which is leaving you to guess whether something was lost.
     content.appendChild(el('p', { class: 'co-none' },
-      'Nothing for today or the days ahead. Orders a client has already been delivered are '
-      + 'not shown here — this screen is what is still coming.'));
+      'Nothing for today or the days ahead. Orders a client has already been delivered '
+      + 'are under History.'));
     return;
   }
   sortOrders(orders).forEach(order => content.appendChild(orderCard(order)));
+}
+
+// ── The history ──────────────────────────────────────────────────────────────
+
+async function loadHistory() {
+  pastState = 'loading';
+  render();
+  try {
+    const window = pastWindow(Date.now(), windowsBack);
+    past = await getPastOrders(window);
+    // Only asked when the window came back empty: it is one document read, and it
+    // decides between two sentences that mean opposite things to the reader.
+    if (!past.length) everReceived = await hasAnyClientOrder().catch(() => false);
+    pastState = 'ready';
+  } catch (err) {
+    console.error('Could not read past client orders:', err);
+    pastState = 'failed';
+  }
+  render();
+}
+
+function renderHistory(content) {
+  if (pastState === 'loading') {
+    content.appendChild(el('p', { class: 'co-none' }, 'Loading…'));
+    return;
+  }
+  if (pastState === 'failed') {
+    // ⚠️ Says what went wrong rather than showing an empty list: an empty list and a
+    // failed read look identical, and one means "nothing was ordered" while the other
+    // means "ask again in a minute".
+    content.appendChild(el('p', { class: 'co-none' },
+      'Could not load the past orders. Check your connection and try again.'));
+    return;
+  }
+
+  const days = groupByDay(past);
+  if (!days.length) {
+    content.appendChild(el('p', { class: 'co-none' },
+      emptyWords(HISTORY_WINDOW_DAYS * windowsBack, everReceived)));
+  } else {
+    days.forEach(day => {
+      content.appendChild(el('div', { class: 'co-day' }, dayLabel(day.date)));
+      day.orders.forEach(order => content.appendChild(historyCard(order)));
+    });
+  }
+
+  // ⚠️ ALWAYS OFFERED, even on an empty window: the whole point of the sentence above
+  // is that older orders are still there, and a promise with no way to act on it is
+  // worse than no promise. Widening is one more read of at most 200 documents.
+  const more = el('button', { class: 'co-older', type: 'button' },
+    `Show older orders (before the last ${HISTORY_WINDOW_DAYS * windowsBack} days)`);
+  more.addEventListener('click', () => {
+    windowsBack += 1;
+    pastState = 'idle';
+    loadHistory();
+  });
+  content.appendChild(more);
+}
+
+// A past order, read-only.
+//
+// ⚠️⚠️ NO "PUT IN THE CALCULATOR" BUTTON, and it is the safety decision of this
+// screen. That button on a three-week-old order would fill TODAY's quantity fields
+// with old numbers, silently, and nobody would find out until the bake. The history is
+// a record of what a client asked for, not a thing to do.
+function historyCard(order) {
+  const config = getConfig();
+  const client = getClientById(config, order.clientId);
+  const liveNameOf = id => {
+    const product = (client && client.products || []).find(p => p && p.id === id);
+    return product ? product.name : '';
+  };
+  const rows = orderRows(order, liveNameOf);
+
+  const card = el('div', { class: 'co-card co-card--past' }, [
+    el('div', { class: 'co-card-head' }, [
+      el('span', { class: 'co-card-client' },
+        order.clientName || (client && client.name) || 'Client'),
+      el('span', { class: 'co-card-when' }, linesLabel(order)),
+    ]),
+  ]);
+
+  // Whether it was ever used is a fact worth keeping: an order that arrived and was
+  // never put in is exactly the thing somebody looks a past day up to check.
+  card.appendChild(el('p', { class: 'co-card-arrived' },
+    isApplied(order) ? 'Went into the calculator' : 'Never put into the calculator'));
+
+  const list = el('div', { class: 'co-card-lines' });
+  if (!rows.length) {
+    list.appendChild(el('p', { class: 'co-card-empty' },
+      'The client sent this day empty — they asked for nothing.'));
+  }
+  rows.forEach(row => {
+    list.appendChild(el('div', { class: `co-line${row.missing ? ' co-line--missing' : ''}` }, [
+      el('span', { class: 'co-line-name' }, row.name),
+      el('span', { class: 'co-line-qty' }, String(row.qty)),
+    ]));
+  });
+  card.appendChild(list);
+
+  if (order.note) {
+    card.appendChild(el('p', { class: 'co-card-note' }, [
+      el('span', { class: 'co-card-note-label' }, 'Note: '),
+      order.note,
+    ]));
+  }
+  return card;
 }
 
 function orderCard(order) {
