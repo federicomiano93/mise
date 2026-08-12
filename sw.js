@@ -321,7 +321,7 @@ function pushPayload(event) {
 
 self.addEventListener('push', event => {
   const data = pushPayload(event);
-  const title = data.title || 'Mise';
+  const title = data.title || 'Misé';
   const body = data.body || 'Open the app to see what changed.';
   // One notification per thing: a re-delivery REPLACES rather than stacking three
   // copies of the same alarm on a lock screen.

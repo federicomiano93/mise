@@ -139,7 +139,7 @@ function signInScreen() {
   // here told every other customer's staff they were signing in to somebody
   // else's business. The venue's own name appears the moment it is known, in the
   // green header (js/location-title.js).
-  card.append(el('h1', 'auth-title', 'Mise'));
+  card.append(el('h1', 'auth-title', 'Misé'));
   card.append(el('p', 'auth-sub', 'Sign in to open your location.'));
 
   const form = el('form', 'auth-form');
