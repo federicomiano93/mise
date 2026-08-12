@@ -279,8 +279,15 @@ function historyCard(order) {
     list.appendChild(el('p', { class: 'co-card-empty' },
       'The client sent this day empty — they asked for nothing.'));
   }
+  // ⚠️ NO `co-line--missing` HERE, and it is deliberate — that class strikes the line
+  // through. On an order still to be used it is a warning worth shouting: the product
+  // is gone, so this line cannot go into the calculator. On a RECORD it is a lie by
+  // typography — the client DID ask for that thing on that day, and a product deleted
+  // or renamed since does not change what was ordered. The name frozen into the order
+  // is what keeps the record readable, and striking it out undoes exactly that.
+  // Found by looking at the rendered screen; every check was green.
   rows.forEach(row => {
-    list.appendChild(el('div', { class: `co-line${row.missing ? ' co-line--missing' : ''}` }, [
+    list.appendChild(el('div', { class: 'co-line' }, [
       el('span', { class: 'co-line-name' }, row.name),
       el('span', { class: 'co-line-qty' }, String(row.qty)),
     ]));
