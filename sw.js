@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v272';
+const CACHE_NAME = 'theitalianclub-v273';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -69,8 +69,19 @@ const ASSETS = [
   './js/staff/dom.js',
   './js/staff/confirm-dialog.js',
   './js/staff/firebase-staff.js',
+  // people.js IS listed: "Who can get in" belongs to the OWNER OF EVERY CUSTOMER'S
+  // venue, not to whoever runs this app. The three files above are its dependencies.
   './js/staff/people.js',
-  './js/staff/new-customer.js',
+  // ⚠️ js/staff/businesses.js, js/staff/new-customer.js AND js/workspace-row.js ARE
+  // DELIBERATELY ABSENT FROM THIS LIST. They are the app owner's own back office —
+  // one person, on one phone — and the server refuses them to everybody else, so
+  // precaching them puts code on every customer's device that none of those devices
+  // can ever use. All three are reached through a dynamic import(), and the fetch
+  // handler below caches whatever it fetches, so the first open still works offline
+  // afterwards; only the very first open after a deploy needs the network, and
+  // creating a business needs it anyway. The failure this list exists to prevent —
+  // an installed user going offline and finding a newly added file missing — cannot
+  // happen to screens no installed user can open.
   './js/local-data.js',
   './js/auth-gate.js',
   './js/home-session.js',
@@ -321,7 +332,7 @@ function pushPayload(event) {
 
 self.addEventListener('push', event => {
   const data = pushPayload(event);
-  const title = data.title || 'Mise';
+  const title = data.title || 'Misé';
   const body = data.body || 'Open the app to see what changed.';
   // One notification per thing: a re-delivery REPLACES rather than stacking three
   // copies of the same alarm on a lock screen.

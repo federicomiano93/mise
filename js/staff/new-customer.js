@@ -57,7 +57,11 @@ async function copyToClipboard(text) {
   }
 }
 
-export function openNewCustomer() {
+// `onClose` lets the list behind this screen reload when it goes away — whether
+// a business was created or not. ⚠️ It fires on CLOSE and not on success, because
+// a business created and then walked away from is exactly the one the list has to
+// show: it is stranded, and its link cannot be shown again.
+export function openNewCustomer({ onClose } = {}) {
   // The link, once it exists. Kept here because it decides whether leaving the
   // screen is safe — see the Back handler.
   let made = null;
@@ -95,6 +99,7 @@ export function openNewCustomer() {
       if (!ok) return;
     }
     overlay.remove();
+    if (typeof onClose === 'function') onClose();
   }
 
   // ── The form ───────────────────────────────────────────────────────────────

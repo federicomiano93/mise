@@ -110,7 +110,7 @@ export function timerNotification(doc) {
   // ⚠️ THE LAST RESORT ONLY. Every notification this app sends carries its own
   // title; this is what appears if one ever arrives without one, and it is the
   // PRODUCT's name because the sender cannot know whose venue it is about.
-  const title = text(doc && doc.title, MAX_TITLE) || 'Mise';
+  const title = text(doc && doc.title, MAX_TITLE) || 'Misé';
   const body = text(doc && doc.body, MAX_BODY) || 'Time is up.';
   return { title, body };
 }

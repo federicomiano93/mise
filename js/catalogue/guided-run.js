@@ -389,7 +389,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
       id: alarmDocId(index),
       fireAt: wanted,
       // The recipe names itself; the product name is only the last resort.
-      title: snapshot.name || 'Mise',
+      title: snapshot.name || 'Misé',
       body: current.text || 'Time is up.',
     }).then((id) => {
       // The step may have been finished, skipped or left while this was in

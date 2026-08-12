@@ -385,9 +385,46 @@ export async function seedDemoWorld() {
   await seedAccount('restaurant@club.test', DEMO_PASSWORD, { restaurant: true });
   // Three locations, not two: with two, "Switch location" has only one place to
   // go and never needs the picker. Three is what exercises that path.
-  await seedAccount('owner@club.test', DEMO_PASSWORD,
-    { bakery: true, 'trattoria-rosa': true, restaurant: true });
+  //
+  // ⚠️ AND IT IS AN OWNER OF ALL THREE, AND AN APP ADMINISTRATOR — because that is
+  // FEDERICO'S SHAPE, and until 12 Aug 2026 no seeded account had it. Every other
+  // account here shows at most three entries in the Home's bottom strip, so
+  // measuring one of them reports the fourth as missing and proves nothing about
+  // the row that was actually added. A fixture that cannot hold the case under
+  // test is the shape of defect this project shipped three releases on (v1.38.1).
+  const ownerUid = await seedAccount('owner@club.test', DEMO_PASSWORD,
+    { bakery: 'owner', 'trattoria-rosa': 'owner', restaurant: 'owner' });
+  await seedDoc(`admins/${ownerUid}`, { note: 'the app owner', createdAt: Date.now() });
   await seedAccount('nobody@club.test', DEMO_PASSWORD, {});
+
+  // ── Two customers of the APP, for the Businesses screen ────────────────────
+  //
+  // ⚠️ ONE OF EACH, AND THAT IS THE WHOLE POINT. The screen's only real job is to
+  // tell apart a business somebody has opened from one nobody has — the second is
+  // stranded, its link was shown once and cannot be shown again, and it is the
+  // only one that may have a new link minted. A fixture with just one of them
+  // cannot show that the two look different, which is the thing to check.
+  //
+  // Both carry `createdBy: ownerUid` — that field, not membership, is what
+  // listWorkspaces filters on, because whoever creates a customer is deliberately
+  // NOT a member of it.
+  await seedDoc('locations/loc-seed-open', {
+    name: 'Panetteria Aperta', createdAt: Date.now() - 6 * 86400000, createdBy: ownerUid,
+    sections: { orders: true, calculator: true, catalogue: false, pastries: false, foodcost: false },
+  });
+  // A roster row is what "somebody has opened this" MEANS: redeemJoinCode writes
+  // the membership and this row in one transaction.
+  const openUid = await seedAccount('aperta@club.test', DEMO_PASSWORD, { 'loc-seed-open': 'owner' });
+  await seedDoc(`locations/loc-seed-open/members/${openUid}`, {
+    bakery: 'loc-seed-open', email: 'aperta@club.test',
+    firstName: 'Anna', lastName: 'Aperta', role: 'owner', joinedAt: Date.now() - 5 * 86400000,
+  });
+
+  await seedDoc('locations/loc-seed-stranded', {
+    name: 'Panetteria Mai Aperta', createdAt: Date.now() - 2 * 86400000, createdBy: ownerUid,
+    sections: { orders: true, calculator: false, catalogue: false, pastries: false, foodcost: false },
+  });
+  // No members, deliberately: nobody ever opened its link.
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
