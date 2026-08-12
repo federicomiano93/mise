@@ -89,7 +89,12 @@
        must start hidden so somebody with a single venue never sees it flash. Same
        pattern, and the same reason, as the Orders "Clear quantities" button (v215).
        [hidden] is forced to display:none in tokens.css, so this really is hidden. -->
-  <button id="home-up-btn" class="home-up-btn" type="button"
+  <!-- ⚠️ IT CARRIES .overlay-back-btn, THE SHARED CLASS. style.css says in as many
+       words that this is the one to use on anything new: a screen that invents its
+       own Back button gets a bare glyph where every other screen has the round
+       translucent circle, and Federico spotted exactly that the last time it
+       happened. .home-up-btn only adjusts what this header needs. -->
+  <button id="home-up-btn" class="overlay-back-btn home-up-btn" type="button"
           aria-label="All my businesses" hidden>
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
   </button>

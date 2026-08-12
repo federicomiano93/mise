@@ -46,32 +46,24 @@
   background: linear-gradient(90deg, var(--crust) 0%, transparent 70%);
 }
 /* The way up, top-left, where every other screen in this app puts it.
-   ⚠️ THE TITLE STAYS ON THE LEFT, it does not become centred. `header` is
-   `justify-content: space-between`, so a third child would push the venue's name
-   toward the middle — and this heading is not an overlay title: it is the venue's
-   own name with its "HOME" eyebrow, read left to right. `margin-right: auto` on the
-   title block keeps the "?" at the right edge and everything else grouped left.
-   ⚠️ 36px WIDE, NOT 44: every pixel here comes off a name like "The Italian Club
-   Bakery", which already wraps to two lines. The 44px HEIGHT is free — the header is
-   taller than that — so the target stays comfortable where there is room. Same
-   trade, same reasoning, as the supplier row's list icon (v216). */
-.home-up-btn {
-  flex-shrink: 0;
-  width: 36px;
-  height: 44px;
-  margin-right: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: 0;
-  padding: 0;
-  color: var(--on-brand);
-  cursor: pointer;
-}
-.home-up-btn:active { transform: scale(.92); }
+   The LOOK comes from the shared .overlay-back-btn (the 36px translucent circle with
+   its 1.5px rim); only the two things this header needs differently are here.
+
+   ⚠️ SCOPED AS `.home-header .home-up-btn`, TWO CLASSES, ON PURPOSE. A bare
+   `.home-up-btn` ties with `.overlay-back-btn` on specificity and would be decided by
+   which stylesheet happens to load later — which is nobody's decision, and is exactly
+   how a 3px marker came out 1px wide this week. Two classes beat one, whatever the
+   order.
+
+   ⚠️ THE TITLE STAYS ON THE LEFT and does not become centred: `header` is
+   `justify-content: space-between`, so the shared class's `margin-right: auto` would
+   push the venue's name toward the middle. This heading is not an overlay title — it
+   is the venue's own name with its "HOME" eyebrow, read left to right. The auto
+   margin moves to the title block instead, which keeps the "?" at the right edge. */
+.home-header .home-up-btn { margin-right: 8px; }
+.home-header .home-up-btn:active { transform: scale(.92); }
 /* The app's green focus ring is invisible on the green header. */
-.home-up-btn:focus-visible { outline: 2px solid var(--on-brand); outline-offset: 2px; }
+.home-header .home-up-btn:focus-visible { outline: 2px solid var(--on-brand); outline-offset: 2px; }
 
 .home-header > div { display: flex; flex-direction: column-reverse; margin-right: auto; }
 .home-header h1 { font-size: 30px; line-height: 1.05; }
