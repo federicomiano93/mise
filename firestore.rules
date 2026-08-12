@@ -956,9 +956,23 @@ service cloud.firestore {
         allow create, update: if canUse(lid, 'calculator')
           && stampedFor(lid)
           && request.resource.data.keys().hasOnly(
-               ['bakery', 'clientName', 'products', 'updatedAt'])
+               ['bakery', 'bakeryName', 'clientName', 'products', 'updatedAt'])
           && request.resource.data.clientName is string
           && request.resource.data.clientName.size() <= 200
+          // ⚠️ bakeryName IS HOW THE CLIENT PAGE LEARNS WHO IT IS FROM. That page
+          // cannot read locations/{lid} — the location document is staff-only on
+          // purpose, because it also lists which sections the venue uses — so the
+          // name has to travel to the client on something the client may read.
+          // This document is republished every time the address book is saved, so
+          // a venue that renames itself corrects every client's page by itself.
+          //
+          // ⚠️ OPTIONAL IN BOTH DIRECTIONS, deliberately: every menu written before
+          // today lacks it, and rules reach every phone the instant they deploy
+          // while code arrives per device. Required, and every save from a phone
+          // still on the old code would be refused.
+          && (!('bakeryName' in request.resource.data)
+              || (request.resource.data.bakeryName is string
+                  && request.resource.data.bakeryName.size() <= 200))
           // ⚠️ RULES CANNOT LOOK INSIDE A LIST, so the shape of each row
           // ({ id, name, kind }) is guaranteed by js/client-order-model.js and NOT by
           // this file. What is enforced here is the SIZE, which is what keeps the

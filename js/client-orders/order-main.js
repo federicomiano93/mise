@@ -24,10 +24,18 @@ import {
 
 const HOST = document.getElementById('order-root');
 
-// The bakery's own name is not readable by a client (the location document is staff
-// only, deliberately — it also lists which sections the venue uses). The page says
-// who it is in plain words instead, and the client's own name comes from their grant.
-const BAKERY_NAME = 'The Italian Club';
+// ⚠️ THE NAME COMES FROM THE MENU, because the location document is NOT readable
+// by a client — staff-only on purpose, since it also lists which sections the
+// venue uses. So the name is PUBLISHED onto client-menus/{clientId}, which the
+// client may read and which is rewritten every time the address book is saved.
+//
+// ⚠️ THE FALLBACK IS DELIBERATELY NAMELESS. A menu published before this change
+// carries no bakeryName, and putting a real venue's name here as a default would
+// tell one bakery's customer they are ordering from a different bakery — which is
+// exactly the defect being fixed. "your supplier" is vague and true; a wrong name
+// is specific and false.
+const FALLBACK_NAME = 'your supplier';
+let bakeryName = FALLBACK_NAME;
 
 // ⚠️ WHEN ORDERS CLOSE IS THE BAKERY'S SETTING, READ FROM THE DATABASE, and the
 // sentence under the day picker is generated FROM the same value. A fixed sentence
@@ -192,6 +200,9 @@ async function openFor(uid) {
   const products = (menu && Array.isArray(menu.products) ? menu.products : [])
     .filter(p => p && p.id && p.name);
   const clientName = String((menu && menu.clientName) || grant.clientName || 'Your order');
+  // Published with the menu; absent on every menu written before this change, and
+  // absent is what FALLBACK_NAME is for.
+  bakeryName = String((menu && menu.bakeryName) || '').trim() || FALLBACK_NAME;
 
   const dates = orderableDates(Date.now(), cutoff);
   if (!dates.length) {
@@ -222,7 +233,7 @@ async function openDay(grant, clientName, products, dates, date) {
 
   const form = mountOrderForm(HOST, {
     clientName,
-    bakeryName: BAKERY_NAME,
+    bakeryName: bakeryName,
     products,
     dates,
     selectedDate: date,

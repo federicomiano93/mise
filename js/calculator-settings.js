@@ -322,8 +322,14 @@ async function loadOrderingAccounts() {
   }
 }
 
+// ⚠️ THE VENUE'S OWN NAME, NEVER THE PRODUCT'S. This sentence is sent to a
+// CUSTOMER'S customer — a wholesale client of whoever is using the app — so a
+// hardcoded name here tells that client they are ordering from somebody else's
+// bakery. It was "The Italian Club" for everybody, which was fine while there was
+// exactly one venue and is a defect the moment there are two.
 function shareText(client, link) {
-  return `Hello ${client.name}, you can send your order to The Italian Club here: ${link}`;
+  const from = currentSession().name || 'us';
+  return `Hello ${client.name}, you can send your order to ${from} here: ${link}`;
 }
 
 // ⚠️ THE CLIPBOARD IS RACED AGAINST A CLOCK, AND THIS IS NOT BELT-AND-BRACES.

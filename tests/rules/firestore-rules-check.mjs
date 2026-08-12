@@ -1459,6 +1459,33 @@ async function clientOrders() {
       { bakery: 'main', products: [{ id: 'p-free', name: 'Free bread', kind: 'number' }] },
       asAccount(CLIENT_A)));
 
+  // ── The venue's own name travels to the client on the menu ──
+  //
+  // ⚠️ IT HAS TO TRAVEL, because locations/{lid} is NOT readable by a client — it
+  // is staff-only on purpose, since it also lists which sections the venue uses.
+  // Without a name on something the client may read, their ordering page can only
+  // say who it is from by hardcoding one venue's name, which is precisely the
+  // defect: one bakery's customer told they are ordering from another.
+  await expectAllowed('the bakery may publish its own name onto a menu', () =>
+    wholeWrite(`${L}/client-menus/c-one`,
+      { bakery: 'main', bakeryName: 'Panificio Maria', clientName: 'C ONE',
+        products: [], updatedAt: 'now' }, asAccount(ALICE)));
+  await expectAllowed('the client may read it',
+    readAs(CLIENT_A, `${L}/client-menus/c-one`));
+  // ⚠️ OPTIONAL IN BOTH DIRECTIONS: every menu published before today lacks the
+  // field, and rules reach every phone instantly while code arrives per device.
+  await expectAllowed('a menu with no name at all is still accepted', () =>
+    wholeWrite(`${L}/client-menus/c-two`,
+      { bakery: 'main', clientName: 'C TWO', products: [], updatedAt: 'now' },
+      asAccount(ALICE)));
+  await expectDenied('but it is still validated when present', () =>
+    wholeWrite(`${L}/client-menus/c-two`,
+      { bakery: 'main', bakeryName: 42, clientName: 'C TWO', products: [], updatedAt: 'now' },
+      asAccount(ALICE)));
+  await expectDenied('a client still cannot write its own', () =>
+    mergeWrite(`${L}/client-menus/c-one`,
+      { bakery: 'main', bakeryName: 'Not mine' }, asAccount(CLIENT_A)));
+
   // ── THE HALF THAT MATTERS: everything else in the database ──
   // Seeded first, so a refusal is the rules refusing and not the document missing.
   await seedDoc(`${L}/config/calculator`, { bakery: 'main', clients: [] });
