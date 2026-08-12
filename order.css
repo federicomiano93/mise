@@ -17,7 +17,12 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  /* ⚠️ --font-round IS THE APP'S SANS TOKEN; --font-sans does not exist. The
+     fallback kept this page readable, which is exactly why nobody noticed: it
+     rendered in the system font while every other screen rendered in Manrope —
+     on the ONE page a customer's own customer ever sees. (--font-display two
+     rules below was always right, which is how the name here reads as correct.) */
+  font-family: var(--font-round, system-ui, -apple-system, sans-serif);
   min-height: 100dvh;
 }
 
