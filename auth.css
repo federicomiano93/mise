@@ -170,6 +170,20 @@
 .auth-choice:hover { background: var(--accent-light); border-color: var(--accent-2); }
 .auth-choice:disabled { opacity: .6; cursor: default; }
 
+/* The two doors on the Misé home screen carry a line of their own, because
+   "Businesses" and "My businesses" differ by a single word and the sub-line is
+   what tells them apart at a glance. The location picker's buttons have no
+   sub-line and are unaffected: these only apply where the spans exist. */
+.auth-choice-name,
+.auth-choice-sub { display: block; }
+
+.auth-choice-sub {
+  margin-top: var(--space-1);
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
 /* ── The quiet row at the bottom of the Home ───────────────────────────────
    The location's name lives in the green header (js/location-title.js), which
    is where it is seen without being looked for. What is left down here are the

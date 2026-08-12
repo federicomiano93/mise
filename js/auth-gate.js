@@ -15,7 +15,8 @@
 // signed out — shows one frame of somebody's data to whoever is holding the
 // phone. The cover is in the HTML from the start and is only ever REMOVED.
 
-import { onSession, signIn, signUp, sendReset, chooseLocation, signOutNow } from './firebase.js';
+import { onSession, signIn, signUp, sendReset, chooseLocation, signOutNow,
+         enterMyBusinesses, backToHub } from './firebase.js';
 import { normalizeTyped } from './join-code.js';
 import { kindOfTyped, readJoinToken, CODE_SHAPE_HINT } from './join-link.js';
 import { nameProblem, passwordProblem, MIN_PASSWORD_LENGTH } from './credentials.js';
@@ -340,7 +341,9 @@ function joinScreen({ needsAccount, prefill = '' }) {
 
   const back = el('button', 'auth-link', 'Back');
   back.type = 'button';
-  back.addEventListener('click', () => { showGate(needsAccount ? signInScreen : noAccessScreen); });
+  back.addEventListener('click', () => {
+    showGate(needsAccount ? signInScreen : () => noAccessScreen(lastSession || {}));
+  });
   card.append(back);
 
   const setStatus = (text, kind = 'bad') => {
@@ -421,7 +424,97 @@ function joinScreen({ needsAccount, prefill = '' }) {
   return card;
 }
 
-function chooseScreen(options, names = {}) {
+// ── The app's own home ───────────────────────────────────────────────────────
+//
+// ⚠️ THE ONE SCREEN IN THIS APP THAT IS ABOUT THE PRODUCT AND NOT ABOUT A VENUE,
+// which is why it is titled with the product's name. Everything past it belongs
+// to one business and says that business's name in the green header; this sits
+// above all of them.
+//
+// ⚠️ AND ONLY THE APP'S ADMINISTRATOR EVER REACHES IT (js/sections.js
+// pickStart). For a customer's owner or a kitchen employee it would be a door
+// opened every morning onto the only room behind it.
+//
+// "New customer" used to sit at the foot of a venue's Home, between an action
+// about that venue and an action about your account — three scopes in one list,
+// under a header naming one customer's bakery. This is the other half of that
+// fix: the back office is not a drawer inside a customer's app, it is the floor
+// the customer's app stands on.
+function hubChoice(label, description, onClick) {
+  const button = el('button', 'auth-choice');
+  button.type = 'button';
+  button.append(el('span', 'auth-choice-name', label));
+  button.append(el('span', 'auth-choice-sub', description));
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function hubScreen(session) {
+  const card = el('div', 'auth-card');
+  card.append(el('h1', 'auth-title', 'Misé'));
+  card.append(el('p', 'auth-sub', 'Where would you like to go?'));
+
+  const list = el('div', 'auth-choices');
+
+  // ⚠️ THE DAILY DOOR IS FIRST, and it is the one place this screen departs
+  // from how Federico described it. He listed "businesses" first; this is a
+  // screen he will open several times a day to reach his own kitchen and once a
+  // month to reach the back office, so the thumb should land on the kitchen.
+  // Two labels a single word apart also need their sub-lines to tell them
+  // apart, which is what those are for.
+  const count = (session.options || []).length;
+  const mine = hubChoice('My businesses',
+    count === 1 ? 'The place you run' : 'The places you run',
+    () => {
+      list.querySelectorAll('button').forEach(b => { b.disabled = true; });
+      enterMyBusinesses().catch(err => {
+        console.error('Could not open your businesses:', err);
+        list.querySelectorAll('button').forEach(b => { b.disabled = false; });
+      });
+    });
+
+  const customers = hubChoice('Businesses', 'The businesses using Misé', async () => {
+    const { openBusinesses } = await import('./staff/businesses.js');
+    // ⚠️ MOUNTED INSIDE THE COVER, not on the body. This screen is drawn while
+    // the gate is up, and the gate marks every other child of <body> `inert` —
+    // a panel appended out there would be visible and untappable.
+    openBusinesses({ host: gateHost() });
+  });
+
+  list.append(mine, customers);
+  card.append(list);
+
+  const out = el('button', 'auth-link', 'Log out');
+  out.type = 'button';
+  out.addEventListener('click', async () => {
+    // Loaded on the tap: auth-gate.js runs on every page of the app, and the
+    // dialog is a module nobody needs until they are leaving.
+    const { confirmDialog } = await import('./confirm-dialog.js');
+    const ok = await confirmDialog({
+      title: 'Log out?',
+      message: 'You will need your email and password to get back in.',
+      okLabel: 'Log out',
+      danger: true,
+    });
+    if (ok) signOutNow();
+  });
+  card.append(out);
+
+  return card;
+}
+
+// The way back up to the hub, for the screens it leads to. Only ever drawn for
+// the account that has a hub to go back to.
+function hubBackLink() {
+  const back = el('button', 'auth-link', 'Back to Misé');
+  back.type = 'button';
+  back.addEventListener('click', () => backToHub());
+  return back;
+}
+
+function chooseScreen(session) {
+  const options = session.options || [];
+  const names = session.optionNames || {};
   const card = el('div', 'auth-card');
   card.append(el('h1', 'auth-title', 'Choose location'));
   card.append(el('p', 'auth-sub', 'You have access to more than one.'));
@@ -443,6 +536,9 @@ function chooseScreen(options, names = {}) {
   });
 
   card.append(list);
+  // Reached from the hub, so it needs the way back to it — otherwise the only
+  // route to the customer list is to close the app entirely.
+  if (session.isAppAdmin) card.append(hubBackLink());
   return card;
 }
 
@@ -486,7 +582,7 @@ function messageScreen(title, body, { account = '' } = {}) {
 // account, which cannot be joined either because the code is single use.
 let lastAccount = '';
 
-function noAccessScreen() {
+function noAccessScreen(session = {}) {
   const card = messageScreen(
     'No location yet',
     'This account is not linked to a location. If you were given a code, type it here.',
@@ -498,6 +594,10 @@ function noAccessScreen() {
   // Above "Try again" and "Sign in with a different account", because for the
   // person this screen is usually showing to, it is the answer and they are not.
   card.insertBefore(join, card.querySelector('.auth-btn'));
+  // ⚠️ An app administrator who runs no venue of their own reaches this screen by
+  // tapping "My businesses" and would otherwise be stuck on a message about a
+  // problem they do not have, with the whole back office behind them.
+  if (session.isAppAdmin) card.append(hubBackLink());
   return card;
 }
 
@@ -524,8 +624,14 @@ function render(session) {
         : signInScreen);
       break;
 
+    // The app's own home, above every venue. Only an app administrator is ever
+    // put in this state (js/sections.js pickStart).
+    case 'hub':
+      showGate(() => hubScreen(session));
+      break;
+
     case 'choose-location':
-      showGate(() => chooseScreen(session.options, session.optionNames));
+      showGate(() => chooseScreen(session));
       break;
 
     case 'no-access':
@@ -535,7 +641,7 @@ function render(session) {
       // the first attempt must not be asked to make a second (v267).
       showGate(invitedWith
         ? () => joinScreen({ needsAccount: false, prefill: invitedWith })
-        : noAccessScreen);
+        : () => noAccessScreen(session));
       break;
 
     case 'error':

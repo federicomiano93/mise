@@ -396,10 +396,18 @@
    from the Home, and the code field lives on the sign-in gate, which every page
    loads. Both consume the shared tokens and define nothing of their own. */
 
+/* ⚠️ 9100, ABOVE THE SIGN-IN COVER (.auth-gate, 9000) AND NOT TIED WITH IT.
+   "Businesses" opens from the Misé home screen, which is drawn ON the cover, so
+   this has to sit in front of it. At 9000 the two tied and the winner was
+   whichever came later in the document — which happens to be right today and is
+   nobody's decision. This project lost a 3px marker to exactly that tie the same
+   week (.bz-row--stranded measured 1px).
+   Still BELOW the update banner (9999) and the dialog (10000), both of which
+   must stay in front of everything. */
 .people-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9000;
+  z-index: 9100;
   display: flex;
   flex-direction: column;
   background: var(--bg);

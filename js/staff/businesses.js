@@ -51,7 +51,12 @@ async function handOver(name, link, expiresAt) {
     : `Copy this link and send it to ${name}:\n\n${link}`);
 }
 
-export function openBusinesses() {
+// `host` is where the overlay is mounted, and it matters in exactly one case.
+// Opened from the Misé home screen the sign-in cover is still up, and that cover
+// marks every OTHER child of <body> `inert` — so a panel appended to the body
+// there would be drawn and could not be touched. Mounted inside the cover it is
+// part of the topmost layer instead. Everywhere else the body is right.
+export function openBusinesses({ host } = {}) {
   let rows = [];
 
   const list = el('div', { class: 'people-list' });
@@ -175,7 +180,7 @@ export function openBusinesses() {
     }
   }
 
-  document.body.appendChild(overlay);
+  (host || document.body).appendChild(overlay);
   load();
   return overlay;
 }
