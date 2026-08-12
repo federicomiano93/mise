@@ -14,6 +14,8 @@ import {
   normalizePrice, pricePerKg, costState, isCostable, costReasonText,
   formatMoney, formatRate, formatPricePerUnit,
   pricePatch, priceChanged, priceRecord,
+  splitPriceFields,
+  withPrices,
 } from '../js/price-model.js';
 
 const AT = '2026-08-10T09:00:00.000Z';
@@ -294,4 +296,90 @@ test('positiveNumber accepts only a real number above zero', () => {
   assert.equal(positiveNumber(''), null);
   assert.equal(positiveNumber(null), null);
   assert.equal(positiveNumber(Infinity), null);
+});
+
+// ── The price lives beside the ingredient, not on it ─────────────────────────
+//
+// ⚠️ THE WHOLE POINT: Orders must read every ingredient to work, so a rate on the
+// ingredient document is a rate everybody in the building can read. Hiding the
+// Food Cost screen hid the margin and left "what a sack of flour costs" in plain
+// view — half an answer pretending to be a whole one.
+
+test('a saved form splits into the ingredient and its price', () => {
+  const { ingredient, price } = splitPriceFields({
+    name: 'Flour', supplierId: 'S1', active: true,
+    priceUnit: 'kg', pricePerUnit: 7.2, unitWeightKg: null, priceUpdatedAt: '2026-08-12',
+    packPrice: null, packSize: null,
+  });
+  assert.equal(ingredient.name, 'Flour');
+  assert.equal(ingredient.supplierId, 'S1');
+  assert.equal(price.priceUnit, 'kg');
+  assert.equal(price.pricePerUnit, 7.2);
+  assert.equal(price.priceUpdatedAt, '2026-08-12');
+});
+
+// ⚠️ THE KEYS STAY ON THE INGREDIENT, SET TO null. Omitting them would leave the
+// old rate on documents written before this change — readable by everybody, for
+// ever — which is the exact thing the split exists to stop.
+test('the ingredient keeps every price key, emptied', () => {
+  const { ingredient } = splitPriceFields({ name: 'Flour', priceUnit: 'kg', pricePerUnit: 7.2 });
+  for (const key of PRICE_FIELDS) {
+    assert.ok(key in ingredient, `${key} missing`);
+    assert.equal(ingredient[key], null, key);
+  }
+});
+
+test('a form with no price at all still empties the keys', () => {
+  const { ingredient, price } = splitPriceFields({ name: 'Flour' });
+  assert.equal(ingredient.pricePerUnit, null);
+  assert.deepEqual(price, {});
+});
+
+test('splitting nothing does not throw', () => {
+  for (const bad of [null, undefined, {}]) {
+    const { ingredient, price } = splitPriceFields(bad);
+    assert.deepEqual(price, {});
+    assert.equal(ingredient.pricePerUnit, null);
+  }
+});
+
+// ⚠️ A MISSING PRICE IS NOT AN ERROR. An employee cannot read that collection at
+// all, so for them withPrices returns the ingredients untouched — and every
+// screen already knows what an unpriced ingredient looks like, because most
+// ingredients have never had a price. No new failure mode to handle.
+test('an ingredient with no price comes back unchanged', () => {
+  const ings = [{ id: 'I1', name: 'Flour' }];
+  assert.deepEqual(withPrices(ings, {}), ings);
+  assert.deepEqual(withPrices(ings, null), ings);
+});
+
+test('a price is merged onto its own ingredient only', () => {
+  const merged = withPrices(
+    [{ id: 'I1', name: 'Flour' }, { id: 'I2', name: 'Butter' }],
+    { I1: { priceUnit: 'kg', pricePerUnit: 7.2 } });
+  assert.equal(merged[0].pricePerUnit, 7.2);
+  assert.equal(merged[1].pricePerUnit, undefined);
+  assert.equal(merged[0].name, 'Flour', 'the ingredient survives the merge');
+});
+
+test('a price for an ingredient that is not there is simply not used', () => {
+  const merged = withPrices([{ id: 'I1' }], { GHOST: { pricePerUnit: 9 } });
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].pricePerUnit, undefined);
+});
+
+test('merging into nothing gives nothing', () => {
+  assert.deepEqual(withPrices(null, { I1: { pricePerUnit: 1 } }), []);
+  assert.deepEqual(withPrices(undefined, null), []);
+});
+
+// The two halves are inverses for the fields that matter, which is what makes a
+// round trip through the form safe.
+test('split then merge restores what the form had', () => {
+  const form = { id: 'I1', name: 'Flour', priceUnit: 'kg', pricePerUnit: 7.2, unitWeightKg: null };
+  const { ingredient, price } = splitPriceFields(form);
+  const [back] = withPrices([{ ...ingredient, id: 'I1' }], { I1: price });
+  assert.equal(back.priceUnit, 'kg');
+  assert.equal(back.pricePerUnit, 7.2);
+  assert.equal(back.name, 'Flour');
 });

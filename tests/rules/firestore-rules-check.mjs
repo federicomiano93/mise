@@ -506,7 +506,13 @@ async function ingredientPrices() {
 
   await expectAllowed('a catalogue-only venue may READ its own ingredients',
     () => fetch(`${FS}/locations/trattoria-x/ingredients/ING_X`, { headers: asAccount(BOB) }));
-  await expectAllowed('…and read their price history',
+  // ⚠️ THIS CHECK WAS FLIPPED ON PURPOSE, and the reason is the whole point of
+  // moving the price out of the ingredient. The history answers "what did we pay,
+  // and when did it go up" — the same money the Food Cost screen is closed over.
+  // Reading the ingredient LIST is the catalogue's job; reading what it COST is
+  // not. BOB is an employee at a venue with foodcost off, so both halves of
+  // canManage(lid, 'foodcost') refuse him.
+  await expectDenied('…but NOT their price history',
     () => fetch(`${FS}/${X_PRICES}`, { headers: asAccount(BOB) }));
   // The chooser names the supplier so two similar articles can be told apart, so
   // the supplier LIST is readable on the same terms — and writable on the old ones.
@@ -1961,6 +1967,37 @@ async function roles() {
     readAs(SAM, `${L}/products/P3/snapshots/S1`));
   await expectDenied('an employee cannot write one',
     () => mergeWrite(`${L}/products/P9`, { ...stamp, name: 'Nope' }, asAccount(SAM)));
+
+  // ── And what an ingredient COSTS is money too ──
+  //
+  // ⚠️ THIS IS THE OTHER HALF, AND WITHOUT IT THE FIRST HALF IS DECORATION. The
+  // rate used to live ON the ingredient, which Orders must read to work at all —
+  // so closing the Food Cost screen hid the margin and left "what a sack of flour
+  // costs" in plain view of everybody.
+  await seedDoc(`${L}/ingredient-prices/I3`,
+    { ...stamp, priceUnit: 'kg', pricePerUnit: 7.2, priceUpdatedAt: '2026-08-12' });
+
+  await expectAllowed('the owner can read what an ingredient costs',
+    readAs(ALICE, `${L}/ingredient-prices/I3`));
+  await expectAllowed('a manager can too',
+    readAs(MAYA, `${L}/ingredient-prices/I3`));
+  await expectDenied('an employee cannot',
+    readAs(SAM, `${L}/ingredient-prices/I3`));
+  await expectDenied('and cannot write one either',
+    () => mergeWrite(`${L}/ingredient-prices/I9`,
+      { ...stamp, priceUnit: 'kg', pricePerUnit: 1 }, asAccount(SAM)));
+  await expectAllowed('a manager can write one',
+    () => mergeWrite(`${L}/ingredient-prices/I9`,
+      { ...stamp, priceUnit: 'kg', pricePerUnit: 1 }, asAccount(MAYA)));
+
+  // ⚠️ AND THE PRICE HISTORY MOVED BEHIND THE SAME GATE. Leaving it on the Orders
+  // gate would be the back door into the thing the front door just locked.
+  await seedDoc(`${L}/ingredients/I3/prices/H1`,
+    { ...stamp, recordedAt: '2026-08-12', priceUnit: 'kg', pricePerUnit: 7.2 });
+  await expectDenied('an employee cannot read the price history',
+    readAs(SAM, `${L}/ingredients/I3/prices/H1`));
+  await expectAllowed('a manager can read the price history',
+    readAs(MAYA, `${L}/ingredients/I3/prices/H1`));
 
   // ⚠️ AND THE DAILY WORK IS UNTOUCHED. An employee who lost Orders because the
   // money moved would be a far worse outcome than seeing a margin.

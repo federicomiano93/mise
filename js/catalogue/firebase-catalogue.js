@@ -12,6 +12,7 @@
 
 import { firebaseConfig, sessionReady, currentSession } from '../firebase.js';
 import { currentLocationId, pathFor } from '../location.js';
+import { withPrices } from '../price-model.js';
 import {
   getApps,
   getApp,
@@ -40,6 +41,9 @@ const RECIPES = 'recipes';
 // This is a shared COLLECTION, not a shared module — js/catalogue/ still imports
 // nothing from js/orders/, so the feature stays liftable.
 const INGREDIENTS = 'ingredients';
+// What each ingredient COSTS. A separate collection, because Orders must read
+// every ingredient to work at all — see js/price-model.js and firestore.rules.
+const INGREDIENT_PRICES = 'ingredient-prices';
 const SUPPLIERS = 'suppliers';
 
 // Resolves once a location is OPEN — not merely once someone is signed in.
@@ -84,13 +88,38 @@ export async function watchRecipes(onChange, onError) {
 // A venue that does not use Orders still resolves this listener; the rules simply
 // return nothing readable and the catalogue shows every row as unpriced, which is
 // the honest answer for a venue that keeps no ingredient list.
+// ⚠️ TWO COLLECTIONS, ONE ANSWER. The price moved off the ingredient document
+// (js/price-model.js says why), so what this screen needs is the two merged.
+//
+// ⚠️ AND THE PRICE HALF FAILS QUIETLY, ON PURPOSE. An employee is refused that
+// collection by the rules, and the refusal IS the feature working — not an error
+// to report. Every screen here already knows what an unpriced ingredient looks
+// like, because most ingredients have never had a price, so the result is "not
+// priced yet" rather than a broken screen.
+//
+// ⚠️ NOTHING IS EMITTED UNTIL THE INGREDIENTS THEMSELVES HAVE ARRIVED. The prices
+// snapshot can land first, and emitting then would paint an empty list for a
+// frame — the same shape as the bug where every ingredient flashed as an orphan
+// before the suppliers arrived.
 export async function watchIngredients(onChange, onError) {
   await authReady;
-  return onSnapshot(
+  let ingredients = null;
+  let prices = {};
+  const emit = () => { if (ingredients) onChange(withPrices(ingredients, prices)); };
+
+  const stopIngredients = onSnapshot(
     collection(db, pathFor(INGREDIENTS)),
-    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    snap => { ingredients = snap.docs.map(d => ({ id: d.id, ...d.data() })); emit(); },
     err => { console.error('watchIngredients failed:', err); if (onError) onError(err); },
   );
+
+  const stopPrices = onSnapshot(
+    collection(db, pathFor(INGREDIENT_PRICES)),
+    snap => { prices = {}; snap.forEach(d => { prices[d.id] = d.data(); }); emit(); },
+    () => { prices = {}; emit(); },
+  );
+
+  return () => { stopIngredients(); stopPrices(); };
 }
 
 // The supplier names, so the chooser can tell two similar articles apart. Six

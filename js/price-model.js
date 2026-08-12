@@ -302,3 +302,55 @@ export function priceRecord(ingredient, patch, nowIso, source = 'manual') {
     source,
   };
 }
+
+// ── Where a price LIVES, which is not where an ingredient lives ──────────────
+//
+// ⚠️ THE PRICE MOVED OUT OF THE INGREDIENT DOCUMENT, and the reason is not tidiness.
+// Orders must read every ingredient to work at all — that is the order screen —
+// so a rate written on the ingredient is a rate every person in the building can
+// read. Hiding the Food Cost screen hid the MARGIN and left "what a sack of flour
+// costs" in plain view, which is half an answer pretending to be a whole one.
+//
+// It is a PARALLEL collection keyed by the ingredient's own id, not a
+// subcollection: Food Cost and the recipe costing want them ALL, and one
+// collection read costs far less than one read per ingredient (P14).
+//
+// ⚠️ AND THE FIELDS STAY IN THE ingredients WHITELIST IN firestore.rules, written
+// null on every save so they drain out. Removing a field from a whitelist while
+// production still carries it makes those documents permanently unwritable — the
+// notifyHoursBefore / weekId trap, twice learnt.
+
+// Split a saved form into the part that belongs to the ingredient and the part
+// that belongs beside it. Both objects are always returned; the caller decides
+// whether it is allowed to write the second.
+export function splitPriceFields(data) {
+  const ingredient = {};
+  const price = {};
+  Object.keys(data || {}).forEach(key => {
+    if (PRICE_FIELDS.includes(key)) price[key] = data[key];
+    else ingredient[key] = data[key];
+  });
+  // ⚠️ The ingredient KEEPS the keys, set to null. That is what drains the old
+  // values out of documents written before this change; omitting them would
+  // leave a stale rate on the ingredient for ever, readable by everybody, which
+  // is the exact thing this change exists to stop.
+  PRICE_FIELDS.forEach(key => { ingredient[key] = null; });
+  return { ingredient, price };
+}
+
+// Put an ingredient back together with its price, for the screens that may see
+// one. `prices` is a map of ingredient id → the price document.
+//
+// ⚠️ A MISSING PRICE IS NOT AN ERROR AND MUST NOT BE. An employee cannot read
+// that collection at all, so for them this returns the ingredient untouched —
+// and every consumer already knows what to do with an unpriced ingredient,
+// because most ingredients have never had a price. The screens say "not priced
+// yet" and carry on, which is exactly the right thing for somebody who is not
+// allowed to know. No new failure mode, no error to handle.
+export function withPrices(ingredients, prices) {
+  const map = prices || {};
+  return (ingredients || []).map(ing => {
+    const price = ing && map[ing.id];
+    return price ? { ...ing, ...price } : ing;
+  });
+}

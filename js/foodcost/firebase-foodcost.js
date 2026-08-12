@@ -15,6 +15,7 @@
 
 import { firebaseConfig, sessionReady, currentSession } from '../firebase.js';
 import { currentLocationId, pathFor } from '../location.js';
+import { withPrices } from '../price-model.js';
 import {
   getApps,
   getApp,
@@ -41,6 +42,9 @@ const PRODUCTS = 'products';
 const SNAPSHOTS = 'snapshots';
 const RECIPES = 'recipes';
 const INGREDIENTS = 'ingredients';
+// What each ingredient COSTS. A separate collection, because Orders must read
+// every ingredient to work at all — see js/price-model.js and firestore.rules.
+const INGREDIENT_PRICES = 'ingredient-prices';
 
 export const authReady = sessionReady;
 
@@ -74,7 +78,35 @@ export const watchProducts = (onChange, onError) => watch(PRODUCTS, onChange, on
 // venue may not use them, and the worst outcome is a product that reads as
 // unpriced — which is exactly what the screen says anyway when nothing is linked.
 export const watchRecipes = (onChange, onError) => watch(RECIPES, onChange, onError, true)();
-export const watchIngredients = (onChange, onError) => watch(INGREDIENTS, onChange, onError, true)();
+// ⚠️ TWO COLLECTIONS, ONE ANSWER. The price moved off the ingredient document
+// (js/price-model.js says why), so what this screen needs is the two merged.
+// Food Cost is manager-only, so both halves normally succeed here — but the price
+// half still fails QUIETLY, because a venue that does not use Food Cost has no
+// such collection and an unpriced ingredient is something every screen here
+// already knows how to say.
+//
+// ⚠️ NOTHING IS EMITTED UNTIL THE INGREDIENTS HAVE ARRIVED. The prices snapshot
+// can land first, and emitting then would paint an empty list for a frame — the
+// same shape as the bug where every ingredient flashed as an orphan before the
+// suppliers arrived.
+export const watchIngredients = async (onChange, onError) => {
+  await authReady;
+  let ingredients = null;
+  let prices = {};
+  const emit = () => { if (ingredients) onChange(withPrices(ingredients, prices)); };
+
+  const stopIngredients = onSnapshot(
+    collection(db, pathFor(INGREDIENTS)),
+    snap => { ingredients = snap.docs.map(d => ({ id: d.id, ...d.data() })); emit(); },
+    err => { console.warn('watchIngredients failed:', err); if (onError) onError(err); },
+  );
+  const stopPrices = onSnapshot(
+    collection(db, pathFor(INGREDIENT_PRICES)),
+    snap => { prices = {}; snap.forEach(d => { prices[d.id] = d.data(); }); emit(); },
+    () => { prices = {}; emit(); },
+  );
+  return () => { stopIngredients(); stopPrices(); };
+};
 
 // Save a product and, when the change is worth recording, append its margin —
 // as ONE atomic write.

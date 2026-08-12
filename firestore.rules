@@ -449,6 +449,57 @@ service cloud.firestore {
       // before production has stopped carrying them and every affected ingredient
       // becomes permanently unwritable — the same trap already documented for
       // `notifyHoursBefore` and `weekId`.
+      // ── What an ingredient COSTS, kept away from what it IS ──────────────
+      //
+      // ⚠️⚠️ IT IS A SEPARATE COLLECTION BECAUSE ORDERS MUST READ EVERY
+      // INGREDIENT. That is the order screen — names, suppliers, categories — so a
+      // rate written on the ingredient document is a rate every person in the
+      // building can read, whatever the Food Cost screen does. Closing Food Cost
+      // hid the MARGIN and left "what a sack of flour costs" in plain view.
+      //
+      // ⚠️ A PARALLEL COLLECTION, NOT A SUBCOLLECTION, and the reason is cost
+      // (P14): Food Cost and the recipe costing want them ALL, and one collection
+      // read is far cheaper than one read per ingredient. The document id is the
+      // INGREDIENT's id, so there is no second id space to keep in step.
+      //
+      // ⚠️ AND THE FIELDS ARE STILL WHITELISTED ON ingredients BELOW, written null
+      // on every save so they drain out of documents written before this. Removing
+      // a field from a whitelist while production still carries it makes those
+      // documents permanently unwritable — the notifyHoursBefore / weekId trap.
+      match /ingredient-prices/{id} {
+        allow read: if canManage(lid, 'foodcost');
+
+        allow create, update: if canManage(lid, 'foodcost')
+          && stampedFor(lid)
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'priceUnit', 'pricePerUnit',
+               'packPrice', 'packSize', 'unitWeightKg', 'priceUpdatedAt'
+             ])
+          // Every field is OPTIONAL, exactly as on the ingredient itself: this
+          // document is written by the same form, which may legitimately be saved
+          // with no price at all. Optional is not unchecked — each is validated
+          // when present.
+          && (!('priceUnit' in request.resource.data)
+              || request.resource.data.priceUnit == null
+              || request.resource.data.priceUnit in ['kg', 'l', 'pcs'])
+          && (!('pricePerUnit' in request.resource.data)
+              || request.resource.data.pricePerUnit == null
+              || (request.resource.data.pricePerUnit is number
+                  && request.resource.data.pricePerUnit > 0))
+          && (!('unitWeightKg' in request.resource.data)
+              || request.resource.data.unitWeightKg == null
+              || (request.resource.data.unitWeightKg is number
+                  && request.resource.data.unitWeightKg > 0))
+          && (!('priceUpdatedAt' in request.resource.data)
+              || request.resource.data.priceUpdatedAt == null
+              || (request.resource.data.priceUpdatedAt is string
+                  && request.resource.data.priceUpdatedAt.size() <= 64));
+
+        // Deleting a price is deleting a fact about money, and the ingredient it
+        // belongs to is deletable by the same people.
+        allow delete: if canManage(lid, 'foodcost');
+      }
+
       match /ingredients/{id} {
         allow read: if canReadOrdersData(lid);
 
@@ -573,10 +624,15 @@ service cloud.firestore {
         // in the same millisecond collide, and with update denied the second one
         // would simply be refused. Ordering is done by the `recordedAt` FIELD,
         // which is also the only thing Firestore can order descending.
+        // ⚠️ canManage(…, 'foodcost'), NOT canReadOrdersData. This is the price
+        // HISTORY: it answers "what did we pay, and when did it go up", which is
+        // the same money the Food Cost screen is now closed over. Leaving it on
+        // the Orders gate would be the back door into the thing the front door
+        // was just locked.
         match /prices/{priceId} {
-          allow read: if canReadOrdersData(lid);
+          allow read: if canManage(lid, 'foodcost');
 
-          allow create: if canUse(lid, 'orders')
+          allow create: if canManage(lid, 'foodcost')
             && stampedFor(lid)
             && request.resource.data.keys().hasOnly([
                  'bakery', 'recordedAt', 'priceUnit', 'pricePerUnit',
