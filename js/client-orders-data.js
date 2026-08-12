@@ -25,8 +25,9 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc,
-  onSnapshot, query, where, updateDoc,
+  onSnapshot, query, where, updateDoc, orderBy, limit,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { MAX_HISTORY_READ } from './client-order-history.js';
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -224,6 +225,46 @@ export async function getUpcomingOrdersOnce() {
     where('date', '>=', toISODate(Date.now())),
   ));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// The orders that have already been — the history screen.
+//
+// ⚠️ A RANGE ON THE SAME ONE FIELD, ordered by that field, with a cap. Two
+// inequalities on `date` plus `orderBy('date')` need NO composite index, so this
+// works with nothing set up in the console.
+//
+// ⚠️ ORDERED BY THE `date` FIELD, NEVER BY THE DOCUMENT ID. The id here is
+// `{date}_{clientId}`, so ordering by id looks like the obvious shortcut — and
+// Firestore REFUSES descending key scans. It cost this project a release in Orders
+// (v1.9.0) and has had to be avoided twice since.
+//
+// ⚠️ READ ONCE, NOT WATCHED, and only when the history is opened. A past order does
+// not change, so a live subscription would be a connection held open for nothing
+// (P14). The window is applied HERE rather than after reading everything, which is
+// what keeps this cheap for ever — unlike orders-history, which reads its whole
+// archive on every app open and sits in the backlog as a cost to revisit.
+//
+// ⚠️ THE WINDOW HIDES, IT DOES NOT DELETE. Everything outside it stays in the
+// database; asking for a wider window brings it back. See js/client-order-history.js.
+export async function getPastOrders({ before, since, cap = MAX_HISTORY_READ } = {}) {
+  await sessionReady;
+  const snap = await getDocs(query(
+    collection(db, pathFor(ORDERS)),
+    where('date', '<', String(before)),
+    where('date', '>=', String(since)),
+    orderBy('date', 'desc'),
+    limit(Math.max(1, Number(cap) || MAX_HISTORY_READ)),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// Has this bakery EVER received an order? One document is enough to answer it, and the
+// answer decides which of two very different sentences an empty history shows: "nobody
+// has sent one yet" or "none in the last 15 days, and the older ones are still kept".
+export async function hasAnyClientOrder() {
+  await sessionReady;
+  const snap = await getDocs(query(collection(db, pathFor(ORDERS)), limit(1)));
+  return !snap.empty;
 }
 
 export async function getOrder(date, clientId) {
