@@ -83,6 +83,16 @@
 </div>
 
 <header class="home-header">
+  <!-- Up one level, to the list of every venue this account has.
+       ⚠️ HIDDEN BY DEFAULT AND REVEALED BY js/home-session.js, never built on the
+       fly: it must exist in the markup so it can be shown without a repaint, and it
+       must start hidden so somebody with a single venue never sees it flash. Same
+       pattern, and the same reason, as the Orders "Clear quantities" button (v215).
+       [hidden] is forced to display:none in tokens.css, so this really is hidden. -->
+  <button id="home-up-btn" class="home-up-btn" type="button"
+          aria-label="All my businesses" hidden>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
   <div>
     <!-- Replaced with the location's own name once a location is open
          (js/location-title.js). The text here is only what a browser shows

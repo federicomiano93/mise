@@ -45,7 +45,35 @@
   border-radius: 2px;
   background: linear-gradient(90deg, var(--crust) 0%, transparent 70%);
 }
-.home-header > div { display: flex; flex-direction: column-reverse; }
+/* The way up, top-left, where every other screen in this app puts it.
+   ⚠️ THE TITLE STAYS ON THE LEFT, it does not become centred. `header` is
+   `justify-content: space-between`, so a third child would push the venue's name
+   toward the middle — and this heading is not an overlay title: it is the venue's
+   own name with its "HOME" eyebrow, read left to right. `margin-right: auto` on the
+   title block keeps the "?" at the right edge and everything else grouped left.
+   ⚠️ 36px WIDE, NOT 44: every pixel here comes off a name like "The Italian Club
+   Bakery", which already wraps to two lines. The 44px HEIGHT is free — the header is
+   taller than that — so the target stays comfortable where there is room. Same
+   trade, same reasoning, as the supplier row's list icon (v216). */
+.home-up-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 44px;
+  margin-right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--on-brand);
+  cursor: pointer;
+}
+.home-up-btn:active { transform: scale(.92); }
+/* The app's green focus ring is invisible on the green header. */
+.home-up-btn:focus-visible { outline: 2px solid var(--on-brand); outline-offset: 2px; }
+
+.home-header > div { display: flex; flex-direction: column-reverse; margin-right: auto; }
 .home-header h1 { font-size: 30px; line-height: 1.05; }
 .home-header p { margin: 0 0 4px; letter-spacing: 0.18em; }
 

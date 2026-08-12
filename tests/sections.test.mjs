@@ -15,6 +15,7 @@ import {
   locationsOf,
   pickLocation,
   pickStart,
+  hasLevelAbove,
 } from '../js/sections.js';
 
 // ── Sections: default ALLOWED ────────────────────────────────────────────────
@@ -259,4 +260,60 @@ test('anything that is not exactly true has not passed the hub', () => {
 test('no options at all is not a crash', () => {
   assert.equal(pickStart(null, {}).status, 'none');
   assert.equal(pickStart(undefined, undefined).status, 'none');
+});
+
+// ── The back arrow: "show me my venues" ────────────────────────────────────
+
+// ⚠️ IT MUST BEAT THE HUB. Somebody who taps the arrow inside a venue is asking for
+// the venue list; answering with the Misé home would skip the very screen the arrow
+// was pressed to reach.
+test('asking for the venue picker wins over the hub', () => {
+  const out = pickStart(TWO, { isAppAdmin: true, pickVenue: true, remembered: 'main' });
+  assert.equal(out.status, 'choose');
+  assert.deepEqual(out.options, ['main', 'trattoria-x']);
+});
+
+test('a remembered venue does not skip the picker either', () => {
+  assert.equal(pickStart(TWO, { pickVenue: true, remembered: 'trattoria-x' }).status, 'choose');
+});
+
+// A flag that somehow survives for somebody with one venue must land somewhere
+// sensible rather than on a list of one.
+test('asking for the picker with one venue just opens it', () => {
+  const one = { locations: { main: 'owner' } };
+  const out = pickStart(one, { pickVenue: true });
+  assert.equal(out.status, 'ready');
+  assert.equal(out.locationId, 'main');
+});
+
+test('anything that is not exactly true is not a request for the picker', () => {
+  for (const value of ['true', 1, {}, []]) {
+    assert.notEqual(pickStart(TWO, { pickVenue: value, remembered: 'main' }).status, 'choose',
+      String(value));
+  }
+});
+
+// ── Whether the arrow is drawn at all ──────────────────────────────────────
+
+test('one venue and not an administrator: no arrow', () => {
+  assert.equal(hasLevelAbove({ isAppAdmin: false, options: ['main'] }), false);
+  assert.equal(hasLevelAbove({ options: [] }), false);
+  assert.equal(hasLevelAbove({}), false);
+  assert.equal(hasLevelAbove(), false);
+});
+
+test('more than one venue: an arrow, administrator or not', () => {
+  assert.equal(hasLevelAbove({ isAppAdmin: false, options: ['main', 'other'] }), true);
+});
+
+// ⚠️ An administrator with a single venue still has the customer list above them.
+test('an administrator always has somewhere above, even with one venue', () => {
+  assert.equal(hasLevelAbove({ isAppAdmin: true, options: ['main'] }), true);
+  assert.equal(hasLevelAbove({ isAppAdmin: true, options: [] }), true);
+});
+
+test('a corrupt options value is not an arrow, and not a crash', () => {
+  for (const options of [null, undefined, 'main', 42, {}]) {
+    assert.equal(hasLevelAbove({ options }), false, String(options));
+  }
 });

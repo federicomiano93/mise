@@ -213,9 +213,34 @@ export function pickLocation(userDoc, remembered) {
 // which venue is a property of tapping "My businesses" on the hub, not of being
 // an administrator — putting it here would answer the picker to a switch that
 // had already been answered.
-export function pickStart(userDoc, { isAppAdmin = false, hubPassed = false, remembered = '' } = {}) {
+// ⚠️ `pickVenue` IS ASKED BEFORE THE HUB, and the order is the whole behaviour of the
+// back arrow. Somebody who taps it from inside a venue is saying "show me my venues",
+// not "take me to the app's home" — answering with the hub would make the arrow skip
+// the screen it was pressed to reach. It is consumed by the caller as soon as it is
+// read, so it decides one page load and no more.
+export function pickStart(userDoc, { isAppAdmin = false, hubPassed = false,
+                                     pickVenue = false, remembered = '' } = {}) {
+  if (pickVenue === true) {
+    const options = locationsOf(userDoc);
+    // With one venue there is nothing to choose between, so the arrow's screen would
+    // be a list of one. It cannot be reached — the arrow is not drawn — but a fallen
+    // -through flag must still land somewhere sensible rather than on an empty list.
+    if (options.length > 1) return { status: 'choose', options };
+    return pickLocation(userDoc, remembered);
+  }
   if (isAppAdmin === true && hubPassed !== true) {
     return { status: 'hub', options: locationsOf(userDoc) };
   }
   return pickLocation(userDoc, remembered);
+}
+
+// Is there a level ABOVE this venue for the back arrow to step up to?
+//
+// ⚠️ ONE VENUE AND NOT AN ADMINISTRATOR MEANS NO ARROW, and it is the point of this
+// function rather than an edge case. "The screen with all my venues" does not exist
+// for somebody who has one: the arrow would lead to a list of one, which is a control
+// that appears to do nothing. Every other screen in this app earns its back arrow by
+// having somewhere to go.
+export function hasLevelAbove({ isAppAdmin = false, options = [] } = {}) {
+  return isAppAdmin === true || (Array.isArray(options) && options.length > 1);
 }
