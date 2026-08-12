@@ -397,6 +397,19 @@ export async function seedDemoWorld() {
   await seedDoc(`admins/${ownerUid}`, { note: 'the app owner', createdAt: Date.now() });
   await seedAccount('nobody@club.test', DEMO_PASSWORD, {});
 
+  // ⚠️ A CUSTOMER WHO BOUGHT THE APP FOR TWO OF THEIR OWN PLACES: an owner of
+  // more than one venue who is NOT the app's administrator. Every other seeded
+  // account is one or the other, so before this there was no way to check that
+  // the Misé home screen stays out of an ordinary customer's way while "Switch
+  // location" keeps working for them — the two halves of that feature could only
+  // ever be tested together, on an account where both are true.
+  //
+  // The same trap the comment above describes, one shape further along: a
+  // fixture that cannot hold the case under test proves only that the code
+  // agrees with itself (v1.38.1).
+  await seedAccount('duevenues@club.test', DEMO_PASSWORD,
+    { 'trattoria-rosa': 'owner', restaurant: 'owner' });
+
   // ── Two customers of the APP, for the Businesses screen ────────────────────
   //
   // ⚠️ ONE OF EACH, AND THAT IS THE WHOLE POINT. The screen's only real job is to
@@ -447,7 +460,8 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     staff@club.test      → the same bakery as an EMPLOYEE (no delete buttons)
     rosa@club.test       → Trattoria Rosa (Orders only)
     restaurant@club.test → The Italian Club (Orders only, no data at all)
-    owner@club.test      → all three, so the location picker appears
+    owner@club.test      → all three, AND the app's administrator (the Misé home)
+    duevenues@club.test  → two venues, NOT an app admin (an ordinary customer)
     nobody@club.test     → an account with no location
 `);
 }

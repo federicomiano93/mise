@@ -10,7 +10,8 @@
 // readable only by its own owner — without it, an owner could never list their
 // own staff.
 
-import { firebaseConfig, sessionReady, currentSession, isLocalEmulator } from '../firebase.js';
+import { firebaseConfig, sessionReady, signedInReady, currentSession, isLocalEmulator }
+  from '../firebase.js';
 import { pathFor } from '../location.js';
 import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
@@ -40,30 +41,43 @@ const call = name => httpsCallable(functions, name);
 
 // ── The four ─────────────────────────────────────────────────────────────────
 
+// ⚠️⚠️ THESE THREE AWAIT signedInReady, NOT sessionReady, AND THE DIFFERENCE IS
+// THE WHOLE SCREEN WORKING OR HANGING FOR EVER.
+//
+// They are reached from the Misé home, which sits ABOVE every location — and
+// they are about businesses their caller is deliberately NOT a member of, so
+// there is no location involved at any point. sessionReady resolves when a
+// location OPENS, which on that screen never happens: the Businesses list sat on
+// "Loading…" indefinitely, with no error, nothing in the console and nothing on
+// screen. Found by driving the app; the panel mounted, was tappable and had its
+// title and its button, so every check about the panel passed.
+//
+// ⚠️ signedInReady gives the guarantee these calls actually needed and always
+// did: that the auth token has been restored. Firing before it, a callable
+// answers `unauthenticated` — "you are not allowed" when the truth is "you were
+// not asked yet". Waiting for a location was only ever a way of waiting for that.
+//
+// ⚠️ THE VENUE CALLS BELOW KEEP sessionReady, and must. They read
+// currentSession().locationId, so for them a location really does have to be
+// open — swapping them over would let one fire with no location and send
+// `undefined` as the place to write to.
+//
+// ⚠️ And none of these three takes a locationId from currentSession(): they are
+// about the app's customers, never about the place you happen to have open.
 export async function createWorkspace(name, sections) {
-  await sessionReady;
+  await signedInReady;
   const res = await call('createWorkspace')({ name, sections });
   return res.data;
 }
 
-// ⚠️ BOTH AWAIT sessionReady, like createWorkspace and unlike redeemJoinCode.
-// The distinction is not about needing a location — these two reach businesses
-// their caller is deliberately NOT a member of — it is that sessionReady is also
-// what guarantees the auth token has been restored. Firing before it can arrive
-// as `unauthenticated`, which reads as "you are not allowed" when the truth is
-// "you were not asked yet". redeemJoinCode cannot await it only because the
-// person redeeming has no location for it to resolve on.
-//
-// ⚠️ And neither takes a locationId from currentSession(): these are about the
-// app's customers, never about the place you happen to have open.
 export async function listWorkspaces() {
-  await sessionReady;
+  await signedInReady;
   const res = await call('listWorkspaces')({});
   return (res.data && res.data.workspaces) || [];
 }
 
 export async function reissueOwnerLink(locationId) {
-  await sessionReady;
+  await signedInReady;
   const res = await call('reissueOwnerLink')({ locationId });
   return res.data;
 }

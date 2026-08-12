@@ -224,6 +224,23 @@ let markSessionReady;
 // signed-out app simply never resolves it, and the gate is covering the screen.
 export const sessionReady = new Promise(resolve => { markSessionReady = resolve; });
 
+let markSignedIn;
+// Resolves as soon as a REAL account is signed in — before any location is open,
+// and whether or not one ever is.
+//
+// ⚠️ IT EXISTS BECAUSE THE MISÉ HOME SCREEN SITS ABOVE EVERY LOCATION. The calls
+// made from there are about the app's own customers, and their caller is
+// deliberately not a member of any of them, so there is no location to wait for.
+// They used to await sessionReady — which never resolves on that screen — and the
+// Businesses list simply sat on "Loading…" for ever, saying nothing. Silent, and
+// impossible for the person holding the phone to explain.
+//
+// ⚠️ IT GIVES THE GUARANTEE THOSE CALLS ACTUALLY NEEDED, which was never "a
+// location is open": it is that the auth token has been restored. Firing before
+// that, a callable answers `unauthenticated`, which reads as "you are not
+// allowed" when the truth is "you were not asked yet".
+export const signedInReady = new Promise(resolve => { markSignedIn = resolve; });
+
 function setSession(next) {
   session = { ...session, ...next };
   sessionListeners.forEach(cb => {
@@ -459,6 +476,32 @@ onAuthStateChanged(auth, user => {
                  role: 'staff', canManage: false, isOwner: false, isAppAdmin: false });
     return;
   }
+
+  // ⚠️ A LEFTOVER ANONYMOUS SESSION IS NOT A SIGNED-IN PERSON.
+  //
+  // Before this release the app signed itself in anonymously, and that session is
+  // still sitting in the browser's storage on every phone that has used the app.
+  // Treated as a sign-in it belongs to no account, so it resolves to no location
+  // and parks the phone on "No location yet" — WITHOUT ever showing the sign-in
+  // form, because as far as the app is concerned somebody is already in. Every
+  // existing phone would have hit that, and the way out is not discoverable.
+  //
+  // Nothing uses anonymous auth any more, so the only correct reading of one is
+  // "stale": drop it, which brings us back through here with no user and shows
+  // the form.
+  //
+  // ⚠️ THIS BRANCH WAS MISSING FROM THIS TEMPLATE UNTIL 12 Aug 2026, while
+  // js/firebase.js had carried it since v200. The example is what a new project
+  // is built from, so the gap was a working app with a known emergency already
+  // in it (P7 — the example must be complete, not merely illustrative).
+  if (user.isAnonymous) {
+    signOut(auth).catch(err => console.error('Could not clear the old session:', err));
+    return;
+  }
+
+  // Below the anonymous check on purpose: a leftover anonymous session is not a
+  // signed-in person, and nothing that waits on this should be woken by one.
+  markSignedIn(user);
   resolveMembership(user);
 });
 
