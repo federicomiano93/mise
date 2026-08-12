@@ -117,7 +117,12 @@ function showGate(build) {
 
 function signInScreen() {
   const card = el('div', 'auth-card');
-  card.append(el('h1', 'auth-title', 'The Italian Club'));
+  // ⚠️ THE PRODUCT'S NAME, NOT A VENUE'S. Nobody is signed in yet, so the app
+  // cannot know which location this person belongs to — putting one venue's name
+  // here told every other customer's staff they were signing in to somebody
+  // else's business. The venue's own name appears the moment it is known, in the
+  // green header (js/location-title.js).
+  card.append(el('h1', 'auth-title', 'Mise'));
   card.append(el('p', 'auth-sub', 'Sign in to open your location.'));
 
   const form = el('form', 'auth-form');

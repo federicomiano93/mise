@@ -388,7 +388,8 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     scheduleAlarm({
       id: alarmDocId(index),
       fireAt: wanted,
-      title: snapshot.name || 'The Italian Club',
+      // The recipe names itself; the product name is only the last resort.
+      title: snapshot.name || 'Mise',
       body: current.text || 'Time is up.',
     }).then((id) => {
       // The step may have been finished, skipped or left while this was in

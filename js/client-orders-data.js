@@ -11,7 +11,7 @@
 // for one (an ES module's imports run before its body — see
 // tests/firebase-offline-cache.test.mjs).
 
-import { firebaseConfig, sessionReady, isLocalEmulator } from './firebase.js';
+import { firebaseConfig, sessionReady, isLocalEmulator, currentSession } from './firebase.js';
 import { currentLocationId, pathFor } from './location.js';
 import {
   menuFor, menuChanged, isValidOrderClientId, orderDocId, toISODate, linkEmailFor,
@@ -86,7 +86,7 @@ export async function publishMenus(config) {
   let written = 0;
   for (const client of getClients(config)) {
     if (!client || !isValidOrderClientId(client.id)) continue;
-    const wanted = menuFor(client);
+    const wanted = menuFor(client, currentSession().name);
     if (!menuChanged(published.get(client.id), wanted)) continue;
     await setDoc(doc(db, pathFor(MENUS), client.id), stamped({ ...wanted, updatedAt: nowIso() }));
     written++;
@@ -181,7 +181,7 @@ export async function createOrderingLink(client, { replacing = null } = {}) {
   if (replacing && replacing !== uid) await revokeOrderingLink(replacing);
 
   await setDoc(doc(db, pathFor(MENUS), client.id),
-    stamped({ ...menuFor(client), updatedAt: nowIso() }));
+    stamped({ ...menuFor(client, currentSession().name), updatedAt: nowIso() }));
 
   return { uid, token, link: orderingLinkFor(token) };
 }

@@ -1,7 +1,7 @@
 {
-  "name": "The Italian Club",
-  "short_name": "The Italian Club",
-  "description": "Dough scaling calculator from production orders",
+  "name": "Mise",
+  "short_name": "Mise",
+  "description": "Back of house for bakeries and kitchens: doughs, orders, recipes and food cost.",
   "start_url": "index.html",
   "display": "standalone",
   "background_color": "#F5F2ED",

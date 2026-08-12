@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v270';
+const CACHE_NAME = 'theitalianclub-v271';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -319,7 +319,7 @@ function pushPayload(event) {
 
 self.addEventListener('push', event => {
   const data = pushPayload(event);
-  const title = data.title || 'The Italian Club';
+  const title = data.title || 'Mise';
   const body = data.body || 'Open the app to see what changed.';
   // One notification per thing: a re-delivery REPLACES rather than stacking three
   // copies of the same alarm on a lock screen.

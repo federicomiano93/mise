@@ -18,7 +18,7 @@
 // lost inside a paragraph.
 export const HELP = {
   home: {
-    title: 'The Italian Club',
+    title: 'Mise',
     lines: [
       'Each card opens one part of the day: what to bake, what to buy, what it costs.',
       'Your work is saved as you go — on this phone and online, so another phone sees it too.',

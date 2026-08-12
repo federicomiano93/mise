@@ -199,13 +199,25 @@ export function linkEmailFor(token) {
 // client NEVER reads config/calculator, which holds every client, every product,
 // every recipe and every setting in one document.
 
-export function menuFor(client) {
+// ⚠️ `bakeryName` TRAVELS WITH THE MENU BECAUSE THE CLIENT PAGE CANNOT READ THE
+// LOCATION. locations/{lid} is staff-only on purpose — it also lists which
+// sections the venue uses — so the only way a client's screen can say who it is
+// ordering from is for the name to be published onto something the client may
+// read. This document already is that thing, and it is republished whenever the
+// address book is saved, so a venue that renames itself corrects every client's
+// page by itself.
+export function menuFor(client, bakeryName) {
   const products = (client && Array.isArray(client.products) ? client.products : [])
     // A paused product leaves the Calculator entirely (getTabProducts), so offering it
     // here would let a client order something the bakery has decided not to make.
     .filter(p => p && p.id && p.active !== false)
     .map(p => ({ id: String(p.id), name: String(p.name || ''), kind: String(p.kind || 'number') }));
-  return { clientName: String((client && client.name) || ''), products };
+  const menu = { clientName: String((client && client.name) || ''), products };
+  // Omitted rather than written empty: the rules accept it either way, and an
+  // absent field is what every menu published before today looks like.
+  const name = String(bakeryName || '').trim();
+  if (name) menu.bakeryName = name.slice(0, 200);
+  return menu;
 }
 
 // Whether a published menu still matches the address book. Republishing every client's
@@ -215,6 +227,10 @@ export function menuFor(client) {
 export function menuChanged(published, wanted) {
   if (!published || !wanted) return true;
   if (String(published.clientName || '') !== String(wanted.clientName || '')) return true;
+  // ⚠️ COMPARED, so a venue that renames itself republishes. Without this line the
+  // new name would sit in the address book and never reach a single client page,
+  // and nothing would say why.
+  if (String(published.bakeryName || '') !== String(wanted.bakeryName || '')) return true;
   const a = Array.isArray(published.products) ? published.products : [];
   const b = Array.isArray(wanted.products) ? wanted.products : [];
   if (a.length !== b.length) return true;
