@@ -12,7 +12,9 @@
 import {
   watchCollection, watchDoc, saveDoc, createDoc, removeDoc,
   saveIngredientWithPrice, getPriceHistory, COLLECTIONS,
+  watchIngredientPrices,
 } from './firebase-orders.js';
+import { withPrices } from '../price-model.js';
 import { currentSession } from '../firebase.js';
 import { el, groupBy } from './dom.js';
 import { mountSupplierList, refreshSupplierDerived } from './suppliers.js';
@@ -47,6 +49,8 @@ import { orderSummary } from './ingredient-search.js';
 const state = {
   suppliers: [],
   ingredients: [],
+  rawIngredients: [],
+  ingredientPrices: {},
   history: [],
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
   days: {},                     // { supplierId: 'YYYY-MM-DD' } — the day those rows were typed
@@ -1124,7 +1128,12 @@ function openManagement() {
       // One call for both create and update, because the ingredient and its price
       // record have to land together or not at all — see saveIngredientWithPrice.
       // `record` is null whenever the price did not actually move.
-      saveIngredient: (id, payload, record) => saveIngredientWithPrice(id, payload, record),
+      // ⚠️ writePrice IS PASSED THROUGH, not decided here. A batch is all-or-nothing:
+      // including a write to ingredient-prices for somebody the rules refuse would
+      // fail the WHOLE save, so renaming an ingredient — ordinary work — would come
+      // back as a permission error with nothing on screen explaining it.
+      saveIngredient: (id, payload, record, writePrice) =>
+        saveIngredientWithPrice(id, payload, record, writePrice),
       priceHistory: (id) => getPriceHistory(id),
       setSupplierActive: (id, active) => saveDoc(COLLECTIONS.suppliers, id, { active }),
       setIngredientActive: (id, active) => saveDoc(COLLECTIONS.ingredients, id, { active }),
@@ -1280,8 +1289,22 @@ async function init() {
     checkPendingOnce();
     mgmt?.refresh();
   }, liveDataLost('suppliers'));
+  // ⚠️ THE PRICES ARE A SECOND COLLECTION AND ARRIVE SEPARATELY. They moved off
+  // the ingredient document because Orders reads every ingredient to work at all,
+  // so a rate written there is a rate everybody can read (js/price-model.js).
+  // Merged in here so the management form still opens on the price it is meant to
+  // edit; an employee is refused that collection and simply sees no price, which
+  // is the same thing they see for an ingredient nobody has priced.
+  watchIngredientPrices(map => {
+    state.ingredientPrices = map;
+    if (state.loaded.ingredients) {
+      state.ingredients = withPrices(state.rawIngredients, map);
+      mgmt?.refresh();
+    }
+  });
   watchCollection(COLLECTIONS.ingredients, list => {
-    state.ingredients = list;
+    state.rawIngredients = list;
+    state.ingredients = withPrices(list, state.ingredientPrices);
     state.loaded.ingredients = true;
     render();
     renderHistory();

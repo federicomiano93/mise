@@ -506,9 +506,38 @@ export function saveCalculatorConfig(config) {
 //   - ingredients/{id}        { name, supplierId, category, unit, active,
 //                               priceUnit, pricePerUnit, unitWeightKg,
 //                               priceUpdatedAt }
+//   - ingredient-prices/{id} { priceUnit, pricePerUnit, unitWeightKg,
+//                               priceUpdatedAt } — the id is the INGREDIENT's id
 //   - ingredients/{id}/prices/{autoId}
 //                             { recordedAt, priceUnit, pricePerUnit,
 //                               unitWeightKg, supplierId, source }
+//
+//     ⚠️⚠️ THE PRICE LIVES BESIDE THE INGREDIENT, NOT ON IT, and both of the two
+//     above are behind canManage(lid, 'foodcost') — an ordinary employee cannot
+//     read either. The reason is that ORDERS MUST READ EVERY INGREDIENT to work
+//     at all: that is the order screen. A rate written on the ingredient document
+//     is therefore a rate every person in the building can read, whatever the
+//     Food Cost screen does — so closing Food Cost hid the MARGIN and left "what
+//     a sack of flour costs" in plain view.
+//
+//     ⚠️ A PARALLEL COLLECTION, NOT A SUBCOLLECTION: Food Cost and the recipe
+//     costing want them ALL, and one collection read costs far less than one read
+//     per ingredient (P14). js/price-model.js owns splitPriceFields() (which half
+//     goes where) and withPrices() (putting them back together for a screen that
+//     may see one) — in js/ ROOT, because Orders writes prices while the
+//     Catalogue and Food Cost read them, and a feature must never import from
+//     another feature's folder.
+//
+//     ⚠️ A MISSING PRICE IS NOT AN ERROR. An employee is refused the collection,
+//     so withPrices() simply returns the ingredient untouched and every screen
+//     says "not priced yet" — which most ingredients are anyway. No new failure
+//     mode, and nothing to handle.
+//
+//     ⚠️ THE PRICE FIELDS STAY IN THE ingredients WHITELIST in firestore.rules,
+//     written null on every save so they drain out of documents written before
+//     the move. Removing a field from a whitelist while production still carries
+//     it makes those documents permanently unwritable — the notifyHoursBefore /
+//     weekId trap, learnt twice.
 //     pricePerUnit is the rate as TYPED (£ per kg / litre / piece, net of VAT).
 //     packPrice and packSize are RETIRED — the rate used to be their quotient.
 //     Both are still whitelisted in firestore.rules and still accepted here,

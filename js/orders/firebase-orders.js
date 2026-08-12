@@ -15,6 +15,7 @@
 
 import { firebaseConfig, sessionReady, currentSession } from '../firebase.js';
 import { currentLocationId, pathFor } from '../location.js';
+import { splitPriceFields } from '../price-model.js';
 import {
   getApps,
   getApp,
@@ -55,6 +56,11 @@ export function currentBakery() {
 export const COLLECTIONS = {
   suppliers: 'suppliers',
   ingredients: 'ingredients',
+  // What each ingredient COSTS, keyed by the ingredient's own id. A separate
+  // collection because Orders must read every ingredient to work at all, so a
+  // rate written on the ingredient is a rate everybody can read — see the block
+  // on it in firestore.rules and the note in js/price-model.js.
+  ingredientPrices: 'ingredient-prices',
   drafts: 'drafts',
   history: 'orders-history',
   // Shared with the Calculator, which keeps config/calculator here. Orders uses
@@ -221,16 +227,58 @@ const PRICES = 'prices';
 // A new ingredient gets its id here rather than from addDoc(): doc() on a
 // collection mints an id WITHOUT writing anything, which is what lets a brand-new
 // ingredient and its first price go in the same batch. Returns the id either way.
-export async function saveIngredientWithPrice(id, data, priceRecord) {
+// ⚠️ AND THE PRICE IS NOW A THIRD DOCUMENT, IN ITS OWN COLLECTION. splitPriceFields
+// separates the two halves; the ingredient keeps the price KEYS set to null so old
+// documents drain, and the rate itself goes beside it where an employee cannot
+// read it.
+//
+// ⚠️ `writePrice` IS FALSE FOR SOMEBODY WHO MAY NOT SEE MONEY, AND THAT IS NOT AN
+// OPTIMISATION. A batch is all-or-nothing: including a write to ingredient-prices
+// for an employee would have the DATABASE refuse the whole batch, so renaming an
+// ingredient — ordinary work — would fail with a permission error and no
+// explanation. They send no price, so none is written.
+export async function saveIngredientWithPrice(id, data, priceRecord, writePrice = true) {
   await authReady;
   const ingredients = collection(db, pathFor(COLLECTIONS.ingredients));
   const ref = id ? doc(ingredients, id) : doc(ingredients);
+  const { ingredient, price } = splitPriceFields(data);
 
   const batch = writeBatch(db);
-  batch.set(ref, withBakery(data), { merge: true });
-  if (priceRecord) batch.set(doc(collection(ref, PRICES)), withBakery(priceRecord));
+  batch.set(ref, withBakery(ingredient), { merge: true });
+  if (writePrice) {
+    const prices = collection(db, pathFor(COLLECTIONS.ingredientPrices));
+    batch.set(doc(prices, ref.id), withBakery(price), { merge: true });
+    if (priceRecord) batch.set(doc(collection(ref, PRICES)), withBakery(priceRecord));
+  }
   await batch.commit();
   return ref.id;
+}
+
+// What every ingredient costs, as a map keyed by ingredient id.
+//
+// ⚠️ IT FAILS QUIETLY AND RETURNS AN EMPTY MAP. An employee is refused this
+// collection by the rules, and that refusal is the feature working — not an
+// error to report. Every screen already knows what an unpriced ingredient looks
+// like, because most ingredients have never had a price, so the result is a
+// screen that says "not priced yet" rather than one that breaks.
+// ⚠️ `await authReady` IS NOT OPTIONAL AND ITS ABSENCE IS NOT SUBTLE. pathFor()
+// THROWS before a location is open — deliberately, so a read can never quietly
+// use another venue's folder — so without this line the call threw during init(),
+// taking the ingredient watcher on the next line down with it and leaving the
+// Orders screen with no ingredients at all. Every other watcher in this file
+// awaits it; this one did not, and only driving the real page said so: the checks
+// were green because they called it by hand AFTER signing in.
+export async function watchIngredientPrices(onChange) {
+  await authReady;
+  return onSnapshot(
+    collection(db, pathFor(COLLECTIONS.ingredientPrices)),
+    snap => {
+      const map = {};
+      snap.forEach(d => { map[d.id] = d.data(); });
+      onChange(map);
+    },
+    () => onChange({}),
+  );
 }
 
 // What this ingredient has cost, newest first. Read ON DEMAND — only when someone

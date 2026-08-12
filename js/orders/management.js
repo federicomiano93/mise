@@ -691,7 +691,12 @@ export function buildManagement(data, actions) {
       supplierSelect.appendChild(opt);
     });
 
-    const price = priceBlock(item);
+    // ⚠️ THE PRICE IS ONLY DRAWN FOR SOMEBODY WHO MAY SEE MONEY. An employee's
+    // form has no price at all — not a disabled one — because a disabled field
+    // still SHOWS the rate, and showing it is precisely what moving the price out
+    // of the ingredient document was for.
+    const mayPrice = canManageHere();
+    const price = mayPrice ? priceBlock(item) : null;
     const allergens = allergenBlock(item);
 
     const save = el('button', { type: 'button', class: 'btn-primary', onClick: async () => {
@@ -702,7 +707,11 @@ export function buildManagement(data, actions) {
       // Every price field is in the patch, as a number or as null, because this is
       // a MERGE write: a field left out keeps whatever it had, so emptying the
       // boxes could never actually remove a price.
-      const patch = pricePatch(price.read(), new Date().toISOString());
+      // An employee sends no price fields at all, so splitPriceFields writes an
+      // empty price document — and saveIngredientWithPrice is told not to write
+      // one, because a batch is all-or-nothing and a refused price write would
+      // fail the whole save of an ordinary rename.
+      const patch = mayPrice ? pricePatch(price.read(), new Date().toISOString()) : {};
       const payload = {
         name: name.value.trim(),
         supplierId: supplierSelect.value,
@@ -719,11 +728,15 @@ export function buildManagement(data, actions) {
       // the form to correct a spelling must not plant an identical entry — a
       // history of non-events cannot answer "when did this go up?" — and removing
       // a price is not a price, so it records nothing.
-      const record = patch.pricePerUnit !== null && priceChanged(item, patch)
+      const record = mayPrice && patch.pricePerUnit !== null && priceChanged(item, patch)
         ? priceRecord({ ...item, supplierId: payload.supplierId }, patch, patch.priceUpdatedAt)
         : null;
 
-      try { await actions.saveIngredient(item?.id || null, payload, record); view = { type: 'list' }; render(); }
+      try {
+        await actions.saveIngredient(item?.id || null, payload, record, mayPrice);
+        view = { type: 'list' };
+        render();
+      }
       catch (err) {
         save.disabled = false;                       // let them try again
         await reportFailure('save', payload.name, err);
@@ -738,7 +751,7 @@ export function buildManagement(data, actions) {
       field('Weight', weight),
       field('Category', category),
       field('Order unit', unit),
-      price.node,
+      ...(price ? [price.node] : []),
       allergens.root,
       formActions(save),
     ]);
