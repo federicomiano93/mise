@@ -6,7 +6,7 @@
 // ingredient-name autocomplete built from the other recipes. Persists per document
 // to recipes/{id} via the store (not into config).
 
-import { isOwnerHere } from './firebase-catalogue.js';
+import { canManageHere } from './firebase-catalogue.js';
 import { el } from './dom.js';
 import {
   findInvalidRecipe, unitOf, CATALOGUE_UNITS, isWeighableUnit, weighableTotalGrams,
@@ -287,7 +287,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
   const actions = el('div', { class: 'cat-editor-actions' }, [
     el('button', { class: 'cat-save-btn', type: 'button', text: 'Save', onclick: onSave }),
     // ⚠️ Owner only, same as the detail screen. Staff may still edit and save.
-    recipe && isOwnerHere() ? el('button', { class: 'cat-del-btn', type: 'button', onclick: onDelete }, [
+    recipe && canManageHere() ? el('button', { class: 'cat-del-btn', type: 'button', onclick: onDelete }, [
       el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }),
       'Delete',
     ]) : null,

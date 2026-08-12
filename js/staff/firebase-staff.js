@@ -57,8 +57,23 @@ export async function createJoinCode(role = 'staff') {
 // ⚠️ THE ONE CALL THAT DOES NOT NEED A LOCATION OPEN, and must not wait for one.
 // Whoever is redeeming has no location yet — that is the entire point — so
 // awaiting sessionReady here would hang on the screen that exists to fix it.
-export async function redeemJoinCode(code, kind = 'digits') {
-  const res = await call('redeemJoinCode')({ code, kind });
+// ⚠️ THE NAME TRAVELS WITH THE CODE, in the one call that already exists. Asking
+// for it afterwards would leave a roster row with no name whenever anything went
+// wrong between the two calls — a dropped signal, a phone that locked — and the
+// person is already inside by then, so nothing would ever prompt them again.
+export async function redeemJoinCode(code, kind = 'digits', firstName = '', lastName = '') {
+  const res = await call('redeemJoinCode')({ code, kind, firstName, lastName });
+  return res.data;
+}
+
+// ⚠️ A NAME IS A LABEL AND THIS CALL PROVES IT: it reaches only the roster, never
+// users/{uid}. Renaming somebody cannot change what they can do, because the
+// document that decides that is not on this path at all.
+export async function setMemberName(uid, firstName, lastName) {
+  await sessionReady;
+  const res = await call('setMemberName')({
+    locationId: currentSession().locationId, uid, firstName, lastName,
+  });
   return res.data;
 }
 

@@ -75,6 +75,17 @@ let ALICE = null, BOB = null, NOBODY = null;
 // the backfill becomes load-bearing for safety instead of for convenience.
 let SAM = null, LEGACY = null;
 
+// MAYA runs 'main' as its MANAGER. She is the third role, and the checks that
+// name her are the ones this account exists for: she must be able to do
+// everything ALICE can do INSIDE the location — deleting included — and must be
+// refused nothing that SAM is allowed. The one thing she may not do never
+// reaches these rules at all: hiring is functions/onboarding.js.
+//
+// ⚠️ SHE ALSO PROVES SHE CAN GET IN. Membership and role are the same value, so
+// an unrecognised 'manager' would not demote her — it would lock her out of the
+// location entirely, which is a different and much louder failure.
+let MAYA = null;
+
 // CLIENT_A and CLIENT_B are ORDERING accounts: wholesale customers, the first people
 // outside the business ever to hold an account here. They have no users/{uid}
 // document at all — only a client-accounts document inside one location — so every
@@ -103,6 +114,9 @@ async function seedAccess() {
   // LEGACY starts the same and gets rewritten inside the roles scenario to try
   // the values that must grant nothing.
   await seedDoc(`users/${LEGACY.uid}`, { locations: { main: true } });
+  // MAYA runs 'main'. The value is the membership AND the role, so this single
+  // line is what lets her in and what gives her the deletes.
+  await seedDoc(`users/${MAYA.uid}`, { locations: { main: 'manager' } });
     await seedDoc('locations/main', { name: 'The Italian Club Bakery' });
   // ⚠️ EVERY SECTION THE VENUE DOES NOT USE MUST BE LISTED false, INCLUDING NEW
   // ONES. sectionOn() defaults to TRUE for a key that is not there, so a section
@@ -1009,6 +1023,7 @@ CLIENT_A = await account('client-a');
 CLIENT_B = await account('client-b');
 SAM = await account('sam');
 LEGACY = await account('legacy');
+MAYA = await account('maya');
 TOKEN = ALICE.token;
 
 // ── pastries/{Weekday} ───────────────────────────────────────────────────────
@@ -1770,6 +1785,7 @@ async function roles() {
   await seedAccess();
   const L = 'locations/main';
   const stamp = { bakery: 'main' };
+  const readAs = (who, path) => () => fetch(`${FS}/${path}`, { headers: asAccount(who) });
 
   await seedDoc(`${L}/suppliers/S1`, { ...stamp, name: 'S', active: true });
   await seedDoc(`${L}/ingredients/I1`, { ...stamp, name: 'I', active: true });
@@ -1832,7 +1848,7 @@ async function roles() {
 
   // A role nobody recognises must never read as more power than staff — the
   // same rule js/roles.js keeps, checked here against the database itself.
-  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: 'manager' } });
+  await seedDoc(`users/${LEGACY.uid}`, { locations: { main: 'head-chef' } });
   await expectDenied('an unrecognised role is not an owner',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(LEGACY)));
   await seedDoc(`users/${LEGACY.uid}`, { locations: { main: 'Owner' } });
@@ -1875,6 +1891,56 @@ async function roles() {
     () => deleteWrite(`${L}/products/P1`));
   await expectAllowed('the owner can revoke a client ordering account',
     () => deleteWrite(`${L}/client-accounts/${CLIENT_A.uid}`));
+
+  // ── And the manager runs the place ──
+  //
+  // ⚠️ FRESH DOCUMENTS, because the owner's checks above DELETED S1/I1/R1/P1.
+  // A read of a document that is not there answers 404 and would fail here for a
+  // reason that has nothing to do with permissions.
+  await seedDoc(`${L}/suppliers/S2`, { ...stamp, name: 'S2', active: true });
+  await seedDoc(`${L}/ingredients/I2`, { ...stamp, name: 'I2', active: true });
+  await seedDoc(`${L}/recipes/R2`, { ...stamp, name: 'R2', ingredients: [] });
+  await seedDoc(`${L}/products/P2`, { ...stamp, name: 'P2' });
+
+  // ⚠️ THE FIRST CHECK IS NOT A FORMALITY, IT IS THE DEFECT THAT HAS ALREADY
+  // HAPPENED ONCE — and it caught it again here. The membership and the role are
+  // the SAME value, so a 'manager' the rules do not recognise does not quietly
+  // demote her: it locks her out of the location altogether. member() had not
+  // learnt the new value, and this is the check that said so. Reading something
+  // ordinary proves she is IN before anything below asks what she may do.
+  await expectAllowed('a manager is a member at all, and can read',
+    readAs(MAYA, `${L}/suppliers/S2`));
+
+  // She may take away what everybody's work rests on. This is the whole point of
+  // the third role: an owner's powers inside ONE location, without the hiring.
+  await expectAllowed('a manager can delete a supplier',
+    () => deleteWrite(`${L}/suppliers/S2`, asAccount(MAYA)));
+  await expectAllowed('a manager can delete an ingredient',
+    () => deleteWrite(`${L}/ingredients/I2`, asAccount(MAYA)));
+  await expectAllowed('a manager can delete a recipe',
+    () => deleteWrite(`${L}/recipes/R2`, asAccount(MAYA)));
+  await expectAllowed('a manager can delete a product',
+    () => deleteWrite(`${L}/products/P2`, asAccount(MAYA)));
+
+  // And she must lose nothing an ordinary employee already had.
+  await expectAllowed('a manager can still do the daily work', () =>
+    mergeWrite(`${L}/drafts/current`, { ...stamp, updatedAt: 'now' }, asAccount(MAYA)));
+
+  // ⚠️ HER LIMIT IS NOT IN THESE RULES, AND THAT IS THE DESIGN. Hiring means
+  // writing a membership or minting a join code, and both are `allow write: if
+  // false` for EVERY account — the owner's included. The owner does it through a
+  // Cloud Function that checks for the owner itself. So the rules need two tiers
+  // and not three, and the check that proves the manager cannot hire is the one
+  // below: she is refused exactly as anybody else is.
+  await expectDenied('a manager cannot write a membership either',
+    () => mergeWrite(`users/${SAM.uid}`, { locations: { main: 'manager' } }, asAccount(MAYA)));
+  await expectDenied('a manager cannot mint a join code',
+    () => mergeWrite('join-codes/whatever', { locationId: 'main' }, asAccount(MAYA)));
+
+  // ⚠️ A ROLE NARROWS, IT NEVER WIDENS. MAYA runs 'main' and nothing else, so
+  // being a manager somewhere must not reach into another business at all.
+  await expectDenied('a manager of one location is nobody in another',
+    readAs(MAYA, 'locations/trattoria-x/suppliers/S1'));
 }
 
 

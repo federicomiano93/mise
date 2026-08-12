@@ -125,6 +125,9 @@ export async function getProductHistory(productId, max = 30) {
 // than trusting anything this page says. This exists so a screen does not draw a
 // button the database is going to refuse — a control that fails on tap teaches
 // people the app is broken, not that they lack the permission.
-export function isOwnerHere() {
-  return currentSession().isOwner === true;
+// ⚠️ canManage, NOT isOwner — the manager runs the place. Reading isOwner here
+// would take every bin away from every manager, and the database would have
+// allowed the delete: the screen would be lying about what is possible.
+export function canManageHere() {
+  return currentSession().canManage === true;
 }

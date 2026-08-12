@@ -4,7 +4,7 @@
 // (only once scaled) returns to the base; an Import button copies it into the
 // Calculator.
 
-import { isOwnerHere } from './firebase-catalogue.js';
+import { canManageHere } from './firebase-catalogue.js';
 import { el } from './dom.js';
 import { currentSession } from '../firebase.js';
 import { isSectionAllowed } from '../sections.js';
@@ -356,7 +356,7 @@ export function renderDetail({ recipe, app }) {
   // guided procedure, its ingredient links and whatever Food Cost products point
   // at it, none of which the button mentions. Staff keep every other action on
   // this screen — a disabled control just invites the tap that explains nothing.
-  const deleteBtn = !isOwnerHere() ? null : el('button', {
+  const deleteBtn = !canManageHere() ? null : el('button', {
     class: 'cat-detail-del', type: 'button',
     onclick: () => app.confirmAndDelete(recipe),
   }, [

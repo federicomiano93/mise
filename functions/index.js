@@ -166,10 +166,14 @@ export const notifyClientOrder = onDocumentCreated(
 
 // ── 4. Letting somebody in without opening the Firebase console ──────────────
 //
-// The four onboarding calls live in their own file because they have nothing to
-// do with notifications; re-exported here because a Firebase deploy publishes
-// what index.js exports. See functions/onboarding.js for why they cannot be done
-// from the app.
+// The onboarding calls live in their own file because they have nothing to do
+// with notifications; re-exported here because a Firebase deploy publishes what
+// index.js exports. See functions/onboarding.js for why they cannot be done from
+// the app.
+//
+// ⚠️ A CALLABLE MISSING FROM THIS LIST IS NOT DEPLOYED, and the app's call to it
+// fails with the client's generic "internal" — which says nothing and looks
+// exactly like a broken function.
 export {
-  createWorkspace, createJoinCode, redeemJoinCode, setMemberRole,
+  createWorkspace, createJoinCode, redeemJoinCode, setMemberRole, setMemberName,
 } from './onboarding.js';

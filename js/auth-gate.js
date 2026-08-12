@@ -17,6 +17,7 @@
 
 import { onSession, signIn, signUp, sendReset, chooseLocation, signOutNow } from './firebase.js';
 import { normalizeTyped, isWellFormed } from './join-code.js';
+import { nameProblem, passwordProblem, MIN_PASSWORD_LENGTH } from './credentials.js';
 import { isSectionAllowed } from './sections.js';
 
 const HOME = 'index.html';
@@ -235,6 +236,28 @@ function joinScreen({ needsAccount }) {
   const form = el('form', 'auth-form');
   form.noValidate = true;
 
+  // ⚠️ THE NAME IS ASKED EVERY TIME, NOT ONLY WITH A NEW ACCOUNT. The roster is
+  // per LOCATION, so somebody joining a second venue needs a row there too — and
+  // that row is the only place their name is ever written. Asking once, on the
+  // account, would leave every later location with an anonymous entry.
+  const firstLabel = el('label', 'auth-label', 'Your first name');
+  firstLabel.htmlFor = 'join-first';
+  const firstName = el('input', 'auth-input');
+  firstName.id = 'join-first';
+  firstName.type = 'text';
+  firstName.autocomplete = 'given-name';
+  firstName.setAttribute('autocapitalize', 'words');
+
+  const lastLabel = el('label', 'auth-label', 'Your surname');
+  lastLabel.htmlFor = 'join-last';
+  const lastName = el('input', 'auth-input');
+  lastName.id = 'join-last';
+  lastName.type = 'text';
+  lastName.autocomplete = 'family-name';
+  lastName.setAttribute('autocapitalize', 'words');
+
+  form.append(firstLabel, firstName, lastLabel, lastName);
+
   let email = null, password = null;
   if (needsAccount) {
     const emailLabel = el('label', 'auth-label', 'Your email');
@@ -244,7 +267,8 @@ function joinScreen({ needsAccount }) {
     email.type = 'email';
     email.autocomplete = 'username';
 
-    const passLabel = el('label', 'auth-label', 'Choose a password');
+    const passLabel = el('label', 'auth-label',
+      `Choose a password (at least ${MIN_PASSWORD_LENGTH} characters)`);
     passLabel.htmlFor = 'join-password';
     password = el('input', 'auth-input');
     password.id = 'join-password';
@@ -284,31 +308,52 @@ function joinScreen({ needsAccount }) {
     status.className = `auth-status auth-status--${kind}`;
   };
 
+  // Say what is wrong and put the cursor in the box it is about. Returns true
+  // when the form is worth sending.
+  //
+  // ⚠️ EVERY CHECK RUNS BEFORE THE NETWORK, and the reason is not tidiness: each
+  // call — even a malformed one — spends one of this account's five join attempts
+  // an hour. A blank surname must not cost somebody one of five real tries.
+  //
+  // ⚠️ AND CREATING THE ACCOUNT COMES LAST, AFTER EVERYTHING IS VALID. Sign-up
+  // cannot be undone from here, so a form that created the account and THEN
+  // complained about the surname would leave somebody holding an account they
+  // cannot use, on a screen that had just refused them.
+  const problem = () => {
+    const first = nameProblem(firstName.value, 'first');
+    if (first) return [first, firstName];
+    const last = nameProblem(lastName.value, 'last');
+    if (last) return [last, lastName];
+    if (needsAccount) {
+      if (!email.value.trim()) return ['Enter your email.', email];
+      const pass = passwordProblem(password.value, email.value);
+      if (pass) return [pass, password];
+    }
+    if (!isWellFormed(normalizeTyped(code.value))) return ['A code is six digits.', code];
+    return null;
+  };
+
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    const typed = normalizeTyped(code.value);
-    // ⚠️ CHECKED HERE BEFORE THE NETWORK, because every call — even a malformed
-    // one — spends one of this account's five attempts an hour. Letting a typo
-    // burn one of those would mean four real tries left after one slip.
-    if (!isWellFormed(typed)) {
-      setStatus('A code is six digits.');
-      code.focus();
+    const wrong = problem();
+    if (wrong) {
+      setStatus(wrong[0]);
+      wrong[1].focus();
       return;
     }
+    const typed = normalizeTyped(code.value);
 
     submit.disabled = true;
     setStatus(needsAccount ? 'Creating your account…' : 'Checking…', 'busy');
     try {
       if (needsAccount) {
-        if (!email.value.trim()) { setStatus('Enter your email.'); email.focus(); submit.disabled = false; return; }
-        if (!password.value) { setStatus('Choose a password.'); password.focus(); submit.disabled = false; return; }
         await signUp(email.value, password.value);
         setStatus('Checking your code…', 'busy');
       }
       // Loaded only now: this screen is on the critical path of every app open,
       // and the functions client is a chunk nobody needs until they are joining.
       const { redeemJoinCode } = await import('./staff/firebase-staff.js');
-      await redeemJoinCode(typed);
+      await redeemJoinCode(typed, 'digits', firstName.value, lastName.value);
       // Everything downstream reads the membership once, at sign-in, so the
       // honest way to pick up a brand-new one is to start again.
       location.reload();
@@ -322,7 +367,7 @@ function joinScreen({ needsAccount }) {
     }
   });
 
-  setTimeout(() => (needsAccount ? email : code).focus(), 0);
+  setTimeout(() => firstName.focus(), 0);
   return card;
 }
 

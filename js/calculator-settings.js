@@ -369,12 +369,16 @@ function orderingLinkField(client) {
 
   // The sentence has to follow what this person can actually do, or it promises
   // a button that is not there and reads as a broken screen.
-  const isOwner = currentSession().isOwner === true;
+  // ⚠️ canManage, not isOwner: firestore.rules gates the client-ordering account
+  // on canManage(lid, 'calculator'), so a manager really can mint and revoke one.
+  // Asking isOwner here would draw the sentence for a button the database would
+  // have allowed — a screen that refuses what the rules permit is its own bug.
+  const canManage = currentSession().canManage === true;
   field.appendChild(el('p', { class: 'cp-hint' }, account
     ? `${client.name} can send orders straight into the app. Anyone with the link can order as this client, so send it to them and no one else.`
-    : isOwner
+    : canManage
       ? 'Create a link and send it to this client. They will see only their own products, and can order without a password.'
-      : 'This client cannot order through the app yet. The owner can set that up.'));
+      : 'This client cannot order through the app yet. The owner or a manager can set that up.'));
 
   if (account && link) {
     const copy = el('button', { class: 'cp-add-prod', type: 'button' }, 'Copy link');
@@ -420,9 +424,9 @@ function orderingLinkField(client) {
   // refuse it from anybody else. Passing an EXISTING link on to the client who
   // already has it is an errand, so "Copy link" and "Send on WhatsApp" above
   // stay available to whoever is at the counter.
-  if (isOwner) field.appendChild(make);
+  if (canManage) field.appendChild(make);
 
-  if (account && isOwner) {
+  if (account && canManage) {
     const revoke = el('button', { class: 'cp-link-revoke', type: 'button' }, 'Turn off ordering');
     revoke.addEventListener('click', async () => {
       if (!(await confirmDialog({
