@@ -56,7 +56,7 @@ import {
   setCurrentLocationId,
   locationDocPath,
 } from './location.js';
-import { allowedSections, pickLocation, locationsOf } from './sections.js';
+import { allowedSections, sectionsFor, pickLocation, locationsOf } from './sections.js';
 import { roleOf, isOwner, canManage } from './roles.js';
 import { clearLocalData, shouldClearLocalData } from './local-data.js';
 
@@ -269,7 +269,10 @@ async function enterLocation(locationId, options, user) {
     status: 'ready', user, locationId, location, options,
     optionNames: options.length > 1 ? await readLocationNames(options) : {},
     name: (location && location.name) || locationId,
-    sections: allowedSections(location),
+    // ⚠️ THE LOCATION SET NARROWED BY THE ROLE. allowedSections() alone would
+    // hand an employee the Food Cost screen; sectionsFor() is the one that
+    // answers "and may THIS person see it".
+    sections: sectionsFor(location, roleOf(userDocCache, locationId)),
     // ⚠️ FROM users/{uid}, WHICH NO CLIENT CAN WRITE — never from the location
     // document, which is also console-only but says nothing about people. The
     // app uses this only to avoid drawing controls the database would refuse:

@@ -13,7 +13,7 @@
 // a destructive action never competes with the thing you actually came to do).
 
 import { onSession, signOutNow, switchLocation, forgetLocation } from './firebase.js';
-import { allowedSections } from './sections.js';
+import { sectionsFor } from './sections.js';
 import { confirmDialog } from './confirm-dialog.js';
 
 const logoutHost = document.getElementById('session-logout-host');
@@ -30,8 +30,12 @@ function button(label, className, onClick) {
 // Hide the cards this location does not use. The cards are static HTML with a
 // data-section, so this only ever REMOVES — a location with everything on gets
 // the markup exactly as written.
-function filterCards(location) {
-  const allowed = allowedSections(location);
+function filterCards(location, role) {
+  // ⚠️ THE ROLE NARROWS THIS TOO, so a card is not drawn for a screen the person
+  // would be refused on. It is still only courtesy — the rules refuse the data
+  // itself — but a card that opens onto permission errors teaches people the app
+  // is broken rather than that they lack the permission.
+  const allowed = sectionsFor(location, role);
   document.querySelectorAll('.home-card[data-section]').forEach(card => {
     if (allowed[card.dataset.section] === false) card.remove();
   });
@@ -92,6 +96,6 @@ function renderSessionActions(session) {
 
 onSession(session => {
   if (session.status !== 'ready') return;
-  filterCards(session.location);
+  filterCards(session.location, session.role);
   renderSessionActions(session);
 });
