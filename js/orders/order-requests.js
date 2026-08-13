@@ -187,10 +187,16 @@ export function buildRequestScreen(request, options, callbacks) {
       // is the app's existing per-supplier flow — it confirms, writes History and
       // clears the rows. Building a second way to record an order here would be a
       // second answer to "what was ordered", and the two would disagree.
+      // ⚠️ THE LABEL IS AN INSTRUCTION, NOT A STATEMENT, and the first draft got
+      // this wrong in a way only looking at the screen revealed: it read «Order
+      // placed — Aldo Legacy Foods», which is exactly how the app would word a
+      // line telling you the order HAD been placed. Sitting under a supplier
+      // whose rows are all ticked, it looked like a receipt. A manager reading it
+      // that way never taps it, and the order is never recorded.
       allDone && group.supplierId ? el('button', {
         type: 'button', class: 'btn-secondary req-place-btn',
         onClick: () => callbacks.onPlaced?.(group.supplierId),
-      }, t('orders.request.orderPlacedFor', { supplier: group.supplierName })) : null,
+      }, t('orders.request.markPlacedFor', { supplier: group.supplierName })) : null,
     ]));
   });
 
@@ -214,8 +220,12 @@ export function buildRequestScreen(request, options, callbacks) {
     ? el('span', { class: 'req-done-mark', icon: CHECK_ICON, 'aria-label': t('orders.request.allOrdered') })
     : null;
 
+  // ⚠️ SINGULAR, because this screen is ONE list. Both screens carried the same
+  // plural title, so tapping Back changed nothing at the top of the screen and
+  // the arrow looked like it had not worked. The body already names the sender in
+  // the largest type on the page, which is what actually tells the two apart.
   return el('div', { class: 'preview-overlay req-overlay' }, [
-    header(t('orders.request.title'), callbacks.onBack, doneMark),
+    header(t('orders.request.oneTitle'), callbacks.onBack, doneMark),
     scroll,
     footer,
   ]);

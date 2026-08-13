@@ -495,7 +495,10 @@ const DICTIONARIES = Object.freeze({
       one: 'One line has not been ticked. Finishing ticks it too.',
       other: '{n} lines have not been ticked. Finishing ticks them too.',
     },
-    'orders.request.orderPlacedFor': 'Order placed — {supplier}',
+    // ⚠️ AN INSTRUCTION, NOT A STATEMENT. 'Order placed — X' under a supplier
+    // whose lines are all ticked reads as a receipt saying it already happened.
+    'orders.request.markPlacedFor': 'Mark as placed — {supplier}',
+    'orders.request.oneTitle': 'Order list',
     'orders.request.noteLabel': 'Note',
     'orders.request.delete': 'Delete this list',
     'orders.request.deleteTitle': 'Delete this list?',
@@ -1558,7 +1561,8 @@ const DICTIONARIES = Object.freeze({
       one: 'Una riga non è spuntata. Chiudendo si spunta anche quella.',
       other: '{n} righe non sono spuntate. Chiudendo si spuntano anche quelle.',
     },
-    'orders.request.orderPlacedFor': 'Ordine effettuato — {supplier}',
+    'orders.request.markPlacedFor': 'Segna come ordinato — {supplier}',
+    'orders.request.oneTitle': 'Lista d’ordine',
     'orders.request.noteLabel': 'Nota',
     'orders.request.delete': 'Elimina questa lista',
     'orders.request.deleteTitle': 'Eliminare questa lista?',

@@ -1411,7 +1411,14 @@ a.home-reminder {
 /* ⚠️ NOT a strike-through, and not the danger red. A ticked line is DONE, which is
    a good thing; struck-out type reads as "cancelled" and red reads as "wrong". */
 .req-item--done { background: var(--surface2); }
-.req-item--done .req-item-name { color: var(--text3); }
+/* ⚠️ --text2, NOT --text3, AND IT WAS MEASURED. A ticked line is still something
+   somebody re-reads ("did I order the flour?"), so it steps BACK without becoming
+   hard to read: --text3 on this background measures 4.20:1, under the 4.5:1 that
+   15px text needs (P18); --text2 measures 5.5:1 and still reads as done.
+   ⚠️ The 4.20 figure is the DESIGN's own colour and it is used all over the app —
+   that is a separate, app-wide question for Federico, exactly like --text-4's
+   3.6:1. Not fixed unilaterally here; only this new line was chosen properly. */
+.req-item--done .req-item-name { color: var(--text2); }
 .req-item-changed {
   font-family: 'DM Mono', monospace;
   font-size: 11px;

@@ -671,13 +671,27 @@ async function sendListToManagers(supplierIds) {
 
 function openRequestList() {
   resetRequestWindow();
-  closeRequestList();
-  requestListView = buildRequestListScreen(state.requests, {
+  renderRequestList();
+}
+
+// ⚠️⚠️ IT REPLACES IN PLACE, IT DOES NOT REMOVE AND RE-APPEND — and that one word
+// is the difference between working and unusable. Both screens are .req-overlay
+// at the same z-index, so DOM ORDER decides which is in front. Re-appending the
+// list put it back at the END of <body>, i.e. ON TOP of the open list somebody
+// was ticking — so every tick threw the manager back to the list of lists, and so
+// did a colleague ticking anything from their own phone.
+//
+// Found by driving the app: three checks went red reporting an empty screen, and
+// the screen was not empty at all — it was the wrong one, in front.
+function renderRequestList() {
+  const next = buildRequestListScreen(state.requests, {
     onBack: closeRequestList,
     onOpen: id => { openRequestId = id; renderOpenRequest(); },
-    onRepaint: openRequestList,
+    onRepaint: renderRequestList,
   });
-  document.body.appendChild(requestListView);
+  if (requestListView) requestListView.replaceWith(next);
+  else document.body.appendChild(next);
+  requestListView = next;
 }
 
 function closeRequestList() {
@@ -1455,6 +1469,14 @@ async function init() {
     syncInputsFromState();
     renderReminders();
     checkPendingOnce();
+    // ⚠️ THE OPEN LIST DEPENDS ON THE SHARED ORDER, NOT ONLY ON ITSELF. Its
+    // "now in the list: 6" marks are a comparison against these very entries, so
+    // without this the warning appeared only if the LIST document happened to
+    // change too — meaning the one case it exists for, somebody editing the
+    // shared order while a manager reads the frozen numbers, showed nothing at
+    // all. Found by driving the app; the model's own tests were green throughout,
+    // because the comparison was right and nobody was asking it again.
+    renderOpenRequest();
   }, liveDataLost('the order in progress'));
 
   watchCollection(COLLECTIONS.history, list => {
@@ -1472,7 +1494,10 @@ async function init() {
   watchOrderRequests(list => {
     state.requests = list;
     renderRequestBanner();
-    if (requestListView) openRequestList();
+    // ⚠️ renderRequestList, NOT openRequestList: the latter resets the "show
+    // older" choice, so a snapshot arriving while somebody was looking at the
+    // older lists would fold them away under their thumb.
+    if (requestListView) renderRequestList();
     renderOpenRequest();
   }, liveDataLost('the order lists'));
 
