@@ -26,7 +26,7 @@ export function renderTodayOrders(container, list, { onPick } = {}) {
   if (list.every(item => item.placed)) {
     container.appendChild(el('div', { class: 'today-banner all-done' }, [
       el('span', { class: 'today-check', icon: CHECK_SVG, 'aria-hidden': 'true' }),
-      el('span', { text: "Today's orders are all placed" }),
+      el('span', { text: 'Today’s orders are all placed' }),
     ]));
     return;
   }
@@ -82,7 +82,7 @@ export function renderPending(container, list, { onPlaced, onToday, onDiscard, n
         el('button', {
           type: 'button', class: 'pending-btn',
           onClick: () => onToday?.(supplier.id),
-        }, "It's today's"),
+        }, 'It’s today’s'),
         el('button', {
           type: 'button', class: 'pending-btn danger',
           onClick: () => onDiscard?.(supplier.id),

@@ -397,7 +397,7 @@ async function applyOrder(order, button) {
   const targets = fields.inspect(patch);
 
   if (!targets.length) {
-    await alertDialog('None of this client\'s products are on a calculator tab at the moment, so there is nothing to fill in.');
+    await alertDialog('None of this client’s products are on a calculator tab at the moment, so there is nothing to fill in.');
     return;
   }
 
@@ -424,8 +424,8 @@ async function applyOrder(order, button) {
   }
 
   const message = parts.length
-    ? `${parts.join('\n\n')}\n\nPut ${client.name}'s order in the calculator?`
-    : `Put ${client.name}'s order in the calculator?`;
+    ? `${parts.join('\n\n')}\n\nPut ${client.name}’s order in the calculator?`
+    : `Put ${client.name}’s order in the calculator?`;
 
   if (!(await confirmDialog({
     title: clashes.length ? 'This will replace what is typed' : undefined,

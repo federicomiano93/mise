@@ -134,7 +134,7 @@ export async function confirmDay(day, items, note, nowMs = Date.now()) {
     return saved;
   } catch (err) {
     console.warn('Pastry record did not save:', err);
-    if (onError) onError(`Couldn't record ${day} — check your connection.`);
+    if (onError) onError(`Couldn’t record ${day} — check your connection.`);
     return null;
   }
 }
@@ -146,7 +146,7 @@ export async function removeLog(id) {
     return true;
   } catch (err) {
     console.warn('Pastry record did not delete:', err);
-    if (onError) onError("Couldn't remove that record — check your connection.");
+    if (onError) onError('Couldn’t remove that record — check your connection.');
     return false;
   }
 }
