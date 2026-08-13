@@ -64,9 +64,27 @@ const call = name => httpsCallable(functions, name);
 //
 // ⚠️ And none of these three takes a locationId from currentSession(): they are
 // about the app's customers, never about the place you happen to have open.
-export async function createWorkspace(name, sections) {
+
+// Create a business. `opts.forSelf` decides who ends up inside it:
+//   false (default) → a CUSTOMER's business: returns a one-time link, and the
+//                     caller does NOT become a member. Their data, their keys.
+//   true            → ONE OF MINE: the caller is made owner on the spot, in one
+//                     transaction, and NO link is minted. firstName/lastName go
+//                     on the roster row, exactly as redeeming a code would.
+//
+// ⚠️ The two are not a style choice. Adding a business to yourself through the
+// customer route means redeeming a link with an email that already has an
+// account — refused by Firebase, and the reason Federico could not add his
+// second business on 13 Aug 2026.
+export async function createWorkspace(name, sections, opts = {}) {
   await signedInReady;
-  const res = await call('createWorkspace')({ name, sections });
+  const res = await call('createWorkspace')({
+    name,
+    sections,
+    forSelf: opts.forSelf === true,
+    firstName: opts.firstName || '',
+    lastName: opts.lastName || '',
+  });
   return res.data;
 }
 

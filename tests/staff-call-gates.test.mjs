@@ -25,10 +25,30 @@ import { readFileSync } from 'node:fs';
 const src = readFileSync(new URL('../js/staff/firebase-staff.js', import.meta.url), 'utf8');
 
 // The body of one exported async function, comments and all.
+//
+// ⚠️ IT SKIPS THE PARAMETER LIST FIRST, and that is not tidiness. Taking "the
+// first { after the name" reads the default value in `opts = {}` as the body —
+// so the body comes back as the two characters `{}`, every assertion below finds
+// nothing, and the test reports a missing `await signedInReady` on a function
+// that has one. That happened on 13 Aug 2026, and the failure pointed at
+// perfectly correct code: a reader that can be fooled by an ordinary signature
+// makes the suite lie about the app.
 function bodyOf(name) {
   const start = src.indexOf(`export async function ${name}(`);
   assert.notEqual(start, -1, `${name} is not exported from firebase-staff.js`);
-  const open = src.indexOf('{', start);
+
+  // Walk the parameter list to its matching ')', so any braces inside it — a
+  // destructured argument, a default object — cannot be mistaken for the body.
+  const paramsOpen = src.indexOf('(', start);
+  let parens = 0;
+  let paramsEnd = -1;
+  for (let i = paramsOpen; i < src.length; i++) {
+    if (src[i] === '(') parens++;
+    else if (src[i] === ')' && --parens === 0) { paramsEnd = i; break; }
+  }
+  assert.notEqual(paramsEnd, -1, `could not read the parameters of ${name}`);
+
+  const open = src.indexOf('{', paramsEnd);
   let depth = 0;
   for (let i = open; i < src.length; i++) {
     if (src[i] === '{') depth++;

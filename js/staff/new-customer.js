@@ -40,6 +40,27 @@ const SECTIONS = [
 
 const MAX_NAME = 80;   // the server refuses longer, so refuse it here first
 
+// ⚠️ WHO THE BUSINESS IS FOR, asked FIRST because it changes everything after it.
+//
+// Added 13 Aug 2026, after Federico created a second business for himself and
+// could not get into it. The only route was to mint a link meant for a stranger
+// and redeem it on his own account — which Firebase refuses, because that email
+// already exists. The link is not a missing feature for this case: it is a step
+// that should never have been in the way.
+//
+// ⚠️ AND THE TWO OUTCOMES ARE GENUINELY DIFFERENT, not a wording choice. For a
+// customer the caller does NOT become a member — their data, their staff, their
+// prices, and whoever sells the app has no business holding those keys. For one
+// of his own there is nobody to invite, so he is made owner on the spot.
+//
+// Drawn as two rows with the reason underneath, the pattern this app already uses
+// for the sections below and for the Misé home — never a dropdown, whose options
+// can only be read one at a time, after choosing.
+const OWNERS = [
+  ['customer', 'For a customer', 'They get a link and become the owner. You do not go in.'],
+  ['self', 'One of mine', 'Created and opened straight away, in your account. No link.'],
+];
+
 // ⚠️ THE CLIPBOARD IS RACED AGAINST A CLOCK. navigator.clipboard.writeText() can
 // sit there and never settle — the page losing focus is enough — and here it
 // would be the only thing between creating a customer and being shown their link.
@@ -61,7 +82,13 @@ async function copyToClipboard(text) {
 // a business was created or not. ⚠️ It fires on CLOSE and not on success, because
 // a business created and then walked away from is exactly the one the list has to
 // show: it is stranded, and its link cannot be shown again.
-export function openNewCustomer({ onClose } = {}) {
+// `host` is where the overlay is mounted, and it matters in exactly one case —
+// the same one openBusinesses documents. Opened from the Businesses screen it
+// belongs on the body; opened from a screen drawn INSIDE the auth cover (the
+// "Choose location" list, added 13 Aug 2026) it must be mounted in the cover,
+// because the cover marks every other child of <body> `inert` and a panel out
+// there would be visible and untappable.
+export function openNewCustomer({ onClose, host } = {}) {
   // The link, once it exists. Kept here because it decides whether leaving the
   // screen is safe — see the Back handler.
   let made = null;
@@ -133,16 +160,60 @@ export function openNewCustomer({ onClose } = {}) {
   const status = el('p', { class: 'people-note', role: 'alert' });
   const create = el('button', { type: 'button', class: 'btn-primary people-save', text: 'Create' });
 
+  // Who it is for. Radios, not tick boxes: it is one answer, and the browser's own
+  // grouping gives arrow-key navigation and the right screen-reader announcement.
+  let ownerKind = 'customer';
+  const hint = el('p', { class: 'people-hint' });
+  const ownerList = el('div', { class: 'nc-sections' },
+    OWNERS.map(([key, label, what]) => {
+      const radio = el('input', { type: 'radio', class: 'nc-check', name: 'nc-owner' });
+      radio.checked = key === 'customer';
+      radio.addEventListener('change', () => {
+        if (!radio.checked) return;
+        ownerKind = key;
+        paintHint();
+      });
+      return el('label', { class: 'nc-section' }, [
+        radio,
+        el('span', { class: 'nc-section-text' }, [
+          el('span', { class: 'nc-section-name', text: label }),
+          el('span', { class: 'nc-section-what', text: what }),
+        ]),
+      ]);
+    }));
+
+  // ⚠️ DECLARED BEFORE THE FUNCTION THAT USES IT. This project lost an afternoon to
+  // a Catalogue that rendered completely blank with NO console error, because a
+  // helper was reached before its own declaration (v1.27.0). It would be safe here
+  // by call order alone — that is exactly the kind of "safe for now" that stops
+  // being true when somebody moves a line.
+  const sectionsLabel = el('p', { class: 'people-label' });
+
+  // ⚠️ THE HINT FOLLOWS THE CHOICE. A fixed sentence describing the link becomes a
+  // lie the moment "one of mine" is picked, and a wrong explanation is worse than
+  // none because the next one is believed too (the v250 lesson, same shape).
+  function paintHint() {
+    hint.textContent = ownerKind === 'self'
+      ? 'Creates the business in YOUR account, as owner. It opens straight away — '
+        + 'no link, nothing to send.'
+      : 'Creates the business and a link that makes whoever opens it its owner. '
+        + 'They choose their own email and password. You do not go in.';
+    sectionsLabel.textContent = ownerKind === 'self'
+      ? 'Which sections it uses'
+      : 'What they are buying';
+  }
+
   form.append(
-    el('p', { class: 'people-hint', text:
-      'Creates the business and a link that makes whoever opens it its owner. '
-      + 'They choose their own email and password.' }),
+    el('p', { class: 'people-label', text: 'Who is this business for?' }),
+    ownerList,
+    hint,
     nameLabel,
-    el('p', { class: 'people-label', text: 'What they are buying' }),
+    sectionsLabel,
     sectionList,
     create,
     status,
   );
+  paintHint();
 
   // ⚠️ EVERY CHECK RUNS BEFORE THE NETWORK, and a location with no sections is a
   // real refusal, not pedantry: it opens to an empty Home and there is no screen
@@ -168,11 +239,14 @@ export function openNewCustomer({ onClose } = {}) {
     const sections = {};
     boxes.forEach((box, key) => { sections[key] = box.checked; });
 
+    const forSelf = ownerKind === 'self';
     const bought = SECTIONS.filter(([key]) => sections[key]).map(([, label]) => label);
     const ok = await confirmDialog({
-      title: 'Create this business?',
+      title: forSelf ? 'Create this business?' : 'Create this customer?',
       message: `${typed}\n\nSections: ${bought.join(', ')}.\n\n`
-        + 'Whoever opens the link becomes its owner.',
+        + (forSelf
+          ? 'It will be created in YOUR account, as owner.'
+          : 'Whoever opens the link becomes its owner.'),
       okLabel: 'Create',
     });
     if (!ok) return;
@@ -180,7 +254,12 @@ export function openNewCustomer({ onClose } = {}) {
     create.disabled = true;
     status.textContent = 'Creating…';
     try {
-      const res = await createWorkspace(typed, sections);
+      const res = await createWorkspace(typed, sections, { forSelf });
+      if (forSelf) {
+        made = { name: typed, locationId: res.locationId, mine: true };
+        showMine();
+        return;
+      }
       made = { name: typed, link: joinLinkFor(res.token), expiresAt: res.expiresAt,
                locationId: res.locationId };
       showLink();
@@ -189,6 +268,31 @@ export function openNewCustomer({ onClose } = {}) {
       create.disabled = false;
     }
   });
+
+  // ── One of mine: nothing to copy, nothing to lose ──────────────────────────
+  //
+  // ⚠️ NO "COPY THE LINK" AND NO WARNING ON THE WAY OUT, because there is no
+  // secret here to leave behind. The customer screen has both for a real reason —
+  // only a hash of that link is stored, so closing without copying strands a
+  // business nobody can enter. Reusing the same screen would attach a warning to
+  // a situation that cannot go wrong, and a warning that never means anything
+  // teaches people to tap through the one that does (the v275 lesson).
+  function showMine() {
+    form.textContent = '';
+    result.textContent = '';
+    result.append(
+      el('p', { class: 'people-hint', text: `${made.name} is ready, and it is yours.` }),
+      el('p', { class: 'people-note', text:
+        'You are its owner. It will be in your list of businesses.' }),
+      el('button', {
+        class: 'btn-primary people-save', type: 'button', text: 'Open my businesses',
+        // ⚠️ A RELOAD, not a redraw. Membership is read ONCE, when the session
+        // starts, so a brand-new location is invisible to a page that is already
+        // running — the same reason redeeming a code reloads (js/auth-gate.js).
+        onclick: () => window.location.reload(),
+      }),
+    );
+  }
 
   // ── What they get ──────────────────────────────────────────────────────────
 
@@ -231,7 +335,7 @@ export function openNewCustomer({ onClose } = {}) {
     result.append(copy, share, done);
   }
 
-  document.body.appendChild(overlay);
+  (host || document.body).appendChild(overlay);
   setTimeout(() => name.focus(), 0);
   return overlay;
 }
