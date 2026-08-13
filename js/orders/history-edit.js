@@ -146,8 +146,8 @@ export function buildHistoryEditor(record, ingredients, actions) {
 
     const ok = await confirmDialog({
       title: t('orders.saveChanges'),
-      message: `Update ${recordTitle(record)}’s order ${dayPhrase(recordDate(record))}?`,
-      okLabel: 'Save',
+      message: t('orders.updateOrderFor', { supplier: recordTitle(record), day: dayPhrase(recordDate(record)) }),
+      okLabel: t('ui.save'),
     });
     if (!ok) return;
 
@@ -170,8 +170,8 @@ export function buildHistoryEditor(record, ingredients, actions) {
   async function remove() {
     const ok = await confirmDialog({
       title: t('orders.deleteThisOrder'),
-      message: `Delete ${recordTitle(record)}’s order ${dayPhrase(recordDate(record))}?\n\nIt is removed from History for good and cannot be recovered. The suggested order quantities learn from these records, so they will change.`,
-      okLabel: 'Delete',
+      message: t('orders.deleteOrderFor', { supplier: recordTitle(record), day: dayPhrase(recordDate(record)) }),
+      okLabel: t('ui.delete'),
       danger: true,
     });
     if (!ok) return;

@@ -274,7 +274,7 @@ async function openDay(grant, clientName, products, dates, date) {
 
   if (existing) {
     form.setStatus(
-      `You have already sent an order for ${dayLabel(date, Date.now())}. Sending again replaces it.`,
+      t('co.alreadySentFor', { day: dayLabel(date, Date.now()) }),
       'info');
   }
 }
@@ -289,7 +289,7 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
   // error nobody can act on.
   if (!isDateOpen(date, Date.now(), cutoff)) {
     await alertDialog(
-      `Orders for ${dayLabel(date, Date.now())} have closed. Please choose another day.`);
+      t('co.ordersClosedFor', { day: dayLabel(date, Date.now()) }));
     openFor(currentUid());
     return;
   }
@@ -297,9 +297,9 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
   // An empty order is a real statement — "nothing this day" — but it is also exactly
   // what a mis-tap produces, so it is the one that gets asked about by name.
   const question = lines === 0
-    ? `Send an order with nothing in it for ${dayLabel(date, Date.now())}?`
-    : `Send this order for ${dayLabel(date, Date.now())}?`;
-  if (!(await confirmDialog({ message: question, okLabel: 'Send' }))) return;
+    ? t('co.sendEmptyFor', { day: dayLabel(date, Date.now()) })
+    : t('co.sendOrderFor', { day: dayLabel(date, Date.now()) });
+  if (!(await confirmDialog({ message: question, okLabel: t('co.send') }))) return;
 
   form.setBusy(true);
   form.setStatus(t('co.sending'), 'info');
@@ -359,7 +359,7 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
   show(el('div', { class: 'co-message co-sent' }, [
     el('h1', { class: 'co-message-title' }, t('co.orderSent')),
     el('p', { class: 'co-message-body' },
-      `${clientName} — ${dayLabel(date, Date.now())}.`),
+      t('co.clientAndDay', { client: clientName, day: dayLabel(date, Date.now()) })),
     el('p', { class: 'co-message-body' },
       // ⚠️ ONE PHRASE PER CASE, AND A REAL PLURAL. The automatic pass mangled the
       // nested template this replaced — and it was right to be unable to handle

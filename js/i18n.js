@@ -339,6 +339,62 @@ const DICTIONARIES = Object.freeze({
     'nc.err.noSection': 'Choose at least one section — otherwise their app opens empty.',
 
 
+    // ── The days, and the difference between a WORD and an IDENTIFIER ───────
+    // ⚠️ The LONG weekday names are NOT here and must never be. They are stored on
+    // every supplier (orderDays/deliveryDays) and are the document ids of the seven
+    // proving lists — they are on DATA_WORDS above. Only the short forms, which
+    // never leave a screen, are words.
+    'day.weekdayShort.0': 'Sun', 'day.weekdayShort.1': 'Mon', 'day.weekdayShort.2': 'Tue',
+    'day.weekdayShort.3': 'Wed', 'day.weekdayShort.4': 'Thu', 'day.weekdayShort.5': 'Fri',
+    'day.weekdayShort.6': 'Sat',
+    'day.monthShort.0': 'Jan', 'day.monthShort.1': 'Feb', 'day.monthShort.2': 'Mar',
+    'day.monthShort.3': 'Apr', 'day.monthShort.4': 'May', 'day.monthShort.5': 'Jun',
+    'day.monthShort.6': 'Jul', 'day.monthShort.7': 'Aug', 'day.monthShort.8': 'Sep',
+    'day.monthShort.9': 'Oct', 'day.monthShort.10': 'Nov', 'day.monthShort.11': 'Dec',
+    // ⚠️ THE ORDER OF THE PIECES IS THE PHRASE. A language that puts the month
+    // first says so here, instead of needing code that knows about it.
+    'day.spelled': '{weekday} {d} {month} {year}',
+    'day.today': 'Today',
+    'day.yesterday': 'Yesterday',
+    'day.tomorrow': 'Tomorrow',
+    // ⚠️ ASKED FOR, NEVER COMPUTED WITH toLowerCase(). Whether a word loses its
+    // capital mid-sentence is the translator's business, not the code's.
+    'day.today.inSentence': 'today',
+    'day.yesterday.inSentence': 'yesterday',
+    'day.tomorrow.inSentence': 'tomorrow',
+    'day.inNDays': { one: 'In {n} day', other: 'In {n} days' },
+    'day.nDaysAgo': { one: '{n} day ago', other: '{n} days ago' },
+    'day.inNDays.inSentence': { one: 'in {n} day', other: 'in {n} days' },
+    'day.nDaysAgo.inSentence': { one: '{n} day ago', other: '{n} days ago' },
+    // The Log badge when the dough was made on one day FOR another.
+    'day.madeFor': '{made} for {target}',
+    // ⚠️ WHOLE PHRASES: English needs 'on' before a date and nothing before
+    // 'today'; Italian needs 'il'. Gluing a preposition in code decides that for
+    // every language at once.
+    'day.on': 'on {day}',
+    'day.for': 'for {day}',
+
+    // ── Sentences that name a DAY, kept whole ────────────────────────────────
+    // ⚠️ WHOLE SENTENCES, not a day word glued into English. Once 'Today' could be
+    // «Oggi», every one of these read as «Placed oggi» — a translated word inside
+    // an untranslated sentence, which is worse than either language alone.
+    'orders.sendDay': 'Send {day}',
+    'orders.notPlacedFor': '{supplier} — order not placed',
+    'orders.typedWhen': '{items} typed {when}',
+    'orders.placedWhen': 'Placed {when}',
+    'orders.updateOrderFor': 'Update {supplier}’s order {day}?',
+    'orders.deleteOrderFor': 'Delete {supplier}’s order {day}?\n\nIt is removed from History for good and cannot be recovered. The suggested order quantities learn from these records, so they will change.',
+    'orders.alreadyRecordedFor': 'An order for {supplier} is already recorded {when}. These items will be ADDED to it.\n\nSend the order on WhatsApp first — recording it clears the rows.',
+    'orders.recordOrderFor': 'Record {supplier}’s order {when}?\n\nSend the order on WhatsApp first — recording it clears the rows.',
+    'orders.addToOrderOf': 'Add to {supplier}’s order',
+    'orders.orderPlacedTitle': '{supplier} — order placed',
+    'co.alreadySentFor': 'You have already sent an order for {day}. Sending again replaces it.',
+    'co.ordersClosedFor': 'Orders for {day} have closed. Please choose another day.',
+    'co.sendEmptyFor': 'Send an order with nothing in it for {day}?',
+    'co.sendOrderFor': 'Send this order for {day}?',
+    'co.send': 'Send',
+    'co.clientAndDay': '{client} — {day}.',
+
     // ── Orders ──────────────────────────────────────────────────────────────
     // ⚠️ THE WHATSAPP MESSAGE A SUPPLIER RECEIVES IS NOT HERE.
     // js/orders/order-text.js is pinned character for character by its own test,
@@ -1412,6 +1468,45 @@ const DICTIONARIES = Object.freeze({
     'nc.err.noCountry': 'Scegli il paese in cui vende questa attività — decide la lingua delle sue etichette.',
     'nc.err.noSection': 'Scegli almeno una sezione — altrimenti la loro app si apre vuota.',
 
+
+    'day.weekdayShort.0': 'dom', 'day.weekdayShort.1': 'lun', 'day.weekdayShort.2': 'mar',
+    'day.weekdayShort.3': 'mer', 'day.weekdayShort.4': 'gio', 'day.weekdayShort.5': 'ven',
+    'day.weekdayShort.6': 'sab',
+    'day.monthShort.0': 'gen', 'day.monthShort.1': 'feb', 'day.monthShort.2': 'mar',
+    'day.monthShort.3': 'apr', 'day.monthShort.4': 'mag', 'day.monthShort.5': 'giu',
+    'day.monthShort.6': 'lug', 'day.monthShort.7': 'ago', 'day.monthShort.8': 'set',
+    'day.monthShort.9': 'ott', 'day.monthShort.10': 'nov', 'day.monthShort.11': 'dic',
+    'day.spelled': '{weekday} {d} {month} {year}',
+    'day.today': 'Oggi',
+    'day.yesterday': 'Ieri',
+    'day.tomorrow': 'Domani',
+    'day.today.inSentence': 'oggi',
+    'day.yesterday.inSentence': 'ieri',
+    'day.tomorrow.inSentence': 'domani',
+    'day.inNDays': { one: 'Fra {n} giorno', other: 'Fra {n} giorni' },
+    'day.nDaysAgo': { one: '{n} giorno fa', other: '{n} giorni fa' },
+    'day.inNDays.inSentence': { one: 'fra {n} giorno', other: 'fra {n} giorni' },
+    'day.nDaysAgo.inSentence': { one: '{n} giorno fa', other: '{n} giorni fa' },
+    'day.madeFor': '{made} per {target}',
+    'day.on': 'il {day}',
+    'day.for': 'per {day}',
+
+    'orders.sendDay': 'Manda {day}',
+    'orders.notPlacedFor': '{supplier} — ordine non effettuato',
+    'orders.typedWhen': '{items} scritte {when}',
+    'orders.placedWhen': 'Effettuato {when}',
+    'orders.updateOrderFor': 'Aggiornare l’ordine di {supplier} {day}?',
+    'orders.deleteOrderFor': 'Eliminare l’ordine di {supplier} {day}?\n\nSparisce dallo Storico per sempre e non si può recuperare. Le quantità suggerite imparano da questi registri, quindi cambieranno.',
+    'orders.alreadyRecordedFor': 'Per {supplier} c’è già un ordine registrato {when}. Queste voci verranno AGGIUNTE a quello.\n\nManda prima l’ordine su WhatsApp — registrarlo pulisce le righe.',
+    'orders.recordOrderFor': 'Registrare l’ordine di {supplier} {when}?\n\nManda prima l’ordine su WhatsApp — registrarlo pulisce le righe.',
+    'orders.addToOrderOf': 'Aggiungi all’ordine di {supplier}',
+    'orders.orderPlacedTitle': '{supplier} — ordine effettuato',
+    'co.alreadySentFor': 'Hai già mandato un ordine {day}. Mandandolo di nuovo sostituisci il precedente.',
+    'co.ordersClosedFor': 'Gli ordini {day} sono chiusi. Scegli un altro giorno.',
+    'co.sendEmptyFor': 'Mandare un ordine vuoto {day}?',
+    'co.sendOrderFor': 'Mandare questo ordine {day}?',
+    'co.send': 'Manda',
+    'co.clientAndDay': '{client} — {day}.',
 
     'orders.deletedIngredient': 'Ingrediente eliminato',
     'orders.setAQuantityTo': 'Metti una quantità a 0 per togliere quella voce dall’ordine.',

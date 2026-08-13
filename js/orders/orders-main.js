@@ -34,7 +34,7 @@ import { computeSuggestion, unusualQuantities } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
 import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
-import { todayISO, dayPhrase, localDayOf, dayLabel } from './day.js';
+import { todayISO, dayPhrase, daySpoken, localDayOf, dayLabel } from './day.js';
 import {
   buildOrderMessage, whatsappUrl, itemsFromQuantities, indexById,
 } from './order-text.js';
@@ -559,7 +559,7 @@ function sendRecord(record) {
 function openSendDayScreen(date, records) {
   const rows = records.map(recordToRow).filter(r => r.items.length);
   const overlay = buildSupplierPicker(rows, {
-    title: `Send ${dayLabel(date).toLowerCase()}`,
+    title: t('orders.sendDay', { day: daySpoken(date) }),
     actionLabel: t('orders.sendOnWhatsapp'),
     emptyText: t('orders.nothingToSendFor'),
     format: messageFormatOption(),
@@ -1139,13 +1139,15 @@ function confirmPlacement(supplier, date) {
   const already = state.history.some(h => h.id === historyDocId(date, supplier.id));
 
   const base = already
-    ? `An order for ${supplier.name} is already recorded ${when}. These items will be ADDED to it.\n\nSend the order on WhatsApp first — recording it clears the rows.`
-    : `Record ${supplier.name}’s order ${when}?\n\nSend the order on WhatsApp first — recording it clears the rows.`;
+    ? t('orders.alreadyRecordedFor', { supplier: supplier.name, when })
+    : t('orders.recordOrderFor', { supplier: supplier.name, when });
 
   const odd = unusualRowsFor(supplier.id);
 
   return confirmDialog({
-    title: already ? `Add to ${supplier.name}’s order` : `${supplier.name} — order placed`,
+    title: already
+      ? t('orders.addToOrderOf', { supplier: supplier.name })
+      : t('orders.orderPlacedTitle', { supplier: supplier.name }),
     message: odd.length ? `${unusualWarning(odd)}\n\n${base}` : base,
     okLabel: already ? t('orders.addToIt') : t('orders.orderPlaced'),
     // Recording is what turns the rows into an order, and this is the last screen
