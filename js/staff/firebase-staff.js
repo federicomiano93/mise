@@ -100,6 +100,17 @@ export async function reissueOwnerLink(locationId) {
   return res.data;
 }
 
+// ⚠️ signedInReady, NOT sessionReady — like listWorkspaces and reissueOwnerLink
+// above and for the same reason: this is called from a screen that sits ABOVE
+// every location, so waiting for one to open would wait for ever. That mistake
+// shipped once and left the Businesses list on "Loading…" with nothing said
+// (v1.41.0); tests/staff-call-gates.test.mjs pins both directions.
+export async function deleteWorkspace(locationId) {
+  await signedInReady;
+  const res = await call('deleteWorkspace')({ locationId });
+  return res.data;
+}
+
 export async function createJoinCode(role = 'staff') {
   await sessionReady;
   const res = await call('createJoinCode')({

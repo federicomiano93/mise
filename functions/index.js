@@ -175,6 +175,6 @@ export const notifyClientOrder = onDocumentCreated(
 // fails with the client's generic "internal" — which says nothing and looks
 // exactly like a broken function.
 export {
-  createWorkspace, listWorkspaces, reissueOwnerLink,
+  createWorkspace, listWorkspaces, reissueOwnerLink, deleteWorkspace,
   createJoinCode, redeemJoinCode, setMemberRole, setMemberName,
 } from './onboarding.js';
