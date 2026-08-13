@@ -1040,6 +1040,81 @@ const DICTIONARIES = Object.freeze({
     'country.GB.in': 'in the United Kingdom',
     'country.IT.in': 'in Italy',
 
+
+    // ── The screen AROUND the label ────────────────────────────────────────
+    // ⚠️ THESE ARE THE CHROME, NEVER THE LABEL. What the label itself says comes
+    // from js/market.js, keyed by the venue's country. Anything here is read by
+    // whoever is holding the phone; anything there is read by a customer with an
+    // allergy, in the country the food is sold in.
+    'label.whatItShows': 'What the label shows',
+    'label.blocked': 'No label can be made',
+    'label.blocked.noWeights': 'This recipe has no ingredients with a weight.',
+    'label.blocked.notDeclared': {
+      one: '{n} ingredient is not declared. The recipe screen lists them.',
+      other: '{n} ingredients are not declared. The recipe screen lists them.',
+    },
+    'label.onFinishedWeight': 'Worked out on the finished weight — {pct}% is lost in baking.',
+    'label.noNutrition': 'No nutrition table: at least one ingredient has no values per 100 g yet. The allergens above are still complete.',
+    'label.caveat.title': 'Check this before it goes on food',
+    'label.caveat.body': 'It is built from what the suppliers declared and from the recipe as written. It cannot know about your own kitchen — shared benches, shared equipment — or about a substitution made this morning.',
+    'label.copy': 'Copy the text',
+    'label.copied': 'Copied',
+    'label.copyFailed': 'Could not copy — select the text above instead',
+
+
+    // ── The CLIENT's own ordering page ─────────────────────────────────────
+    // ⚠️ IT FOLLOWS THE COUNTRY, NOT THE INTERFACE SETTING — see order-main.js.
+    'co.youCanChangeYour': 'You can change your order until the bakery starts making it.',
+    'co.thisLinkIsIncomplete': 'This link is incomplete',
+    'co.askTheBakeryTo': 'Ask the bakery to send you your ordering link again.',
+    'co.thisLinkIsNot': 'This link is not valid',
+    'co.thisLinkNoLonger': 'This link no longer works',
+    'co.itMayHaveBeen': 'It may have been replaced by a newer one. Ask the bakery for your current link.',
+    'co.openYourOrderingLink': 'Open your ordering link',
+    'co.useTheLinkThe': 'Use the link the bakery sent you. Once you have opened it once, this page will ',
+    'co.rememberYouOnThis': 'remember you on this device.',
+    'co.loading': 'Loading…',
+    'co.fetchingYourProducts': 'Fetching your products.',
+    'co.thisLinkIsNot2': 'This link is not set up yet',
+    'co.askTheBakeryTo2': 'Ask the bakery to send you a new ordering link.',
+    'co.couldNotLoadYour': 'Could not load your products',
+    'co.thisUsuallyMeansNo': 'This usually means no connection. Check it and try again.',
+    'co.yourOrder': 'Your order',
+    'co.orderingIsClosedFor': 'Ordering is closed for now',
+    'co.sending': 'Sending…',
+    'co.thisOrderHasChanged': 'This order has changed since you opened it. Reloading…',
+    'co.notSentCheckYour': 'Not sent — check your connection and try again.',
+    'co.orderSent': 'Order sent',
+    'co.changeThisOrder': 'Change this order',
+    'co.deliveryDay': 'Delivery day',
+    'co.yourProductListIs': 'Your product list is empty. Ask the bakery to add what you order.',
+    'co.howMany': 'How many',
+    'co.anythingTheBakeryShould': 'Anything the bakery should know (optional)',
+    'co.sendOrder': 'Send order',
+    'co.theLinkDidNot': 'The link did not say which bakery this is.',
+    'co.deletedProduct': 'Deleted product',
+    'co.thisClientCannotHave': 'This client cannot have an ordering link until it has been saved.',
+    'co.nothingThatDay': 'You have told the bakery you need nothing that day.',
+    // ⚠️ REAL PLURALS, one phrase per case. What this replaced was a count, a
+    // ternary plural and a second ternary for the deadline, all in one template.
+    'co.sent.withCutoff': {
+      one: '{n} item. You can change it until {time} the day before.',
+      other: '{n} items. You can change it until {time} the day before.',
+    },
+    'co.sent.noCutoff': {
+      one: '{n} item. You can still change it.',
+      other: '{n} items. You can still change it.',
+    },
+
+
+    'people.noNameYet': '(no name yet)',
+    'people.you': ' · you',
+    'people.noEmailParen': '(no email)',
+    'price.byWeight': 'by weight (kg)',
+    'price.byVolume': 'by volume (litres)',
+    'price.none': 'No price yet',
+    'price.needPieceWeight': 'Add the weight of one piece to use this in a recipe',
+
     'common.loading': 'Loading…',
   }),
   it: Object.freeze({
@@ -1932,6 +2007,72 @@ const DICTIONARIES = Object.freeze({
     'country.IT': 'Italia',
     'country.GB.in': 'nel Regno Unito',
     'country.IT.in': 'in Italia',
+
+
+    'label.whatItShows': 'Cosa mostra l’etichetta',
+    'label.blocked': 'Non si può fare nessuna etichetta',
+    'label.blocked.noWeights': 'Questa ricetta non ha ingredienti con un peso.',
+    'label.blocked.notDeclared': {
+      one: '{n} ingrediente non è dichiarato. La schermata della ricetta li elenca.',
+      other: '{n} ingredienti non sono dichiarati. La schermata della ricetta li elenca.',
+    },
+    'label.onFinishedWeight': 'Calcolato sul peso finito — il {pct}% si perde in cottura.',
+    'label.noNutrition': 'Nessuna tabella nutrizionale: almeno un ingrediente non ha ancora i valori per 100 g. Gli allergeni qui sopra sono comunque completi.',
+    'label.caveat.title': 'Controlla questa etichetta prima di metterla sul cibo',
+    'label.caveat.body': 'È costruita da quello che hanno dichiarato i fornitori e dalla ricetta come è scritta. Non può sapere niente della tua cucina — banchi condivisi, attrezzature condivise — né di una sostituzione fatta stamattina.',
+    'label.copy': 'Copia il testo',
+    'label.copied': 'Copiato',
+    'label.copyFailed': 'Copia non riuscita — seleziona il testo qui sopra',
+
+
+    'co.youCanChangeYour': 'Puoi modificare il tuo ordine finché il panificio non comincia a farlo.',
+    'co.thisLinkIsIncomplete': 'Questo link è incompleto',
+    'co.askTheBakeryTo': 'Chiedi al panificio di rimandarti il tuo link per ordinare.',
+    'co.thisLinkIsNot': 'Questo link non è valido',
+    'co.thisLinkNoLonger': 'Questo link non funziona più',
+    'co.itMayHaveBeen': 'Potrebbe essere stato sostituito da uno più recente. Chiedi al panificio il link attuale.',
+    'co.openYourOrderingLink': 'Apri il tuo link per ordinare',
+    'co.useTheLinkThe': 'Usa il link che ti ha mandato il panificio. Una volta aperto, questa pagina ',
+    'co.rememberYouOnThis': 'ti riconoscerà su questo dispositivo.',
+    'co.loading': 'Caricamento…',
+    'co.fetchingYourProducts': 'Sto recuperando i tuoi prodotti.',
+    'co.thisLinkIsNot2': 'Questo link non è ancora attivo',
+    'co.askTheBakeryTo2': 'Chiedi al panificio di mandarti un nuovo link per ordinare.',
+    'co.couldNotLoadYour': 'Non è stato possibile caricare i tuoi prodotti',
+    'co.thisUsuallyMeansNo': 'Di solito vuol dire che manca la connessione. Controllala e riprova.',
+    'co.yourOrder': 'Il tuo ordine',
+    'co.orderingIsClosedFor': 'Gli ordini sono chiusi per ora',
+    'co.sending': 'Invio…',
+    'co.thisOrderHasChanged': 'Questo ordine è cambiato da quando l’hai aperto. Ricarico…',
+    'co.notSentCheckYour': 'Non mandato — controlla la connessione e riprova.',
+    'co.orderSent': 'Ordine mandato',
+    'co.changeThisOrder': 'Modifica questo ordine',
+    'co.deliveryDay': 'Giorno di consegna',
+    'co.yourProductListIs': 'La tua lista prodotti è vuota. Chiedi al panificio di aggiungere quello che ordini.',
+    'co.howMany': 'Quanti',
+    'co.anythingTheBakeryShould': 'Qualcosa che il panificio dovrebbe sapere (facoltativo)',
+    'co.sendOrder': 'Manda l’ordine',
+    'co.theLinkDidNot': 'Il link non diceva di quale panificio si tratta.',
+    'co.deletedProduct': 'Prodotto eliminato',
+    'co.thisClientCannotHave': 'Questo cliente non può avere un link per ordinare finché non è stato salvato.',
+    'co.nothingThatDay': 'Hai detto al panificio che quel giorno non ti serve niente.',
+    'co.sent.withCutoff': {
+      one: '{n} articolo. Puoi modificarlo fino alle {time} del giorno prima.',
+      other: '{n} articoli. Puoi modificarli fino alle {time} del giorno prima.',
+    },
+    'co.sent.noCutoff': {
+      one: '{n} articolo. Puoi ancora modificarlo.',
+      other: '{n} articoli. Puoi ancora modificarli.',
+    },
+
+
+    'people.noNameYet': '(ancora senza nome)',
+    'people.you': ' · tu',
+    'people.noEmailParen': '(nessuna email)',
+    'price.byWeight': 'a peso (kg)',
+    'price.byVolume': 'a volume (litri)',
+    'price.none': 'Ancora nessun prezzo',
+    'price.needPieceWeight': 'Aggiungi il peso di un pezzo per usarlo in una ricetta',
 
     'common.loading': 'Caricamento…',
   }),

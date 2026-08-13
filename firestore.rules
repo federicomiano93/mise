@@ -968,9 +968,22 @@ service cloud.firestore {
         allow create, update: if canUse(lid, 'calculator')
           && stampedFor(lid)
           && request.resource.data.keys().hasOnly(
-               ['bakery', 'bakeryName', 'clientName', 'products', 'updatedAt'])
+               ['bakery', 'bakeryName', 'clientName', 'country', 'products', 'updatedAt'])
           && request.resource.data.clientName is string
           && request.resource.data.clientName.size() <= 200
+          // ⚠️ THE COUNTRY DECIDES WHAT LANGUAGE THE CLIENT'S OWN PAGE IS IN, for
+          // the same reason it decides a label's: that page is read by the
+          // bakery's customer, in the country the bakery sells in. It travels
+          // here because the client cannot read locations/{lid} — staff-only on
+          // purpose, since it also lists which sections the venue uses.
+          //
+          // ⚠️ OPTIONAL IN BOTH DIRECTIONS, ON PURPOSE. Every menu published
+          // before today has no country, and rules reach every phone instantly
+          // while code arrives per device — a required field would refuse every
+          // save from a phone still on the old code. Optional is not unchecked:
+          // when it is there it must be one of the two the app knows.
+          && (!('country' in request.resource.data)
+              || request.resource.data.country in ['GB', 'IT'])
           // ⚠️ bakeryName IS HOW THE CLIENT PAGE LEARNS WHO IT IS FROM. That page
           // cannot read locations/{lid} — the location document is staff-only on
           // purpose, because it also lists which sections the venue uses — so the

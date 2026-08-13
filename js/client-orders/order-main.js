@@ -10,6 +10,8 @@
 // any web-server log — but it would sit in the address bar over the customer's
 // shoulder and in their browser history for ever. Stripping it costs one line.
 
+import { outputLanguage } from '../market.js';
+import { t, setLanguage, DEFAULT_LANGUAGE } from '../i18n.js';
 import {
   setLocation, signInWithToken, onUser, currentUid, readGrant, readMenu, readOrder, writeOrder,
   readCutoff,
@@ -52,7 +54,7 @@ let cutoff = '';
 
 const cutoffNote = () => (cutoff
   ? `Orders for a day close at ${cutoff} the day before. You can change your order until then.`
-  : 'You can change your order until the bakery starts making it.');
+  : t('co.youCanChangeYour'));
 
 function show(node) {
   HOST.textContent = '';
@@ -123,15 +125,15 @@ async function start() {
   const location = link.location || rememberedLocation();
 
   if (!location) {
-    message('This link is incomplete',
-      'Ask the bakery to send you your ordering link again.');
+    message(t('co.thisLinkIsIncomplete'),
+      t('co.askTheBakeryTo'));
     return;
   }
 
   try {
     setLocation(location);
   } catch (err) {
-    message('This link is not valid', 'Ask the bakery to send you your ordering link again.');
+    message(t('co.thisLinkIsNot'), t('co.askTheBakeryTo'));
     return;
   }
   rememberLocation(location);
@@ -144,8 +146,8 @@ async function start() {
       // A revoked or replaced link is the ordinary case, not a crash. It gets a
       // sentence a shopkeeper can act on rather than a Firebase error code.
       forgetLink();
-      message('This link no longer works',
-        'It may have been replaced by a newer one. Ask the bakery for your current link.');
+      message(t('co.thisLinkNoLonger'),
+        t('co.itMayHaveBeen'));
       return;
     }
     forgetLink();
@@ -153,9 +155,9 @@ async function start() {
 
   onUser(async user => {
     if (!user) {
-      message('Open your ordering link',
-        'Use the link the bakery sent you. Once you have opened it once, this page will '
-        + 'remember you on this device.');
+      message(t('co.openYourOrderingLink'),
+        t('co.useTheLinkThe')
+        + t('co.rememberYouOnThis'));
       return;
     }
     await openFor(user.uid);
@@ -163,7 +165,7 @@ async function start() {
 }
 
 async function openFor(uid) {
-  message('Loading…', 'Fetching your products.');
+  message(t('co.loading'), t('co.fetchingYourProducts'));
 
   let grant = null;
   try {
@@ -173,8 +175,8 @@ async function openFor(uid) {
   }
 
   if (!grant || !isValidOrderClientId(grant.clientId)) {
-    message('This link is not set up yet',
-      'Ask the bakery to send you a new ordering link.');
+    message(t('co.thisLinkIsNot2'),
+      t('co.askTheBakeryTo2'));
     return;
   }
 
@@ -183,8 +185,8 @@ async function openFor(uid) {
     menu = await readMenu(grant.clientId);
   } catch (err) {
     console.warn('Could not read the menu:', err);
-    message('Could not load your products',
-      'This usually means no connection. Check it and try again.');
+    message(t('co.couldNotLoadYour'),
+      t('co.thisUsuallyMeansNo'));
     return;
   }
 
@@ -199,14 +201,27 @@ async function openFor(uid) {
 
   const products = (menu && Array.isArray(menu.products) ? menu.products : [])
     .filter(p => p && p.id && p.name);
-  const clientName = String((menu && menu.clientName) || grant.clientName || 'Your order');
+  const clientName = String((menu && menu.clientName) || grant.clientName || t('co.yourOrder'));
   // Published with the menu; absent on every menu written before this change, and
   // absent is what FALLBACK_NAME is for.
   bakeryName = String((menu && menu.bakeryName) || '').trim() || FALLBACK_NAME;
 
+  // ⚠️⚠️ THIS PAGE FOLLOWS THE COUNTRY, NEVER THE BAKERY'S INTERFACE SETTING, and
+  // the distinction is the same one that governs an allergen label. Whoever is
+  // reading this is the bakery's CUSTOMER, in the country the bakery sells in —
+  // so the language is a fact about the market, not a preference somebody in the
+  // kitchen picked. An Italian bakery whose owner reads the app in English still
+  // hands its clients an Italian ordering page, and the reverse.
+  //
+  // ⚠️ NO COUNTRY MEANS ENGLISH, and here that is right where it would be wrong
+  // on a label. A label in the wrong language is not compliant; a page in the
+  // wrong language is only awkward, and refusing to draw it would leave a client
+  // unable to order at all. Every menu published before today has no country.
+  setLanguage(outputLanguage(menu) || DEFAULT_LANGUAGE);
+
   const dates = orderableDates(Date.now(), cutoff);
   if (!dates.length) {
-    message('Ordering is closed for now',
+    message(t('co.orderingIsClosedFor'),
       `Orders for a day close at ${cutoff} the day before. Please try again later.`);
     return;
   }
@@ -287,7 +302,7 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
   if (!(await confirmDialog({ message: question, okLabel: 'Send' }))) return;
 
   form.setBusy(true);
-  form.setStatus('Sending…', 'info');
+  form.setStatus(t('co.sending'), 'info');
 
   // ⚠️ RE-READ THE ORDER IMMEDIATELY BEFORE WRITING IT. `existing` was fetched when
   // this screen opened, and in between the BAKERY may have put the order into the
@@ -331,26 +346,33 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
     // A refusal here means the order moved underneath this screen or its day closed,
     // and both are fixed by starting again from what the database now says.
     if (err && err.code === 'permission-denied') {
-      form.setStatus('This order has changed since you opened it. Reloading…', 'bad');
+      form.setStatus(t('co.thisOrderHasChanged'), 'bad');
       setTimeout(() => openFor(currentUid()), 1200);
       return;
     }
-    form.setStatus('Not sent — check your connection and try again.', 'bad');
+    form.setStatus(t('co.notSentCheckYour'), 'bad');
     return;
   }
 
   clearDraft(orderId);
   form.setBusy(false);
   show(el('div', { class: 'co-message co-sent' }, [
-    el('h1', { class: 'co-message-title' }, 'Order sent'),
+    el('h1', { class: 'co-message-title' }, t('co.orderSent')),
     el('p', { class: 'co-message-body' },
       `${clientName} — ${dayLabel(date, Date.now())}.`),
     el('p', { class: 'co-message-body' },
+      // ⚠️ ONE PHRASE PER CASE, AND A REAL PLURAL. The automatic pass mangled the
+      // nested template this replaced — and it was right to be unable to handle
+      // it: a sentence built out of a count, a ternary plural and a second
+      // ternary for the deadline cannot be translated in any language whose word
+      // order differs. Four whole sentences instead, chosen by two conditions.
       lines === 0
-        ? 'You have told the bakery you need nothing that day.'
-        : `${lines} ${lines === 1 ? 'item' : 'items'}. ${cutoff ? `You can change it until ${cutoff} the day before.` : 'You can still change it.'}`),
+        ? t('co.nothingThatDay')
+        : (cutoff
+          ? t('co.sent.withCutoff', { n: lines, time: cutoff })
+          : t('co.sent.noCutoff', { n: lines }))),
     (() => {
-      const again = el('button', { class: 'co-send', type: 'button' }, 'Change this order');
+      const again = el('button', { class: 'co-send', type: 'button' }, t('co.changeThisOrder'));
       again.addEventListener('click', () => openFor(currentUid()));
       return again;
     })(),

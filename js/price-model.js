@@ -58,6 +58,8 @@
 // The one place the currency is written. The business is in the UK — its bank
 // holidays come from gov.uk and its phone numbers start +44 — so prices are in
 // pounds. Everything that shows money goes through the formatters below.
+import { t } from './i18n.js';
+
 export const CURRENCY = '£';
 
 // What a price can be quoted PER. Deliberately three, and deliberately not the
@@ -68,8 +70,8 @@ export const PRICE_UNITS = Object.freeze(['kg', 'l', 'pcs']);
 
 // Human wording for each, for labels and for the "not costable" explanations.
 export const PRICE_UNIT_LABELS = Object.freeze({
-  kg: 'by weight (kg)',
-  l: 'by volume (litres)',
+  kg: t('price.byWeight'),
+  l: t('price.byVolume'),
   pcs: 'by the piece',
 });
 
@@ -190,8 +192,8 @@ export function isCostable(ingredient) {
 // The wording shown when an ingredient cannot be costed. One sentence, saying what
 // to do rather than what is wrong.
 export const COST_REASON_TEXT = Object.freeze({
-  'no-price': 'No price yet',
-  'no-piece-weight': 'Add the weight of one piece to use this in a recipe',
+  'no-price': t('price.none'),
+  'no-piece-weight': t('price.needPieceWeight'),
 });
 
 export function costReasonText(ingredient) {

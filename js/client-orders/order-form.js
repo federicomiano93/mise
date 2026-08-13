@@ -6,6 +6,7 @@
 // and tested. This file's job is that a busy person in a shop can send tomorrow's
 // order in fifteen seconds without being taught anything.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 
 const MAX_LINE_QTY = 100000;
@@ -86,7 +87,7 @@ export function mountOrderForm(host, {
   daySelect.addEventListener('change', () => { state.date = daySelect.value; report(); });
 
   body.appendChild(el('section', { class: 'co-field' }, [
-    el('label', { class: 'co-label', for: 'co-day' }, 'Delivery day'),
+    el('label', { class: 'co-label', for: 'co-day' }, t('co.deliveryDay')),
     daySelect,
     // ⚠️ THE DEADLINE IS WRITTEN OUT, not merely enforced. A day silently missing from
     // the list looks like a bug; a sentence saying when orders close is the difference
@@ -106,17 +107,17 @@ export function mountOrderForm(host, {
     // Not an error, and it must not read like one: it means the bakery has not
     // finished setting the client up.
     list.appendChild(el('p', { class: 'co-empty' },
-      'Your product list is empty. Ask the bakery to add what you order.'));
+      t('co.yourProductListIs')));
   }
   body.appendChild(el('section', { class: 'co-field' }, [
-    el('label', { class: 'co-label' }, 'How many'),
+    el('label', { class: 'co-label' }, t('co.howMany')),
     list,
   ]));
 
   // ── Anything else ──
   const noteInput = el('textarea', {
     class: 'co-note', id: 'co-note', rows: '3', maxlength: '500',
-    placeholder: 'Anything the bakery should know (optional)',
+    placeholder: t('co.anythingTheBakeryShould'),
   });
   noteInput.value = state.note;
   noteInput.addEventListener('input', () => { state.note = noteInput.value; report(); });
@@ -129,7 +130,7 @@ export function mountOrderForm(host, {
 
   // ── Send ──
   const status = el('p', { class: 'co-status', role: 'status' });
-  const send = el('button', { class: 'co-send', type: 'button' }, 'Send order');
+  const send = el('button', { class: 'co-send', type: 'button' }, t('co.sendOrder'));
   send.addEventListener('click', () => onSubmit(state));
 
   host.appendChild(el('footer', { class: 'co-footer' }, [status, send]));
@@ -142,7 +143,7 @@ export function mountOrderForm(host, {
     },
     setBusy(busy) {
       send.disabled = busy;
-      send.textContent = busy ? 'Sending…' : 'Send order';
+      send.textContent = busy ? t('co.sending') : t('co.sendOrder');
     },
   };
 }
