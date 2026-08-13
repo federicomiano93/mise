@@ -51,9 +51,9 @@
       copyBtn.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(location.href);
-          copyBtn.textContent = 'Link copied — now paste it in Safari';
+          copyBtn.textContent = t('help.linkCopiedNowPaste');
         } catch (e) {
-          copyBtn.textContent = 'Copy failed — long-press the address bar to copy';
+          copyBtn.textContent = t('help.copyFailedLongPress');
         }
       });
     }
@@ -73,7 +73,7 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'install-now-btn';
-      btn.textContent = 'Install app';
+      btn.textContent = t('help.installApp');
       btn.addEventListener('click', async () => {
         if (!deferredPrompt) return;
         deferredPrompt.prompt();
@@ -102,3 +102,5 @@
   }
   showSteps(detected);
 })();
+import { t } from './i18n.js';
+

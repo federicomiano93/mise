@@ -17,6 +17,8 @@
 // ⚠️ TEN, NOT EIGHT. Length is the only property that reliably costs an attacker
 // anything; the usual "a capital and a number" rules mostly produce Password1
 // and teach people to write passwords down. One number to explain, one to change.
+import { t } from './i18n.js';
+
 export const MIN_PASSWORD_LENGTH = 10;
 
 // A name is a label on a roster, not an identity. Two people may share one, and
@@ -54,13 +56,13 @@ export function cleanName(value) {
 // two boxes are on screen.
 export function nameProblem(value, which) {
   const cleaned = cleanName(value);
-  if (!cleaned) return which === 'last' ? 'Enter your surname.' : 'Enter your first name.';
+  if (!cleaned) return which === 'last' ? t('help.enterYourSurname') : t('help.enterYourFirstName');
   // One letter is a legitimate name in plenty of places, so length is not
   // checked downwards. What is refused is a "name" made only of punctuation,
   // which is what an empty form filled in with a dash looks like.
   if (!/\p{Letter}/u.test(cleaned)) {
-    return which === 'last' ? 'That surname needs letters in it.'
-                            : 'That first name needs letters in it.';
+    return which === 'last' ? t('help.thatSurnameNeedsLetters')
+                            : t('help.thatFirstNameNeeds');
   }
   return null;
 }
@@ -71,7 +73,7 @@ export function nameProblem(value, which) {
 // address they typed two boxes up. It is optional, and its absence weakens the
 // check rather than breaking it.
 export function passwordProblem(value, email) {
-  if (typeof value !== 'string' || !value) return 'Choose a password.';
+  if (typeof value !== 'string' || !value) return t('help.chooseAPassword');
   if (value.length < MIN_PASSWORD_LENGTH) {
     return `Make it at least ${MIN_PASSWORD_LENGTH} characters — length is what keeps it safe.`;
   }
@@ -85,18 +87,18 @@ export function passwordProblem(value, email) {
   const stripped = lower.replace(/[^a-z]/g, '');
   const unleet = lower.replace(/[@40135$7]/g, ch => LEET[ch]).replace(/[^a-z]/g, '');
   if ([lower, stripped, unleet].some(form => form && OBVIOUS.includes(form))) {
-    return 'That one is guessed first. Pick something only you would think of.';
+    return t('help.thatOneIsGuessed');
   }
 
   // Repetition passes a length rule and nothing else: 'aaaaaaaaaa' is ten
   // characters and one guess.
   if (/^(.)\1+$/.test(value)) {
-    return 'That is one character repeated. Pick something only you would think of.';
+    return t('help.thatIsOneCharacter');
   }
 
   const local = typeof email === 'string' ? email.split('@')[0].trim().toLowerCase() : '';
   if (local && local.length >= 4 && lower.includes(local)) {
-    return 'Do not use your email address as your password.';
+    return t('help.doNotUseYour');
   }
 
   return null;

@@ -23,7 +23,7 @@
     host.textContent = '';
     const btn = document.createElement('button');
     btn.className = 'install-btn';
-    btn.textContent = 'Install app';
+    btn.textContent = t('help.installApp');
     btn.addEventListener('click', async () => {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
@@ -41,7 +41,9 @@
   if (isIOS && isSafari) {
     const tip = document.createElement('p');
     tip.className = 'install-tip';
-    tip.textContent = 'Add to your home screen: tap the Share button, then “Add to Home Screen”.';
+    tip.textContent = t('help.addToYourHome');
     host.appendChild(tip);
   }
 })();
+import { t } from './i18n.js';
+

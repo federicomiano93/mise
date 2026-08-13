@@ -29,6 +29,7 @@
 // import from js/orders/, where a grouping by day also exists: a feature never imports
 // from another feature's folder.
 
+import { t } from './i18n.js';
 import { isISODate, toISODate, startOfDayMs } from './client-order-model.js';
 
 // ⚠️ FIFTEEN, the number the other two histories in this app already use (supplier
@@ -120,5 +121,5 @@ export function linesLabel(order) {
 export function emptyWords(days, everReceived) {
   return everReceived
     ? `No orders in the last ${days} days. Older ones are still kept — nothing is ever deleted.`
-    : 'No client has sent an order yet. When one does, it will be here afterwards.';
+    : t('help.noClientHasSent');
 }

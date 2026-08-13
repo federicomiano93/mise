@@ -9,6 +9,7 @@
 // /the_italian_club_app/ on GitHub Pages). getToken() is handed the app's
 // existing registration instead, and sw.js does the receiving.
 
+import { t } from './i18n.js';
 import { getApps, getApp, initializeApp }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getMessaging, getToken, deleteToken }
@@ -62,12 +63,12 @@ function isStandalone() {
 
 // What to say for each reason, in one place so every screen says the same thing.
 export const SUPPORT_TEXT = Object.freeze({
-  granted: 'Notifications are on for this phone.',
-  ask: 'Get told when a timer finishes or a client sends an order, even with the app closed.',
-  blocked: 'Notifications are blocked for this app. Turn them back on in your phone settings, then reload.',
-  'install-first': 'Add this app to your Home screen first — on iPhone, notifications only work from the installed app, not from Safari.',
-  'not-configured': 'Notifications are not set up for this app yet.',
-  unsupported: 'This phone cannot show notifications.',
+  granted: t('help.notificationsAreOnFor'),
+  ask: t('help.getToldWhenA'),
+  blocked: t('help.notificationsAreBlockedFor'),
+  'install-first': t('help.addThisAppTo'),
+  'not-configured': t('help.notificationsAreNotSet'),
+  unsupported: t('help.thisPhoneCannotShow'),
 });
 
 // ── Turning them on ──────────────────────────────────────────────────────────

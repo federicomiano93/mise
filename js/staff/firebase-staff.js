@@ -150,6 +150,17 @@ export async function setMemberName(uid, firstName, lastName) {
   return res.data;
 }
 
+// The interface language this venue's staff read.
+//
+// ⚠️ sessionReady, NOT signedInReady — it reads currentSession().locationId, so a
+// location really does have to be open. Firing before one is would send
+// `undefined` as the place to write to. tests/staff-call-gates.test.mjs pins it.
+export async function setLocationLanguage(locationId, language) {
+  await sessionReady;
+  const res = await call('setLocationLanguage')({ locationId, language });
+  return res.data;
+}
+
 // `title` names the manager level — 'manager' or 'head-chef'. It is a LABEL and
 // grants nothing; the server clears it whenever the level is not manager.
 export async function setMemberRole(uid, role, title = null) {

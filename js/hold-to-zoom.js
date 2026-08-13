@@ -63,3 +63,5 @@ document.addEventListener('touchcancel', release);
 // iOS Safari fires its own pinch gesture events; block them so only ours runs.
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('gesturechange', (e) => e.preventDefault());
+import { t } from './i18n.js';
+

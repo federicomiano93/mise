@@ -43,6 +43,8 @@
 // product is pruned). The dough math never reads this — it is purely for the order
 // message.
 
+import { t } from './i18n.js';
+
 export const TABS = ['focaccia', 'brioche', 'sourdough'];
 
 // Allowed weight range, in grams. Guards against a typo turning 150 into 15000
@@ -384,9 +386,9 @@ export const ORDER_PREFILL_DEFAULT = 'both';
 // Wording for the setting, and for the sentence above the order form. Kept beside the
 // values so the two can never drift apart.
 export const ORDER_PREFILL_LABELS = {
-  both: 'Yesterday and today',
-  yesterday: 'Yesterday only',
-  today: 'Today only',
+  both: t('help.yesterdayAndToday'),
+  yesterday: t('help.yesterdayOnly'),
+  today: t('help.todayOnly'),
 };
 
 export function getOrderPrefillWindow(config) {
@@ -963,7 +965,7 @@ function migrateLegacy(raw) {
       const client = findOrCreateClient(mc && mc.name, mc && mc.id);
       if (!clientIds.includes(client.id)) clientIds.push(client.id);
     }
-    return { id: String(list.id || 'g-' + li), title: cleanName(list.title, 'Market order'), clientIds };
+    return { id: String(list.id || 'g-' + li), title: cleanName(list.title, t('help.marketOrder')), clientIds };
   });
 
   return assemble(order, { ...raw, whatsappLists: undefined, groups });
@@ -974,7 +976,7 @@ function legacyMarketLists(market) {
   if (!market || typeof market !== 'object') return [];
   if (Array.isArray(market.lists)) return market.lists;
   if (Array.isArray(market.clients)) {
-    return [{ id: 'list-market', title: market.title || 'Market order', clients: market.clients }];
+    return [{ id: 'list-market', title: market.title || t('help.marketOrder'), clients: market.clients }];
   }
   return [];
 }

@@ -15,6 +15,8 @@
 // worst costs one refetch.
 
 // Prefixes that must SURVIVE a session change, and why each one is here.
+import { t } from './i18n.js';
+
 export const KEEP_PREFIXES = Object.freeze([
   'firebase:',            // Firebase Auth's own session — clearing it logs you back out
   'firebaseLocalStorage', // ditto (SDK fallback storage)

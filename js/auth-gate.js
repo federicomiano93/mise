@@ -619,7 +619,7 @@ function chooseScreen(session) {
   // second — the exact shape of "a screen nobody can reach" this project has hit
   // twice (the install guide, v1.19.0; the join form, v267).
   if (session.isAppAdmin) {
-    const add = el('button', 'auth-link', '+ Add a business');
+    const add = el('button', 'auth-link', t('help.addABusiness'));
     add.type = 'button';
     add.addEventListener('click', async () => {
       const { openNewCustomer } = await import('./staff/new-customer.js');
@@ -783,8 +783,8 @@ function render(session) {
 
     case 'error':
       showGate(() => messageScreen(
-        'Could not check your access',
-        'This usually means no connection. Check it and try again.',
+        t('help.couldNotCheckYour'),
+        t('help.thisUsuallyMeansNo'),
         { account: session.user?.email || '' },
       ));
       break;

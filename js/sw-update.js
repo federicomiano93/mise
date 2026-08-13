@@ -32,6 +32,7 @@
 // foreground (the case that matters for an installed PWA on a phone), and on a
 // slow interval as a fallback for a tablet left open all day.
 
+import { t } from './i18n.js';
 import {
   updateGateState, isBusy, readAttempts, bumpAttempts, resetAttempts,
 } from './update-gate.js';
@@ -93,7 +94,7 @@ function announce(reg) {
 function applyUpdate(reg, button) {
   if (button) {
     button.disabled = true;
-    button.textContent = 'Updating…';
+    button.textContent = t('help.updating');
   }
   bumpAttempts();
 
@@ -121,7 +122,7 @@ function showBanner(reg) {
   const banner = document.createElement('button');
   banner.id = 'sw-update-banner';
   banner.type = 'button';
-  banner.textContent = 'New version available — tap to update';
+  banner.textContent = t('help.newVersionAvailableTap');
 
   const host = document.createElement('div');
   host.id = 'sw-update-host';
@@ -168,18 +169,18 @@ function showGate(reg, withEscape) {
   const title = document.createElement('h2');
   title.className = 'app-dialog-title';
   title.id = 'sw-update-gate-title';
-  title.textContent = 'Update the app to carry on';
+  title.textContent = t('help.updateTheAppTo');
 
   const message = document.createElement('p');
   message.className = 'app-dialog-msg';
   message.textContent = withEscape
-    ? 'The update did not go through. Trying again is worth it — everyone needs to be on the same version. Anything you have typed is already saved.'
-    : 'A new version is ready and takes a moment to install. Anything you have typed is already saved.';
+    ? t('help.theUpdateDidNot')
+    : t('help.aNewVersionIs');
 
   const updateBtn = document.createElement('button');
   updateBtn.type = 'button';
   updateBtn.className = 'app-dialog-btn app-dialog-btn-solid';
-  updateBtn.textContent = withEscape ? 'Try again' : 'Update now';
+  updateBtn.textContent = withEscape ? t('help.tryAgain') : t('help.updateNow');
   updateBtn.addEventListener('click', () => applyUpdate(reg, updateBtn));
 
   const actions = document.createElement('div');
@@ -191,7 +192,7 @@ function showGate(reg, withEscape) {
     const carryOn = document.createElement('button');
     carryOn.type = 'button';
     carryOn.className = 'app-dialog-btn app-dialog-btn-ghost';
-    carryOn.textContent = 'Continue without updating';
+    carryOn.textContent = t('help.continueWithoutUpdating');
     carryOn.addEventListener('click', () => {
       dismissed = true;
       gate.remove();
