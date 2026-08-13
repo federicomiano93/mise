@@ -166,12 +166,60 @@ export const createWorkspace = onCall(CALL, async (request) => {
   }
 
   const locationId = mintLocationId();
+  const now = Date.now();
+
+  // ⚠️ TWO KINDS OF BUSINESS, AND THE DIFFERENCE IS WHO ENDS UP INSIDE.
+  //
+  // A CUSTOMER's business (the default): a link is minted and the caller does
+  // NOT become a member. That is deliberate and must stay — it is somebody
+  // else's data, staff and prices, and whoever sells the app has no business
+  // holding the keys to it. See js/staff/businesses.js: the seller can see that
+  // a business exists and re-issue an unopened link, and nothing more.
+  //
+  // ONE OF MY OWN (`forSelf`): there is nobody else to invite. Before 13 Aug 2026
+  // the only route was to mint a link meant for a stranger and redeem it on
+  // yourself — which failed outright, because signing up again with an email that
+  // already has an account is refused, and the app's advice ("sign in instead")
+  // led back to a screen that ignored the invitation. Federico hit exactly that
+  // and could not add his second business. The link is not a missing feature
+  // here; it is a step that should never have existed for this case.
+  const forSelf = !!(request.data && request.data.forSelf === true);
+
+  if (forSelf) {
+    // ⚠️ ONE TRANSACTION, THREE WRITES. Half of this is worse than none of it: a
+    // location that exists with no member is precisely the stranded state the
+    // Businesses screen had to be built to repair (v273), and here it would be
+    // stranded for the person who just created it, with no link to fall back on.
+    await db().runTransaction(async (tx) => {
+      tx.set(db().doc(`locations/${locationId}`), {
+        name, sections, createdAt: now, createdBy: uid,
+      });
+      // The truth the rules read. merge:true because this account almost
+      // certainly already owns something — that is what makes it "one of mine".
+      tx.set(db().doc(`users/${uid}`),
+        { locations: { [locationId]: membershipValue('owner') } }, { merge: true });
+      // The roster row is a LABEL for the screen; the powers are above.
+      tx.set(db().doc(`locations/${locationId}/members/${uid}`), {
+        bakery: locationId,
+        email: (request.auth.token && request.auth.token.email) || '',
+        firstName: cleanName(request.data && request.data.firstName),
+        lastName: cleanName(request.data && request.data.lastName),
+        role: 'owner',
+        joinedAt: now,
+      });
+    });
+
+    logger.info('Workspace created for self', { locationId, by: uid });
+    // ⚠️ NO TOKEN IS RETURNED, and none is minted. An unused link is a working
+    // key: one left lying around for a business you are already inside is a way
+    // in for whoever finds it, protecting nothing.
+    return { locationId, mine: true };
+  }
+
   const token = mintLinkToken();
 
   await db().doc(`locations/${locationId}`).set({
-    name, sections,
-    createdAt: Date.now(),
-    createdBy: uid,
+    name, sections, createdAt: now, createdBy: uid,
   });
   const expiresAt = await storeCode({
     code: token, kind: 'link', locationId, role: 'owner', createdBy: uid,
@@ -182,7 +230,7 @@ export const createWorkspace = onCall(CALL, async (request) => {
   // account here would mean knowing — and having to transmit — a password
   // belonging to somebody whose business this is.
   logger.info('Workspace created', { locationId, by: uid });
-  return { locationId, token, expiresAt };
+  return { locationId, token, expiresAt, mine: false };
 });
 
 // ── 1b. The customers I have created, and a second chance at their link ──────

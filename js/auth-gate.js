@@ -606,6 +606,29 @@ function chooseScreen(session) {
   });
 
   card.append(list);
+
+  // ⚠️ A BUSINESS CAN BE ADDED FROM THE SCREEN THAT LISTS THEM. Federico asked
+  // for it here (13 Aug 2026) and it is the right place: this is where you are
+  // looking at what you have. Until now the only route ran through Businesses —
+  // the customer list — which is a different screen about different people.
+  //
+  // ⚠️ It cannot be the ONLY route, and that is why the same thing also lives on
+  // the Businesses screen: THIS SCREEN ONLY EXISTS WITH MORE THAN ONE LOCATION.
+  // Somebody with a single venue never sees it, and would have nowhere to add a
+  // second — the exact shape of "a screen nobody can reach" this project has hit
+  // twice (the install guide, v1.19.0; the join form, v267).
+  if (session.isAppAdmin) {
+    const add = el('button', 'auth-link', '+ Add a business');
+    add.type = 'button';
+    add.addEventListener('click', async () => {
+      const { openNewCustomer } = await import('./staff/new-customer.js');
+      // ⚠️ MOUNTED INSIDE THE COVER. The gate marks every other child of <body>
+      // `inert`, so a panel appended out there would be visible and untappable.
+      openNewCustomer({ host: gateHost() });
+    });
+    card.append(add);
+  }
+
   // Reached from the hub, so it needs the way back to it — otherwise the only
   // route to the customer list is to close the app entirely.
   if (session.isAppAdmin) card.append(hubBackLink());
