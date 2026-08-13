@@ -184,8 +184,24 @@ test('no double space inside a sentence', () => {
 // heads a table column, the other sits inside a sentence — so this does not
 // forbid either. It pins that the LABEL form is the capitalised one, so the next
 // person writing a nutrition screen does not have to guess which is which.
+//
+// ⚠️ THE WORDS MOVED, THE RULE DID NOT. Since the label follows the venue's
+// country (js/market.js), the inline form lives in the per-language table and
+// the capitalised heading stayed on the ingredient form. This test followed them
+// rather than being dropped — and it got STRONGER on the way, because it can now
+// ask the same question of Italian, where the lower-case form happens to be
+// identical and is just as easy to capitalise by accident.
 test('the nutrition column heading is capitalised, the inline mention is not', () => {
-  const view = readFileSync(join(ROOT, 'js', 'catalogue', 'label-view.js'), 'utf8');
-  assert.match(view, /text: 'per 100 g'/,
-    'inside the table the unit follows the numbers and stays lower case');
+  const market = readFileSync(join(ROOT, 'js', 'market.js'), 'utf8');
+  const forms = [...market.matchAll(/per100g: '([^']*)'/g)].map(m => m[1]);
+  assert.ok(forms.length >= 2,
+    'every label language must state the unit — a missing one falls back to English silently');
+  for (const form of forms) {
+    assert.equal(form, 'per 100 g',
+      'inside the table the unit follows the numbers and stays lower case');
+  }
+
+  const form = readFileSync(join(ROOT, 'js', 'orders', 'management.js'), 'utf8');
+  assert.match(form, /text: 'Per 100 g'/,
+    'heading its own column, the same phrase is capitalised');
 });
