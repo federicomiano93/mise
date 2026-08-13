@@ -76,8 +76,80 @@ export const DATA_WORDS = Object.freeze([
 // phrases carry `.one` and `.other` and are picked by Intl.PluralRules, the
 // platform's own answer (P19), never by `n === 1 ? … : …` at the call site.
 const DICTIONARIES = Object.freeze({
-  en: Object.freeze({}),
-  it: Object.freeze({}),
+  en: Object.freeze({
+    // ── Who can get in ──────────────────────────────────────────────────────
+    // ⚠️ THE WORD AND THE STORED VALUE ARE DIFFERENT THINGS, and this block is
+    // where that is easiest to get wrong. `role.staff` shows «Employee»; the
+    // value in users/{uid} stays 'staff' whatever any language calls it.
+    'role.owner': 'Owner',
+    'role.manager': 'Manager',
+    'role.headChef': 'Head chef',
+    'role.staff': 'Employee',
+
+    // ⚠️ THE SAME WORD INSIDE A SENTENCE, ASKED FOR RATHER THAN COMPUTED. The
+    // screen used to write `Make ${label.toLowerCase()}`, which is two mistakes
+    // at once: it glues a sentence out of fragments, and it TRANSFORMS a
+    // translated word. Case is a property of a language, not an operation you
+    // may perform on somebody else's — so the form that goes inside a phrase is
+    // its own entry, and the translator decides what it looks like.
+    'people.make': 'Make {role}',
+    'people.add': 'Add {role}',
+    'role.owner.inSentence': 'owner',
+    'role.manager.inSentence': 'manager',
+    'role.headChef.inSentence': 'head chef',
+    'role.staff.inSentence': 'employee',
+
+    // ⚠️ THESE FOUR SENTENCES ARE THE ONLY PLACE ANYBODY IS EVER TOLD what a role
+    // can do. Nothing else in the app explains it, so a translation that softens
+    // one is a wrong decision about a real person's access, made confidently
+    // because the screen said so. «Head chef» must keep saying out loud that it
+    // is the manager level under another name, or four pills read as four levels.
+    'role.means.owner': 'Everything, including adding people and setting their roles.',
+    'role.means.manager': 'Runs this location: can delete suppliers, ingredients, recipes and products. Cannot add people.',
+    'role.means.headChef': 'The same as Manager — it is only the job title that differs. Runs this location: can delete suppliers, ingredients, recipes and products. Cannot add people.',
+    'role.means.staff': 'Does the daily work — quantities, doughs, orders. Cannot delete things or add people.',
+
+    'people.confirm.owner': 'Make {name} an owner?',
+    'people.confirm.manager': 'Make {name} a manager?',
+    'people.confirm.headChef': 'Make {name} the head chef?',
+    'people.confirm.staff': 'Make {name} an employee?',
+
+    // ⚠️ The quoted button name has to match what auth-gate.js actually shows.
+    // It is repeated here rather than composed because that screen's words are
+    // not extracted yet; when they are, this becomes a hole. Until then, changing
+    // one means changing the other — the drift is real, and small.
+    'people.joinsAs': 'Joins as {role} · {expires} · they open the app, tap “I have a code”, create their account and type it.',
+  }),
+  it: Object.freeze({
+    'role.owner': 'Titolare',
+    'role.manager': 'Responsabile',
+    'role.headChef': 'Chef di cucina',
+    'role.staff': 'Dipendente',
+
+    // 📌 Italian puts the word where Italian puts it, which is the entire reason
+    // a phrase is one entry with a hole and not two halves joined at the call
+    // site. «Rendi responsabile», not «Fai responsabile».
+    'people.make': 'Rendi {role}',
+    'people.add': 'Aggiungi {role}',
+    'role.owner.inSentence': 'titolare',
+    'role.manager.inSentence': 'responsabile',
+    'role.headChef.inSentence': 'chef di cucina',
+    'role.staff.inSentence': 'dipendente',
+
+    'role.means.owner': 'Tutto, compreso aggiungere persone e decidere che ruolo hanno.',
+    'role.means.manager': 'Gestisce questo locale: può cancellare fornitori, ingredienti, ricette e prodotti. Non può aggiungere persone.',
+    'role.means.headChef': 'Identico a Responsabile — cambia solo il nome del ruolo. Gestisce questo locale: può cancellare fornitori, ingredienti, ricette e prodotti. Non può aggiungere persone.',
+    'role.means.staff': 'Fa il lavoro di ogni giorno — quantità, impasti, ordini. Non può cancellare niente né aggiungere persone.',
+
+    // 📌 Italian takes no article here, which is exactly why these are four whole
+    // sentences and not one template with a hole for «an» / «a» / «the».
+    'people.confirm.owner': 'Rendere {name} titolare?',
+    'people.confirm.manager': 'Rendere {name} responsabile?',
+    'people.confirm.headChef': 'Rendere {name} chef di cucina?',
+    'people.confirm.staff': 'Rendere {name} dipendente?',
+
+    'people.joinsAs': 'Entra come {role} · {expires} · apre l’app, tocca “I have a code”, crea il suo account e digita il codice.',
+  }),
 });
 
 // ── Which language is showing ────────────────────────────────────────────────

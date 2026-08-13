@@ -17,6 +17,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { _dictionaries } from '../js/i18n.js';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SERVER = readFileSync(join(ROOT, 'functions', 'onboarding.js'), 'utf8');
 const CLIENT = readFileSync(join(ROOT, 'js', 'staff', 'firebase-staff.js'), 'utf8');
@@ -110,10 +112,30 @@ test('the screen really sends the title, through the data layer', () => {
 // Somebody would choose between Manager and Head chef believing it changed what
 // the person can do. The sentence under the pills is the only place anybody is
 // ever told, so it has to say they are the same.
+//
+// ⚠️ THE SENTENCE MOVED INTO THE DICTIONARY, THE RULE DID NOT — and the test got
+// stronger following it, because a translation is exactly where this protection
+// would be lost. A translator handed «The same as Manager…» in a list of phrases
+// has no way of knowing that softening it changes who can delete a supplier. So
+// EVERY language is asked, not just English.
 test('the screen says out loud that head chef and manager are the same powers', () => {
   const at = SCREEN.indexOf('const ROLE_MEANS');
   const means = SCREEN.slice(at, SCREEN.indexOf('};', at));
   assert.match(means, /'head-chef':/, 'the head chef needs its own sentence');
-  assert.match(means, /The same as Manager/,
-    'and that sentence must say it grants nothing extra');
+
+  const dicts = _dictionaries();
+  for (const lang of Object.keys(dicts)) {
+    const headChef = dicts[lang]['role.means.headChef'];
+    const manager = dicts[lang]['role.means.manager'];
+    assert.ok(headChef, `${lang} has no sentence for the head chef`);
+    assert.notEqual(headChef, manager,
+      `in ${lang} the head chef must say it IS the manager level, not silently repeat it`);
+    // Whatever the words, the sentence has to name the manager level and then go
+    // on to describe it — so it is longer than the manager's own sentence, which
+    // it contains the substance of.
+    assert.ok(headChef.length > manager.length,
+      `in ${lang} the head chef's sentence must ADD the "same as" statement, not replace it`);
+  }
+  assert.match(dicts.en['role.means.headChef'], /The same as Manager/,
+    'and in English that statement is the one people have already read');
 });

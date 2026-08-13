@@ -18,7 +18,11 @@ import {
   watchMembers, createJoinCode, setMemberRole, setMemberName, callFailureText,
 } from './firebase-staff.js';
 import { expiresInWords } from '../join-code.js';
-import { ROLE_CHOICES, personLabel, choiceKey } from '../roles.js';
+import {
+  ROLE_CHOICES, personLabel, personLabelInSentence, choiceKey,
+  choiceLabel, choiceLabelInSentence,
+} from '../roles.js';
+import { t } from '../i18n.js';
 import { nameProblem, cleanName } from '../credentials.js';
 
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -32,19 +36,27 @@ const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" w
 // "Head chef" has to state plainly that it is the manager level under another
 // name — four pills with four different-sounding sentences would read as four
 // levels of power, and somebody would pick between them believing it mattered.
+// ⚠️ KEYS, NOT WORDS, AND LOOKED UP AT DRAW TIME. These are module-level tables:
+// a translated sentence written here would be fixed at import — the language the
+// app happened to start in, never changing again however often somebody switched
+// the setting. Same reason ROLE_CHOICES carries a labelKey (js/roles.js).
 const ROLE_MEANS = {
-  owner: 'Everything, including adding people and setting their roles.',
-  manager: 'Runs this location: can delete suppliers, ingredients, recipes and products. Cannot add people.',
-  'head-chef': 'The same as Manager — it is only the job title that differs. Runs this location: can delete suppliers, ingredients, recipes and products. Cannot add people.',
-  staff: 'Does the daily work — quantities, doughs, orders. Cannot delete things or add people.',
+  owner: 'role.means.owner',
+  manager: 'role.means.manager',
+  'head-chef': 'role.means.headChef',
+  staff: 'role.means.staff',
 };
 
-// The article each pill takes in "Make <name> …?".
-const ARTICLE = {
-  owner: 'an owner',
-  manager: 'a manager',
-  'head-chef': 'the head chef',
-  staff: 'an employee',
+// ⚠️ THE WHOLE SENTENCE PER ROLE, NOT A TEMPLATE WITH AN ARTICLE IN IT. English
+// needs «an owner», «a manager», «the head chef»; Italian needs no article at all
+// («Rendere Marco titolare?»). A hole for the article would be a hole no Italian
+// translator can fill, and it would force one to exist. Where two languages
+// differ in STRUCTURE and not merely in words, each case gets its own sentence.
+const CONFIRM_TITLE = {
+  owner: 'people.confirm.owner',
+  manager: 'people.confirm.manager',
+  'head-chef': 'people.confirm.headChef',
+  staff: 'people.confirm.staff',
 };
 
 // A person's name, falling back honestly rather than inventing one. The four
@@ -104,7 +116,7 @@ export function openPeople(myUid) {
         type: 'button',
         class: `people-pill${chosen ? ' people-pill--on' : ''}`,
         'aria-pressed': chosen ? 'true' : 'false',
-      }, choice.label);
+      }, choiceLabel(choice));
       if (chosen) pill.disabled = true;
       else pill.addEventListener('click', () => onPick(choice));
       wrap.appendChild(pill);
@@ -231,9 +243,9 @@ export function openPeople(myUid) {
     // person a manager?" means nothing to somebody deciding whether their baker
     // should be one; the sentence about deleting is the whole decision.
     const ok = await confirmDialog({
-      title: `Make ${displayName(person)} ${ARTICLE[choice.key]}?`,
-      message: ROLE_MEANS[choice.key],
-      okLabel: `Make ${choice.label.toLowerCase()}`,
+      title: t(CONFIRM_TITLE[choice.key], { name: displayName(person) }),
+      message: t(ROLE_MEANS[choice.key]),
+      okLabel: t('people.make', { role: choiceLabelInSentence(choice) }),
       // Taking power away is the direction that surprises somebody mid-shift.
       danger: choice.role === 'staff',
     });
@@ -270,9 +282,9 @@ export function openPeople(myUid) {
       // afterwards is a second errand nobody remembers. It starts at Employee —
       // the least power — so a distracted tap grants nothing.
       codeBox.appendChild(rolePills(newChoice.key, choice => { newChoice = choice; paintCode(); }));
-      codeBox.appendChild(el('p', { class: 'people-note', text: ROLE_MEANS[newChoice.key] }));
+      codeBox.appendChild(el('p', { class: 'people-note', text: t(ROLE_MEANS[newChoice.key]) }));
       const add = el('button', { type: 'button', class: 'btn-primary people-add' },
-        `Add ${newChoice.label.toLowerCase()}`);
+        t('people.add', { role: choiceLabelInSentence(newChoice) }));
       add.addEventListener('click', mint);
       codeBox.appendChild(add);
       return;
@@ -285,7 +297,10 @@ export function openPeople(myUid) {
     codeBox.appendChild(el('p', { class: 'people-hint', text: 'Read this out to them:' }));
     codeBox.appendChild(el('p', { class: 'people-digits', text: pending.code }));
     codeBox.appendChild(el('p', { class: 'people-note', text:
-      `Joins as ${personLabel(pending.role, pending.title).toLowerCase()} · ${expiresInWords(pending)} · they open the app, tap “I have a code”, create their account and type it.` }));
+      t('people.joinsAs', {
+        role: personLabelInSentence(pending.role, pending.title),
+        expires: expiresInWords(pending),
+      }) }));
 
     const again = el('button', { type: 'button', class: 'btn-secondary people-add' }, 'Done');
     again.addEventListener('click', () => { pending = null; paintCode(); });
