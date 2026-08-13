@@ -104,7 +104,10 @@ function renderSessionActions(session) {
   if (session.isOwner) {
     logoutHost.append(button(t('people.title'), 'session-logout', async () => {
       const { openPeople } = await import('./staff/people.js');
-      openPeople(session.user && session.user.uid);
+      // The whole session: the screen needs the venue's NAME as well as who is
+      // looking, because a WhatsApp invitation that does not say where it lets
+      // somebody in reads exactly like a scam.
+      openPeople(session);
     }));
   }
 

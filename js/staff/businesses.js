@@ -20,8 +20,8 @@ import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { listWorkspaces, reissueOwnerLink, deleteWorkspace, callFailureText } from './firebase-staff.js';
-import { joinLinkFor } from '../join-link.js';
-import { expiresInWords } from '../join-code.js';
+import { copyToClipboard } from './share.js';
+import { joinLinkFor, expiresInWords } from '../join-link.js';
 import {
   isStranded, statusWords, sectionSummary, createdWords, createdWordsInLine,
 } from '../workspace-row.js';
@@ -33,22 +33,6 @@ const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" w
 // emoji: an emoji is a font, so it is a different picture on every phone and
 // cannot take the colour of the thing it sits in.
 const BIN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
-
-// ⚠️ Raced against a clock, like every clipboard write in this app. writeText()
-// can sit there and never settle — the page losing focus is enough — and here it
-// would stand between re-issuing a link and being shown it (v1.29.1).
-const CLIPBOARD_WAIT_MS = 2000;
-
-async function copyToClipboard(text) {
-  try {
-    return await Promise.race([
-      navigator.clipboard.writeText(text).then(() => true),
-      new Promise(resolve => setTimeout(() => resolve(false), CLIPBOARD_WAIT_MS)),
-    ]);
-  } catch {
-    return false;
-  }
-}
 
 // Whatever happens, the link ends up on screen: copied if the clipboard took it,
 // spelled out if it did not.

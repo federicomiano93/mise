@@ -17,7 +17,8 @@ import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import {
   watchMembers, createJoinCode, setMemberRole, setMemberName, callFailureText,
 } from './firebase-staff.js';
-import { expiresInWords } from '../join-code.js';
+import { joinLinkFor, expiresInWords } from '../join-link.js';
+import { copyToClipboard, sendOnWhatsApp } from './share.js';
 import {
   ROLE_CHOICES, personLabel, personLabelInSentence, choiceKey,
   choiceLabel, choiceLabelInSentence,
@@ -68,10 +69,18 @@ function displayName(person) {
   return full || t('people.noNameYet');
 }
 
-export function openPeople(myUid) {
+// ⚠️ IT TAKES THE WHOLE SESSION, not just a uid, and the reason is the WhatsApp
+// message: an invitation that says only "open this link" is indistinguishable
+// from every scam that has ever been sent over WhatsApp. It has to name the place
+// the person is being let into, and `session.name` is where that name lives.
+// openLanguage(session) next to it already had this shape.
+export function openPeople(session) {
+  const myUid = session && session.user && session.user.uid;
+  const venueName = (session && session.name) || '';
+
   let members = [];
   let stop = null;
-  let pending = null;      // the code being shown, if any
+  let pending = null;      // the invitation being shown, if any
   // Which pill the next code will invite as. It starts at Employee — the least
   // power — so a distracted tap grants nothing.
   let newChoice = ROLE_CHOICES.find(c => c.key === 'staff');
@@ -279,43 +288,127 @@ export function openPeople(myUid) {
     if (!pending) {
       codeBox.appendChild(el('p', { class: 'people-hint', text:
         t('people.invite.intro') }));
-      // ⚠️ THE ROLE IS CHOSEN BEFORE THE CODE, not after they arrive. A code is
-      // read out to somebody standing there, and going back to change their role
-      // afterwards is a second errand nobody remembers. It starts at Employee —
-      // the least power — so a distracted tap grants nothing.
+      // ⚠️ THE ROLE IS CHOSEN BEFORE THE INVITATION, not after they arrive. Going
+      // back to change somebody's role afterwards is a second errand nobody
+      // remembers. It starts at Employee — the least power — so a distracted tap
+      // grants nothing.
       codeBox.appendChild(rolePills(newChoice.key, choice => { newChoice = choice; paintCode(); }));
       codeBox.appendChild(el('p', { class: 'people-note', text: t(ROLE_MEANS[newChoice.key]) }));
-      const add = el('button', { type: 'button', class: 'btn-primary people-add' },
-        t('people.add', { role: choiceLabelInSentence(newChoice) }));
-      add.addEventListener('click', mint);
-      codeBox.appendChild(add);
+
+      // ⚠️⚠️ TWO WAYS TO HAND OVER THE SAME INVITATION, AND NEITHER REPLACES THE
+      // OTHER. A link is right when the person is not in front of you, which for
+      // somebody who starts on Monday is most of the time — and this is a kitchen,
+      // so the channel is WhatsApp, not email (js/join-code.js says in as many
+      // words that staff often have no email they read on a phone). Six digits
+      // stay right when they ARE in front of you: they need no phone number, no
+      // chat, and they leave nothing behind in one.
+      //
+      // ⚠️ THE ROLE IS DELIBERATELY NOT ON EITHER BUTTON. English needs an article
+      // where Italian takes none ("an employee" / «dipendente»), so a role dropped
+      // into a button label is a hole no translator can fill well. It is stated
+      // twice instead, in whole sentences: by the note directly above, and by the
+      // result screen the owner reads before sending anything.
+      codeBox.appendChild(el('p', { class: 'people-label', text: t('people.sendHow') }));
+
+      const byLink = el('button', { type: 'button', class: 'btn-primary people-add' },
+        t('people.add.link'));
+      byLink.addEventListener('click', () => mint('link'));
+      codeBox.appendChild(byLink);
+
+      const byDigits = el('button', { type: 'button', class: 'btn-secondary people-add' },
+        t('people.add.digits'));
+      byDigits.addEventListener('click', () => mint('digits'));
+      codeBox.appendChild(byDigits);
       return;
     }
 
-    // ⚠️ SHOWN ONCE AND NEVER STORED. The server keeps only a hash of it, so this
-    // screen is the only place the code exists in readable form — which is why it
-    // is large, and why the sentence under it says what happens next rather than
-    // leaving somebody holding six digits and no instructions.
+    if (pending.kind === 'link') paintLink();
+    else paintDigits();
+
+    // ⚠️ NO WARNING ON THE WAY OUT, and that is a decision rather than an
+    // omission. "New customer" does warn, because only a sha256 of that link is
+    // stored and walking away strands a whole business nobody can enter. Here,
+    // losing an invitation costs two taps to mint another — so a warning would
+    // never mean anything, and a warning that never means anything teaches people
+    // to tap through the one that does (the v275 lesson).
+  }
+
+  // ── Six digits, read out ───────────────────────────────────────────────────
+  //
+  // ⚠️ SHOWN ONCE AND NEVER STORED. The server keeps only a hash, so this screen
+  // is the only place the code exists in readable form — which is why it is large,
+  // and why the sentence under it says what happens next rather than leaving
+  // somebody holding six digits and no instructions.
+  function paintDigits() {
     codeBox.appendChild(el('p', { class: 'people-hint', text: t('people.readOut') }));
     codeBox.appendChild(el('p', { class: 'people-digits', text: pending.code }));
     codeBox.appendChild(el('p', { class: 'people-note', text:
       t('people.joinsAs', {
         role: personLabelInSentence(pending.role, pending.title),
         expires: expiresInWords(pending),
+        // ⚠️ THE BUTTON NAMES ITSELF RATHER THAN BEING QUOTED. This sentence used
+        // to say: tap “I have a code”. The button has always said "I have a JOIN
+        // code", so the instruction was wrong in English — and in Italian it
+        // quoted the English words at somebody whose screen says «Ho un codice di
+        // accesso». Interpolated, it cannot drift again in either language.
+        button: t('auth.iHaveACode'),
       }) }));
-
-    const again = el('button', { type: 'button', class: 'btn-secondary people-add' }, t('people.done'));
-    again.addEventListener('click', () => { pending = null; paintCode(); });
-    codeBox.appendChild(again);
+    codeBox.appendChild(doneButton());
   }
 
-  async function mint() {
+  // ── A link, sent over WhatsApp ─────────────────────────────────────────────
+
+  function paintLink() {
+    const link = joinLinkFor(pending.code);
+
+    codeBox.appendChild(el('p', { class: 'people-hint', text: t('people.link.intro') }));
+    // ⚠️ THE LINK IS ON SCREEN AS TEXT WHATEVER THE CLIPBOARD DID. A screen that
+    // only said "Copied!" would leave nothing at all behind on the phones where
+    // the clipboard silently refuses — and this one cannot be shown again.
+    codeBox.appendChild(el('p', { class: 'nc-link', text: link }));
+    codeBox.appendChild(el('p', { class: 'people-note', text:
+      t('people.link.joinsAs', {
+        role: personLabelInSentence(pending.role, pending.title),
+        expires: expiresInWords(pending),
+      }) }));
+
+    // WhatsApp first, because it is the errand: this exists so an owner can add
+    // somebody without them being in the room.
+    const wa = el('button', { type: 'button', class: 'btn-primary people-add' },
+      t('help.sendOnWhatsapp'));
+    wa.addEventListener('click', () => {
+      // ⚠️ THE MESSAGE NAMES THE VENUE. "Open this link" and nothing else is what
+      // every scam sent over WhatsApp looks like; the person has to be able to
+      // tell, before tapping, that this is the place they work.
+      sendOnWhatsApp(t('people.link.message', { venue: venueName, link }));
+    });
+    codeBox.appendChild(wa);
+
+    const copy = el('button', { type: 'button', class: 'btn-secondary people-add' },
+      t('help.copyTheLink'));
+    copy.addEventListener('click', async () => {
+      const copied = await copyToClipboard(link);
+      await alertDialog(copied ? t('people.link.copied') : t('people.link.manual', { link }));
+    });
+    codeBox.appendChild(copy);
+
+    codeBox.appendChild(doneButton());
+  }
+
+  function doneButton() {
+    const done = el('button', { type: 'button', class: 'btn-secondary people-add' }, t('people.done'));
+    done.addEventListener('click', () => { pending = null; paintCode(); });
+    return done;
+  }
+
+  async function mint(kind) {
     try {
-      // ⚠️ THE ROLE COMES BACK FROM THE SERVER AND THAT IS WHAT IS SHOWN. The
-      // function reduces a role it does not recognise to an employee, so echoing
-      // what was ASKED for could promise a manager where a code for an employee
-      // was actually made.
-      pending = await createJoinCode(newChoice.role, newChoice.title);
+      // ⚠️ THE ROLE AND THE SHAPE BOTH COME BACK FROM THE SERVER, AND THAT IS
+      // WHAT IS SHOWN. The function reduces a role it does not recognise to an
+      // employee and anything that is not the word 'link' to digits — so echoing
+      // what was ASKED for could promise a manager where an employee was made, or
+      // draw a link screen for six digits. Ask, then show the answer.
+      pending = await createJoinCode(newChoice.role, newChoice.title, kind);
       paintCode();
     } catch (err) {
       await alertDialog(callFailureText(err, t('people.err.code')));
