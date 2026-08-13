@@ -17,6 +17,11 @@ import {
   isOwner,
   canManage,
   roleLabel,
+  TITLES,
+  titleLabel,
+  personLabel,
+  ROLE_CHOICES,
+  choiceKey,
 } from '../js/roles.js';
 import { locationsOf, accessValue } from '../js/sections.js';
 
@@ -64,6 +69,10 @@ test('a corrupt locations field resolves to no access rather than throwing', () 
 
 // ── A value nobody recognises is never access, and never MORE power ──────────
 
+// ⚠️ AND THIS EXAMPLE GOT SHARPER ON 13 Aug 2026. 'head-chef' is now a real word
+// in this app — it is the title a manager can be called by — which makes it
+// exactly the value somebody might one day write into a membership by hand,
+// thinking it is a role. It is not, and it must still grant NOTHING.
 test('a value from a future version of the app grants nothing at all', () => {
   const doc = { locations: { bakery: 'head-chef' } };
   assert.deepEqual(locationsOf(doc), [], 'not even membership');
@@ -190,4 +199,71 @@ test('one person can be a manager in one location and an employee in another', (
   assert.deepEqual(locationsOf(doc), ['bakery', 'restaurant']);
   assert.equal(canManage(doc, 'bakery'), true);
   assert.equal(canManage(doc, 'restaurant'), false);
+});
+
+// ── «Head chef»: a job title, and NOT a fourth level of power ────────────────
+//
+// Federico, 13 Aug 2026: «aggiungi head chef come figura della cucina ma è come
+// il ruolo del manager». The whole danger of this feature is that it LOOKS like a
+// role, so every test below is the same assertion from a different direction:
+// the title changes the WORD and never the POWER.
+
+test('a head chef holds the manager membership value, not one of its own', () => {
+  // ⚠️ THE TEST THIS FEATURE EXISTS UNDER. A new membership value must be added
+  // in THREE places — js/sections.js, firestore.rules, functions/onboarding.js —
+  // and one that any of them does not recognise is a LOCKOUT, not a demotion
+  // (v268, missed in all three on three separate days). So there is no new value:
+  // 'head-chef' must never appear in ROLES.
+  assert.equal(ROLES.includes('head-chef'), false,
+    'head-chef must not be a role — it is a label on the manager level');
+  assert.equal(isValidRole('head-chef'), false);
+
+  // And the membership a head chef actually holds behaves exactly as a manager's.
+  const chef = { locations: { bakery: 'manager' } };
+  assert.equal(canManage(chef, 'bakery'), true);
+  assert.equal(isOwner(chef, 'bakery'), false);
+});
+
+test('the two manager pills grant exactly the same thing', () => {
+  const manager = ROLE_CHOICES.find(c => c.key === 'manager');
+  const chef = ROLE_CHOICES.find(c => c.key === 'head-chef');
+  assert.equal(manager.role, chef.role, 'both pills write the same membership value');
+  assert.notEqual(manager.title, chef.title, 'and differ only in the word');
+});
+
+test('four pills, three levels of power', () => {
+  assert.equal(ROLE_CHOICES.length, 4);
+  assert.deepEqual([...new Set(ROLE_CHOICES.map(c => c.role))].sort(),
+    ['manager', 'owner', 'staff']);
+});
+
+test('the title is ignored on anybody who is not a manager', () => {
+  // ⚠️ A title left behind on somebody demoted to employee would have the roster
+  // call them "Head chef" while the database says they may delete nothing — and
+  // that screen is the only place anybody ever checks.
+  assert.equal(personLabel('staff', 'head-chef'), 'Employee');
+  assert.equal(personLabel('owner', 'head-chef'), 'Owner');
+  assert.equal(personLabel('manager', 'head-chef'), 'Head chef');
+  assert.equal(personLabel('manager', 'manager'), 'Manager');
+});
+
+test('a missing or unknown title reads as plain Manager, never as something new', () => {
+  for (const bad of [undefined, null, '', 'Head-Chef', 'head chef', 'chef', 42]) {
+    assert.equal(personLabel('manager', bad), 'Manager', String(bad));
+    assert.equal(titleLabel(bad), 'Manager', String(bad));
+  }
+});
+
+test('the lit pill follows the role AND the title together', () => {
+  assert.equal(choiceKey('manager', 'head-chef'), 'head-chef');
+  assert.equal(choiceKey('manager', 'manager'), 'manager');
+  assert.equal(choiceKey('manager', undefined), 'manager');
+  assert.equal(choiceKey('owner', 'head-chef'), 'owner', 'a stale title cannot light the wrong pill');
+  assert.equal(choiceKey('staff', 'head-chef'), 'staff');
+});
+
+test('there are exactly two titles, and every pill key is unique', () => {
+  assert.deepEqual([...TITLES], ['manager', 'head-chef']);
+  const keys = ROLE_CHOICES.map(c => c.key);
+  assert.equal(new Set(keys).size, keys.length, 'two pills sharing a key would light together');
 });

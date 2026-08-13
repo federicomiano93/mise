@@ -130,10 +130,18 @@ async function requireAppAdmin(uid) {
 }
 
 // One code, stored once. The write is the same for both shapes.
-async function storeCode({ code, kind, locationId, role, createdBy }) {
+//
+// ⚠️ `title` RIDES WITH THE CODE, and it has to. The owner picks "Head chef" on
+// the invite screen; if the code carried only the level, that person would join
+// as "Manager" and the roster would quietly disagree with what was chosen —
+// nobody would ever find out, because nobody re-reads a screen they filled in
+// yesterday. It grants nothing (see WRITABLE_TITLES): it is the word, travelling
+// with the level it belongs to.
+async function storeCode({ code, kind, locationId, role, title, createdBy }) {
   const now = Date.now();
   await db().doc(`join-codes/${codeId(code)}`).set({
     kind, locationId, role,
+    title: role === 'manager' ? (title || 'manager') : '',
     createdBy, createdAt: now,
     expiresAt: now + TTL_MS[kind],
     failedAttempts: 0,
@@ -422,6 +430,18 @@ function membershipValue(role) {
 // The three roles this file will write down, and nothing else.
 const WRITABLE_ROLES = ['owner', 'manager', 'staff'];
 
+// The job titles the manager level can be called by. ⚠️ A TITLE IS NOT A ROLE:
+// both write the SAME membership value, so neither can grant or take away
+// anything. It is a label on the roster, which no security rule reads — see
+// js/roles.js for why a fourth membership value would be a lockout rather than a
+// fourth level of power.
+//
+// ⚠️ DECLARED HERE, BESIDE THE ROLES IT BELONGS WITH, and above every function
+// that reads it. It would be safe lower down by call order alone — that is
+// exactly the "safe for now" that stopped being true when somebody moved a line
+// and left the Catalogue rendering blank with no error (v1.27.0).
+const WRITABLE_TITLES = ['manager', 'head-chef'];
+
 // A name for the roster: whitespace collapsed, capped, never trusted raw.
 //
 // ⚠️ IT IS A LABEL, NEVER AN IDENTITY. Nothing decides a permission from it —
@@ -452,12 +472,16 @@ export const createJoinCode = onCall(CALL, async (request) => {
   // unknown role is the smallest one.
   const asked = request.data && request.data.role;
   const role = WRITABLE_ROLES.includes(asked) ? asked : 'staff';
+  // Same reading as the role above: an unrecognised title is the plain word, not
+  // a refusal. It grants nothing either way.
+  const askedTitle = request.data && request.data.title;
+  const title = WRITABLE_TITLES.includes(askedTitle) ? askedTitle : 'manager';
   const code = mintDigits();
-  const expiresAt = await storeCode({ code, kind: 'digits', locationId, role, createdBy: uid });
+  const expiresAt = await storeCode({ code, kind: 'digits', locationId, role, title, createdBy: uid });
 
-  logger.info('Join code created', { locationId, role, by: uid });
+  logger.info('Join code created', { locationId, role, title, by: uid });
   // The plain code is returned to the owner's screen ONCE and never stored.
-  return { code, role, expiresAt };
+  return { code, role, title: role === 'manager' ? title : '', expiresAt };
 });
 
 // ── 3. The only write to users/{uid} ─────────────────────────────────────────
@@ -519,8 +543,15 @@ export const redeemJoinCode = onCall(CALL, async (request) => {
       return { ok: false, status };
     }
 
-    const { locationId, role } = doc;
+    const { locationId, role, title } = doc;
     const value = membershipValue(role);
+    // ⚠️ Re-checked here rather than trusted from the stored document. Codes
+    // written before titles existed have none at all, and one written by a future
+    // version could hold anything; either way the roster must end up with a word
+    // this app knows. Empty for the levels that have no title.
+    const memberTitle = role === 'manager'
+      ? (WRITABLE_TITLES.includes(title) ? title : 'manager')
+      : '';
 
     // Both writes in one transaction. users/{uid} is the TRUTH — it is what the
     // rules read. The members roster below is for the screen only.
@@ -535,6 +566,7 @@ export const redeemJoinCode = onCall(CALL, async (request) => {
       firstName: cleanName(request.data && request.data.firstName),
       lastName: cleanName(request.data && request.data.lastName),
       role: WRITABLE_ROLES.includes(role) ? role : 'staff',
+      title: memberTitle,
       joinedAt: Date.now(),
     });
     tx.update(ref, { usedAt: Date.now(), usedBy: uid });
@@ -554,11 +586,17 @@ export const redeemJoinCode = onCall(CALL, async (request) => {
 
 export const setMemberRole = onCall(CALL, async (request) => {
   const uid = requireAuth(request);
-  const { locationId, uid: targetUid, role } = request.data || {};
+  const { locationId, uid: targetUid, role, title } = request.data || {};
   await requireOwner(uid, locationId);
 
   if (typeof targetUid !== 'string' || !targetUid) {
     throw new HttpsError('invalid-argument', 'Which person?');
+  }
+  // ⚠️ REFUSED RATHER THAN IGNORED, for the same reason as the role below it: a
+  // misspelling silently writing a different word would show the screen a change
+  // nobody asked for.
+  if (title != null && !WRITABLE_TITLES.includes(title)) {
+    throw new HttpsError('invalid-argument', 'A manager is a manager or a head chef.');
   }
   // ⚠️ HERE AN UNKNOWN ROLE IS REFUSED rather than quietly reduced, which is the
   // opposite of the join code above and is deliberate. This call names a person
@@ -599,13 +637,20 @@ export const setMemberRole = onCall(CALL, async (request) => {
     return { removed: true };
   }
 
+  // ⚠️ THE TITLE IS CLEARED WHENEVER THE LEVEL IS NOT MANAGER, and written as an
+  // empty string rather than left alone. These documents are merge-written, so
+  // "leave it out" means "keep whatever was there" — and what was there would have
+  // the roster call a demoted head chef "Head chef" while the database says they
+  // may delete nothing. The screen is the only place anybody ever looks.
+  const nextTitle = role === 'manager' ? (title || 'manager') : '';
+
   await db().runTransaction(async (tx) => {
     tx.set(userRef,
       { locations: { [locationId]: membershipValue(role) } }, { merge: true });
-    tx.set(memberRef, { role }, { merge: true });
+    tx.set(memberRef, { role, title: nextTitle }, { merge: true });
   });
-  logger.info('Member role changed', { locationId, targetUid, role, by: uid });
-  return { role };
+  logger.info('Member role changed', { locationId, targetUid, role, title: nextTitle, by: uid });
+  return { role, title: nextTitle };
 });
 
 // ── 5. Give somebody a name ──────────────────────────────────────────────────
