@@ -81,6 +81,11 @@ export async function createWorkspace(name, sections, opts = {}) {
   const res = await call('createWorkspace')({
     name,
     sections,
+    // ⚠️ 'GB' or 'IT'. It decides what LANGUAGE this venue's allergen labels are
+    // printed in, which is a legal matter and not a preference (js/market.js).
+    // Passed through untouched: the server refuses anything else rather than
+    // guessing, because a guess here is a non-compliant label nobody notices.
+    country: opts.country || '',
     forSelf: opts.forSelf === true,
     firstName: opts.firstName || '',
     lastName: opts.lastName || '',

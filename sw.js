@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v282';
+const CACHE_NAME = 'theitalianclub-v283';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -36,6 +36,11 @@ const ASSETS = [
   './js/hold-to-zoom.js',
   './js/price-model.js',
   './js/allergen-model.js',
+  // ⚠️ A NEW FILE, AND THE ONE FAILURE THAT DOES NOT HEAL ITSELF. An installed
+  // phone that goes offline after a deploy finds a file the new HTML asks for and
+  // its cache never received. It is also the file that decides whether a label may
+  // be printed at all, so its absence would look like the app refusing every label.
+  './js/market.js',
   './js/push-model.js',
   './js/push.js',
   './js/client-order-model.js',

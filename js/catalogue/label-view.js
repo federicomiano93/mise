@@ -14,7 +14,11 @@
 
 import { el } from './dom.js';
 import { buildLabel, ingredientLine, containsLine, LABEL_SHOWS } from './recipe-label-model.js';
-import { allergenLabel, NUTRIENTS } from '../allergen-model.js';
+import { NUTRIENTS } from '../allergen-model.js';
+import {
+  canPrintLabel, outputLanguage, labelWord, allergenName, nutrientName,
+  labelLanguageNote, ingredientNamesNote, noCountryReason,
+} from '../market.js';
 
 const SHOW_LABELS = Object.freeze({
   allergens: 'Allergens',
@@ -22,9 +26,13 @@ const SHOW_LABELS = Object.freeze({
   both: 'Both',
 });
 
-export function renderLabel({ recipe, ingredients, recipesById, initialShows = 'both', onShowsChange }) {
+// `location` is the venue's own document — its country decides what language the
+// label is PRINTED in. It is not a preference and no screen may override it; see
+// js/market.js for the law behind that.
+export function renderLabel({ recipe, ingredients, recipesById, location, initialShows = 'both', onShowsChange }) {
   const tables = { ingredients, recipes: recipesById };
   let shows = LABEL_SHOWS.includes(initialShows) ? initialShows : 'both';
+  const lang = outputLanguage(location);
 
   const body = el('div', { class: 'lab-body' });
   const root = el('div', { class: 'cat-view lab-view' });
@@ -53,6 +61,21 @@ export function renderLabel({ recipe, ingredients, recipesById, initialShows = '
 
   function paint() {
     paintSwitch();
+
+    // ⚠️⚠️ NO COUNTRY, NO LABEL — AND DELIBERATELY NOT A FALLBACK TO ENGLISH.
+    // Every venue in production today is in the UK, so English would be right for
+    // all of them and silently WRONG for the first Italian customer: an English
+    // allergen label in Italy is not "a bit off", it is non-compliant. This is
+    // the same shape as canLabel() refusing an undeclared recipe — the app would
+    // rather say "I do not know" than print something that looks finished.
+    if (!canPrintLabel(location)) {
+      body.replaceChildren(el('div', { class: 'lab-blocked' }, [
+        el('p', { class: 'lab-blocked-title', text: 'No label can be made' }),
+        el('p', { class: 'lab-blocked-text', text: noCountryReason() }),
+      ]));
+      return;
+    }
+
     const label = buildLabel(recipe, tables, { shows });
 
     if (!label.ok) {
@@ -77,7 +100,7 @@ export function renderLabel({ recipe, ingredients, recipesById, initialShows = '
       // ⚠️ THE ALLERGENS ARE EMPHASISED INSIDE THE LIST, not only summarised
       // underneath — that is what the regulation asks for, and it is also what a
       // person scanning a label actually reads.
-      const list = el('p', { class: 'lab-ingredients' }, ['Ingredients: ']);
+      const list = el('p', { class: 'lab-ingredients' }, [`${labelWord('ingredients', lang)}: `]);
       label.ingredients.forEach((item, i) => {
         list.appendChild(el('span', {
           class: item.emphasise ? 'lab-ing lab-ing--allergen' : 'lab-ing',
@@ -88,11 +111,11 @@ export function renderLabel({ recipe, ingredients, recipesById, initialShows = '
       list.appendChild(document.createTextNode('.'));
       card.appendChild(list);
 
-      const contains = containsLine(label);
+      const contains = containsLine(label, lang);
       if (contains) card.appendChild(el('p', { class: 'lab-contains', text: contains }));
       if (label.mayContain.length) {
         card.appendChild(el('p', { class: 'lab-traces', text:
-          `May contain: ${label.mayContain.map(allergenLabel).join(', ')}` }));
+          `${labelWord('mayContain', lang)}: ${label.mayContain.map(c => allergenName(c, lang)).join(', ')}` }));
       }
     }
 
@@ -100,14 +123,14 @@ export function renderLabel({ recipe, ingredients, recipesById, initialShows = '
       if (label.nutrition) {
         const table = el('table', { class: 'lab-nutrition' });
         const head = el('tr', {}, [
-          el('th', { text: 'Typical values' }),
-          el('th', { class: 'lab-num', text: 'per 100 g' }),
+          el('th', { text: labelWord('typicalValues', lang) }),
+          el('th', { class: 'lab-num', text: labelWord('per100g', lang) }),
         ]);
         table.appendChild(el('thead', {}, [head]));
         const tbody = el('tbody');
         for (const n of NUTRIENTS) {
           tbody.appendChild(el('tr', {}, [
-            el('td', { text: n.label }),
+            el('td', { text: nutrientName(n, lang) }),
             el('td', { class: 'lab-num', text: `${label.nutrition[n.key]} ${n.unit}` }),
           ]));
         }
@@ -125,7 +148,23 @@ export function renderLabel({ recipe, ingredients, recipesById, initialShows = '
       }
     }
 
-    body.replaceChildren(card, caveat(), copyRow(label));
+    body.replaceChildren(card, languageNote(), caveat(), copyRow(label));
+  }
+
+  // ⚠️ IMMEDIATELY UNDER THE CARD, NOT AT THE END OF A SCROLL. Somebody printing
+  // a label in an English bakery while reading an Italian interface has to be
+  // able to see, without asking, that the English is on purpose — and the day the
+  // interface switch ships (R2) that is exactly the question they will have.
+  //
+  // ⚠️ AND THE SECOND LINE IS WHAT THE APP CANNOT DO. Ingredient names are typed
+  // by hand in Orders and are NOT translated: an Italian venue must type Italian
+  // names, or the label reads "Contiene: Wheat" — half translated, which is worse
+  // than either language whole. Saying so is the only honest option available.
+  function languageNote() {
+    return el('div', { class: 'lab-language' }, [
+      el('p', { class: 'lab-language-line', text: labelLanguageNote(location) }),
+      el('p', { class: 'lab-language-line', text: ingredientNamesNote(location) }),
+    ]);
   }
 
   function caveat() {
@@ -143,13 +182,19 @@ export function renderLabel({ recipe, ingredients, recipesById, initialShows = '
     const btn = el('button', {
       class: 'cat-alg-sheet-btn lab-copy', type: 'button',
       onclick: async () => {
-        const lines = [label.name, `Ingredients: ${ingredientLine(label)}.`];
-        const contains = containsLine(label);
+        // ⚠️ THE COPIED TEXT IS THE LABEL. Whatever gets printed in the end comes
+        // from here, so it follows the same language — a copy in English pasted
+        // onto Italian packaging is the whole defect this release prevents,
+        // arriving through the one door nobody thought of.
+        const lines = [label.name, `${labelWord('ingredients', lang)}: ${ingredientLine(label)}.`];
+        const contains = containsLine(label, lang);
         if (contains) lines.push(contains);
-        if (label.mayContain.length) lines.push(`May contain: ${label.mayContain.map(allergenLabel).join(', ')}`);
+        if (label.mayContain.length) {
+          lines.push(`${labelWord('mayContain', lang)}: ${label.mayContain.map(c => allergenName(c, lang)).join(', ')}`);
+        }
         if (label.nutrition) {
-          lines.push('Typical values per 100 g:');
-          NUTRIENTS.forEach(n => lines.push(`  ${n.label}: ${label.nutrition[n.key]} ${n.unit}`));
+          lines.push(`${labelWord('typicalValues', lang)} ${labelWord('per100g', lang)}:`);
+          NUTRIENTS.forEach(n => lines.push(`  ${nutrientName(n, lang)}: ${label.nutrition[n.key]} ${n.unit}`));
         }
         try {
           // ⚠️ RACED, NOT AWAITED FOREVER. navigator.clipboard.writeText can hang

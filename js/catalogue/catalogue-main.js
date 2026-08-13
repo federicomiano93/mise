@@ -19,6 +19,9 @@ import { importRecipeIntoCalculator, isRecipeLinkedToCalculator } from './import
 import { nonWeighableLabels, weighableTotalGrams } from './catalogue-model.js';
 import { normalizeSteps, progressText } from './guided-model.js';
 import { confirmDialog } from './confirm-dialog.js';
+// The session, for the venue's own document: its country decides what language a
+// label is printed in. Imported from js/ root, not from a feature folder.
+import { currentSession } from '../firebase.js';
 
 const screen = document.getElementById('catScreen');
 const titleEl = document.getElementById('catTitle');
@@ -103,6 +106,11 @@ function openLabel(recipe) {
     recipe,
     ingredients: getIngredients(),
     recipesById: getRecipesById(),
+    // ⚠️ THE VENUE'S OWN DOCUMENT, because its `country` decides what language the
+    // label is PRINTED in — a legal matter, not a preference (js/market.js). Read
+    // fresh on every open rather than captured once: a country set from another
+    // phone must reach this screen without a reload.
+    location: currentSession().location,
     initialShows: labelShows,
     // Remembered for the session only: which of the three somebody wants is a
     // property of the job they are doing this morning, not of the recipe.

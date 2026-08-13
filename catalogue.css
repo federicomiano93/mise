@@ -786,6 +786,13 @@ body.cat-zoom-lock { overflow: hidden; }
 .lab-nutrition th, .lab-nutrition td { padding: 6px 0; border-bottom: 1px solid var(--cat-border); text-align: left; }
 .lab-nutrition th { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--cat-text-2); font-family: var(--cat-font-mono); }
 .lab-nutrition .lab-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 📌 A `padding-right` was added here and then REMOVED the same hour. The Italian
+   nutrient names looked as if they ran into their own values — and the label was
+   being rendered on a page that does not load this stylesheet, so nothing was
+   styled at all. Measured where the styles actually exist, the gap is 170px in
+   Italian and 210px in English. The note is kept because the SUSPICION was
+   reasonable: Italian runs roughly a fifth longer than English, and the interface
+   translation will meet that for real. Measure it there; it is not here. */
 .lab-yield { margin: 8px 0 0; font-size: .76rem; color: var(--cat-text-3); }
 .lab-missing {
   margin: 14px 0 0; padding: 10px 12px; border-radius: 10px;
@@ -799,6 +806,24 @@ body.cat-zoom-lock { overflow: hidden; }
 }
 .lab-blocked-title { margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--cat-warn); }
 .lab-blocked-text { margin: 6px 0 0; font-size: .9rem; color: var(--cat-warn); line-height: 1.45; }
+
+/* Which language this label is in, and why — plus the one thing the app cannot
+   do. Directly under the card, ABOVE the caveat: it is a statement of fact about
+   what has just been produced, where the caveat is a warning about using it.
+   ⚠️ Quieter than the caveat on purpose. It must be readable and must not
+   compete: two blocks shouting at each other means neither is read, and the
+   caveat is the one that stops a label going onto food unchecked. */
+.lab-language {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cat-surface-2);
+  font-size: .8rem;
+  color: var(--cat-text-2);
+  line-height: 1.5;
+}
+.lab-language-line { margin: 0; }
+.lab-language-line + .lab-language-line { margin-top: 4px; }
 
 /* ⚠️ The caveat is a BLOCK, not a footnote, and it sits directly under the card
    rather than at the bottom of a long scroll. A label that looks finished without
