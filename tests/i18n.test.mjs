@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   LANGUAGES, DEFAULT_LANGUAGE, DATA_WORDS,
-  setLanguage, currentLanguage, interfaceLanguage, t, translate, _dictionaries,
+  setLanguage, currentLanguage, interfaceLanguage, languageFromTag, t, translate, _dictionaries,
 } from '../js/i18n.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -99,6 +99,45 @@ test('a counted phrase is counted in every language', () => {
         `${key} counts in English and does not in Italian`);
     }
   }
+});
+
+// ── Before anybody is signed in ──────────────────────────────────
+
+// The sign-in, join, picker and Misé home screens sit ABOVE every venue, so there
+// is no setting for them to read. The device's language is the only signal there
+// is — and for the case it exists for it is a good one.
+test('the device tag picks a language, and an unknown one is English', () => {
+  assert.equal(languageFromTag('it'), 'it');
+  assert.equal(languageFromTag('it-IT'), 'it');
+  assert.equal(languageFromTag('IT-it'), 'it');
+  assert.equal(languageFromTag('en-GB'), 'en');
+  assert.equal(languageFromTag('fr-FR'), 'en', 'a language we do not have falls back');
+  assert.equal(languageFromTag(''), 'en');
+  assert.equal(languageFromTag(undefined), 'en');
+  assert.equal(languageFromTag(null), 'en');
+});
+
+// ⚠️⚠️ THE DEVICE IS A GUESS AND IT MUST LOSE. It applies only until a location
+// opens; after that the venue's own setting decides, EVEN WHEN THE TWO DISAGREE.
+// This is Federico's case with the sides swapped: an English venue opened on an
+// Italian phone stays English for everybody who works there, because the language
+// belongs to the workplace and not to whoever is holding the phone.
+test('the venue beats the device once a location is open', () => {
+  assert.equal(languageFromTag('it-IT'), 'it', 'the phone is Italian');
+  assert.equal(interfaceLanguage({ language: 'en' }), 'en', 'the venue is English, and wins');
+  assert.equal(interfaceLanguage({ language: 'it' }), 'it');
+});
+
+// ⚠️ AND NEITHER OF THEM EVER REACHES A LABEL. An Italian phone, an Italian
+// interface, a venue selling in the UK — the label is still English, because that
+// follows the COUNTRY. tests/i18n-label-separation.test.mjs pins the wiring; this
+// pins the answer.
+test('neither the device nor the venue can move a label', async () => {
+  const { outputLanguage } = await import('../js/market.js');
+  assert.equal(languageFromTag('it-IT'), 'it');
+  const venue = { country: 'GB', language: 'it' };
+  assert.equal(interfaceLanguage(venue), 'it');
+  assert.equal(outputLanguage(venue), 'en', 'the food is sold in the UK');
 });
 
 // ── Looking a phrase up ──────────────────────────────────────────────────────

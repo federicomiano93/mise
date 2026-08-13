@@ -17,6 +17,8 @@ import { normalizeTyped, isWellFormed } from './join-code.js';
 // Where a join link lands: the app's front door. Not a page of its own — whoever
 // opens it may already be signed in, may have an account and no location, or may
 // be a stranger, and index.html is the one screen that already tells those apart.
+import { t } from './i18n.js';
+
 export const JOIN_PAGE = 'index.html';
 
 // The name of the fragment field. Short, because it is typed nowhere and read by
@@ -81,4 +83,18 @@ export function kindOfTyped(input) {
 // What somebody should be told when it is neither. One sentence naming BOTH
 // shapes, because this screen now accepts two and a message that named only
 // digits would read as a refusal of the link somebody was just sent.
-export const CODE_SHAPE_HINT = 'Enter your six-digit code, or open the link you were sent.';
+//
+// ⚠️ A FUNCTION, NOT A CONSTANT, AND THAT IS THE WHOLE POINT OF THE CHANGE. A
+// constant is evaluated when this file is first imported — before anybody has
+// chosen anything — so it would be frozen in whatever language the app happened
+// to start in and would never change again. Asked for at the moment it is shown,
+// it follows the language on screen.
+//
+// ⚠️ THIS FILE IS SAFE TO IMPORT i18n FROM, and it was checked rather than
+// assumed: js/join-code.js is copied byte-for-byte into functions/ and pinned by
+// a test, so an import there would resolve locally and be MISSING in the cloud.
+// join-link.js has no server copy — the server is TOLD which kind of code it was
+// given and never has to work it out.
+export function codeShapeHint() {
+  return t('join.shapeHint');
+}
