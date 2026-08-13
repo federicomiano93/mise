@@ -45,6 +45,17 @@ import { resolveSuppliers, orderSuppliers } from './no-supplier.js';
 import { normalizeOrdersConfig } from './orders-config.js';
 import { mountIngredientList } from './ingredient-list.js';
 import { orderSummary } from './ingredient-search.js';
+import {
+  watchOrderRequests, sendOrderRequest, setOrderRequestDone, finishOrderRequest,
+  deleteOrderRequest, getOwnMemberRow,
+} from './firebase-orders.js';
+import {
+  buildOrderRequest, senderName, waitingRequests, remainingIds, isRequestDone,
+} from './order-request-model.js';
+import {
+  buildRequestListScreen, buildRequestScreen, confirmFinish, confirmDeleteRequest,
+  resetRequestWindow,
+} from './order-requests.js';
 
 
 const state = {
@@ -53,6 +64,7 @@ const state = {
   rawIngredients: [],
   ingredientPrices: {},
   history: [],
+  requests: [],                 // order lists somebody sent to whoever runs the place
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
   days: {},                     // { supplierId: 'YYYY-MM-DD' } — the day those rows were typed
   draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
@@ -74,6 +86,9 @@ let flatView = null;            // mounted flat-list handle, or null when not on
 let cardsView = null;           // mounted supplier-list handle, or null
 let detailView = null;          // the open supplier's screen, or null
 let itemsView = null;           // the open read-only product list, or null
+let requestListView = null;     // the list of sent order lists, or null
+let openRequestId = null;       // the sent list being worked through, or null
+let requestView = null;         // that list's own screen, or null
 const placing = new Set();      // suppliers whose order is being written right now
 
 // Replace state.entries contents WITHOUT changing the reference (row closures keep working).
@@ -596,8 +611,185 @@ function openSendScreen() {
       overlay.remove();
       offerToRecordSent(supplierIds);
     },
+    // The same ticked suppliers, sent inside the app instead of to a chat.
+    onSendToManager: supplierIds => {
+      overlay.remove();
+      sendListToManagers(supplierIds);
+    },
   }, messageFormatOption());
   document.body.appendChild(overlay);
+}
+
+// ── Sending the list to whoever runs the place ────────────────────────────────
+
+// Freeze what was ticked and write it. Everything that decides WHAT is frozen is
+// in order-request-model.js; this is the trip to Firestore around it.
+//
+// ⚠️ THE DRAFT IS NOT CLEARED, ON PURPOSE (Federico's choice, 14 Aug 2026). The
+// list is a photograph and the shared order carries on as it was, so nobody loses
+// typing and the ordinary "Order placed" flow still works untouched. The price is
+// that the two can drift apart — which is why the receiving screen says, line by
+// line, where they now differ.
+async function sendListToManagers(supplierIds) {
+  const suppliers = supplierIds.map(findOrderSupplier).filter(Boolean);
+  if (!suppliers.length) {
+    setStatus(t('orders.nothingLeftToRecord'), 'warn', 5000);
+    return;
+  }
+
+  setStatus(t('orders.request.sending'), null);
+  // The sender's own name, so the list arrives from a person rather than a uid.
+  // It must never be able to stop the send — see getOwnMemberRow.
+  const { user } = currentSession();
+  const member = await getOwnMemberRow();
+  const payload = buildOrderRequest({
+    suppliers,
+    ingredients: orderIngredients(),
+    entries: state.entries,
+    date: todayISO(),
+    from: { uid: user?.uid || '', name: senderName(member, user?.email) },
+  });
+
+  if (!payload) {
+    setStatus(t('orders.nothingLeftToRecord'), 'warn', 5000);
+    return;
+  }
+
+  try {
+    await sendOrderRequest(payload);
+    // ⚠️ IT SAYS WHO WILL BE TOLD. The whole risk of this feature is a list that
+    // reaches nobody: the sender used to know their order had gone because they
+    // sent it themselves, and now they do not.
+    setStatus(`${t('orders.request.sent')} — ${t('orders.request.sentToManagers')}`, 'ok', 6000);
+  } catch (err) {
+    console.error('Sending the order list failed:', err);
+    setStatus(t('orders.request.sendFailed'), 'error');
+  }
+}
+
+// ── The lists somebody sent ───────────────────────────────────────────────────
+
+function openRequestList() {
+  resetRequestWindow();
+  renderRequestList();
+}
+
+// ⚠️⚠️ IT REPLACES IN PLACE, IT DOES NOT REMOVE AND RE-APPEND — and that one word
+// is the difference between working and unusable. Both screens are .req-overlay
+// at the same z-index, so DOM ORDER decides which is in front. Re-appending the
+// list put it back at the END of <body>, i.e. ON TOP of the open list somebody
+// was ticking — so every tick threw the manager back to the list of lists, and so
+// did a colleague ticking anything from their own phone.
+//
+// Found by driving the app: three checks went red reporting an empty screen, and
+// the screen was not empty at all — it was the wrong one, in front.
+function renderRequestList() {
+  const next = buildRequestListScreen(state.requests, {
+    onBack: closeRequestList,
+    onOpen: id => { openRequestId = id; renderOpenRequest(); },
+    onRepaint: renderRequestList,
+  });
+  if (requestListView) requestListView.replaceWith(next);
+  else document.body.appendChild(next);
+  requestListView = next;
+}
+
+function closeRequestList() {
+  requestListView?.remove();
+  requestListView = null;
+}
+
+function findRequest(id) {
+  return state.requests.find(r => r.id === id) || null;
+}
+
+// ⚠️ REBUILT FROM state ON EVERY SNAPSHOT, never patched in place. Two people can
+// be working the same list at once, and a screen that only redrew the row somebody
+// tapped here would quietly disagree with the database about every other row.
+function renderOpenRequest() {
+  if (!openRequestId) { requestView?.remove(); requestView = null; return; }
+  const request = findRequest(openRequestId);
+  if (!request) {
+    // It was deleted, by somebody else or by this phone. Step back rather than
+    // sitting on a screen describing a document that is gone.
+    openRequestId = null;
+    requestView?.remove();
+    requestView = null;
+    return;
+  }
+
+  const next = buildRequestScreen(request, {
+    ingredientsById: indexById(orderIngredients()),
+    entries: state.entries,
+    canManage: currentSession().canManage === true,
+  }, {
+    onBack: () => { openRequestId = null; renderOpenRequest(); },
+    onToggle: (ingredientId, done, box) => tickRequestItem(request.id, ingredientId, done, box),
+    onFinish: left => finishRequest(request.id, left),
+    onDelete: () => deleteRequest(request.id),
+    onPlaced: supplierId => placeOrder(supplierId),
+  });
+
+  if (requestView) requestView.replaceWith(next); else document.body.appendChild(next);
+  requestView = next;
+}
+
+// ⚠️ THE TICK IS PUT BACK IF THE WRITE FAILS. A checkbox that stays ticked after a
+// refused write is the worst possible outcome here: it says "bought" about
+// something nobody bought, and the next snapshot would silently correct it long
+// after the person stopped looking.
+async function tickRequestItem(id, ingredientId, done, box) {
+  try {
+    await setOrderRequestDone(id, ingredientId, done);
+  } catch (err) {
+    console.error('Saving the tick failed:', err);
+    if (box) box.checked = !done;
+    setStatus(t('orders.request.tickFailed'), 'error');
+  }
+}
+
+async function finishRequest(id, left) {
+  const request = findRequest(id);
+  if (!request) return;
+  if (!await confirmFinish(left)) return;
+  try {
+    await finishOrderRequest(id, remainingIds(request));
+  } catch (err) {
+    console.error('Finishing the list failed:', err);
+    setStatus(t('orders.request.tickFailed'), 'error');
+  }
+}
+
+async function deleteRequest(id) {
+  if (!await confirmDeleteRequest()) return;
+  try {
+    await deleteOrderRequest(id);
+    openRequestId = null;
+    renderOpenRequest();
+  } catch (err) {
+    console.error('Deleting the list failed:', err);
+    setStatus(t('orders.request.deleteFailed'), 'error');
+  }
+}
+
+// The banner at the top of Orders. Only what is still to do — a signal that stays
+// lit after the job is one people learn to stop seeing (the v1.31.1 lesson).
+function renderRequestBanner() {
+  const host = document.getElementById('orders-requests');
+  if (!host) return;
+  host.textContent = '';
+  const waiting = waitingRequests(state.requests);
+  if (!waiting.length) return;
+
+  host.appendChild(el('button', {
+    type: 'button', class: 'req-banner', onClick: openRequestList,
+  }, [
+    el('span', { text: t('orders.request.waiting', { n: waiting.length }) }),
+    el('span', {
+      class: 'req-banner-chevron', 'aria-hidden': 'true',
+      icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+    }),
+  ]));
 }
 
 // "A", "A and B", "A, B and C".
@@ -1250,6 +1442,12 @@ async function init() {
     else settingsBtn.hidden = true;
   }
 
+  // The always-there door to the order lists. Not gated on there being any: an
+  // empty screen that says "nobody has sent one yet, here is how" teaches the
+  // feature, whereas a button that comes and goes teaches nothing and cannot be
+  // found on purpose.
+  document.getElementById('requests-footer-btn')?.addEventListener('click', openRequestList);
+
   setupOfflineIndicator();
 
   // No "connecting/connected" status: the data watchers below each await auth
@@ -1271,12 +1469,37 @@ async function init() {
     syncInputsFromState();
     renderReminders();
     checkPendingOnce();
+    // ⚠️ THE OPEN LIST DEPENDS ON THE SHARED ORDER, NOT ONLY ON ITSELF. Its
+    // "now in the list: 6" marks are a comparison against these very entries, so
+    // without this the warning appeared only if the LIST document happened to
+    // change too — meaning the one case it exists for, somebody editing the
+    // shared order while a manager reads the frozen numbers, showed nothing at
+    // all. Found by driving the app; the model's own tests were green throughout,
+    // because the comparison was right and nobody was asking it again.
+    renderOpenRequest();
   }, liveDataLost('the order in progress'));
 
   watchCollection(COLLECTIONS.history, list => {
     applyHistory(list);
     renderReminders();
   }, liveDataLost('past orders'));
+
+  // ⚠️ A BOUNDED query, not watchCollection: this collection grows for ever and
+  // nothing in this app deletes by itself, so an unbounded listener would read
+  // every list ever sent on every Orders open (P14). See watchOrderRequests.
+  //
+  // Both open screens are repainted from the snapshot, so a colleague ticking a
+  // line off shows up here without a reload — which is the whole reason the ticks
+  // are stored rather than held in the page.
+  watchOrderRequests(list => {
+    state.requests = list;
+    renderRequestBanner();
+    // ⚠️ renderRequestList, NOT openRequestList: the latter resets the "show
+    // older" choice, so a snapshot arriving while somebody was looking at the
+    // older lists would fold them away under their thumb.
+    if (requestListView) renderRequestList();
+    renderOpenRequest();
+  }, liveDataLost('the order lists'));
 
   // Suppliers and ingredients stay unbounded: they are a handful of documents and
   // every one of them is needed to draw the screen. Only history grows without end.

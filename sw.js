@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v292';
+const CACHE_NAME = 'theitalianclub-v293';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -48,6 +48,7 @@ const ASSETS = [
   './js/client-orders-data.js',
   './js/calculator-client-orders.js',
   './js/home-client-orders-badge.js',
+  './js/home-order-requests-badge.js',
   './js/help-content.js',
   './js/help-button.js',
   // ⚠️ order.html AND js/client-orders/* ARE DELIBERATELY ABSENT FROM THIS LIST.
@@ -147,6 +148,8 @@ const ASSETS = [
   './js/orders/preview.js',
   './js/orders/order-text.js',
   './js/orders/supplier-picker.js',
+  './js/orders/order-request-model.js',
+  './js/orders/order-requests.js',
   './js/orders/history.js',
   './js/orders/history-edit.js',
   './js/orders/management.js',

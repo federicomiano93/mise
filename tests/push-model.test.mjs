@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import {
   MIN_AHEAD_MS, MAX_AHEAD_MS, MAX_LATE_MS, MAX_TITLE, MAX_BODY,
   isSchedulable, buildTimerDoc, isValidTimerDoc,
-  isStillDue, skipReason, timerNotification, orderNotification,
+  isStillDue, skipReason, timerNotification, orderNotification, orderRequestNotification,
   targetPage, notificationTag, PUSH_KINDS,
 } from '../js/push-model.js';
 
@@ -156,6 +156,7 @@ test('…and still says something useful when the name is missing', () => {
 test('a tap lands on the screen that answers the notification', () => {
   assert.match(targetPage('timer'), /catalogue/);
   assert.match(targetPage('order'), /calculator/);
+  assert.match(targetPage('orderRequest'), /orders/);
   assert.match(targetPage('nonsense'), /catalogue/, 'an unknown kind still opens somewhere');
 });
 
@@ -168,5 +169,50 @@ test('one notification per thing, so a re-delivery replaces rather than stacks',
 });
 
 test('the kinds are a closed list', () => {
-  assert.deepEqual([...PUSH_KINDS], ['timer', 'order']);
+  assert.deepEqual([...PUSH_KINDS], ['timer', 'order', 'orderRequest']);
+});
+
+// ── An order list somebody sent ──────────────────────────────────────────────
+
+test('the list notification names WHO is waiting, and how much there is', () => {
+  const n = orderRequestNotification({ fromName: 'Marco Rossi', quantities: { a: 1, b: 2 } });
+  assert.match(n.title, /Marco Rossi/);
+  assert.match(n.body, /2/);
+});
+
+test('a list with no name still says something a person can act on', () => {
+  const n = orderRequestNotification({ quantities: { a: 1 } });
+  assert.equal(/undefined|null/.test(n.title + n.body), false);
+  assert.ok(n.title.length > 0 && n.body.length > 0);
+  const junk = orderRequestNotification(null);
+  assert.equal(/undefined|null/.test(junk.title + junk.body), false);
+  assert.ok(junk.body.length > 0);
+});
+
+// ⚠️ THE ONE THIS FILE EXISTS FOR SINCE THE APP SPEAKS TWO LANGUAGES. A
+// notification is written when nobody is looking at the app, so the page that
+// knows the language cannot build it — the server has to, and until this release
+// every notification was English in both languages.
+test('the notifications are written in the venue’s language', () => {
+  const it = orderRequestNotification({ fromName: 'Marco', quantities: { a: 1, b: 2 } }, 'it');
+  const en = orderRequestNotification({ fromName: 'Marco', quantities: { a: 1, b: 2 } }, 'en');
+  assert.notEqual(it.title, en.title);
+  assert.match(it.body, /voci/);
+  assert.match(en.body, /items/);
+
+  assert.match(orderNotification({ clientName: 'Bar Centrale', date: '2026-08-12' }, 'it').title, /Nuovo ordine/);
+  assert.match(timerNotification({}, 'it').body, /Tempo scaduto/);
+});
+
+test('Italian gets a real singular, not "1 voci"', () => {
+  assert.match(orderRequestNotification({ fromName: 'M', quantities: { a: 1 } }, 'it').body, /1 voce/);
+  assert.match(orderRequestNotification({ fromName: 'M', quantities: { a: 1 } }, 'en').body, /1 item/);
+});
+
+// ⚠️ A LANGUAGE NOBODY RECOGNISES MUST NOT PRODUCE A BLANK LOCK SCREEN. A venue
+// that has never chosen one, or one a future version writes, still gets words.
+test('an unknown language falls back to English rather than to nothing', () => {
+  const n = orderRequestNotification({ fromName: 'Marco', quantities: { a: 1 } }, 'zz');
+  assert.match(n.body, /item/);
+  assert.ok(timerNotification({}, undefined).body.length > 0);
 });

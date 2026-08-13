@@ -787,6 +787,84 @@ service cloud.firestore {
         allow delete: if canUse(lid, 'orders');
       }
 
+      // ── An order list one person sends to another ───────────────────────
+      // Somebody prepares the order and sends it INSIDE the app; a manager opens
+      // it and ticks each ingredient off as it is bought. A frozen photograph of
+      // what was sent — the shared draft moves on, and the manager must be able
+      // to see what they were actually handed.
+      //
+      // ⚠️ FLAT MAPS, NOT A NESTED LIST, AND THAT IS WHY EVERY PART CAN BE
+      // CHECKED HERE. These rules cannot look inside a list (the same limit that
+      // left the WhatsApp free lines unvalidated), so a nested shape could only
+      // be checked for being a list at all. As maps, every piece gets a type and
+      // a ceiling. It is also the shape orders-history has carried for a year.
+      //
+      // ⚠️ `quantities` MUST NOT BE EMPTY. There is no such thing as an empty
+      // order list: it is a list of work, and one with no work in it can only
+      // mislead the person it was sent to. The app refuses to build one; this is
+      // the half that cannot be bypassed by a stale phone.
+      match /order-requests/{id} {
+        allow read: if canUse(lid, 'orders');
+
+        allow create: if canUse(lid, 'orders')
+          && stampedFor(lid)
+          // ⚠️ NOBODY MAY SEND A LIST IN SOMEBODY ELSE'S NAME. The receiving
+          // screen prints this, and a manager acts on who they think asked.
+          && request.resource.data.fromUid == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+               'bakery', 'date', 'fromUid', 'fromName', 'quantities', 'names',
+               'supplierOf', 'supplierNames', 'done', 'note',
+               'createdAt', 'updatedAt'
+             ])
+          && request.resource.data.date is string
+          && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.fromName is string
+          && request.resource.data.fromName.size() <= 200
+          && request.resource.data.quantities is map
+          && request.resource.data.quantities.size() > 0
+          && request.resource.data.quantities.size() <= 500
+          && request.resource.data.names is map
+          && request.resource.data.names.size() <= 500
+          && request.resource.data.supplierOf is map
+          && request.resource.data.supplierOf.size() <= 500
+          && request.resource.data.supplierNames is map
+          && request.resource.data.supplierNames.size() <= 200
+          // ⚠️ IT IS BORN WITH NO TICKS. A list that arrived already ticked would
+          // be a list the manager never sees in the banner — sent and silently
+          // finished, which is the one outcome this whole feature exists to stop.
+          && request.resource.data.done is map
+          && request.resource.data.done.size() == 0
+          && request.resource.data.note is string
+          && request.resource.data.note.size() <= 500
+          && request.resource.data.createdAt is string
+          && request.resource.data.createdAt.size() <= 64
+          && request.resource.data.updatedAt is string
+          && request.resource.data.updatedAt.size() <= 64;
+
+        // ⚠️⚠️ DELIBERATELY THE NARROWEST UPDATE IN THIS FILE: the ticks, and the
+        // stamp that says when. Everything else is pinned to what is already
+        // stored, so ticking an ingredient off can never become the door through
+        // which somebody's quantities are quietly rewritten after they were sent.
+        // Same technique, and the same reason, as `active` on push-timers.
+        allow update: if canUse(lid, 'orders')
+          && request.resource.data.diff(resource.data)
+               .affectedKeys().hasOnly(['done', 'updatedAt'])
+          && request.resource.data.done is map
+          && request.resource.data.done.size() <= 500
+          && request.resource.data.updatedAt is string
+          && request.resource.data.updatedAt.size() <= 64;
+
+        // ⚠️ THE ONE THING HERE BEHIND THE ROLE, AND IT IS A DELIBERATE DEPARTURE
+        // from orders-history and pastry-logs, which any member may delete. The
+        // rule stated above for those is "it is how a person corrects their OWN
+        // work" — and it holds, because they are RECORDS of something already
+        // done. This is not a record: it is work NOT yet done, addressed to
+        // somebody else. Deleting it means the ingredients are never bought and
+        // nobody finds out, which no backup helps with because nothing was lost —
+        // it was never ordered. Sending a corrected list costs one minute.
+        allow delete: if canManage(lid, 'orders');
+      }
+
       // ── Configuration: config/calculator and config/orders ──────────────
       // config/orders belongs to the Orders screen, config/calculator to the
       // Calculator, so each is gated by its own section.

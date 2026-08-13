@@ -102,6 +102,14 @@
          rebuilt on every suppliers snapshot (renderAlerts), which would take
          these with it. #orders-pending comes first — it is the only one asking
          for an action. -->
+    <!-- "N order lists to place" — somebody prepared an order and sent it here.
+         First, above the day's own reminders: it is work another person is
+         waiting on, and it names a person rather than a calendar.
+         ⚠️ IT IS AN ALARM AND NOT THE DOORWAY. It hides itself the moment nothing
+         needs attention, so the way IN lives in the bottom bar and is always
+         there — the exact defect that cost v1.31.1, where the tap that finished
+         the job removed the only entrance. -->
+    <div id="orders-requests"></div>
     <div id="orders-pending"></div>
     <div id="orders-today"></div>
     <div id="orders-alerts"></div>
@@ -137,6 +145,12 @@
 
   <!-- Settings footer (mirrors the Calculator's bottom bar for a consistent app) -->
   <div class="recipe-footer">
+    <!-- ⚠️ THE PERMANENT WAY IN to the order lists somebody sent. The banner at
+         the top is an ALARM and goes quiet once everything is done; without this
+         the tap that finishes the last list would remove the only door to the
+         lists — which is exactly the defect v1.31.1 had to hotfix for the client
+         orders. Two footer buttons where there was one: measured at 320px. -->
+    <button class="recipe-footer-btn" id="requests-footer-btn" type="button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg><span data-i18n="orders.request.open">Order lists</span></button>
     <button class="recipe-footer-btn" id="settings-footer-btn" type="button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   </div>
 

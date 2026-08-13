@@ -101,38 +101,107 @@ export function skipReason(doc, nowMs) {
   return '';
 }
 
+// ── The words the SERVER sends ────────────────────────────────────────────────
+//
+// ⚠️⚠️ THIS IS A DICTIONARY, AND IT MAY NOT BE THE APP'S ONE. js/i18n.js holds
+// every phrase the staff read on screen — but this file is copied byte for byte
+// into functions/, where `../js/` does not exist (a deploy uploads only that
+// folder), so importing it would resolve here and be missing in the cloud. That
+// is the same wall join-code.js hits, and the answer is the same: the handful of
+// phrases only the server ever produces live with the server code.
+//
+// It is NOT a duplicate of anything: no screen shows these words. A notification
+// is written when nobody is looking at the app, so it is the one text that cannot
+// be built by the page that knows the language.
+//
+// ⚠️ AND IT HAD TO EXIST. Until this release every notification was English in
+// both languages — the same defect as the join-code expiry, which read
+// "24 hours left" in the middle of an Italian sentence. Adding a THIRD English
+// notification to an app that now speaks two languages would have been shipping
+// a known defect on purpose.
+const WORDS = Object.freeze({
+  en: {
+    timeIsUp: 'Time is up.',
+    newOrder: 'New order',
+    newOrderPlain: 'New order received',
+    forDay: 'For',
+    openCalculator: 'Open the Calculator to see it.',
+    newList: 'Order list',
+    newListPlain: 'An order list has arrived',
+    lineToOrder: 'item to order.',
+    linesToOrder: 'items to order.',
+    openOrders: 'Open Orders to see it.',
+  },
+  it: {
+    timeIsUp: 'Tempo scaduto.',
+    newOrder: 'Nuovo ordine',
+    newOrderPlain: 'Nuovo ordine ricevuto',
+    forDay: 'Per il',
+    openCalculator: 'Apri il Calcolatore per vederlo.',
+    newList: 'Lista d’ordine',
+    newListPlain: 'È arrivata una lista d’ordine',
+    lineToOrder: 'voce da ordinare.',
+    linesToOrder: 'voci da ordinare.',
+    openOrders: 'Apri Ordini per vederla.',
+  },
+});
+
+// ⚠️ AN UNKNOWN LANGUAGE FALLS BACK TO ENGLISH RATHER THAN TO NOTHING. A venue
+// whose language has not been set, or is set to something a future version
+// writes, must still get a readable notification — a blank lock screen says less
+// than one in the wrong language.
+function say(key, lang) {
+  const table = WORDS[lang] || WORDS.en;
+  return table[key] || WORDS.en[key] || '';
+}
+
 // ── What the phone shows ──────────────────────────────────────────────────────
 
 // ⚠️ NEVER EMPTY AND NEVER "undefined". A notification is the one piece of this
 // app somebody reads on a lock screen with no context around it, so every field
 // falls back to something a person can act on rather than to a blank.
-export function timerNotification(doc) {
+export function timerNotification(doc, lang) {
   // ⚠️ THE LAST RESORT ONLY. Every notification this app sends carries its own
   // title; this is what appears if one ever arrives without one, and it is the
   // PRODUCT's name because the sender cannot know whose venue it is about.
   const title = text(doc && doc.title, MAX_TITLE) || 'Misé';
-  const body = text(doc && doc.body, MAX_BODY) || 'Time is up.';
+  const body = text(doc && doc.body, MAX_BODY) || say('timeIsUp', lang);
   return { title, body };
 }
 
 // The client-order notification. The client's NAME is the useful part on a lock
 // screen — it is the bakery's own data, shown to the bakery.
-export function orderNotification(order) {
+export function orderNotification(order, lang) {
   const who = text(order && order.clientName, MAX_TITLE);
   const when = text(order && order.date, 32);
   return {
-    title: who ? `New order — ${who}` : 'New order received',
-    body: when ? `For ${when}. Open the Calculator to see it.` : 'Open the Calculator to see it.',
+    title: who ? `${say('newOrder', lang)} — ${who}` : say('newOrderPlain', lang),
+    body: when ? `${say('forDay', lang)} ${when}. ${say('openCalculator', lang)}` : say('openCalculator', lang),
+  };
+}
+
+// Somebody prepared an order and sent it to whoever runs the place. The SENDER's
+// name is the useful part on a lock screen: it says who is waiting.
+export function orderRequestNotification(request, lang) {
+  const who = text(request && request.fromName, MAX_TITLE);
+  const lines = Object.keys((request && request.quantities) || {}).length;
+  return {
+    title: who ? `${say('newList', lang)} — ${who}` : say('newListPlain', lang),
+    body: lines
+      ? `${lines} ${say(lines === 1 ? 'lineToOrder' : 'linesToOrder', lang)}`
+      : say('openOrders', lang),
   };
 }
 
 // ── Where a tap should land ───────────────────────────────────────────────────
 // Kept here so the service worker, which cannot import a feature module, still
 // agrees with the app about which screen answers which notification.
-export const PUSH_KINDS = Object.freeze(['timer', 'order']);
+export const PUSH_KINDS = Object.freeze(['timer', 'order', 'orderRequest']);
 
 export function targetPage(kind) {
-  return kind === 'order' ? './calculator.html' : './catalogue.html';
+  if (kind === 'order') return './calculator.html';
+  if (kind === 'orderRequest') return './orders.html';
+  return './catalogue.html';
 }
 
 // One notification per thing, so a re-delivery REPLACES rather than stacking

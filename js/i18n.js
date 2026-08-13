@@ -455,6 +455,57 @@ const DICTIONARIES = Object.freeze({
     'orders.selectAllSuppliers': 'Select all suppliers',
     'orders.nothingIsBeingOrdered': 'Nothing is being ordered yet.',
 
+    // ⚠️ WAS WRITTEN BY HAND, IN ENGLISH, IN TWO COPIES (supplier-picker.js and
+    // history.js) that had already drifted into two different plurals. One
+    // definition now, and Intl decides the form.
+    'orders.itemsCount': { one: '{n} item', other: '{n} items' },
+    'orders.whatsappMessage': 'WhatsApp message',
+
+    // ── An order list one person sends to another ────────────────────────────
+    'orders.request.someone': 'Someone',
+    'orders.request.sendToManager': 'Send to the manager',
+    'orders.request.sending': 'Sending…',
+    'orders.request.sent': 'List sent ✓',
+    'orders.request.sendFailed': 'The list was NOT sent — it is still here. Check the connection and try again.',
+    'orders.request.title': 'Order lists',
+    'orders.request.open': 'Order lists',
+    'orders.request.waiting': {
+      one: '{n} order list to place',
+      other: '{n} order lists to place',
+    },
+    'orders.request.from': 'From {who}',
+    'orders.request.progress': '{done} of {total}',
+    'orders.request.allOrdered': 'All ordered',
+    'orders.request.none': 'Nobody has sent an order list yet.',
+    'orders.request.noneHint': 'Type an order, tap the WhatsApp button at the top, then “Send to the manager”.',
+    'orders.request.noneWaiting': 'Every list sent has been ordered.',
+    'orders.request.noneInWindow': {
+      one: 'No lists in the last day',
+      other: 'No lists in the last {n} days',
+    },
+    'orders.request.showOlder': {
+      one: 'Show older lists ({n})',
+      other: 'Show older lists ({n})',
+    },
+    'orders.request.nowInList': 'now in the list: {n}',
+    'orders.request.changedSince': 'These amounts have changed in the shared order since this list was sent.',
+    'orders.request.finish': 'Finish',
+    'orders.request.finishTitle': 'Finish this list?',
+    'orders.request.finishMessage': {
+      one: 'One line has not been ticked. Finishing ticks it too.',
+      other: '{n} lines have not been ticked. Finishing ticks them too.',
+    },
+    // ⚠️ AN INSTRUCTION, NOT A STATEMENT. 'Order placed — X' under a supplier
+    // whose lines are all ticked reads as a receipt saying it already happened.
+    'orders.request.markPlacedFor': 'Mark as placed — {supplier}',
+    'orders.request.oneTitle': 'Order list',
+    'orders.request.noteLabel': 'Note',
+    'orders.request.delete': 'Delete this list',
+    'orders.request.deleteTitle': 'Delete this list?',
+    'orders.request.deleteMessage': 'It disappears for everybody. Anything already ordered stays in History.',
+    'orders.request.deleteFailed': 'Not deleted — the list is still here.',
+    'orders.request.tickFailed': 'The tick was NOT saved — check the connection.',
+    'orders.request.sentToManagers': 'Everybody who runs this place will be told.',
 
     // ── Catalogue, Food Cost, Pastries, Calculator ─────────────────────
     'cat.everyRecipeCanBe': 'Every recipe can be labelled.',
@@ -903,6 +954,12 @@ const DICTIONARIES = Object.freeze({
 
     // ── Words written straight into the HTML (js/i18n-dom.js) ─────────────
     'ui.home': "Home",
+    // Generic words a screen needs whatever feature it belongs to. They live in
+    // `ui.` rather than in a feature namespace because four features already want
+    // them, and a fifth copy is a fifth thing to translate.
+    'ui.back': 'Back',
+    'ui.cancel': 'Cancel',
+    'ui.delete': 'Delete',
     'ui.doughScaling': "Dough scaling",
     'ui.recipesKgScaling': "Recipes & kg scaling",
     'ui.suppliersWeeklyOrder': "Suppliers & weekly order",
@@ -1467,6 +1524,52 @@ const DICTIONARIES = Object.freeze({
     'orders.selectAllSuppliers': 'Seleziona tutti i fornitori',
     'orders.nothingIsBeingOrdered': 'Non si sta ancora ordinando niente.',
 
+    'orders.itemsCount': { one: '{n} voce', other: '{n} voci' },
+    'orders.whatsappMessage': 'Messaggio WhatsApp',
+
+    // ── Una lista d'ordine che una persona manda a un'altra ──────────────────
+    'orders.request.someone': 'Qualcuno',
+    'orders.request.sendToManager': 'Manda al manager',
+    'orders.request.sending': 'Invio…',
+    'orders.request.sent': 'Lista mandata ✓',
+    'orders.request.sendFailed': 'La lista NON è stata mandata — è ancora qui. Controlla la connessione e riprova.',
+    'orders.request.title': 'Liste d’ordine',
+    'orders.request.open': 'Liste d’ordine',
+    'orders.request.waiting': {
+      one: '{n} lista d’ordine da fare',
+      other: '{n} liste d’ordine da fare',
+    },
+    'orders.request.from': 'Da {who}',
+    'orders.request.progress': '{done} su {total}',
+    'orders.request.allOrdered': 'Tutto ordinato',
+    'orders.request.none': 'Nessuno ha ancora mandato una lista d’ordine.',
+    'orders.request.noneHint': 'Scrivi un ordine, tocca il tasto WhatsApp in alto, poi “Manda al manager”.',
+    'orders.request.noneWaiting': 'Tutte le liste mandate sono state ordinate.',
+    'orders.request.noneInWindow': {
+      one: 'Nessuna lista nell’ultimo giorno',
+      other: 'Nessuna lista negli ultimi {n} giorni',
+    },
+    'orders.request.showOlder': {
+      one: 'Mostra le liste più vecchie ({n})',
+      other: 'Mostra le liste più vecchie ({n})',
+    },
+    'orders.request.nowInList': 'adesso in lista: {n}',
+    'orders.request.changedSince': 'Queste quantità sono cambiate nell’ordine condiviso dopo che la lista è stata mandata.',
+    'orders.request.finish': 'Finito',
+    'orders.request.finishTitle': 'Chiudere questa lista?',
+    'orders.request.finishMessage': {
+      one: 'Una riga non è spuntata. Chiudendo si spunta anche quella.',
+      other: '{n} righe non sono spuntate. Chiudendo si spuntano anche quelle.',
+    },
+    'orders.request.markPlacedFor': 'Segna come ordinato — {supplier}',
+    'orders.request.oneTitle': 'Lista d’ordine',
+    'orders.request.noteLabel': 'Nota',
+    'orders.request.delete': 'Elimina questa lista',
+    'orders.request.deleteTitle': 'Eliminare questa lista?',
+    'orders.request.deleteMessage': 'Sparisce per tutti. Quello che è già stato ordinato resta nello Storico.',
+    'orders.request.deleteFailed': 'Non eliminata — la lista è ancora qui.',
+    'orders.request.tickFailed': 'La spunta NON è stata salvata — controlla la connessione.',
+    'orders.request.sentToManagers': 'Verrà avvisato chi gestisce il locale.',
 
     'calc.savedLocallyOnly': 'Salvato solo su questo telefono. L’app non è riuscita a raggiungere le impostazioni salvate online, quindi non ha mandato la modifica — così protegge i clienti e le ricette già salvati lì. Controlla la connessione e ricarica la pagina.',
     'calc.savedNotSent': 'Salvato su questo telefono, ma non ancora mandato agli altri telefoni — controlla la connessione.',
@@ -1902,6 +2005,9 @@ const DICTIONARIES = Object.freeze({
 
 
     'ui.home': "Home",
+    'ui.back': 'Indietro',
+    'ui.cancel': 'Annulla',
+    'ui.delete': 'Elimina',
     'ui.doughScaling': "Calcolo impasti",
     'ui.recipesKgScaling': "Ricette e scalatura in kg",
     'ui.suppliersWeeklyOrder': "Fornitori e ordine settimanale",

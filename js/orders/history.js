@@ -20,6 +20,9 @@ import {
   groupHistoryByDay, isLegacyRecord, splitHistoryByAge, countRecords, recordedName,
 } from './archive.js';
 import { isNoSupplier } from './no-supplier.js';
+// The one definition of "3 items", shared rather than copied — the two copies had
+// already drifted into two different English plurals, and neither was translated.
+import { itemsLabel } from './supplier-picker.js';
 
 // Whether the operator has asked to see past the recent window. Kept for the life of
 // the page on purpose: this view is repainted on EVERY Firestore snapshot, so without
@@ -234,9 +237,6 @@ function buildLegacyCard(record, supById, ingById, callbacks) {
   ]);
 }
 
-function itemsLabel(count) {
-  return `${count} item${count === 1 ? '' : 's'}`;
-}
 
 // "1 day" / "15 days" — a window of one is a legal setting, and "the last 1 days"
 // reads like a bug to the person who typed it.

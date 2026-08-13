@@ -39,8 +39,14 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
     format,
     // A message goes to one chat: who it is for is a decision, not a default.
     preselect: false,
+    // ⚠️ THE SECOND DESTINATION, AND IT IS OFFERED TO EVERYBODY — a manager too.
+    // Writing the list now and ordering it later is a legitimate way to work, and
+    // a button that appears or disappears by role is one more rule to get wrong
+    // for no gain. The database allows any member to send one.
+    secondaryLabel: callbacks.onSendToManager ? t('orders.request.sendToManager') : null,
   }, {
     onBack: () => callbacks.onBack(),
+    onSecondary: selected => callbacks.onSendToManager?.(selected.map(r => r.id)),
     onConfirm: (selected, { grouped }) => {
       const text = buildOrderMessage(
         selected.map(r => ({ supplierName: r.name, items: r.items })),

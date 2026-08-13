@@ -97,6 +97,17 @@ function paintReminder(orderAlert) {
 function paintBadge(count) {
   const card = document.querySelector('.home-card[href="orders.html"]');
   if (!card) return;
+  // ⚠️ THIS CARD NOW HAS TWO CANDIDATE SIGNALS, and both are absolutely
+  // positioned in the same corner: an order due to a supplier today (here) and an
+  // order list a colleague has sent (js/home-order-requests-badge.js). Two badges
+  // would sit exactly on top of each other and the one underneath would be a
+  // number nobody can read.
+  //
+  // The rule is deterministic and does NOT depend on which module finishes its
+  // read first: this one REPLACES whatever is there, the other one steps aside if
+  // anything is there. A supplier's ordering day passes and cannot be caught up;
+  // a colleague's list waits. So the deadline wins, whichever arrives first.
+  card.querySelector('.home-card-badge')?.remove();
   const badge = document.createElement('span');
   badge.className = 'home-card-badge';
   badge.textContent = String(count);
