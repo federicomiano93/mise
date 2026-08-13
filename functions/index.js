@@ -28,7 +28,8 @@ import { logger } from 'firebase-functions';
 
 import {
   isSchedulable, isStillDue, skipReason,
-  timerNotification, orderNotification, notificationTag, targetPage,
+  timerNotification, orderNotification, orderRequestNotification,
+  notificationTag, targetPage,
 } from './push-model.js';
 
 initializeApp();
@@ -161,6 +162,91 @@ export const notifyClientOrder = onDocumentCreated(
       tag, url: targetPage('order'), path: d.ref.path,
     })));
     logger.info('Order notification', { lid, sent: results.filter(Boolean).length, of: results.length });
+  },
+);
+
+// ── 3b. Somebody sent an order list to whoever runs the place ────────────────
+
+// The interface language this venue's staff read, for the words in the
+// notification. ⚠️ A NOTIFICATION IS THE ONE TEXT THE APP CANNOT BUILD: it is
+// written while nobody is looking at the page that knows the language, so the
+// server has to look it up. A failed read falls back to English rather than to
+// silence — see say() in push-model.js.
+async function languageOf(lid) {
+  try {
+    const snap = await getFirestore().doc(`locations/${lid}`).get();
+    return (snap.exists && snap.data().language) || 'en';
+  } catch (err) {
+    logger.warn('Could not read the venue language; falling back to English', { lid });
+    return 'en';
+  }
+}
+
+// ⚠️ ONLY THE PEOPLE IT WAS ADDRESSED TO. Every other notification in this app
+// goes to every phone in the location; this one must not. A list is prepared FOR
+// whoever runs the place, and buzzing the whole kitchen for it is how a team
+// learns to ignore the app's notifications — taking the useful ones with them.
+//
+// ⚠️ AND NEVER THE SENDER, even when the sender runs the place: writing the list
+// now and ordering it later is a real way to work, and a phone that buzzes at the
+// person who just pressed the button is a phone reporting its own tap.
+//
+// The role is the membership VALUE (users/{uid}.locations.<lid>), the same fact
+// firestore.rules reads. Each uid is read ONCE however many phones it has (P14).
+async function managersAmong(tokens, lid, senderUid) {
+  const db = getFirestore();
+  const roleByUid = new Map();
+
+  const uids = [...new Set(tokens.map(d => d.data().uid).filter(Boolean))];
+  await Promise.all(uids.map(async uid => {
+    try {
+      const snap = await db.doc(`users/${uid}`).get();
+      const access = snap.exists ? (snap.data().locations || {})[lid] : undefined;
+      roleByUid.set(uid, access);
+    } catch (err) {
+      // ⚠️ A FAILED READ MEANS "DO NOT SEND", NOT "SEND ANYWAY". The safe
+      // direction here is silence: a missed notification is a list still sitting
+      // in the app where the banner and the badge will show it.
+      logger.warn('Could not read a role; that phone is skipped', { uid });
+      roleByUid.set(uid, undefined);
+    }
+  }));
+
+  return tokens.filter(d => {
+    const uid = d.data().uid;
+    if (!uid || uid === senderUid) return false;
+    const access = roleByUid.get(uid);
+    // Exactly what runsThePlace() asks in the rules: a string, and one of the two.
+    return access === 'owner' || access === 'manager';
+  });
+}
+
+export const notifyOrderRequest = onDocumentCreated(
+  { region: REGION, document: 'locations/{lid}/order-requests/{id}' },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const request = snap.data();
+    const lid = event.params.lid;
+
+    const tokens = await getFirestore().collection(`locations/${lid}/fcm-tokens`).get();
+    const targets = await managersAmong(tokens.docs, lid, request.fromUid);
+    if (!targets.length) {
+      // Said out loud, always: a quiet phone with nothing in the log is
+      // indistinguishable from a broken function.
+      logger.info('An order list arrived, but nobody who runs this place has notifications on',
+        { lid, phones: tokens.size });
+      return;
+    }
+
+    const message = orderRequestNotification(request, await languageOf(lid));
+    const tag = notificationTag('orderRequest', event.params.id);
+    const results = await Promise.all(targets.map(d => sendTo(d.id, message, {
+      tag, url: targetPage('orderRequest'), path: d.ref.path,
+    })));
+    logger.info('Order-list notification', {
+      lid, sent: results.filter(Boolean).length, of: results.length,
+    });
   },
 );
 
