@@ -684,7 +684,15 @@
 }
 
 .people-pill {
-  flex: 1 1 auto;
+  /* ⚠️ TWO PER LINE, so four pills form a 2x2 block instead of 3 + 1.
+     With `flex: 1 1 auto` the fourth wrapped alone and GREW to the full width —
+     which made "Employee", the choice that takes power AWAY, by far the largest
+     and most inviting target on the row (P20 says the opposite). Found by
+     screenshotting 320px; the measurements had just reported the row fine,
+     because nothing overflowed and every pill was tappable.
+     ⚠️ The basis is what forces the wrap, not the min-width: a min-width would
+     let three squeeze on when the words happen to be short. */
+  flex: 1 1 calc(50% - var(--space-2));
   /* 44px, the same target as the allergen ticks. A mis-tap here does not cost a
      keystroke: it changes what a real person is allowed to do. */
   min-height: 44px;

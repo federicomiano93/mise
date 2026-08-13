@@ -111,10 +111,13 @@ export async function deleteWorkspace(locationId) {
   return res.data;
 }
 
-export async function createJoinCode(role = 'staff') {
+// `title` names the manager level and travels WITH the code, so somebody invited
+// as a head chef joins as one — otherwise the roster would quietly disagree with
+// what the owner picked, and nobody re-reads a screen they filled in yesterday.
+export async function createJoinCode(role = 'staff', title = null) {
   await sessionReady;
   const res = await call('createJoinCode')({
-    locationId: currentSession().locationId, role,
+    locationId: currentSession().locationId, role, title,
   });
   return res.data;
 }
@@ -142,10 +145,12 @@ export async function setMemberName(uid, firstName, lastName) {
   return res.data;
 }
 
-export async function setMemberRole(uid, role) {
+// `title` names the manager level — 'manager' or 'head-chef'. It is a LABEL and
+// grants nothing; the server clears it whenever the level is not manager.
+export async function setMemberRole(uid, role, title = null) {
   await sessionReady;
   const res = await call('setMemberRole')({
-    locationId: currentSession().locationId, uid, role,
+    locationId: currentSession().locationId, uid, role, title,
   });
   return res.data;
 }
