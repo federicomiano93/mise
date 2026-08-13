@@ -117,6 +117,27 @@ test('the offer is a dialog with a way to decline', () => {
   assert.match(body, /inviteOffered/, 'it must not ask twice in one page');
 });
 
+// ⚠️ THE SECOND HALF OF THE SAME DEFECT, still there after the first fix — and
+// found while building the driver, not by any test.
+//
+// A link opened while the app is ALREADY on this page changes only the fragment,
+// and a browser does not reload for that. The hashchange listener exists for it,
+// and it used to end with `if (lastSession.status !== 'ready') render(...)` — so
+// the state where somebody is inside and working, the single most likely place to
+// open an invitation from, was the one state that still did nothing at all.
+//
+// Reacting is now unconditional. Not throwing anybody off their screen is kept by
+// offerInvite ASKING, which is where that rule belongs.
+test('an invitation arriving by fragment reacts in every state, ready included', () => {
+  const listener = SOURCE.slice(SOURCE.indexOf("addEventListener('hashchange'"));
+  const body = listener.slice(0, listener.indexOf('\n});'));
+  assert.doesNotMatch(body, /status !== 'ready'/,
+    "'ready' must not be excluded: it is the state an owner adding a business is in");
+  assert.match(body, /render\(lastSession\)/, 'it must re-render for the new invitation');
+  assert.match(body, /rememberInvite\(/,
+    'and store it, or an invitation arriving this way is lost on the next reload');
+});
+
 // The dead end the app itself used to recommend: "sign in with it instead", which
 // led nowhere because the invitation did not survive the sign-in.
 test('an email that already has an account is offered a way forward', () => {

@@ -795,11 +795,21 @@ onSession(render);
 // for the person holding the phone to explain. Found by driving the app: opening
 // the link in a FRESH page always worked, which is why nothing else caught it.
 //
-// Nothing happens for somebody already inside a location: an invitation is not a
-// reason to throw a working session off its screen.
+// ⚠️ 'ready' USED TO BE EXCLUDED HERE, and that exclusion was half of the defect
+// fixed on 13 Aug 2026. The old comment read "nothing happens for somebody already
+// inside a location: an invitation is not a reason to throw a working session off
+// its screen" — true about not REDIRECTING, and implemented as not reacting AT ALL.
+// So the one person most likely to open an invitation from inside the app — an
+// owner adding a second business, already signed in and working — got silence.
+//
+// Now every state reacts, and "do not throw anybody off their screen" is kept where
+// it belongs: offerInvite ASKS, and "Not now" leaves the screen exactly as it was.
+// render() is safe to re-run in 'ready' — it re-hides an already hidden gate and
+// re-adds a class that is already there — and offerInvite only asks once per page.
 window.addEventListener('hashchange', () => {
   const found = readJoinToken(window.location.href);
   if (!found || found === invitedWith) return;
   invitedWith = found;
-  if (lastSession && lastSession.status !== 'ready') render(lastSession);
+  rememberInvite(found);
+  if (lastSession) render(lastSession);
 });
