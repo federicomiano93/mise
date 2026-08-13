@@ -40,26 +40,24 @@ const SECTIONS = [
 
 const MAX_NAME = 80;   // the server refuses longer, so refuse it here first
 
-// ⚠️ WHO THE BUSINESS IS FOR, asked FIRST because it changes everything after it.
+// ⚠️ WHO THE BUSINESS IS FOR IS DECIDED BY THE DOOR, NOT BY A QUESTION.
 //
-// Added 13 Aug 2026, after Federico created a second business for himself and
-// could not get into it. The only route was to mint a link meant for a stranger
-// and redeem it on his own account — which Firebase refuses, because that email
-// already exists. The link is not a missing feature for this case: it is a step
-// that should never have been in the way.
+// It WAS a question — two radio rows, "For a customer" / "One of mine" — for a few
+// hours on 13 Aug 2026, and Federico hit the defect it causes within minutes of
+// opening the app: the screen defaults to "for a customer", so his own bakery was
+// created as a customer's and he could not get into it. The two entry points
+// already say which is meant, and a screen that asks anyway is a screen that can
+// be answered wrongly:
+//
+//   Choose location  → the list of HIS venues        → 'self'
+//   Customer businesses → the app's customer list    → 'customer'
 //
 // ⚠️ AND THE TWO OUTCOMES ARE GENUINELY DIFFERENT, not a wording choice. For a
 // customer the caller does NOT become a member — their data, their staff, their
 // prices, and whoever sells the app has no business holding those keys. For one
-// of his own there is nobody to invite, so he is made owner on the spot.
-//
-// Drawn as two rows with the reason underneath, the pattern this app already uses
-// for the sections below and for the Misé home — never a dropdown, whose options
-// can only be read one at a time, after choosing.
-const OWNERS = [
-  ['customer', 'For a customer', 'They get a link and become the owner. You do not go in.'],
-  ['self', 'One of mine', 'Created and opened straight away, in your account. No link.'],
-];
+// of his own there is nobody to invite, so he is made owner on the spot. That is
+// exactly why the answer must not be one tap away from the wrong one.
+const OWNER_KINDS = ['self', 'customer'];
 
 // ⚠️ THE CLIPBOARD IS RACED AGAINST A CLOCK. navigator.clipboard.writeText() can
 // sit there and never settle — the page losing focus is enough — and here it
@@ -88,7 +86,20 @@ async function copyToClipboard(text) {
 // "Choose location" list, added 13 Aug 2026) it must be mounted in the cover,
 // because the cover marks every other child of <body> `inert` and a panel out
 // there would be visible and untappable.
-export function openNewCustomer({ onClose, host } = {}) {
+// `ownerKind` is REQUIRED — see OWNER_KINDS above.
+export function openNewCustomer({ onClose, host, ownerKind } = {}) {
+  // ⚠️ THROWS RATHER THAN GUESSING, the same choice js/location.js makes for a
+  // missing location and for the same reason: a stray call must fail loudly.
+  // Neither default is safe here — 'customer' silently strands a business its
+  // creator cannot enter (the defect this whole change exists to remove), and
+  // 'self' silently puts somebody else's business into this account. A screen
+  // that does not open gets fixed; a screen that quietly does the wrong thing is
+  // what cost Federico an afternoon.
+  if (!OWNER_KINDS.includes(ownerKind)) {
+    throw new Error(`openNewCustomer needs ownerKind (${OWNER_KINDS.join(' | ')})`);
+  }
+  const forSelf = ownerKind === 'self';
+
   // The link, once it exists. Kept here because it decides whether leaving the
   // screen is safe — see the Back handler.
   let made = null;
@@ -103,7 +114,12 @@ export function openNewCustomer({ onClose, host } = {}) {
         type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back',
         icon: BACK_ICON, onClick: leave,
       }),
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'New customer' })]),
+      // ⚠️ The title follows the door. It said "New customer" whatever it was
+      // about, so a venue of your own was created under a heading calling it
+      // somebody else's — the same mistake as the screen itself, in one word.
+      el('div', { class: 'orders-header-title' }, [
+        el('h1', { text: forSelf ? 'Add a business' : 'New customer' }),
+      ]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
     el('div', { class: 'people-scroll' }, [form, result]),
@@ -113,8 +129,15 @@ export function openNewCustomer({ onClose, host } = {}) {
   // stored, on purpose — so walking away without copying it leaves a customer's
   // location that nobody can enter, recoverable only from the Firebase console.
   // Hence a question on the way out, and only while there is something to lose.
+  // ⚠️ `made.mine` IS PART OF THE CONDITION, AND IT WAS MISSING. showMine() says in
+  // as many words that a business of your own has "no secret here to leave behind"
+  // and must NOT warn on the way out — but the guard below only asked whether
+  // something had been created, so tapping the header Back after creating one of
+  // your own raised "Leave without sending the link?" about a link that does not
+  // exist. A warning that never means anything teaches people to tap through the
+  // one that does (the v275 lesson), which is the very thing showMine avoids.
   async function leave() {
-    if (made && !handedOver) {
+    if (made && !made.mine && !handedOver) {
       const ok = await confirmDialog({
         title: 'Leave without sending the link?',
         message: `${made.name} has been created, but their link is shown only here `
@@ -160,52 +183,22 @@ export function openNewCustomer({ onClose, host } = {}) {
   const status = el('p', { class: 'people-note', role: 'alert' });
   const create = el('button', { type: 'button', class: 'btn-primary people-save', text: 'Create' });
 
-  // Who it is for. Radios, not tick boxes: it is one answer, and the browser's own
-  // grouping gives arrow-key navigation and the right screen-reader announcement.
-  let ownerKind = 'customer';
-  const hint = el('p', { class: 'people-hint' });
-  const ownerList = el('div', { class: 'nc-sections' },
-    OWNERS.map(([key, label, what]) => {
-      const radio = el('input', { type: 'radio', class: 'nc-check', name: 'nc-owner' });
-      radio.checked = key === 'customer';
-      radio.addEventListener('change', () => {
-        if (!radio.checked) return;
-        ownerKind = key;
-        paintHint();
-      });
-      return el('label', { class: 'nc-section' }, [
-        radio,
-        el('span', { class: 'nc-section-text' }, [
-          el('span', { class: 'nc-section-name', text: label }),
-          el('span', { class: 'nc-section-what', text: what }),
-        ]),
-      ]);
-    }));
+  // ⚠️ THE SENTENCE STILL HAS TO BE THERE, even with nothing to choose. It is what
+  // makes the outcome predictable BEFORE the Create button — that this one opens
+  // straight away, or that this one produces a link somebody else opens. Removing
+  // the question is not a reason to remove the explanation: it is a reason for the
+  // explanation to be certain instead of conditional.
+  const hint = el('p', { class: 'people-hint', text: forSelf
+    ? 'Creates the business in YOUR account, as owner. It opens straight away — '
+      + 'no link, nothing to send.'
+    : 'Creates the business and a link that makes whoever opens it its owner. '
+      + 'They choose their own email and password. You do not go in.' });
 
-  // ⚠️ DECLARED BEFORE THE FUNCTION THAT USES IT. This project lost an afternoon to
-  // a Catalogue that rendered completely blank with NO console error, because a
-  // helper was reached before its own declaration (v1.27.0). It would be safe here
-  // by call order alone — that is exactly the kind of "safe for now" that stops
-  // being true when somebody moves a line.
-  const sectionsLabel = el('p', { class: 'people-label' });
-
-  // ⚠️ THE HINT FOLLOWS THE CHOICE. A fixed sentence describing the link becomes a
-  // lie the moment "one of mine" is picked, and a wrong explanation is worse than
-  // none because the next one is believed too (the v250 lesson, same shape).
-  function paintHint() {
-    hint.textContent = ownerKind === 'self'
-      ? 'Creates the business in YOUR account, as owner. It opens straight away — '
-        + 'no link, nothing to send.'
-      : 'Creates the business and a link that makes whoever opens it its owner. '
-        + 'They choose their own email and password. You do not go in.';
-    sectionsLabel.textContent = ownerKind === 'self'
-      ? 'Which sections it uses'
-      : 'What they are buying';
-  }
+  const sectionsLabel = el('p', { class: 'people-label', text: forSelf
+    ? 'Which sections it uses'
+    : 'What they are buying' });
 
   form.append(
-    el('p', { class: 'people-label', text: 'Who is this business for?' }),
-    ownerList,
     hint,
     nameLabel,
     sectionsLabel,
@@ -213,7 +206,6 @@ export function openNewCustomer({ onClose, host } = {}) {
     create,
     status,
   );
-  paintHint();
 
   // ⚠️ EVERY CHECK RUNS BEFORE THE NETWORK, and a location with no sections is a
   // real refusal, not pedantry: it opens to an empty Home and there is no screen
@@ -239,7 +231,6 @@ export function openNewCustomer({ onClose, host } = {}) {
     const sections = {};
     boxes.forEach((box, key) => { sections[key] = box.checked; });
 
-    const forSelf = ownerKind === 'self';
     const bought = SECTIONS.filter(([key]) => sections[key]).map(([, label]) => label);
     const ok = await confirmDialog({
       title: forSelf ? 'Create this business?' : 'Create this customer?',

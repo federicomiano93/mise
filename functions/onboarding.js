@@ -335,6 +335,72 @@ export const reissueOwnerLink = onCall(CALL, async (request) => {
   return { token, expiresAt };
 });
 
+// Remove a business that was created by mistake.
+//
+// ⚠️ IT EXISTS BECAUSE THE APP COULD CREATE AND NEVER UNDO. Federico opened Misé
+// on his phone, added his own bakery from the customer list, and was left with a
+// business he could not enter and could not remove — the Firebase console was the
+// only way out, which is the exact thing this whole area of the app exists to
+// stop needing.
+//
+// ⚠️⚠️ AND IT MAY ONLY EVER REMOVE A BUSINESS NOBODY HAS OPENED. Past that point
+// the location is a real customer's: their recipes, their suppliers, their staff,
+// their prices — and none of it comes back. The constraint is the same one
+// reissueOwnerLink rests on, for the same reason, and it is checked HERE and not
+// only on the screen: hiding a button is courtesy, the refusal is the protection.
+//
+// ✅ A CONSEQUENCE WORTH NAMING: createWorkspace({ forSelf }) writes the roster row
+// in the same transaction as the location, so a venue of your own is claimed from
+// the instant it exists — and therefore can never be deleted through here. That
+// protection is structural rather than a rule somebody has to remember.
+export const deleteWorkspace = onCall(CALL, async (request) => {
+  const uid = requireAuth(request);
+  await requireAppAdmin(uid);
+
+  const locationId = request.data && request.data.locationId;
+  if (typeof locationId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/.test(locationId)) {
+    throw new HttpsError('invalid-argument', 'Which business?');
+  }
+
+  const ref = db().doc(`locations/${locationId}`);
+  const doc = await ref.get();
+  // Same message for "not there" and "not yours", exactly as reissueOwnerLink: an
+  // error that told them apart would confirm a location exists to somebody with no
+  // business knowing.
+  if (!doc.exists || (doc.data() || {}).createdBy !== uid) {
+    throw new HttpsError('permission-denied', 'Not allowed.');
+  }
+
+  // ⚠️ READ NOW, NOT TAKEN FROM THE LIST. The screen decided whether to draw a bin
+  // when it loaded; somebody can have opened the business in between. The same
+  // shape as the alarm sender asking "is this still wanted?" an instant before it
+  // sends (v1.34.0) — the answer has to be fresh at the moment it is acted on.
+  const members = await db().collection(`locations/${locationId}/members`).get();
+  if (!members.empty) {
+    throw new HttpsError('failed-precondition',
+      'Somebody has already opened this business. It belongs to them now.');
+  }
+
+  // ⚠️ THE CODES ARE DELETED, NOT SPENT. reissueOwnerLink marks them used because
+  // the location lives on and its history should read straight; here the location
+  // is going, so a row left behind would be the fingerprint of a secret that opens
+  // nothing. A link tried afterwards gets the same generic refusal as any wrong
+  // code — no new way to learn that something was once there.
+  const codes = await db().collection('join-codes').where('locationId', '==', locationId).get();
+
+  const batch = db().batch();
+  codes.docs.forEach(code => batch.delete(code.ref));
+  // Empty by the check above; deleted anyway rather than assumed away, because
+  // "the collection I just proved empty" is a sentence that stops being true the
+  // day somebody adds a second writer.
+  members.docs.forEach(member => batch.delete(member.ref));
+  batch.delete(ref);
+  await batch.commit();
+
+  logger.info('Business deleted', { locationId, by: uid, codes: codes.size });
+  return { deleted: true, codes: codes.size };
+});
+
 // The membership value a role is written as.
 //
 // ⚠️ ONE PLACE, AND IT HAS TO BE ONE PLACE. Two writers store a membership —

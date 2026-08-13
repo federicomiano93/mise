@@ -633,6 +633,44 @@
 
 .people-row-actions { display: flex; align-items: center; gap: var(--space-3); }
 
+/* ⚠️ ON THE CUSTOMER LIST THE ACTIONS TAKE THEIR OWN LINE, and this was found by
+   LOOKING at the rendered screen — the measurements had just reported the row fine
+   at all three widths, because nothing overflowed and the bin was tappable. It was
+   still cramped: a row here carries a name, up to five section names and a status
+   line, and with two controls beside them .people-row-main (flex: 1; min-width: 0)
+   shrinks rather than wrapping, so the sections ran to three wrapped lines.
+   .people-row is already flex-wrap, so a full-width child drops to its own line.
+   ⚠️ SCOPED TO .bz-row. .people-row and .people-row-actions also draw "Who can get
+   in", where a name and one action DO sit together comfortably — changing a shared
+   rule always touches at least two screens (the .cp-* lesson, v234/v235). */
+.bz-row .people-row-actions { width: 100%; justify-content: flex-end; }
+
+/* The bin on a customer business that nobody has opened.
+   ⚠️ QUIET, AND SMALL. It is the only irreversible action on that screen and the
+   rarest, so it must never compete with the link beside it (P20) — hence an icon
+   in the danger colour rather than a button with a word.
+   ⚠️ But the TARGET is 40x40 while the drawing is 17px: a mis-tap here would
+   delete a customer's business, and the finger needs more room than the glyph.
+   The same reasoning as the 44px allergen tick boxes (v1.36.0), sized to sit in
+   a row this short without stretching it. */
+.bz-del-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--danger);
+  cursor: pointer;
+}
+.bz-del-icon:active { background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.bz-del-icon:disabled { opacity: 0.5; cursor: default; }
+.bz-del-icon:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
 /* ── Choosing a role ──────────────────────────────────────────────────────
    Three pills, each stating where a tap sends this person. They WRAP on
    purpose: at 320px "Owner Manager Employee" does not fit on one line, and a

@@ -18,12 +18,18 @@
 
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
-import { listWorkspaces, reissueOwnerLink, callFailureText } from './firebase-staff.js';
+import { listWorkspaces, reissueOwnerLink, deleteWorkspace, callFailureText } from './firebase-staff.js';
 import { joinLinkFor } from '../join-link.js';
 import { expiresInWords } from '../join-code.js';
 import { isStranded, statusWords, sectionSummary, createdWords } from '../workspace-row.js';
 
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+
+// The app's one bin, drawn exactly as the Catalogue, Food Cost and the Calculator
+// draw theirs — same path, same 2px stroke, same round caps. An icon, never an
+// emoji: an emoji is a font, so it is a different picture on every phone and
+// cannot take the colour of the thing it sits in.
+const BIN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
 // ⚠️ Raced against a clock, like every clipboard write in this app. writeText()
 // can sit there and never settle — the page losing focus is enough — and here it
@@ -68,7 +74,12 @@ export function openBusinesses({ host } = {}) {
         type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back',
         icon: BACK_ICON, onClick: () => overlay.remove(),
       }),
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Businesses' })]),
+      // ⚠️ "Customer businesses". The bare word sat one letter away from "My
+      // businesses" on the Misé home and left the whole distinction to a sub-line.
+      // The FILE keeps its name on purpose: renaming it would add an entry to the
+      // service worker's precache list, which is the one failure that does not
+      // heal itself on the next load.
+      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Customer businesses' })]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
     el('div', { class: 'people-scroll' }, [top, list]),
@@ -82,19 +93,21 @@ export function openBusinesses({ host } = {}) {
     // ⚠️ The list is reloaded when that screen closes, not when it opens: a
     // business created and then walked away from must still appear here, which
     // is the whole reason this screen exists.
-    openNewCustomer({ onClose: load });
+    // ⚠️ 'customer', decided HERE and not by whoever taps. This is the app's
+    // customer list, so a business added from it belongs to somebody else and
+    // its creator stays out. A venue of your own is added from "Choose location".
+    openNewCustomer({ onClose: load, ownerKind: 'customer' });
   });
 
   top.append(
-    // ⚠️ THIS SENTENCE WENT STALE THE MOMENT THE SCREEN MOVED. It used to read
-    // "you switch to those from the Home", which was true while Businesses was
-    // opened from a venue's Home — and became false as soon as it moved above
-    // every venue. A sentence that is wrong about what is on screen teaches
-    // people to stop reading the next one. Found by looking at the rendered
-    // screen, not by any test.
+    // ⚠️ THE TITLE NOW CARRIES HALF OF WHAT THIS USED TO SAY. It read "The
+    // businesses using Misé. Your own venues are not here — …", and with the
+    // screen called "Customer businesses" the first half repeats the heading. A
+    // sentence whose opening says nothing new is a sentence people stop reading,
+    // and the part that matters — where your own venues actually are — is at the
+    // end of it. So only that part survives.
     el('p', { class: 'people-hint', text:
-      'The businesses using Misé. Your own venues are not here — they are behind '
-      + '“My businesses”.' }),
+      'Your own venues are not here — they are behind “My businesses”.' }),
     add,
   );
 
@@ -111,11 +124,19 @@ export function openBusinesses({ host } = {}) {
         // is the line somebody has to ACT on, and a list where every line reads
         // the same weight is a list nobody reads twice.
         class: `bz-state${stranded ? ' bz-state--stranded' : ''}`,
-        text: `${statusWords(row)} · ${createdWords(row.createdAt).toLowerCase()}`,
+        // ⚠️ ONLY THE STATUS WORDS ARE LOWERCASED, NEVER THE DATE. This line read
+        // "created 13 aug 2026" on Federico's phone: createdWords() returns
+        // "Created 13 Aug 2026" and the .toLowerCase() here was applied to the
+        // whole sentence, month included. Exactly the defect fixed in v180
+        // ("typed sat 11 jul 2026") — the second time this project has lowercased
+        // a string with a date inside it. Found by looking at a screenshot.
+        text: `${statusWords(row)} · ${createdWords(row.createdAt).replace(/^Created/, 'created')}`,
       }),
     ];
 
-    const card = el('div', { class: `people-row${stranded ? ' bz-row--stranded' : ''}` }, [
+    // `bz-row` scopes the layout rule that gives the two actions their own line —
+    // see tokens.css. It is NOT the stranded marker, which is a separate class.
+    const card = el('div', { class: `people-row bz-row${stranded ? ' bz-row--stranded' : ''}` }, [
       el('div', { class: 'people-row-main' }, parts),
     ]);
 
@@ -127,7 +148,16 @@ export function openBusinesses({ host } = {}) {
         type: 'button', class: 'mgmt-link', text: 'Make a new link',
         onClick: () => reissue(row, again),
       });
-      card.appendChild(el('div', { class: 'people-row-actions' }, [again]));
+      // ⚠️ AN ICON, KEPT QUIET, AND LAST. Deleting is the rarest thing done here
+      // and the only one that cannot be undone, so it must never look like the
+      // action the row is offering (P20). It is a sibling of the row, not nested
+      // inside anything tappable — a button cannot live inside a button.
+      const bin = el('button', {
+        type: 'button', class: 'bz-del-icon', icon: BIN_ICON,
+        'aria-label': `Delete ${row.name}`,
+        onClick: () => remove(row, bin),
+      });
+      card.appendChild(el('div', { class: 'people-row-actions' }, [again, bin]));
     }
 
     return card;
@@ -153,6 +183,35 @@ export function openBusinesses({ host } = {}) {
       await alertDialog(callFailureText(err, 'Could not make a new link. Try again.'));
       button.disabled = false;
       button.textContent = was;
+    }
+  }
+
+  // ⚠️ THE ONE IRREVERSIBLE THING ON THIS SCREEN, so it says what goes and names
+  // the business. `danger: true` colours it as the app colours every other delete,
+  // and the confirmation is the app's own dialog — never the browser's grey box.
+  //
+  // ⚠️ It does NOT promise the business is empty. It is, by definition (nobody has
+  // opened it), and saying "this will delete its data" would teach somebody to
+  // expect that sentence on a screen where it could be false.
+  async function remove(row, button) {
+    const ok = await confirmDialog({
+      title: 'Delete this business?',
+      message: `${row.name} will be removed, along with the link that opens it. `
+        + 'Nobody has opened it, so nothing else is lost — but this cannot be undone.',
+      okLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+
+    button.disabled = true;
+    try {
+      await deleteWorkspace(row.id);
+      await load();
+    } catch (err) {
+      // The server refuses if somebody opened it in the meantime, and that refusal
+      // has to arrive as words rather than as a button that stopped working.
+      await alertDialog(callFailureText(err, 'Could not delete this business. Try again.'));
+      button.disabled = false;
     }
   }
 

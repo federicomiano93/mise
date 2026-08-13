@@ -543,7 +543,12 @@ function hubScreen(session) {
       });
     });
 
-  const customers = hubChoice('Businesses', 'The businesses using Misé', async () => {
+  // ⚠️ "Customer businesses", not "Businesses". Beside "My businesses" the bare
+  // word was one letter of difference carrying the whole distinction, and the
+  // two sub-lines were doing work a name should do by itself. Federico created a
+  // venue of his own from the wrong one of these two within minutes of opening
+  // the app on his phone.
+  const customers = hubChoice('Customer businesses', 'The businesses using Misé', async () => {
     const { openBusinesses } = await import('./staff/businesses.js');
     // ⚠️ MOUNTED INSIDE THE COVER, not on the body. This screen is drawn while
     // the gate is up, and the gate marks every other child of <body> `inert` —
@@ -624,7 +629,12 @@ function chooseScreen(session) {
       const { openNewCustomer } = await import('./staff/new-customer.js');
       // ⚠️ MOUNTED INSIDE THE COVER. The gate marks every other child of <body>
       // `inert`, so a panel appended out there would be visible and untappable.
-      openNewCustomer({ host: gateHost() });
+      // ⚠️ 'self', AND THE DOOR IS THE WHOLE POINT. This link sits under the list
+      // of Federico's OWN venues, so a business added from here is one of his —
+      // there is nobody to invite and no link to send. Until 13 Aug 2026 the
+      // screen asked instead, defaulted to "for a customer", and produced a
+      // business its own creator could not enter.
+      openNewCustomer({ host: gateHost(), ownerKind: 'self' });
     });
     card.append(add);
   }
