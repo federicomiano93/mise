@@ -24,17 +24,55 @@ import { isSectionAllowedFor } from './sections.js';
 
 const HOME = 'index.html';
 
+// ⚠️ AN INVITATION MUST SURVIVE A RELOAD, and until 13 Aug 2026 it did not.
+// Redeeming one can need a sign-in first, and signing in reloads the page — so a
+// token living only in a variable was thrown away by the very step the app itself
+// recommended ("that email already has an account, sign in with it instead").
+// Whoever followed that advice arrived signed in with nothing left to redeem.
+//
+// sessionStorage for the same reason as `hub-passed` and `pick-venue` in
+// js/firebase.js: this app is several pages, so memory is too short (every
+// navigation loses it) and localStorage is too long (an invitation declined today
+// would come back next month). It survives a reload and dies with the window.
+//
+// ⚠️ The token is a secret, and it is already in the address bar of this same
+// window — so this stores it no more widely than it already was, for no longer
+// than the window lives, and forgetInvite() clears both at once.
+const INVITE_KEY = 'pending-invite';
+
+function rememberInvite(token) {
+  try { sessionStorage.setItem(INVITE_KEY, token); } catch { /* private mode */ }
+}
+
+// ⚠️ VALIDATED ON THE WAY OUT, exactly as readJoinToken validates the URL. What
+// comes back from storage is no more trustworthy than what went into the address
+// bar: another tab, an extension or a stale entry could have left anything there,
+// and handing rubbish to redeemJoinCode spends one of five attempts an hour.
+function rememberedInvite() {
+  try {
+    const found = sessionStorage.getItem(INVITE_KEY) || '';
+    return kindOfTyped(found) === 'link' ? found : '';
+  } catch { return ''; }
+}
+
 // ⚠️ READ ONCE, AT LOAD, BEFORE ANYTHING CAN NAVIGATE. A link sent to a brand-new
 // customer arrives as index.html#join=<token>; without this the token would be in
 // the address bar and the only screen that could use it would be asking them to
 // type it out by hand — which is exactly the state this app shipped in until
 // 12 Aug 2026.
-let invitedWith = readJoinToken(window.location.href);
+let invitedWith = readJoinToken(window.location.href) || rememberedInvite();
+if (invitedWith) rememberInvite(invitedWith);
 
 // Take the spent secret out of the address bar (and out of the history entry)
 // once it has been used. It is single-use, so what is left behind is worthless —
 // but a secret with no reason to still be on screen should not be.
+//
+// ⚠️ IT CLEARS THE VARIABLE AND THE STORAGE TOO, not only the address bar. Half a
+// forget is worse than none: the invitation would be gone from the URL and still
+// offered on the next page, with nothing on screen explaining where it came from.
 function forgetInvite() {
+  invitedWith = '';
+  try { sessionStorage.removeItem(INVITE_KEY); } catch { /* private mode */ }
   try {
     history.replaceState(null, '', window.location.pathname + window.location.search);
   } catch { /* an old browser: the fragment simply stays */ }
@@ -133,7 +171,11 @@ function showGate(build) {
 
 // ── Screens ──────────────────────────────────────────────────────────────────
 
-function signInScreen() {
+// `note` replaces the usual subtitle when this screen is reached from somewhere
+// that already knows why — today, only from an invitation whose email turned out
+// to have an account. It says what will happen AFTER signing in, because on that
+// path the sign-in is a step towards something else, not the destination.
+function signInScreen({ note = '' } = {}) {
   const card = el('div', 'auth-card');
   // ⚠️ THE PRODUCT'S NAME, NOT A VENUE'S. Nobody is signed in yet, so the app
   // cannot know which location this person belongs to — putting one venue's name
@@ -141,7 +183,7 @@ function signInScreen() {
   // else's business. The venue's own name appears the moment it is known, in the
   // green header (js/location-title.js).
   card.append(el('h1', 'auth-title', 'Misé'));
-  card.append(el('p', 'auth-sub', 'Sign in to open your location.'));
+  card.append(el('p', 'auth-sub', note || 'Sign in to open your location.'));
 
   const form = el('form', 'auth-form');
   form.noValidate = true;
@@ -339,6 +381,30 @@ function joinScreen({ needsAccount, prefill = '' }) {
   form.append(codeLabel, code, submit, status);
   card.append(form);
 
+  // ⚠️ THE WAY OUT OF THE DEAD END, and it is hidden until it is the answer.
+  // Somebody who already has an account here — an owner buying a second business,
+  // a chef who works in two places — reaches this form and is refused by Firebase
+  // with "that email already has an account". Until 13 Aug 2026 the app said
+  // "sign in with it instead" and that was the whole reply: signing in meant a
+  // reload, the reload threw the invitation away, and they arrived signed in with
+  // nothing left to redeem. The advice led exactly nowhere.
+  //
+  // It is built now and revealed later for the reason this project learnt in
+  // v1.19.1: a control that appears only in an error path has no element to
+  // reveal when the error arrives, so it gets built on a screen that is already
+  // being replaced. Hidden is safe — tokens.css forces [hidden] to stay hidden.
+  const signInInstead = el('button', 'auth-link', 'Sign in with that email');
+  signInInstead.type = 'button';
+  signInInstead.hidden = true;
+  signInInstead.addEventListener('click', () => {
+    // The invitation lives in sessionStorage, so it survives the sign-in and the
+    // reload that follows it; offerInvite() picks it up on the other side.
+    showGate(() => signInScreen({
+      note: 'Sign in, and we will add the business to your account.',
+    }));
+  });
+  card.append(signInInstead);
+
   const back = el('button', 'auth-link', 'Back');
   back.type = 'button';
   back.addEventListener('click', () => {
@@ -416,6 +482,10 @@ function joinScreen({ needsAccount, prefill = '' }) {
       const fromAuth = err && typeof err.code === 'string' && err.code.startsWith('auth/');
       setStatus(fromAuth ? messageFor(err)
         : (err && err.message) || 'That code does not work. Ask for a new one.');
+      // ⚠️ ONE refusal has a way forward, so it gets one. Every other failure here
+      // is answered by trying again on this same screen; this one cannot be, because
+      // the account already exists and no amount of retyping will create it.
+      if (err && err.code === 'auth/email-already-in-use') signInInstead.hidden = false;
       submit.disabled = false;
     }
   });
@@ -607,6 +677,42 @@ function noAccessScreen(session = {}) {
 // has settled can be answered without waiting for the session to change again.
 let lastSession = null;
 
+// ⚠️ AN INVITATION OPENED BY SOMEBODY WHO IS ALREADY IN. Until 13 Aug 2026 nothing
+// happened at all: render() answered an invitation only when signed OUT or with no
+// access, and the comment on the hashchange listener below said why — "an invitation
+// is not a reason to throw a working session off its screen". That is right for an
+// employee at the mixer and wrong for the person this app is FOR: an owner adding a
+// second business to the account they are already using. Both halves were correct
+// on their own, and together they made adding a business to yourself impossible.
+//
+// ⚠️ SO IT IS A QUESTION, NOT A REDIRECT. Answering the invitation by taking over
+// the screen would fix the owner's case by breaking the employee's — quantities
+// half-typed at the mixer, gone because a colleague's link was tapped. The dialog
+// waits, and "Not now" ends it for this opening of the app.
+let inviteOffered = false;
+
+async function offerInvite(session) {
+  if (!invitedWith || inviteOffered) return;
+  inviteOffered = true;
+
+  // Loaded only now: this file is on the critical path of every app open, and an
+  // invitation is rare. Same reasoning as the redeem call in joinScreen.
+  const { confirmDialog } = await import('./confirm-dialog.js');
+  // ⚠️ IT NAMES THE ACCOUNT. On a shared kitchen phone the person tapping is not
+  // always the person signed in, and a business added to the wrong account can
+  // only be undone from the Firebase console.
+  const who = session.user?.email || 'this account';
+  const add = await confirmDialog({
+    title: 'You opened an invitation',
+    message: `Add this business to ${who}?`,
+    okLabel: 'Add it',
+    cancelLabel: 'Not now',
+  });
+
+  if (!add) { forgetInvite(); return; }
+  showGate(() => joinScreen({ needsAccount: false, prefill: invitedWith }));
+}
+
 function render(session) {
   lastSession = session;
   switch (session.status) {
@@ -628,10 +734,12 @@ function render(session) {
     // put in this state (js/sections.js pickStart).
     case 'hub':
       showGate(() => hubScreen(session));
+      offerInvite(session);
       break;
 
     case 'choose-location':
       showGate(() => chooseScreen(session));
+      offerInvite(session);
       break;
 
     case 'no-access':
@@ -667,6 +775,10 @@ function render(session) {
       clearGate();
       gateHost().hidden = true;
       document.body.classList.add('signed-in');
+      // ⚠️ AFTER the app is on screen, never before. Asking over a cover that is
+      // still up would put the question in front of a page nobody can see behind,
+      // and "Not now" would leave them staring at the cover.
+      offerInvite(session);
       break;
 
     default:
@@ -683,11 +795,21 @@ onSession(render);
 // for the person holding the phone to explain. Found by driving the app: opening
 // the link in a FRESH page always worked, which is why nothing else caught it.
 //
-// Nothing happens for somebody already inside a location: an invitation is not a
-// reason to throw a working session off its screen.
+// ⚠️ 'ready' USED TO BE EXCLUDED HERE, and that exclusion was half of the defect
+// fixed on 13 Aug 2026. The old comment read "nothing happens for somebody already
+// inside a location: an invitation is not a reason to throw a working session off
+// its screen" — true about not REDIRECTING, and implemented as not reacting AT ALL.
+// So the one person most likely to open an invitation from inside the app — an
+// owner adding a second business, already signed in and working — got silence.
+//
+// Now every state reacts, and "do not throw anybody off their screen" is kept where
+// it belongs: offerInvite ASKS, and "Not now" leaves the screen exactly as it was.
+// render() is safe to re-run in 'ready' — it re-hides an already hidden gate and
+// re-adds a class that is already there — and offerInvite only asks once per page.
 window.addEventListener('hashchange', () => {
   const found = readJoinToken(window.location.href);
   if (!found || found === invitedWith) return;
   invitedWith = found;
-  if (lastSession && lastSession.status !== 'ready') render(lastSession);
+  rememberInvite(found);
+  if (lastSession) render(lastSession);
 });
