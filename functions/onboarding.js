@@ -712,3 +712,47 @@ export const setMemberName = onCall(CALL, async (request) => {
   logger.info('Member renamed', { locationId, targetUid, by: uid });
   return { firstName: first, lastName: last };
 });
+
+// ── The language this venue's staff read ─────────────────────────────────────
+//
+// ⚠️⚠️ IT IS A CLOUD FUNCTION FOR ONE REASON: locations/{lid} is
+// `allow write: if false` for every client, and it must stay that way. That
+// document also holds `sections` — which parts of the app a customer bought —
+// and `country`, which decides the language of their allergen labels. Letting a
+// phone write it to change a language would let a phone switch a section on, or
+// move a label into the wrong language for the country it is sold in.
+//
+// ⚠️ AND THAT IS WHY THIS WRITES ONE FIELD WITH merge, never the document. A
+// whole-document write here would erase `sections` and `country` — the venue
+// would lose the app it bought, and its labels would stop being printable.
+//
+// ⚠️ OWNER AND MANAGER, NOT EVERYBODY. Federico's rule: «il proprietario o
+// manager o head chef puo' scegliere la lingua con cui l'app lavorera', tutti gli
+// altri che la usano possono utilizzare solo la lingua dell'app». A head chef
+// holds 'manager' (js/roles.js), so asking for manager covers all three.
+//
+// ⚠️ IT CANNOT REACH A LABEL and that is structural, not a promise: this writes
+// `language`, the label reads `country`, and nothing here can write `country`.
+const INTERFACE_LANGUAGES = ['en', 'it'];
+
+export const setLocationLanguage = onCall(CALL, async (request) => {
+  const uid = requireAuth(request);
+  const { locationId, language } = request.data || {};
+
+  if (typeof locationId !== 'string' || !locationId) {
+    throw new HttpsError('invalid-argument', 'Which location?');
+  }
+  if (!INTERFACE_LANGUAGES.includes(language)) {
+    throw new HttpsError('invalid-argument', 'That is not a language this app has.');
+  }
+
+  // ⚠️ THE SERVER DECIDES, NOT THE SCREEN. The app hides the control from an
+  // employee, but hiding is courtesy; this is the part that refuses.
+  const access = await accessValue(uid, locationId);
+  if (access !== 'owner' && access !== 'manager') {
+    throw new HttpsError('permission-denied', 'Only an owner or a manager can change the language.');
+  }
+
+  await db().doc(`locations/${locationId}`).set({ language }, { merge: true });
+  return { language };
+});

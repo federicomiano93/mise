@@ -290,7 +290,12 @@ export const DEMO_PASSWORD = 'club1234';
 
 export async function seedDemoWorld() {
   await seedAll('bakery');
-  await seedDoc('locations/bakery', { name: 'The Italian Club Bakery' });
+  // ⚠️ `country` MATTERS AND THE SEED HAD NONE. A venue without it prints no
+  // allergen label at all (js/market.js) — correct behaviour, and it meant every
+  // driven check about the LABEL was measuring the refusal rather than the label.
+  // Federico's real venues are in the UK; the seed now says so, and the Italian
+  // one below is what makes the two languages testable against each other.
+  await seedDoc('locations/bakery', { name: 'The Italian Club Bakery', country: 'GB' });
   await seedDoc('locations/bakery/config/calculator',
     { bakery: 'bakery', configRev: 1, clients: [], recipes: [] });
   await seedDoc('locations/bakery/recipes/CAT_1',
@@ -423,6 +428,7 @@ export async function seedDemoWorld() {
   // NOT a member of it.
   await seedDoc('locations/loc-seed-open', {
     name: 'Panetteria Aperta', createdAt: Date.now() - 6 * 86400000, createdBy: ownerUid,
+    country: 'GB',
     sections: { orders: true, calculator: true, catalogue: false, pastries: false, foodcost: false },
   });
   // A roster row is what "somebody has opened this" MEANS: redeemJoinCode writes

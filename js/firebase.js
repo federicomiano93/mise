@@ -19,6 +19,7 @@
 //   - deleteLogFromFirestore(dough)              → js/log.js
 //   - side-effect `import './firebase.js'` for init → js/app.js
 
+import { setLanguage, interfaceLanguage } from './i18n.js';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
   getAuth,
@@ -355,6 +356,18 @@ async function enterLocation(locationId, options, user) {
     console.warn('Location document unavailable:', err?.message || err);
   }
   rememberLocation(locationId);
+
+  // ⚠️⚠️ THE VENUE'S LANGUAGE WINS FROM HERE ON, and it is applied BEFORE the
+  // session is published — every screen paints after that, so nothing is ever
+  // drawn in the device's language and then swapped. Above every venue there is
+  // no setting to read and js/auth-gate.js uses the device instead; the moment a
+  // location opens, its own choice takes over even if the two disagree. The
+  // language belongs to the workplace, not to whoever is holding the phone.
+  //
+  // ⚠️ IT DOES NOT TOUCH A LABEL. That follows `country` (js/market.js), which is
+  // a different field for a different reason: the law, not a preference.
+  setLanguage(interfaceLanguage(location));
+
   setSession({
     status: 'ready', user, locationId, location, options,
     optionNames: options.length > 1 ? await readLocationNames(options) : {},
@@ -369,6 +382,9 @@ async function enterLocation(locationId, options, user) {
     // it is UX, not security (P2). The rules are the security, and they read
     // this same value themselves rather than trusting anything sent from here.
     role: roleOf(userDocCache, locationId),
+    // The interface language this venue's staff read (js/i18n.js). Separate from
+    // `country`, which decides what a LABEL says and is not a preference.
+    language: interfaceLanguage(location),
     // ⚠️ TWO ANSWERS, NOT ONE, AND THEY ARE NOT THE SAME QUESTION.
     // canManage is "may take things away" — the owner AND the manager. isOwner
     // is "may invite people and set roles" — the owner alone. Every delete

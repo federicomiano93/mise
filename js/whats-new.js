@@ -16,78 +16,80 @@
 // Newest FIRST. `id` is a stamp that never changes once released — it is what a
 // phone remembers having read, so editing one would re-show that notice to
 // everyone. To correct a released note, add a new entry.
+import { t } from './i18n.js';
+
 export const RELEASES = [
   {
     id: '2026-08-06-pastries-confirm',
     title: 'Pastries',
     points: [
-      'Accept is now called Confirm — the same word the Calculator uses for the same thing.',
-      'A confirmed list shows as done, and its numbers stop opening, so nothing changes by accident.',
-      'To change it anyway, tap Edit or any row and it asks first. Every list reopens on its own at 4am.',
+      t('help.acceptIsNowCalled'),
+      t('help.aConfirmedListShows'),
+      t('help.toChangeItAnyway'),
     ],
   },
   {
     id: '2026-08-05-pastries-records',
     title: 'Pastries',
     points: [
-      'Tap a pastry to change its number: type the new one and tap the green tick.',
-      'The note at the bottom of a day stays there until you change it — writing it is under the pencil.',
-      'Tap Accept when a list is done. It is kept under Records at the bottom, for 15 days.',
+      t('help.tapAPastryTo'),
+      t('help.theNoteAtThe'),
+      t('help.tapAcceptWhenA'),
     ],
   },
   {
     id: '2026-08-05-pastries',
     title: 'Pastries',
     points: [
-      'A new card on the Home: the pastries to put to prove, one list per day of the week.',
-      'It opens on the day you are proving FOR, so at night you already have tomorrow.',
-      'Tap any day along the top to see or fill in that list; the pencil edits the one on screen.',
+      t('help.aNewCardOn'),
+      t('help.itOpensOnThe'),
+      t('help.tapAnyDayAlong'),
     ],
   },
   {
     id: '2026-07-31-supplier-ingredient-list',
     title: 'Orders',
     points: [
-      'Tap the list icon beside a supplier to see everything you buy from them.',
-      'It is a list to look at: no boxes, so nothing can be typed into an order by accident.',
-      'Tapping the rest of the row still opens the order, as before.',
+      t('help.tapTheListIcon'),
+      t('help.itIsAList'),
+      t('help.tappingTheRestOf'),
     ],
   },
   {
     id: '2026-07-31-clear-quantities',
     title: 'Orders',
     points: [
-      'Start an order again: “Clear quantities” inside a supplier, or at the bottom of the Order tab to pick several.',
-      'What you counted on the shelves stays — only the amounts to order are cleared.',
-      'Orders already recorded in History are never touched.',
+      t('help.startAnOrderAgain'),
+      t('help.whatYouCountedOn'),
+      t('help.ordersAlreadyRecordedIn'),
     ],
   },
   {
     id: '2026-07-31-unusual-quantity',
     title: 'Orders',
     points: [
-      'Type a quantity far above what you usually order and the row says so, in red.',
-      'Recording that order asks you to confirm, listing what looks like an extra digit.',
-      'It stays quiet on an ingredient ordered fewer than four times: there is no usual amount yet.',
+      t('help.typeAQuantityFar'),
+      t('help.recordingThatOrderAsks'),
+      t('help.itStaysQuietOn'),
     ],
   },
   {
     id: '2026-07-31-history-window',
     title: 'Orders',
     points: [
-      'History opens on the last 15 days, so this week’s orders are the ones on screen.',
-      'Nothing has been deleted: tap “Show older orders” at the bottom of the list.',
-      'Change how far back it opens in Settings → General.',
+      t('help.historyOpensOnThe'),
+      t('help.nothingHasBeenDeleted'),
+      t('help.changeHowFarBack'),
     ],
   },
   {
     id: '2026-07-30-sign-in',
-    title: 'Sign in',
+    title: t('help.signIn'),
     points: [
-      'The app now asks for an email and a password. You stay signed in — it is not every day.',
-      'Forgot it? Tap “Forgot your password?” on the sign-in screen and check your email.',
-      'The Home screen shows which location you are working on, above the cards.',
-      'Each location sees only its own suppliers, ingredients, orders and recipes.',
+      t('help.theAppNowAsks'),
+      t('help.forgotItTapForgot'),
+      t('help.theHomeScreenShows'),
+      t('help.eachLocationSeesOnly'),
     ],
   },
   {
@@ -96,10 +98,10 @@ export const RELEASES = [
     // Short on purpose. A notice is read standing up, once — anything that needs
     // scrolling to finish will not be finished.
     points: [
-      'Find an ingredient by name: tap “All ingredients”. No need to know its supplier.',
-      'Ingredients with no supplier (supermarket, cash & carry) can now be added and ordered.',
-      'Send the order as one flat shopping list, or split by supplier as before.',
-      'The bar at the bottom shows what is in the order — tap it to review just those items.',
+      t('help.findAnIngredientBy'),
+      t('help.ingredientsWithNoSupplier'),
+      t('help.sendTheOrderAs'),
+      t('help.theBarAtThe'),
     ],
   },
 ];

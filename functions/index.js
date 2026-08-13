@@ -177,4 +177,5 @@ export const notifyClientOrder = onDocumentCreated(
 export {
   createWorkspace, listWorkspaces, reissueOwnerLink, deleteWorkspace,
   createJoinCode, redeemJoinCode, setMemberRole, setMemberName,
+  setLocationLanguage,
 } from './onboarding.js';

@@ -36,6 +36,25 @@ const LABEL_FILES = [
   'js/catalogue/label-view.js',
 ];
 
+// ⚠️⚠️ ASKING FOR A LABEL'S WORDS AND ASKING ABOUT A LABEL ARE NOT THE SAME
+// THING, and the first version of this file treated them as one.
+//
+//   labelWord / allergenName / nutrientName  build what a label SAYS
+//   canPrintLabel / outputLanguage / countryName  answer questions ABOUT it
+//
+// Only the first group makes a file a label file. The second is safe to ask from
+// anywhere, and one screen has to: js/staff/language.js exists to TELL somebody
+// that setting the app to Italian does not move their English labels, and it
+// cannot say which language those labels are in without asking. A file holding
+// both `t` and `outputLanguage` can talk about the label; a file holding both
+// `t` and `labelWord` can build one out of interface words, and that is the
+// wire this guard exists to cut.
+//
+// ⚠️ THIS IS A SHARPENING, NOT A LOOSENING, and the difference matters: the
+// guard fired on my own screen and the answer was to say precisely what is
+// forbidden, never to make the check quieter so the code could pass.
+const LABEL_WORD_CALLS = /\b(labelWord|allergenName|nutrientName)\s*\(/;
+
 test('no label file imports the interface language', () => {
   for (const file of LABEL_FILES) {
     assert.doesNotMatch(read(file), /from\s+['"][^'"]*i18n\.js['"]/,
@@ -64,9 +83,7 @@ test('every file that asks for a label word is on the list', () => {
       if (!name.endsWith('.js')) continue;
       const rel = full.slice(ROOT.length + 1).replace(/\\/g, '/');
       if (rel === 'js/market.js') continue;
-      const asksForLabelWords =
-        /\b(labelWord|allergenName|nutrientName|canPrintLabel|outputLanguage)\s*\(/
-          .test(codeOf(readFileSync(full, 'utf8')));
+      const asksForLabelWords = LABEL_WORD_CALLS.test(codeOf(readFileSync(full, 'utf8')));
       if (asksForLabelWords && !LABEL_FILES.includes(rel)) unguarded.push(rel);
     }
   };

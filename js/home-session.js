@@ -91,6 +91,16 @@ function renderSessionActions(session) {
   // to manage staff — so it belongs in the quiet strip at the bottom, not
   // competing with the work (P20). Drawing it for staff would be an invitation
   // to a screen where every button is refused.
+  // ⚠️ OWNER AND MANAGER — which includes a head chef, who holds 'manager'.
+  // Federico's rule: everybody else uses the app's language and cannot change it.
+  // Drawn above "Who can get in" because a manager reaches this and not that.
+  if (session.canManage) {
+    logoutHost.append(button(t('lang.title'), 'session-logout', async () => {
+      const { openLanguage } = await import('./staff/language.js');
+      openLanguage(session);
+    }));
+  }
+
   if (session.isOwner) {
     logoutHost.append(button(t('people.title'), 'session-logout', async () => {
       const { openPeople } = await import('./staff/people.js');

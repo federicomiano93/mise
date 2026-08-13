@@ -900,6 +900,146 @@ const DICTIONARIES = Object.freeze({
     'ui.clearQuantities': "Clear quantities…",
     'ui.youReOfflineReconnect': "You’re offline — reconnect to load and save orders.",
 
+
+    // ── Help, release notes, sign-up rules, updates, notifications ────────
+    'help.eachCardOpensOne': 'Each card opens one part of the day: what to bake, what to buy, what it costs.',
+    'help.yourWorkIsSaved': 'Your work is saved as you go — on this phone and online, so another phone sees it too.',
+    'help.everyScreenHasA': 'Every screen has a ? like this one. It explains that screen in a few lines.',
+    'help.aNumberOnA': 'A number on a card means something there is waiting for you.',
+    'help.typeHowManyPieces': 'Type how many pieces each client has asked for. The app works out the total dough and every ingredient.',
+    'help.confirmSavesTheSheet': 'Confirm saves the sheet to the Log and locks the fields until you tap Edit.',
+    'help.theFieldsEmptyThemselves': 'The fields empty themselves on a new work day — which starts at 4am, not at midnight.',
+    'help.ordersReceived': 'Orders received',
+    'help.ordersYourClientsTyped': 'Orders your clients typed themselves, from their own link.',
+    'help.putInTheCalculator': '“Put in the calculator” fills that client’s quantity boxes for you. Nothing moves until you tap it.',
+    'help.ifAClientChanges': 'If a client changes an order AFTER you have used it, this screen turns red and says so.',
+    'help.ordersForDaysAlready': 'Orders for days already gone are not shown here — this screen is what is still coming.',
+    'help.recipeCatalogue': 'Recipe catalogue',
+    'help.everyRecipeYouHave': 'Every recipe you have, searchable. Open one and scale it to any total weight in kg.',
+    'help.guidedMixingWalksA': 'Guided mixing walks a recipe step by step with timers — keep that screen open, or the alarm cannot ring.',
+    'help.linkARowTo': 'Link a row to an ingredient and the recipe can tell you what a kilo of it costs.',
+    'help.ifOnlySomeRows': 'If only some rows are linked, the cost shown is of THOSE rows — not of the whole recipe.',
+    'help.whatToBuySupplier': 'What to buy, supplier by supplier. Order is how many you need; Stock is what you still have.',
+    'help.orderPlacedRecordsIt': '“Order placed” records it and clears the row, so the screen always shows what is left to do.',
+    'help.suggestedAmountsComeFrom': 'Suggested amounts come from your last 8 orders of that item, so they mean nothing until you have placed a few.',
+    'help.foodCost': 'Food cost',
+    'help.whatAProductCosts': 'What a product costs to make, and what it earns.',
+    'help.typeTheSellingPrice': 'Type the selling price as it is on the label, WITH VAT. The app works the cost out on the price without VAT.',
+    'help.itIsOnlyRight': 'It is only right if the ingredients have prices. An unpriced one is left out, and the answer comes out too low.',
+    'help.whatToPutOut': 'What to put out to prove, as one standing list per weekday.',
+    'help.confirmKeepsARecord': 'Confirm keeps a record of the night and locks the list until 4am.',
+    'help.unlikeTheCalculatorA': 'Unlike the Calculator, a new day does NOT empty it: the list is what you normally do on that weekday.',
+    'help.acceptIsNowCalled': 'Accept is now called Confirm — the same word the Calculator uses for the same thing.',
+    'help.aConfirmedListShows': 'A confirmed list shows as done, and its numbers stop opening, so nothing changes by accident.',
+    'help.toChangeItAnyway': 'To change it anyway, tap Edit or any row and it asks first. Every list reopens on its own at 4am.',
+    'help.tapAPastryTo': 'Tap a pastry to change its number: type the new one and tap the green tick.',
+    'help.theNoteAtThe': 'The note at the bottom of a day stays there until you change it — writing it is under the pencil.',
+    'help.tapAcceptWhenA': 'Tap Accept when a list is done. It is kept under Records at the bottom, for 15 days.',
+    'help.aNewCardOn': 'A new card on the Home: the pastries to put to prove, one list per day of the week.',
+    'help.itOpensOnThe': 'It opens on the day you are proving FOR, so at night you already have tomorrow.',
+    'help.tapAnyDayAlong': 'Tap any day along the top to see or fill in that list; the pencil edits the one on screen.',
+    'help.tapTheListIcon': 'Tap the list icon beside a supplier to see everything you buy from them.',
+    'help.itIsAList': 'It is a list to look at: no boxes, so nothing can be typed into an order by accident.',
+    'help.tappingTheRestOf': 'Tapping the rest of the row still opens the order, as before.',
+    'help.startAnOrderAgain': 'Start an order again: “Clear quantities” inside a supplier, or at the bottom of the Order tab to pick several.',
+    'help.whatYouCountedOn': 'What you counted on the shelves stays — only the amounts to order are cleared.',
+    'help.ordersAlreadyRecordedIn': 'Orders already recorded in History are never touched.',
+    'help.typeAQuantityFar': 'Type a quantity far above what you usually order and the row says so, in red.',
+    'help.recordingThatOrderAsks': 'Recording that order asks you to confirm, listing what looks like an extra digit.',
+    'help.itStaysQuietOn': 'It stays quiet on an ingredient ordered fewer than four times: there is no usual amount yet.',
+    'help.historyOpensOnThe': 'History opens on the last 15 days, so this week’s orders are the ones on screen.',
+    'help.nothingHasBeenDeleted': 'Nothing has been deleted: tap “Show older orders” at the bottom of the list.',
+    'help.changeHowFarBack': 'Change how far back it opens in Settings → General.',
+    'help.signIn': 'Sign in',
+    'help.theAppNowAsks': 'The app now asks for an email and a password. You stay signed in — it is not every day.',
+    'help.forgotItTapForgot': 'Forgot it? Tap “Forgot your password?” on the sign-in screen and check your email.',
+    'help.theHomeScreenShows': 'The Home screen shows which location you are working on, above the cards.',
+    'help.eachLocationSeesOnly': 'Each location sees only its own suppliers, ingredients, orders and recipes.',
+    'help.findAnIngredientBy': 'Find an ingredient by name: tap “All ingredients”. No need to know its supplier.',
+    'help.ingredientsWithNoSupplier': 'Ingredients with no supplier (supermarket, cash & carry) can now be added and ordered.',
+    'help.sendTheOrderAs': 'Send the order as one flat shopping list, or split by supplier as before.',
+    'help.theBarAtThe': 'The bar at the bottom shows what is in the order — tap it to review just those items.',
+    'help.enterYourSurname': 'Enter your surname.',
+    'help.enterYourFirstName': 'Enter your first name.',
+    'help.thatSurnameNeedsLetters': 'That surname needs letters in it.',
+    'help.thatFirstNameNeeds': 'That first name needs letters in it.',
+    'help.chooseAPassword': 'Choose a password.',
+    'help.thatOneIsGuessed': 'That one is guessed first. Pick something only you would think of.',
+    'help.thatIsOneCharacter': 'That is one character repeated. Pick something only you would think of.',
+    'help.doNotUseYour': 'Do not use your email address as your password.',
+    'help.updating': 'Updating…',
+    'help.newVersionAvailableTap': 'New version available — tap to update',
+    'help.updateTheAppTo': 'Update the app to carry on',
+    'help.theUpdateDidNot': 'The update did not go through. Trying again is worth it — everyone needs to be on the same version. Anything you have typed is already saved.',
+    'help.aNewVersionIs': 'A new version is ready and takes a moment to install. Anything you have typed is already saved.',
+    'help.tryAgain': 'Try again',
+    'help.updateNow': 'Update now',
+    'help.continueWithoutUpdating': 'Continue without updating',
+    'help.notificationsAreOnFor': 'Notifications are on for this phone.',
+    'help.getToldWhenA': 'Get told when a timer finishes or a client sends an order, even with the app closed.',
+    'help.notificationsAreBlockedFor': 'Notifications are blocked for this app. Turn them back on in your phone settings, then reload.',
+    'help.addThisAppTo': 'Add this app to your Home screen first — on iPhone, notifications only work from the installed app, not from Safari.',
+    'help.notificationsAreNotSet': 'Notifications are not set up for this app yet.',
+    'help.thisPhoneCannotShow': 'This phone cannot show notifications.',
+    'help.installApp': 'Install app',
+    'help.addToYourHome': 'Add to your home screen: tap the Share button, then “Add to Home Screen”.',
+    'help.linkCopiedNowPaste': 'Link copied — now paste it in Safari',
+    'help.copyFailedLongPress': 'Copy failed — long-press the address bar to copy',
+    'help.gotIt': 'Got it',
+    'help.yesterdayAndToday': 'Yesterday and today',
+    'help.yesterdayOnly': 'Yesterday only',
+    'help.todayOnly': 'Today only',
+    'help.marketOrder': 'Market order',
+    'help.noClientHasSent': 'No client has sent an order yet. When one does, it will be here afterwards.',
+    'help.addABusiness': '+ Add a business',
+    'help.couldNotCheckYour': 'Could not check your access',
+    'help.thisUsuallyMeansNo': 'This usually means no connection. Check it and try again.',
+    'help.unitedKingdom': 'United Kingdom',
+    'help.italyLabelsInItalian': 'Italy — labels in Italian',
+    'help.theUnitedKingdomLabels': 'the United Kingdom — labels in English',
+    'help.createThisBusiness': 'Create this business?',
+    'help.createThisCustomer': 'Create this customer?',
+    'help.itWillBeCreated': 'It will be created in YOUR account, as owner.',
+    'help.whoeverOpensTheLink': 'Whoever opens the link becomes its owner.',
+    'help.creating': 'Creating…',
+    'help.youAreItsOwner': 'You are its owner. It will be in your list of businesses.',
+    'help.itIsNotStored': ' It is not stored anywhere and cannot be shown again.',
+    'help.copyTheLink': 'Copy the link',
+    'help.sendOnWhatsapp': 'Send on WhatsApp',
+    'nc.country.help': 'This decides the language its allergen labels are printed in, and it cannot be worked out later. The law asks for a label in the language of the country where the food is sold.',
+
+
+    // ── Choosing what the staff read ───────────────────────────────────────
+    'lang.title': 'App language',
+    'lang.intro': 'The language everybody who works here reads on screen.',
+    'lang.use': 'Use this',
+    'lang.inUse': 'In use',
+    'lang.saving': 'Saving…',
+    'lang.err.save': 'Could not change the language. Check your connection and try again.',
+    // ⚠️ THE SENTENCE THE WHOLE PROGRAMME EXISTS FOR. It is shown every time,
+    // beside the choice, and it names the country so it can be checked.
+    'lang.labels': 'Allergen labels are not affected: they are printed in {language}, because this business sells {country}. The law asks for a label in the language of the country where the food is sold.',
+    'lang.labels.noCountry': 'This business has no country set, so it cannot print an allergen label at all. The country decides the label’s language, and it is not something the app may guess.',
+
+
+    // ⚠️ THE NAME OF A LANGUAGE INSIDE A SENTENCE IS INTERFACE TEXT. The choice
+    // list names each language in ITSELF («Italiano»), because that is the word
+    // somebody is looking for. A sentence about the labels is read in the
+    // language on screen, so there it is «inglese», not «English».
+    'language.en.inSentence': 'English',
+    'language.it.inSentence': 'Italian',
+    // ⚠️ AND SO IS A COUNTRY'S NAME. countryName() in js/market.js stays English
+    // because it belongs to the label side; this is the interface's own copy.
+    'country.GB': 'the United Kingdom',
+    'country.IT': 'Italy',
+    // ⚠️ THE WHOLE PREPOSITIONAL PHRASE, ONE PER COUNTRY. Italian takes the
+    // article for one and not the other — «nel Regno Unito» but «in Italia» —
+    // so a sentence with a hole for the country alone cannot be right for both.
+    // The same shape as the role articles («an owner» / «the head chef»): where
+    // languages differ in STRUCTURE, each case gets its own phrase.
+    'country.GB.in': 'in the United Kingdom',
+    'country.IT.in': 'in Italy',
+
     'common.loading': 'Loading…',
   }),
   it: Object.freeze({
@@ -1668,6 +1808,131 @@ const DICTIONARIES = Object.freeze({
     'ui.clearQuantities': "Azzera le quantità…",
     'ui.youReOfflineReconnect': "Sei offline — riconnettiti per caricare e salvare gli ordini.",
 
+
+    'help.eachCardOpensOne': 'Ogni scheda apre una parte della giornata: cosa produrre, cosa comprare, quanto costa.',
+    'help.yourWorkIsSaved': 'Il tuo lavoro si salva mentre lo fai — su questo telefono e online, così lo vede anche un altro telefono.',
+    'help.everyScreenHasA': 'Ogni schermata ha un ? come questo. Spiega quella schermata in poche righe.',
+    'help.aNumberOnA': 'Un numero su una scheda vuol dire che lì c’è qualcosa che ti aspetta.',
+    'help.typeHowManyPieces': 'Scrivi quanti pezzi ha chiesto ogni cliente. L’app calcola l’impasto totale e ogni ingrediente.',
+    'help.confirmSavesTheSheet': 'Conferma salva la scheda nel Registro e blocca i campi finché non tocchi Modifica.',
+    'help.theFieldsEmptyThemselves': 'I campi si svuotano da soli a ogni nuovo giorno di lavoro — che comincia alle 4 del mattino, non a mezzanotte.',
+    'help.ordersReceived': 'Ordini ricevuti',
+    'help.ordersYourClientsTyped': 'Ordini che i tuoi clienti hanno scritto da soli, dal loro link.',
+    'help.putInTheCalculator': '“Metti nel calcolatore” riempie per te le caselle delle quantità di quel cliente. Niente si muove finché non lo tocchi.',
+    'help.ifAClientChanges': 'Se un cliente cambia un ordine DOPO che l’hai usato, questa schermata diventa rossa e te lo dice.',
+    'help.ordersForDaysAlready': 'Gli ordini per giorni già passati non compaiono qui — questa schermata è quello che deve ancora arrivare.',
+    'help.recipeCatalogue': 'Ricettario',
+    'help.everyRecipeYouHave': 'Tutte le ricette che hai, con la ricerca. Aprine una e scalala a qualsiasi peso totale in kg.',
+    'help.guidedMixingWalksA': 'L’impasto guidato ti accompagna passo per passo con i timer — tieni aperta quella schermata, o la sveglia non può suonare.',
+    'help.linkARowTo': 'Collega una riga a un ingrediente e la ricetta può dirti quanto costa un chilo.',
+    'help.ifOnlySomeRows': 'Se solo alcune righe sono collegate, il costo mostrato è di QUELLE righe — non dell’intera ricetta.',
+    'help.whatToBuySupplier': 'Cosa comprare, fornitore per fornitore. Ordine è quanti te ne servono; Giacenza è quanti ne hai ancora.',
+    'help.orderPlacedRecordsIt': '“Ordine fatto” lo registra e azzera la riga, così la schermata mostra sempre quello che resta da fare.',
+    'help.suggestedAmountsComeFrom': 'Le quantità suggerite vengono dai tuoi ultimi 8 ordini di quella voce, quindi non vogliono dire niente finché non ne hai fatti alcuni.',
+    'help.foodCost': 'Food cost',
+    'help.whatAProductCosts': 'Quanto costa produrre un prodotto, e quanto rende.',
+    'help.typeTheSellingPrice': 'Scrivi il prezzo di vendita com’è sull’etichetta, CON l’IVA. L’app calcola il costo sul prezzo senza IVA.',
+    'help.itIsOnlyRight': 'È corretto solo se gli ingredienti hanno un prezzo. Uno senza prezzo viene escluso, e il risultato esce troppo basso.',
+    'help.whatToPutOut': 'Cosa mettere a lievitare, come una lista fissa per ogni giorno della settimana.',
+    'help.confirmKeepsARecord': 'Conferma tiene un registro della nottata e blocca la lista fino alle 4.',
+    'help.unlikeTheCalculatorA': 'A differenza del Calcolatore, un nuovo giorno NON la svuota: la lista è quello che fai di solito quel giorno della settimana.',
+    'help.acceptIsNowCalled': 'Accetta ora si chiama Conferma — la stessa parola che il Calcolatore usa per la stessa cosa.',
+    'help.aConfirmedListShows': 'Una lista confermata risulta fatta, e i suoi numeri smettono di aprirsi, così niente cambia per sbaglio.',
+    'help.toChangeItAnyway': 'Per cambiarla comunque, tocca Modifica o una riga qualsiasi e ti chiede conferma. Ogni lista si riapre da sola alle 4.',
+    'help.tapAPastryTo': 'Tocca una pasta per cambiarne il numero: scrivi quello nuovo e tocca la spunta verde.',
+    'help.theNoteAtThe': 'La nota in fondo a una giornata resta lì finché non la cambi — si scrive sotto la matita.',
+    'help.tapAcceptWhenA': 'Tocca Accetta quando una lista è finita. Resta sotto Registri in fondo, per 15 giorni.',
+    'help.aNewCardOn': 'Una nuova scheda sulla Home: le paste da mettere a lievitare, una lista per ogni giorno della settimana.',
+    'help.itOpensOnThe': 'Si apre sul giorno PER cui stai facendo lievitare, così di notte hai già domani.',
+    'help.tapAnyDayAlong': 'Tocca un giorno qualsiasi in alto per vedere o compilare quella lista; la matita modifica quella sullo schermo.',
+    'help.tapTheListIcon': 'Tocca l’icona della lista accanto a un fornitore per vedere tutto quello che compri da lui.',
+    'help.itIsAList': 'È una lista da guardare: niente caselle, così non si può scrivere niente in un ordine per sbaglio.',
+    'help.tappingTheRestOf': 'Toccare il resto della riga apre comunque l’ordine, come prima.',
+    'help.startAnOrderAgain': 'Ricomincia un ordine: “Azzera le quantità” dentro un fornitore, o in fondo alla linguetta Ordine per sceglierne diversi.',
+    'help.whatYouCountedOn': 'Quello che hai contato sugli scaffali resta — si azzerano solo le quantità da ordinare.',
+    'help.ordersAlreadyRecordedIn': 'Gli ordini già registrati nello Storico non vengono mai toccati.',
+    'help.typeAQuantityFar': 'Scrivi una quantità molto più alta di quella che ordini di solito e la riga te lo dice, in rosso.',
+    'help.recordingThatOrderAsks': 'Registrare quell’ordine ti chiede conferma, elencando quello che sembra una cifra di troppo.',
+    'help.itStaysQuietOn': 'Resta in silenzio su un ingrediente ordinato meno di quattro volte: non c’è ancora una quantità abituale.',
+    'help.historyOpensOnThe': 'Lo Storico si apre sugli ultimi 15 giorni, così gli ordini di questa settimana sono quelli sullo schermo.',
+    'help.nothingHasBeenDeleted': 'Non è stato cancellato niente: tocca “Mostra ordini più vecchi” in fondo alla lista.',
+    'help.changeHowFarBack': 'Cambia quanto indietro si apre in Impostazioni → Generali.',
+    'help.signIn': 'Accedi',
+    'help.theAppNowAsks': 'L’app ora chiede una email e una password. Resti collegato — non è tutti i giorni.',
+    'help.forgotItTapForgot': 'L’hai dimenticata? Tocca “Password dimenticata?” sulla schermata di accesso e controlla la tua email.',
+    'help.theHomeScreenShows': 'La schermata Home mostra su quale locale stai lavorando, sopra le schede.',
+    'help.eachLocationSeesOnly': 'Ogni locale vede solo i propri fornitori, ingredienti, ordini e ricette.',
+    'help.findAnIngredientBy': 'Trova un ingrediente per nome: tocca “Tutti gli ingredienti”. Non serve sapere di che fornitore è.',
+    'help.ingredientsWithNoSupplier': 'Gli ingredienti senza fornitore (supermercato, cash & carry) ora si possono aggiungere e ordinare.',
+    'help.sendTheOrderAs': 'Manda l’ordine come una lista della spesa unica, oppure diviso per fornitore come prima.',
+    'help.theBarAtThe': 'La barra in fondo mostra cosa c’è nell’ordine — toccala per rivedere solo quelle voci.',
+    'help.enterYourSurname': 'Inserisci il tuo cognome.',
+    'help.enterYourFirstName': 'Inserisci il tuo nome.',
+    'help.thatSurnameNeedsLetters': 'Quel cognome deve contenere delle lettere.',
+    'help.thatFirstNameNeeds': 'Quel nome deve contenere delle lettere.',
+    'help.chooseAPassword': 'Scegli una password.',
+    'help.thatOneIsGuessed': 'Quella è la prima che si prova a indovinare. Scegli qualcosa a cui penseresti solo tu.',
+    'help.thatIsOneCharacter': 'È un solo carattere ripetuto. Scegli qualcosa a cui penseresti solo tu.',
+    'help.doNotUseYour': 'Non usare il tuo indirizzo email come password.',
+    'help.updating': 'Aggiornamento…',
+    'help.newVersionAvailableTap': 'Nuova versione disponibile — tocca per aggiornare',
+    'help.updateTheAppTo': 'Aggiorna l’app per continuare',
+    'help.theUpdateDidNot': 'L’aggiornamento non è andato a buon fine. Vale la pena riprovare — devono essere tutti sulla stessa versione. Quello che hai scritto è già salvato.',
+    'help.aNewVersionIs': 'Una nuova versione è pronta e ci mette un momento a installarsi. Quello che hai scritto è già salvato.',
+    'help.tryAgain': 'Riprova',
+    'help.updateNow': 'Aggiorna ora',
+    'help.continueWithoutUpdating': 'Continua senza aggiornare',
+    'help.notificationsAreOnFor': 'Le notifiche sono attive su questo telefono.',
+    'help.getToldWhenA': 'Fatti avvisare quando un timer finisce o un cliente manda un ordine, anche con l’app chiusa.',
+    'help.notificationsAreBlockedFor': 'Le notifiche sono bloccate per questa app. Riattivale nelle impostazioni del telefono, poi ricarica.',
+    'help.addThisAppTo': 'Aggiungi prima questa app alla schermata Home — su iPhone le notifiche funzionano solo dall’app installata, non da Safari.',
+    'help.notificationsAreNotSet': 'Le notifiche non sono ancora configurate per questa app.',
+    'help.thisPhoneCannotShow': 'Questo telefono non può mostrare notifiche.',
+    'help.installApp': 'Installa l’app',
+    'help.addToYourHome': 'Aggiungila alla schermata Home: tocca il pulsante Condividi, poi “Aggiungi a Home”.',
+    'help.linkCopiedNowPaste': 'Link copiato — ora incollalo in Safari',
+    'help.copyFailedLongPress': 'Copia non riuscita — tieni premuta la barra degli indirizzi per copiare',
+    'help.gotIt': 'Capito',
+    'help.yesterdayAndToday': 'Ieri e oggi',
+    'help.yesterdayOnly': 'Solo ieri',
+    'help.todayOnly': 'Solo oggi',
+    'help.marketOrder': 'Ordine del mercato',
+    'help.noClientHasSent': 'Nessun cliente ha ancora mandato un ordine. Quando succederà, sarà qui.',
+    'help.addABusiness': '+ Aggiungi un’attività',
+    'help.couldNotCheckYour': 'Non è stato possibile verificare il tuo accesso',
+    'help.thisUsuallyMeansNo': 'Di solito vuol dire che manca la connessione. Controllala e riprova.',
+    'help.unitedKingdom': 'Regno Unito',
+    'help.italyLabelsInItalian': 'Italia — etichette in italiano',
+    'help.theUnitedKingdomLabels': 'il Regno Unito — etichette in inglese',
+    'help.createThisBusiness': 'Vuoi creare questa attività?',
+    'help.createThisCustomer': 'Vuoi creare questo cliente?',
+    'help.itWillBeCreated': 'Verrà creata NEL TUO account, come titolare.',
+    'help.whoeverOpensTheLink': 'Chi apre il link ne diventa il titolare.',
+    'help.creating': 'Creazione…',
+    'help.youAreItsOwner': 'Ne sei il titolare. Sarà nel tuo elenco di attività.',
+    'help.itIsNotStored': ' Non viene salvato da nessuna parte e non può essere mostrato di nuovo.',
+    'help.copyTheLink': 'Copia il link',
+    'help.sendOnWhatsapp': 'Manda su WhatsApp',
+    'nc.country.help': 'Decide la lingua in cui vengono stampate le sue etichette allergeni, e non si può ricavare dopo. La legge chiede un’etichetta nella lingua del paese in cui il cibo si vende.',
+
+
+    'lang.title': 'Lingua dell’app',
+    'lang.intro': 'La lingua che legge sullo schermo chi lavora qui.',
+    'lang.use': 'Usa questa',
+    'lang.inUse': 'In uso',
+    'lang.saving': 'Salvataggio…',
+    'lang.err.save': 'Non è stato possibile cambiare la lingua. Controlla la connessione e riprova.',
+    'lang.labels': 'Le etichette allergeni non cambiano: sono prodotte in {language}, perché questa attività vende {country}. La legge chiede un’etichetta nella lingua del paese in cui il cibo si vende.',
+    'lang.labels.noCountry': 'Questa attività non ha un paese impostato, quindi non può produrre nessuna etichetta allergeni. Il paese decide la lingua dell’etichetta, e non è una cosa che l’app possa indovinare.',
+
+
+    'language.en.inSentence': 'inglese',
+    'language.it.inSentence': 'italiano',
+    'country.GB': 'Regno Unito',
+    'country.IT': 'Italia',
+    'country.GB.in': 'nel Regno Unito',
+    'country.IT.in': 'in Italia',
+
     'common.loading': 'Caricamento…',
   }),
 });
@@ -1682,8 +1947,27 @@ let current = DEFAULT_LANGUAGE;
 // wrong words to somebody who can see they are the wrong words. An app that
 // refuses to open because a stored setting is odd is worse than an app in the
 // wrong language.
+// ⚠️ THE WORDS ALREADY ON SCREEN DO NOT REDRAW THEMSELVES. Every screen asks for
+// its text when it paints, but the page headers and the Home cards come from the
+// markup and are filled in ONCE, at DOMContentLoaded — long before the venue's
+// own language arrives with the session. Without this the app switched to
+// Italian everywhere except the words that had been there since load, which is
+// the half-and-half screen this whole programme is meant to prevent.
+//
+// A list of listeners rather than a direct call into js/i18n-dom.js: this file is
+// PURE and must not reach into the DOM, and the DOM half registers itself.
+const listeners = new Set();
+
+export function onLanguageChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
 export function setLanguage(lang) {
-  current = LANGUAGES.includes(lang) ? lang : DEFAULT_LANGUAGE;
+  const next = LANGUAGES.includes(lang) ? lang : DEFAULT_LANGUAGE;
+  const changed = next !== current;
+  current = next;
+  if (changed) for (const fn of listeners) { try { fn(current); } catch { /* one screen must not stop the others */ } }
   return current;
 }
 

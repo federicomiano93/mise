@@ -14,6 +14,7 @@
 // inherits the focus trap, Escape, the backdrop and the screen-reader naming that
 // dialog already has, and there is no second component to keep in step.
 
+import { t } from './i18n.js';
 import { alertDialog } from './confirm-dialog.js';
 import { helpText, helpTitle, helpFor } from './help-content.js';
 
@@ -53,7 +54,7 @@ export function showHelp(id) {
   if (!entry) return Promise.resolve();
   // "Got it" rather than "OK": nothing has been decided or agreed to, and a button
   // that sounds like a decision on a screen that only explains makes people hesitate.
-  return alertDialog(helpText(id), { title: helpTitle(id), okLabel: 'Got it' });
+  return alertDialog(helpText(id), { title: helpTitle(id), okLabel: t('help.gotIt') });
 }
 
 function build(id) {

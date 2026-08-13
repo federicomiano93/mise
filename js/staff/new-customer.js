@@ -197,7 +197,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
   // today, and silently non-compliant for the first Italian customer.
   let country = '';
   const countryList = el('div', { class: 'nc-sections' },
-    [['GB', 'United Kingdom', 'Labels are printed in English.'],
+    [['GB', t('help.unitedKingdom'), 'Labels are printed in English.'],
       ['IT', 'Italia', 'Le etichette sono prodotte in italiano.']]
       .map(([key, label, what]) => {
         const radio = el('input', { type: 'radio', class: 'nc-check', name: 'nc-country' });
@@ -233,9 +233,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     // sections are a fact about the sale.
     el('p', { class: 'people-label', text: t('nc.country') }),
     el('p', { class: 'people-note', text:
-      'This decides the language its allergen labels are printed in, and it cannot '
-      + 'be worked out later. The law asks for a label in the language of the country '
-      + 'where the food is sold.' }),
+      t('nc.country.help') }),
     countryList,
     sectionsLabel,
     sectionList,
@@ -273,19 +271,19 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     const bought = SECTIONS.filter(([key]) => sections[key]).map(([, label]) => label);
     // ⚠️ THE COUNTRY IS IN THE CONFIRMATION, because it is the one answer here
     // that cannot be corrected from any screen afterwards.
-    const where = country === 'IT' ? 'Italy — labels in Italian' : 'the United Kingdom — labels in English';
+    const where = country === 'IT' ? t('help.italyLabelsInItalian') : t('help.theUnitedKingdomLabels');
     const ok = await confirmDialog({
-      title: forSelf ? 'Create this business?' : 'Create this customer?',
+      title: forSelf ? t('help.createThisBusiness') : t('help.createThisCustomer'),
       message: `${typed}\n\nSells in: ${where}.\nSections: ${bought.join(', ')}.\n\n`
         + (forSelf
-          ? 'It will be created in YOUR account, as owner.'
-          : 'Whoever opens the link becomes its owner.'),
+          ? t('help.itWillBeCreated')
+          : t('help.whoeverOpensTheLink')),
       okLabel: 'Create',
     });
     if (!ok) return;
 
     create.disabled = true;
-    status.textContent = 'Creating…';
+    status.textContent = t('help.creating');
     try {
       const res = await createWorkspace(typed, sections, { forSelf, country });
       if (forSelf) {
@@ -316,7 +314,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     result.append(
       el('p', { class: 'people-hint', text: `${made.name} is ready, and it is yours.` }),
       el('p', { class: 'people-note', text:
-        'You are its owner. It will be in your list of businesses.' }),
+        t('help.youAreItsOwner') }),
       el('button', {
         class: 'btn-primary people-save', type: 'button', text: 'Open my businesses',
         // ⚠️ A RELOAD, not a redraw. Membership is read ONCE, when the session
@@ -343,10 +341,10 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
       // link HAS, not a thing it does — "expires 7 days left" is not English.
       el('p', { class: 'people-note', text:
         `The link works once and has ${expiresInWords({ expiresAt: made.expiresAt })}.`
-        + ' It is not stored anywhere and cannot be shown again.' }),
+        + t('help.itIsNotStored') }),
     );
 
-    const copy = el('button', { type: 'button', class: 'btn-primary people-save', text: 'Copy the link' });
+    const copy = el('button', { type: 'button', class: 'btn-primary people-save', text: t('help.copyTheLink') });
     copy.addEventListener('click', async () => {
       const copied = await copyToClipboard(made.link);
       handedOver = true;
@@ -355,7 +353,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
         : `Copy this link and send it to ${made.name}:\n\n${made.link}`);
     });
 
-    const share = el('button', { type: 'button', class: 'btn-secondary people-save', text: 'Send on WhatsApp' });
+    const share = el('button', { type: 'button', class: 'btn-secondary people-save', text: t('help.sendOnWhatsapp') });
     share.addEventListener('click', () => {
       handedOver = true;
       const text = `Here is your link to set up ${made.name}: ${made.link}`;

@@ -14,7 +14,7 @@
 // splash-init.js does: a heading that changes language a moment after the screen
 // appears is worse than one that never changes at all.
 
-import { t } from './i18n.js';
+import { t, onLanguageChange } from './i18n.js';
 
 // Every element carrying data-i18n gets its text replaced. An element may also
 // carry data-i18n-attr="placeholder" (or any attribute name) to have that
@@ -35,6 +35,12 @@ export function applyStaticText(root = document) {
     else el.textContent = value;
   }
 }
+
+// ⚠️ AND AGAIN WHENEVER THE LANGUAGE CHANGES. These words are written once, at
+// load; the venue's own language arrives later, with the session. Without this
+// the app switched to Italian everywhere EXCEPT the page header and the Home
+// cards — found by driving the switch and reading what came back.
+onLanguageChange(() => applyStaticText());
 
 // Run as soon as the DOM has the elements, and never later than that.
 if (typeof document !== 'undefined') {

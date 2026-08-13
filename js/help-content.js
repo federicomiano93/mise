@@ -16,70 +16,72 @@
 // Each entry: the screen's own name, and the lines. Kept as an ARRAY rather than one
 // blob so the tests can hold each line to its own length, and so a line can never be
 // lost inside a paragraph.
+import { t } from './i18n.js';
+
 export const HELP = {
   home: {
     title: 'Misé',
     lines: [
-      'Each card opens one part of the day: what to bake, what to buy, what it costs.',
-      'Your work is saved as you go — on this phone and online, so another phone sees it too.',
-      'Every screen has a ? like this one. It explains that screen in a few lines.',
-      'A number on a card means something there is waiting for you.',
+      t('help.eachCardOpensOne'),
+      t('help.yourWorkIsSaved'),
+      t('help.everyScreenHasA'),
+      t('help.aNumberOnA'),
     ],
   },
 
   calculator: {
     title: 'Calculator',
     lines: [
-      'Type how many pieces each client has asked for. The app works out the total dough and every ingredient.',
-      'Confirm saves the sheet to the Log and locks the fields until you tap Edit.',
-      'The fields empty themselves on a new work day — which starts at 4am, not at midnight.',
+      t('help.typeHowManyPieces'),
+      t('help.confirmSavesTheSheet'),
+      t('help.theFieldsEmptyThemselves'),
     ],
   },
 
   'client-orders': {
-    title: 'Orders received',
+    title: t('help.ordersReceived'),
     lines: [
-      'Orders your clients typed themselves, from their own link.',
-      '“Put in the calculator” fills that client’s quantity boxes for you. Nothing moves until you tap it.',
-      'If a client changes an order AFTER you have used it, this screen turns red and says so.',
-      'Orders for days already gone are not shown here — this screen is what is still coming.',
+      t('help.ordersYourClientsTyped'),
+      t('help.putInTheCalculator'),
+      t('help.ifAClientChanges'),
+      t('help.ordersForDaysAlready'),
     ],
   },
 
   catalogue: {
-    title: 'Recipe catalogue',
+    title: t('help.recipeCatalogue'),
     lines: [
-      'Every recipe you have, searchable. Open one and scale it to any total weight in kg.',
-      'Guided mixing walks a recipe step by step with timers — keep that screen open, or the alarm cannot ring.',
-      'Link a row to an ingredient and the recipe can tell you what a kilo of it costs.',
-      'If only some rows are linked, the cost shown is of THOSE rows — not of the whole recipe.',
+      t('help.everyRecipeYouHave'),
+      t('help.guidedMixingWalksA'),
+      t('help.linkARowTo'),
+      t('help.ifOnlySomeRows'),
     ],
   },
 
   orders: {
     title: 'Orders',
     lines: [
-      'What to buy, supplier by supplier. Order is how many you need; Stock is what you still have.',
-      '“Order placed” records it and clears the row, so the screen always shows what is left to do.',
-      'Suggested amounts come from your last 8 orders of that item, so they mean nothing until you have placed a few.',
+      t('help.whatToBuySupplier'),
+      t('help.orderPlacedRecordsIt'),
+      t('help.suggestedAmountsComeFrom'),
     ],
   },
 
   foodcost: {
-    title: 'Food cost',
+    title: t('help.foodCost'),
     lines: [
-      'What a product costs to make, and what it earns.',
-      'Type the selling price as it is on the label, WITH VAT. The app works the cost out on the price without VAT.',
-      'It is only right if the ingredients have prices. An unpriced one is left out, and the answer comes out too low.',
+      t('help.whatAProductCosts'),
+      t('help.typeTheSellingPrice'),
+      t('help.itIsOnlyRight'),
     ],
   },
 
   pastries: {
     title: 'Pastries',
     lines: [
-      'What to put out to prove, as one standing list per weekday.',
-      'Confirm keeps a record of the night and locks the list until 4am.',
-      'Unlike the Calculator, a new day does NOT empty it: the list is what you normally do on that weekday.',
+      t('help.whatToPutOut'),
+      t('help.confirmKeepsARecord'),
+      t('help.unlikeTheCalculatorA'),
     ],
   },
 };
