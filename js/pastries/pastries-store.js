@@ -128,7 +128,7 @@ export function saveDay(day, items, note) {
   savePastryDay(day, clean.items, clean.note).catch(err => {
     console.warn('Pastry day did not sync to Firestore:', err);
     applyLocal(day, previous);
-    if (onSyncError) onSyncError(`Couldn't save ${day} — check your connection.`);
+    if (onSyncError) onSyncError(`Couldn’t save ${day} — check your connection.`);
   });
 }
 

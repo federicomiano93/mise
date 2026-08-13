@@ -144,7 +144,7 @@ export function saveProduct(product, snapshot) {
   saveProductWithSnapshot(id, data, snapshot).catch(err => {
     console.warn('Product did not sync to Firestore:', err);
     if (prev) upsertLocal(prev); else removeLocal(id);
-    if (onSyncError) onSyncError(`Couldn't save "${product.name || 'product'}" — check your connection.`);
+    if (onSyncError) onSyncError(`Couldn’t save “${product.name || 'product'}” — check your connection.`);
   });
   return id;
 }
@@ -155,6 +155,6 @@ export function deleteProduct(id) {
   removeProduct(id).catch(err => {
     console.warn('Product delete did not sync to Firestore:', err);
     if (prev) upsertLocal(prev);
-    if (onSyncError) onSyncError("Couldn't delete the product — check your connection.");
+    if (onSyncError) onSyncError('Couldn’t delete the product — check your connection.');
   });
 }

@@ -273,7 +273,7 @@ async function confirmToday(day, items, note) {
   // day off. Deliberately not "kept for 15 days" any more: records are kept for
   // good, and 15 days is only how far back this screen shows.
   const message = existing
-    ? `${base}\n\nTonight's record for ${day} will be replaced.`
+    ? `${base}\n\nTonight’s record for ${day} will be replaced.`
     : `${base}\n\n${day} will show as done. You can still change it — it will ask first.`;
 
   const ok = await confirmDialog({ title: `Confirm ${day}?`, message, okLabel: 'Confirm' });

@@ -288,7 +288,7 @@ function buildPrefillWindowField() {
     el('p', { class: 'notif-note' },
       'Which days of saved logs the order form offers quantities from. Most days an '
       + 'order is made over two days — some products the day before, some the same '
-      + 'morning — so "Yesterday and today" is the usual choice.'),
+      + 'morning — so “Yesterday and today” is the usual choice.'),
   ]);
 }
 
@@ -457,7 +457,7 @@ function freeLinesField(target) {
     el('label', { class: 'cp-label' }, 'Added by hand'),
     el('p', { class: 'extra-help' },
       'For things this client buys that you do not calculate here — bread cut from '
-      + 'another client\'s batch, for example. They appear in the message and never '
+      + 'another client’s batch, for example. They appear in the message and never '
       + 'in a dough total, and the order form always leaves them empty for you to fill in.'),
   ]);
 
@@ -588,7 +588,7 @@ function renderProductPicker() {
 
   if (own.length) {
     content.appendChild(el('div', { class: 'send-picker-label' },
-      client ? `${client.name}'s products` : 'Its products'));
+      client ? `${client.name}’s products` : 'Its products'));
     own.forEach(p => content.appendChild(pickRow(p.name, () => addProduct(p))));
   }
 
@@ -643,7 +643,7 @@ function byHandField(target, added) {
     // same thing on two lines. Said out loud — silently ignoring the tap reads as a
     // broken button.
     if (added.has(name)) {
-      warning.textContent = `"${name}" is already in this message.`;
+      warning.textContent = `“${name}” is already in this message.`;
       warning.hidden = false;
       return;
     }

@@ -57,7 +57,7 @@ export const RELEASES = [
     id: '2026-07-31-clear-quantities',
     title: 'Orders',
     points: [
-      'Start an order again: "Clear quantities" inside a supplier, or at the bottom of the Order tab to pick several.',
+      'Start an order again: “Clear quantities” inside a supplier, or at the bottom of the Order tab to pick several.',
       'What you counted on the shelves stays — only the amounts to order are cleared.',
       'Orders already recorded in History are never touched.',
     ],
@@ -75,8 +75,8 @@ export const RELEASES = [
     id: '2026-07-31-history-window',
     title: 'Orders',
     points: [
-      'History opens on the last 15 days, so this week\'s orders are the ones on screen.',
-      'Nothing has been deleted: tap "Show older orders" at the bottom of the list.',
+      'History opens on the last 15 days, so this week’s orders are the ones on screen.',
+      'Nothing has been deleted: tap “Show older orders” at the bottom of the list.',
       'Change how far back it opens in Settings → General.',
     ],
   },
@@ -85,7 +85,7 @@ export const RELEASES = [
     title: 'Sign in',
     points: [
       'The app now asks for an email and a password. You stay signed in — it is not every day.',
-      'Forgot it? Tap "Forgot your password?" on the sign-in screen and check your email.',
+      'Forgot it? Tap “Forgot your password?” on the sign-in screen and check your email.',
       'The Home screen shows which location you are working on, above the cards.',
       'Each location sees only its own suppliers, ingredients, orders and recipes.',
     ],
@@ -96,7 +96,7 @@ export const RELEASES = [
     // Short on purpose. A notice is read standing up, once — anything that needs
     // scrolling to finish will not be finished.
     points: [
-      'Find an ingredient by name: tap "All ingredients". No need to know its supplier.',
+      'Find an ingredient by name: tap “All ingredients”. No need to know its supplier.',
       'Ingredients with no supplier (supermarket, cash & carry) can now be added and ordered.',
       'Send the order as one flat shopping list, or split by supplier as before.',
       'The bar at the bottom shows what is in the order — tap it to review just those items.',

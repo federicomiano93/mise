@@ -767,7 +767,7 @@ async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {})
   // Firestore has no offline persistence here, so the write would simply never
   // resolve and the tap would hang. Say so instead.
   if (!navigator.onLine) {
-    setStatus("You're offline — reconnect to record this order.", 'error', 6000);
+    setStatus('You’re offline — reconnect to record this order.', 'error', 6000);
     return false;
   }
 
@@ -870,7 +870,7 @@ async function clearQuantitiesFor(supplierIds) {
 
   // No offline persistence: the write would never resolve and the tap would hang.
   if (!navigator.onLine) {
-    setStatus("You're offline — reconnect to clear these quantities.", 'error', 6000);
+    setStatus('You’re offline — reconnect to clear these quantities.', 'error', 6000);
     return false;
   }
   if (!await confirmClear(ids)) return false;
@@ -947,12 +947,12 @@ function confirmPlacement(supplier, date) {
 
   const base = already
     ? `An order for ${supplier.name} is already recorded ${when}. These items will be ADDED to it.\n\nSend the order on WhatsApp first — recording it clears the rows.`
-    : `Record ${supplier.name}'s order ${when}?\n\nSend the order on WhatsApp first — recording it clears the rows.`;
+    : `Record ${supplier.name}’s order ${when}?\n\nSend the order on WhatsApp first — recording it clears the rows.`;
 
   const odd = unusualRowsFor(supplier.id);
 
   return confirmDialog({
-    title: already ? `Add to ${supplier.name}'s order` : `${supplier.name} — order placed`,
+    title: already ? `Add to ${supplier.name}’s order` : `${supplier.name} — order placed`,
     message: odd.length ? `${unusualWarning(odd)}\n\n${base}` : base,
     okLabel: already ? 'Add to it' : 'Order placed',
     // Recording is what turns the rows into an order, and this is the last screen
@@ -1064,7 +1064,7 @@ async function keepAsToday(supplierId) {
   } catch (err) {
     console.error('Restamping the draft failed:', err);
     if (previous) state.days[supplierId] = previous; else delete state.days[supplierId];
-    setStatus("Could not update the order's day — check your network and try again.", 'error');
+    setStatus('Could not update the order’s day — check your network and try again.', 'error');
   }
 }
 
@@ -1074,7 +1074,7 @@ async function discardPending(supplierId) {
   if (!supplier) return;
 
   const ok = await confirmDialog({
-    title: `Discard ${supplier.name}'s order`,
+    title: `Discard ${supplier.name}’s order`,
     message: `Delete the quantities typed for ${supplier.name}? They are not saved anywhere and cannot be recovered.`,
     okLabel: 'Discard',
     danger: true,
