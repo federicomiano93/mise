@@ -2174,9 +2174,103 @@ async function onboardingCollections() {
     mergeWrite(`users/${SAM.uid}`, { locations: { main: 'owner' } }, asUser()));
 }
 
+// ── An order list one person sends to another ────────────────────────────────
+//
+// The negative cases are written FIRST and deliberately: a scenario that only
+// ever proves the happy path stays green with the whole guard deleted. What has
+// to hold is that a list cannot be sent in somebody else's name, that ticking an
+// ingredient off can never become the door to rewriting the quantities, and that
+// an ordinary employee cannot delete work addressed to somebody else.
+async function orderRequests() {
+  await wipe();
+  await seedAccess();
+  const L = 'locations/main';
+  const REQ = `${L}/order-requests/REQ1`;
+
+  const sent = {
+    bakery: 'main', date: '2026-08-14',
+    fromUid: SAM.uid, fromName: 'Sam Baker',
+    quantities: { ING_A: 4, ING_B: 2 },
+    names: { ING_A: 'Flour 00 25kg', ING_B: 'Butter 5kg' },
+    supplierOf: { ING_A: 'SUP_1', ING_B: 'SUP_1' },
+    supplierNames: { SUP_1: 'Caterite' },
+    done: {}, note: '',
+    createdAt: '2026-08-14T08:00:00.000Z', updatedAt: '2026-08-14T08:00:00.000Z',
+  };
+
+  // ⚠️ NOBODY MAY SEND A LIST IN SOMEBODY ELSE'S NAME. The receiving screen
+  // prints fromName, and a manager acts on who they believe asked for it.
+  await expectDenied('a list sent in somebody else’s name',
+    () => wholeWrite(REQ, { ...sent, fromUid: ALICE.uid }, asAccount(SAM)));
+
+  // ⚠️ AN EMPTY LIST IS NOT A LIST. It is a list of work; with no work in it, it
+  // can only mislead the person it was sent to.
+  await expectDenied('an order list with nothing in it',
+    () => wholeWrite(REQ, { ...sent, quantities: {} }, asAccount(SAM)));
+
+  // ⚠️ IT MUST ARRIVE UNTICKED. A list born finished never appears in the
+  // banner — sent and silently done is the one outcome the feature exists to stop.
+  await expectDenied('a list that arrives already ticked off',
+    () => wholeWrite(REQ, { ...sent, done: { ING_A: true } }, asAccount(SAM)));
+
+  await expectDenied('quantities sent as a list instead of a map',
+    () => wholeWrite(REQ, { ...sent, quantities: [4, 2] }, asAccount(SAM)));
+  await expectDenied('a date written the British way',
+    () => wholeWrite(REQ, { ...sent, date: '14/08/2026' }, asAccount(SAM)));
+  await expectDenied('a stray field nobody validated',
+    () => wholeWrite(REQ, { ...sent, priority: 'urgent' }, asAccount(SAM)));
+  await expectDenied('a list stamped for another location',
+    () => wholeWrite(REQ, { ...sent, bakery: 'trattoria-x' }, asAccount(SAM)));
+  await expectDenied('somebody with no access at all sending a list',
+    () => wholeWrite(REQ, { ...sent, fromUid: NOBODY.uid }, asAccount(NOBODY)));
+  await expectDenied('a client ordering account sending a staff order list',
+    () => wholeWrite(REQ, { ...sent, fromUid: CLIENT_A.uid }, asAccount(CLIENT_A)));
+
+  // Now the list really is sent — by an ordinary EMPLOYEE, which is the whole point.
+  await expectAllowed('an employee sends an order list to whoever runs the place',
+    () => wholeWrite(REQ, sent, asAccount(SAM)));
+
+  // ⚠️⚠️ THE NARROWEST UPDATE IN THE FILE, AND HERE IS WHY IT MATTERS. Ticking is
+  // open to everybody in the location, so if the update were not pinned to `done`
+  // it would be a way for anybody to rewrite an order after it was sent —
+  // silently, on a screen the manager is reading numbers off.
+  await expectAllowed('a manager ticks an ingredient off', () =>
+    mergeWrite(REQ, { done: { ING_A: true }, updatedAt: new Date().toISOString() }, asAccount(MAYA)));
+  await expectDenied('a quantity changed under cover of a tick', () =>
+    mergeWrite(REQ, { done: { ING_A: true }, quantities: { ING_A: 99 } }, asAccount(MAYA)));
+  await expectDenied('the sender’s name rewritten under cover of a tick', () =>
+    mergeWrite(REQ, { done: { ING_A: true }, fromName: 'Someone else' }, asAccount(MAYA)));
+  await expectDenied('the frozen labels rewritten under cover of a tick', () =>
+    mergeWrite(REQ, { names: { ING_A: 'Something cheaper' } }, asAccount(MAYA)));
+  await expectDenied('ticks sent as a list instead of a map',
+    () => mergeWrite(REQ, { done: ['ING_A'] }, asAccount(MAYA)));
+
+  // ⚠️ AND THE WHOLE THING IS STILL SHUT TO THE OUTSIDE. A wholesale client and
+  // another venue must not even be able to LOOK at what this bakery is buying.
+  await expectDenied('another venue reading this venue’s order lists',
+    () => fetch(`${FS}/${REQ}`, { headers: asAccount(BOB) }));
+  await expectDenied('a client ordering account reading an order list',
+    () => fetch(`${FS}/${REQ}`, { headers: asAccount(CLIENT_A) }));
+  await expectAllowed('anybody who works here can read the lists',
+    () => fetch(`${FS}/${REQ}`, { headers: asAccount(SAM) }));
+
+  // ⚠️ DELETING IS THE ONE THING BEHIND THE ROLE, and it is a deliberate
+  // departure from orders-history and pastry-logs. Those are RECORDS of work
+  // already done; this is work NOT yet done, addressed to somebody else. Deleting
+  // it means the ingredients are never bought and nobody finds out — and no
+  // backup helps, because nothing was lost, it simply never happened.
+  await expectDenied('an employee deleting a list addressed to the manager',
+    () => deleteWrite(REQ, asAccount(SAM)));
+  await expectDenied('…not even the employee who sent it',
+    () => deleteWrite(REQ, asAccount(SAM)));
+  await expectAllowed('a manager throws away a list that should not be there',
+    () => deleteWrite(REQ, asAccount(MAYA)));
+}
+
 for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
                         locationTree, isolation, configAndLogs, pastries, pastryLogs,
-                        products, clientOrders, pushNotifications, roles, onboardingCollections]) {
+                        products, clientOrders, orderRequests, pushNotifications, roles,
+                        onboardingCollections]) {
   await scenario();
 }
 
