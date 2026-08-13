@@ -180,7 +180,7 @@ export function buildManagement(data, actions) {
         text: 'Days of past orders shown in History' }),
       el('div', { class: 'mgmt-days-row' }, [input, el('span', { text: 'days' })]),
       el('p', { class: 'notif-note', text:
-        'Older orders are never deleted — they stay one tap away under "Show older orders", and suggested quantities keep learning from all of them.' }),
+        'Older orders are never deleted — they stay one tap away under “Show older orders”, and suggested quantities keep learning from all of them.' }),
     ]);
   }
 
@@ -267,7 +267,7 @@ export function buildManagement(data, actions) {
   async function reportFailure(action, name, err) {
     console.error(`${action} failed:`, err);
     await alertDialog(
-      `Could not ${action} "${name}". Check your network and try again.`,
+      `Could not ${action} “${name}”. Check your network and try again.`,
       { title: 'Not saved' },
     );
   }
@@ -290,7 +290,7 @@ export function buildManagement(data, actions) {
         // reactivating is harmless and needs no confirmation.
         if (active) {
           const ok = await confirmDialog({
-            message: `Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`,
+            message: `Deactivate “${name}”? It will be hidden from the order screen. You can reactivate it later.`,
             okLabel: 'Deactivate', danger: true,
           });
           if (!ok) return;
@@ -303,7 +303,7 @@ export function buildManagement(data, actions) {
     if (canManageHere()) {
       actions.push(el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
         const ok = await confirmDialog({
-          message: `Permanently delete "${name}"? This cannot be undone.`,
+          message: `Permanently delete “${name}”? This cannot be undone.`,
           okLabel: 'Delete', danger: true,
         });
         if (!ok) return;
@@ -656,7 +656,7 @@ export function buildManagement(data, actions) {
       el('span', { class: 'mgmt-field-label', text: 'Allergens and nutrition' }),
       status,
       el('p', { class: 'notif-note', text:
-        'Copy this from the supplier’s specification, not from memory. "traces" is what the supplier declares — it cannot know about your own kitchen.' }),
+        'Copy this from the supplier’s specification, not from memory. “Traces” is what the supplier declares — it cannot know about your own kitchen.' }),
       el('div', { class: 'alg-list' }, sections),
       el('label', { class: 'day-check alg-checked' }, [checked, el('span', { text: 'I have checked the supplier’s specification' })]),
       el('p', { class: 'mgmt-field-label alg-nut-title', text: 'Per 100 g' }),

@@ -246,8 +246,8 @@ export function renderGuidedEditor({ recipe, app }) {
     const ok = await app.confirm({
       title: 'Save the procedure?',
       message: clean.length
-        ? `Save ${clean.length} step${clean.length === 1 ? '' : 's'} for "${recipe.name}"?`
-        : `"${recipe.name}" will have no guided procedure.`,
+        ? `Save ${clean.length} step${clean.length === 1 ? '' : 's'} for “${recipe.name}”?`
+        : `“${recipe.name}” will have no guided procedure.`,
       okLabel: 'Save',
     });
     if (!ok) { busy = false; return; }

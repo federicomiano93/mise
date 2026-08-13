@@ -419,7 +419,7 @@ function orderingLinkField(client) {
     // link stops working the moment it is replaced, so it is spelled out.
     if (account && !(await confirmDialog({
       title: 'Replace this link?',
-      message: `${client.name}'s current link will stop working immediately, including on a phone that is using it right now. Use "Copy link" instead if you only want to send it again.`,
+      message: `${client.name}’s current link will stop working immediately, including on a phone that is using it right now. Use “Copy link” instead if you only want to send it again.`,
       okLabel: 'Replace',
       danger: true,
     }))) return;

@@ -198,7 +198,7 @@ async function offerResume() {
   const total = normalizeSteps(saved.snapshot.steps).length;
   const ok = await confirmDialog({
     title: 'Carry on mixing?',
-    message: `You were part-way through "${saved.snapshot.name || recipe.name}" — ${progressText(saved.stepIndex, total).toLowerCase()}.`,
+    message: `You were part-way through “${saved.snapshot.name || recipe.name}” — ${progressText(saved.stepIndex, total).toLowerCase()}.`,
     okLabel: 'Carry on', cancelLabel: 'Not now',
   });
   // "Not now" KEEPS the session: it answers where to go next, never whether the
@@ -273,7 +273,7 @@ const app = {
       ]);
     } catch (e) { linked = false; }
 
-    const base = `Delete "${recipe.name || 'this recipe'}"? This cannot be undone.`;
+    const base = `Delete “${recipe.name || 'this recipe'}”? This cannot be undone.`;
     const message = linked
       ? base + ' It was imported into the Calculator — that copy will stay; remove it separately in the Calculator if you want it gone.'
       : base;
@@ -289,16 +289,16 @@ const app = {
     // The Calculator is grams-only. If there's no weighable ingredient there is
     // nothing to import; otherwise warn about any rows that will be left out.
     if (weighableTotalGrams(recipe) <= 0) {
-      toast("This recipe has no weight-based ingredients, so there's nothing to import into the grams-only Calculator.");
+      toast('This recipe has no weight-based ingredients, so there’s nothing to import into the grams-only Calculator.');
       return;
     }
     const skipped = nonWeighableLabels(recipe);
     const warn = skipped.length
-      ? `\n\nNote: ${skipped.join(', ')} use a unit the Calculator can't scale (it works in grams only) and won't be imported.`
+      ? `\n\nNote: ${skipped.join(', ')} use a unit the Calculator can’t scale (it works in grams only) and won’t be imported.`
       : '';
     const ok = await confirmDialog({
       title: 'Import into Calculator?',
-      message: `Copy "${recipe.name}" into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
+      message: `Copy “${recipe.name}” into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
       okLabel: 'Import',
     });
     if (!ok) return;
@@ -306,8 +306,8 @@ const app = {
       const { action } = await importRecipeIntoCalculator(recipe);
       bumpUsage(recipe.id);
       toast(action === 'updated'
-        ? `"${recipe.name}" updated in the Calculator.`
-        : `"${recipe.name}" added to the Calculator.`);
+        ? `“${recipe.name}” updated in the Calculator.`
+        : `“${recipe.name}” added to the Calculator.`);
     } catch (err) {
       console.error('Import into Calculator failed:', err);
       toast('Import failed — check your connection and try again.');

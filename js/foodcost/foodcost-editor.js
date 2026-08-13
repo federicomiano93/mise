@@ -287,7 +287,7 @@ export function renderEditor({ product, app }) {
     busy = true;
     const ok = await app.confirm({
       title: 'Delete product?',
-      message: `Delete "${product.name || 'this product'}"? This cannot be undone, and its margin history goes with it.`,
+      message: `Delete “${product.name || 'this product'}”? This cannot be undone, and its margin history goes with it.`,
       okLabel: 'Delete', danger: true,
     });
     if (!ok) { busy = false; return; }

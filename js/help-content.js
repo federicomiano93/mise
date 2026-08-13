@@ -40,7 +40,7 @@ export const HELP = {
     title: 'Orders received',
     lines: [
       'Orders your clients typed themselves, from their own link.',
-      '"Put in the calculator" fills that client\'s quantity boxes for you. Nothing moves until you tap it.',
+      '“Put in the calculator” fills that client’s quantity boxes for you. Nothing moves until you tap it.',
       'If a client changes an order AFTER you have used it, this screen turns red and says so.',
       'Orders for days already gone are not shown here — this screen is what is still coming.',
     ],
@@ -60,7 +60,7 @@ export const HELP = {
     title: 'Orders',
     lines: [
       'What to buy, supplier by supplier. Order is how many you need; Stock is what you still have.',
-      '"Order placed" records it and clears the row, so the screen always shows what is left to do.',
+      '“Order placed” records it and clears the row, so the screen always shows what is left to do.',
       'Suggested amounts come from your last 8 orders of that item, so they mean nothing until you have placed a few.',
     ],
   },

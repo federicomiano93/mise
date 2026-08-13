@@ -100,3 +100,57 @@ export function roleLabel(role) {
   if (role === MANAGER) return 'Manager';
   return 'Employee';
 }
+
+// ── A job title, which is NOT a fourth level of power ────────────────────────
+//
+// Federico, 13 Aug 2026: «aggiungi head chef come figura della cucina ma è come
+// il ruolo del manager». The comment on ROLES above already called this level
+// "the head chef or manager" in his own words from 11 August — the level always
+// meant this; only the word was missing.
+//
+// ⚠️⚠️ SO IT IS A TITLE STORED BESIDE THE ROLE, NOT A NEW MEMBERSHIP VALUE, and
+// that distinction is the whole of this feature. A new membership value has to be
+// added in THREE separate places — js/sections.js accessValue(), member() in
+// firestore.rules, and accessValue() in functions/onboarding.js — and a value any
+// one of them does not recognise is not a demotion, it is a LOCKOUT. That was
+// missed in all three, on three separate days (v268). A head chef holds
+// `'manager'`, so there is nothing for any of them to learn.
+//
+// ⚠️ AND NO RULE READS IT, exactly like firstName/lastName on the same document,
+// which is already documented as "a label, never an identity". Renaming somebody
+// must never change what they can do.
+export const TITLES = Object.freeze(['manager', 'head-chef']);
+
+export function titleLabel(title) {
+  return title === 'head-chef' ? 'Head chef' : 'Manager';
+}
+
+// What the roster row calls this person: their job title where the level has one,
+// otherwise the role itself.
+//
+// ⚠️ THE TITLE IS IGNORED UNLESS THE ROLE IS MANAGER. A title left behind on
+// somebody who has since been made an employee would have the screen call them
+// "Head chef" while the database says they may delete nothing — and the screen is
+// the only place anybody ever checks. The server clears it on every change too;
+// this is the second of the two, because one of them will be forgotten one day.
+export function personLabel(role, title) {
+  if (role !== MANAGER) return roleLabel(role);
+  return titleLabel(title);
+}
+
+// The pills on "Who can get in": FOUR words, THREE levels of power.
+//
+// ⚠️ Two of them grant exactly the same thing, and the screen has to say so out
+// loud — a row of four that looks like four levels is worse than no title at all.
+export const ROLE_CHOICES = Object.freeze([
+  { key: OWNER, role: OWNER, title: null, label: 'Owner' },
+  { key: MANAGER, role: MANAGER, title: 'manager', label: 'Manager' },
+  { key: 'head-chef', role: MANAGER, title: 'head-chef', label: 'Head chef' },
+  { key: 'staff', role: 'staff', title: null, label: 'Employee' },
+]);
+
+// Which pill is lit for somebody who currently holds this role and title.
+export function choiceKey(role, title) {
+  if (role === MANAGER && title === 'head-chef') return 'head-chef';
+  return role;
+}

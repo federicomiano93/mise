@@ -18,7 +18,7 @@ import {
   watchMembers, createJoinCode, setMemberRole, setMemberName, callFailureText,
 } from './firebase-staff.js';
 import { expiresInWords } from '../join-code.js';
-import { ROLES, roleLabel } from '../roles.js';
+import { ROLE_CHOICES, personLabel, choiceKey } from '../roles.js';
 import { nameProblem, cleanName } from '../credentials.js';
 
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -28,10 +28,23 @@ const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" w
 // ⚠️ THESE SENTENCES ARE THE ONLY PLACE ANYBODY IS EVER TOLD what a role does.
 // Nothing else in the app explains it, so a wrong one here is a wrong decision
 // about a real person's access — made confidently, because the screen said so.
+// ⚠️ KEYED BY THE PILL, NOT BY THE ROLE, because two pills share one role.
+// "Head chef" has to state plainly that it is the manager level under another
+// name — four pills with four different-sounding sentences would read as four
+// levels of power, and somebody would pick between them believing it mattered.
 const ROLE_MEANS = {
   owner: 'Everything, including adding people and setting their roles.',
   manager: 'Runs this location: can delete suppliers, ingredients, recipes and products. Cannot add people.',
+  'head-chef': 'The same as Manager — it is only the job title that differs. Runs this location: can delete suppliers, ingredients, recipes and products. Cannot add people.',
   staff: 'Does the daily work — quantities, doughs, orders. Cannot delete things or add people.',
+};
+
+// The article each pill takes in "Make <name> …?".
+const ARTICLE = {
+  owner: 'an owner',
+  manager: 'a manager',
+  'head-chef': 'the head chef',
+  staff: 'an employee',
 };
 
 // A person's name, falling back honestly rather than inventing one. The four
@@ -47,7 +60,9 @@ export function openPeople(myUid) {
   let members = [];
   let stop = null;
   let pending = null;      // the code being shown, if any
-  let newRole = 'staff';   // the role the next code will invite
+  // Which pill the next code will invite as. It starts at Employee — the least
+  // power — so a distracted tap grants nothing.
+  let newChoice = ROLE_CHOICES.find(c => c.key === 'staff');
   let renaming = null;     // the uid whose row is currently two input boxes
 
   const list = el('div', { class: 'people-list' });
@@ -77,17 +92,21 @@ export function openPeople(myUid) {
   // is worse: it puts a real person's access one mis-tap away from a role nobody
   // chose. Every pill states its destination, and the current one is disabled —
   // so the only taps that reach the server are real changes.
+  // ⚠️ FOUR WORDS, THREE LEVELS OF POWER. "Manager" and "Head chef" are the same
+  // level under two names — Federico's own words for it since 11 Aug, and the
+  // reason it is a title rather than a fourth role is in js/roles.js. The
+  // confirmation below has to say so out loud, or four pills read as four levels.
   function rolePills(current, onPick) {
     const wrap = el('div', { class: 'people-pills', role: 'group', 'aria-label': 'Role' });
-    for (const role of ROLES) {
-      const chosen = role === current;
+    for (const choice of ROLE_CHOICES) {
+      const chosen = choice.key === current;
       const pill = el('button', {
         type: 'button',
         class: `people-pill${chosen ? ' people-pill--on' : ''}`,
         'aria-pressed': chosen ? 'true' : 'false',
-      }, roleLabel(role));
+      }, choice.label);
       if (chosen) pill.disabled = true;
-      else pill.addEventListener('click', () => onPick(role));
+      else pill.addEventListener('click', () => onPick(choice));
       wrap.appendChild(pill);
     }
     return wrap;
@@ -132,9 +151,9 @@ export function openPeople(myUid) {
       // refuses the last owner as well, but a screen that offers a tap and then
       // explains why not is a worse screen than one that does not offer it.
       if (isMe) {
-        row.appendChild(el('span', { class: 'people-role', text: roleLabel(person.role) }));
+        row.appendChild(el('span', { class: 'people-role', text: personLabel(person.role, person.title) }));
       } else {
-        row.appendChild(rolePills(person.role, next => change(person, next)));
+        row.appendChild(rolePills(choiceKey(person.role, person.title), next => change(person, next)));
         row.appendChild(el('div', { class: 'people-row-actions' }, [
           el('button', {
             type: 'button', class: 'mgmt-link',
@@ -207,20 +226,19 @@ export function openPeople(myUid) {
     return row;
   }
 
-  async function change(person, role) {
+  async function change(person, choice) {
     // ⚠️ THE CONFIRMATION SAYS WHAT THE ROLE DOES, not just its name. "Make this
     // person a manager?" means nothing to somebody deciding whether their baker
     // should be one; the sentence about deleting is the whole decision.
-    const article = role === 'owner' ? 'an owner' : role === 'manager' ? 'a manager' : 'an employee';
     const ok = await confirmDialog({
-      title: `Make ${displayName(person)} ${article}?`,
-      message: ROLE_MEANS[role],
-      okLabel: `Make ${roleLabel(role).toLowerCase()}`,
+      title: `Make ${displayName(person)} ${ARTICLE[choice.key]}?`,
+      message: ROLE_MEANS[choice.key],
+      okLabel: `Make ${choice.label.toLowerCase()}`,
       // Taking power away is the direction that surprises somebody mid-shift.
-      danger: role === 'staff',
+      danger: choice.role === 'staff',
     });
     if (!ok) return;
-    try { await setMemberRole(person.uid, role); }
+    try { await setMemberRole(person.uid, choice.role, choice.title); }
     catch (err) {
       await alertDialog(callFailureText(err, 'Could not change that. Check your connection and try again.'));
     }
@@ -251,10 +269,10 @@ export function openPeople(myUid) {
       // read out to somebody standing there, and going back to change their role
       // afterwards is a second errand nobody remembers. It starts at Employee —
       // the least power — so a distracted tap grants nothing.
-      codeBox.appendChild(rolePills(newRole, role => { newRole = role; paintCode(); }));
-      codeBox.appendChild(el('p', { class: 'people-note', text: ROLE_MEANS[newRole] }));
+      codeBox.appendChild(rolePills(newChoice.key, choice => { newChoice = choice; paintCode(); }));
+      codeBox.appendChild(el('p', { class: 'people-note', text: ROLE_MEANS[newChoice.key] }));
       const add = el('button', { type: 'button', class: 'btn-primary people-add' },
-        `Add ${roleLabel(newRole).toLowerCase()}`);
+        `Add ${newChoice.label.toLowerCase()}`);
       add.addEventListener('click', mint);
       codeBox.appendChild(add);
       return;
@@ -267,7 +285,7 @@ export function openPeople(myUid) {
     codeBox.appendChild(el('p', { class: 'people-hint', text: 'Read this out to them:' }));
     codeBox.appendChild(el('p', { class: 'people-digits', text: pending.code }));
     codeBox.appendChild(el('p', { class: 'people-note', text:
-      `Joins as ${roleLabel(pending.role).toLowerCase()} · ${expiresInWords(pending)} · they open the app, tap “I have a code”, create their account and type it.` }));
+      `Joins as ${personLabel(pending.role, pending.title).toLowerCase()} · ${expiresInWords(pending)} · they open the app, tap “I have a code”, create their account and type it.` }));
 
     const again = el('button', { type: 'button', class: 'btn-secondary people-add' }, 'Done');
     again.addEventListener('click', () => { pending = null; paintCode(); });
@@ -280,7 +298,7 @@ export function openPeople(myUid) {
       // function reduces a role it does not recognise to an employee, so echoing
       // what was ASKED for could promise a manager where a code for an employee
       // was actually made.
-      pending = await createJoinCode(newRole);
+      pending = await createJoinCode(newChoice.role, newChoice.title);
       paintCode();
     } catch (err) {
       await alertDialog(callFailureText(err, 'Could not make a code. Check your connection and try again.'));
