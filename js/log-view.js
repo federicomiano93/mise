@@ -5,6 +5,7 @@
 //
 // CSP-safe: built with the el() DOM helper (no innerHTML, no inline styles).
 
+import { t } from './i18n.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
 import { dayLabel } from './log-model.js';
@@ -19,7 +20,7 @@ function renderLegacyText(text) {
     if (!/^\s/.test(line) && line.endsWith(':')) wrap.appendChild(el('div', { class: 'log-customer' }, line.slice(0, -1)));
     else wrap.appendChild(el('div', { class: 'log-item' }, line.trim()));
   }
-  if (!wrap.childNodes.length) wrap.appendChild(el('div', { class: 'log-item' }, '(empty)'));
+  if (!wrap.childNodes.length) wrap.appendChild(el('div', { class: 'log-item' }, t('calc.empty')));
   return wrap;
 }
 
@@ -44,15 +45,15 @@ function renderItems(version) {
   for (const occ of (version.occasional || [])) {
     const prods = (occ.products || []).filter(p => num(p.qty) > 0);
     if (!prods.length) continue;
-    wrap.appendChild(el('div', { class: 'log-customer' }, (occ.name || 'Occasional client') + '  ·  occasional'));
+    wrap.appendChild(el('div', { class: 'log-customer' }, (occ.name || t('calc.occasionalClient')) + t('calc.occasional')));
     for (const p of prods) {
       wrap.appendChild(el('div', { class: 'log-item' }, [p.name + ': ', el('strong', {}, num(p.qty) + (p.unit === 'kg' ? ' kg' : ' pz'))]));
     }
   }
   if (version.sheet && num(version.sheet.extra_g) > 0) {
-    wrap.appendChild(el('div', { class: 'log-item' }, 'Extra dough: ' + num(version.sheet.extra_g) + ' g'));
+    wrap.appendChild(el('div', { class: 'log-item' }, t('calc.extraDough') + num(version.sheet.extra_g) + ' g'));
   }
-  if (!wrap.childNodes.length) wrap.appendChild(el('div', { class: 'log-item' }, 'No products entered.'));
+  if (!wrap.childNodes.length) wrap.appendChild(el('div', { class: 'log-item' }, t('calc.noProductsEntered')));
   return wrap;
 }
 
@@ -82,7 +83,7 @@ export function renderSheetCard(sheet) {
     el('div', {}, rows),
     el('div', { class: 'ing-separator' }),
     el('div', { class: 'total-dough-row' }, [
-      el('span', { class: 'total-dough-label' }, 'Total dough'),
+      el('span', { class: 'total-dough-label' }, t('calc.totalDough')),
       el('span', {}, [el('span', { class: 'total-dough-val' }, String(num(sheet.total_g))), ' ', el('span', { class: 'total-dough-unit' }, 'g')]),
     ]),
   ];
@@ -129,7 +130,7 @@ export function renderVersion(version, log) {
   ]));
   const at = v.at || {};
   frag.appendChild(el('div', { class: 'log-timestamp' }, [icon('calendar', 14), ' ' + (at.date || '') + ' — ' + (at.time || '')]));
-  if (v.calculatedBy) frag.appendChild(el('div', { class: 'logview-by' }, 'Calculated by: ' + v.calculatedBy));
+  if (v.calculatedBy) frag.appendChild(el('div', { class: 'logview-by' }, t('calc.calculatedBy') + v.calculatedBy));
 
   frag.appendChild(renderOrder(v));
   if (!v.legacy && v.sheet) frag.appendChild(renderSheetCard(v.sheet));

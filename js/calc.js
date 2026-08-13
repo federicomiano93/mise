@@ -9,6 +9,7 @@
 // recipe scales purely pro-rata. The recipe is hidden until the first Confirm, then
 // stays visible AND editable — the recipe sheet and the log are independent.
 
+import { t } from './i18n.js';
 import {
   computeRecipeTarget, getTabProducts, doughExtraGrams, isExtraDoughEnabled,
   getDivisorProducts, divisorTotal, splitDough, DIVISOR_MAX,
@@ -148,7 +149,7 @@ export function buildDivisorBox(id) {
   box.textContent = '';
   if (getDivisorProducts(getConfig(), id).length === 0) { box.style.display = 'none'; return; }
 
-  const select = el('select', { id: id + '-divisor-div', class: 'divisor-select', 'aria-label': 'Number of crates' });
+  const select = el('select', { id: id + '-divisor-div', class: 'divisor-select', 'aria-label': t('calc.numberOfCrates') });
   for (let n = 0; n <= DIVISOR_MAX; n++) select.appendChild(el('option', { value: String(n) }, String(n)));
   select.addEventListener('change', () => updateDivisorBox(id));
 
@@ -257,8 +258,8 @@ export function copyRecipe(id) {
   const btn = document.getElementById(id + '-copy-btn');
   navigator.clipboard.writeText(recipeTextFor(id)).then(() => {
     if (!btn) return;
-    btn.textContent = 'Copied ✓';
-    setTimeout(() => { btn.textContent = 'Copy recipe'; }, 2000);
+    btn.textContent = t('calc.copied');
+    setTimeout(() => { btn.textContent = t('calc.copyRecipe'); }, 2000);
   });
 }
 

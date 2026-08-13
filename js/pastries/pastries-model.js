@@ -21,6 +21,36 @@ export const WEEKDAYS = Object.freeze([
   'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
 ]);
 
+// ⚠️⚠️ THE ID AND THE WORD ARE DIFFERENT THINGS, AND THIS IS THE PLACE THAT
+// PROVES IT. WEEKDAYS above are Firestore document ids — `pastries/Monday` — so
+// they are DATA and are in DATA_WORDS (js/i18n.js): translate one and all seven
+// proving lists become unreachable, with the app showing seven empty days and
+// nothing anywhere saying why.
+//
+// But a screen must still be able to SAY «Lunedì». So the display is a separate
+// lookup, keyed BY the id. Found by looking at the Italian screen on 13 Aug 2026:
+// everything around the strip was Italian and the seven chips still read
+// "Mon Tue Wed…", because until then the app simply printed the id.
+import { t } from '../i18n.js';
+
+const WEEKDAY_KEYS = Object.freeze({
+  Monday: 'weekday.monday', Tuesday: 'weekday.tuesday', Wednesday: 'weekday.wednesday',
+  Thursday: 'weekday.thursday', Friday: 'weekday.friday', Saturday: 'weekday.saturday',
+  Sunday: 'weekday.sunday',
+});
+
+// The full name, for a heading or a sentence.
+export function weekdayLabel(day) {
+  return WEEKDAY_KEYS[day] ? t(WEEKDAY_KEYS[day]) : day;
+}
+
+// The three-letter chip. ⚠️ ASKED FOR, never cut from the full name: Italian
+// abbreviates «mercoledì» as «mer», and slicing the first three letters of a
+// translated word is the reshaping rule this project already forbids.
+export function weekdayShortLabel(day) {
+  return WEEKDAY_KEYS[day] ? t(`${WEEKDAY_KEYS[day]}.short`) : day;
+}
+
 export const WEEKDAY_SHORT = Object.freeze([
   'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
 ]);

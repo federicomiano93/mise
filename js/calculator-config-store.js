@@ -6,6 +6,7 @@
 // the cached config (or the default) synchronously; Firestore then streams in
 // and, when it has data, updates the cache and notifies the app to re-render.
 
+import { t } from './i18n.js';
 import { DEFAULT_CONFIG, cloneConfig, normalizeConfig, getClients } from './calculator-config.js';
 import { watchCalculatorConfig, saveCalculatorConfig } from './firebase.js';
 import { alertDialog } from './confirm-dialog.js';
@@ -118,9 +119,7 @@ export function saveConfig(config) {
     // Told plainly, because the alternative is someone believing a change is
     // shared with the other phones when it is only on this one.
     alertDialog(
-      'Saved on this phone only. The app could not reach the settings stored '
-      + 'online, so it has not sent the change — this protects the clients and '
-      + 'recipes already saved there. Check your connection and reload the page.'
+      t('calc.savedLocallyOnly')
     );
     return Promise.resolve({ synced: false, reason: 'no-server-answer' });
   }

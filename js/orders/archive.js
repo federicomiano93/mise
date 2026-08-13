@@ -10,6 +10,7 @@
 // merged) stay readable by both the history view and the suggestion engine, so
 // nothing had to be migrated.
 
+import { t } from '../i18n.js';
 import { toISODate, addDays, isBefore } from './day.js';
 
 // A quantity, made safe: whole, never negative, never NaN — and never Infinity.
@@ -117,7 +118,7 @@ export function recordedName(id, ingredientsById, names) {
   const live = ingredientLabel(ingredientsById?.[id]);
   if (live) return live;
   const stored = names?.[id];
-  return typeof stored === 'string' && stored.trim() ? stored.trim() : 'Deleted ingredient';
+  return typeof stored === 'string' && stored.trim() ? stored.trim() : t('orders.deletedIngredient');
 }
 
 // The draft fields to delete when the operator throws away what they have typed

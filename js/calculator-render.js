@@ -11,6 +11,7 @@
 // CSP-safe: elements are created via the DOM API (no innerHTML, no inline style
 // attributes), matching the page's strict Content-Security-Policy.
 
+import { t } from './i18n.js';
 import { getTabProducts, showsLeaveningKnob } from './calculator-config.js';
 import { icon } from './calculator-icons.js';
 
@@ -130,7 +131,7 @@ export function buildRecipePanel(recipe) {
 
   if (hasTotalInput) {
     content.appendChild(el('div', { class: 'param-row' }, [
-      el('span', { class: 'param-label' }, 'Total dough (g)'),
+      el('span', { class: 'param-label' }, t('calc.totalDoughG')),
       el('div', { class: 'qty-group' }, [
         el('input', { type: 'number', id: id + '-total-input', value: '0', min: '0', step: '1', inputmode: 'numeric' }),
         el('span', { class: 'unit' }, 'g'),
@@ -142,10 +143,10 @@ export function buildRecipePanel(recipe) {
     content.appendChild(el('div', { class: 'section-label' }, 'Orders'));
     content.appendChild(el('div', { class: 'orders-cards', id: id + '-orders' }));
     content.appendChild(el('div', { class: 'extra-dough-row' }, [
-      el('span', { class: 'extra-dough-label' }, 'Extra dough'),
+      el('span', { class: 'extra-dough-label' }, t('calc.extraDough2')),
       el('div', { class: 'qty-group' }, [
         el('input', { type: 'number', id: id + '-extra', value: '0', min: '0', step: '0.1', inputmode: 'decimal' }),
-        el('select', { id: id + '-extra-unit', class: 'extra-unit-select', 'aria-label': 'Extra dough unit' }, [
+        el('select', { id: id + '-extra-unit', class: 'extra-unit-select', 'aria-label': t('calc.extraDoughUnit') }, [
           el('option', { value: 'g' }, 'g'),
           el('option', { value: 'kg', selected: 'selected' }, 'kg'),
         ]),
@@ -165,22 +166,22 @@ export function buildRecipePanel(recipe) {
       el('div', { id: id + '-ingredients' }),
       el('div', { class: 'ing-separator' }),
       el('div', { class: 'total-dough-row' }, [
-        el('span', { class: 'total-dough-label' }, 'Total dough'),
+        el('span', { class: 'total-dough-label' }, t('calc.totalDough')),
         el('span', {}, [
           el('span', { class: 'total-dough-val', id: id + '-total' }, '0'), ' ',
           el('span', { class: 'total-dough-unit' }, 'g'),
         ]),
       ]),
       el('div', { class: 'copy-row' }, [
-        el('button', { class: 'copy-btn', id: id + '-copy-btn' }, 'Copy recipe'),
-        el('button', { class: 'copy-wa-btn', id: id + '-wa-recipe-btn', title: 'Share via WhatsApp' }, [waIcon()]),
+        el('button', { class: 'copy-btn', id: id + '-copy-btn' }, t('calc.copyRecipe')),
+        el('button', { class: 'copy-wa-btn', id: id + '-wa-recipe-btn', title: t('calc.shareViaWhatsapp') }, [waIcon()]),
       ]),
       el('div', { class: 'divisor-box', id: id + '-divisor-box' }),
       el('div', { class: 'crate-boxes', id: id + '-crate-boxes' }),
     ]),
   ]));
 
-  content.appendChild(el('button', { class: 'reset-btn', type: 'button', 'data-reset-tab': id }, 'Reset all fields'));
+  content.appendChild(el('button', { class: 'reset-btn', type: 'button', 'data-reset-tab': id }, t('calc.resetAllFields2')));
   return content;
 }
 
@@ -194,21 +195,18 @@ export function buildRecipePanel(recipe) {
 // not the amber warning card.
 const EMPTY_COPY = {
   loading: {
-    title: 'Loading…',
-    sub: 'Fetching the recipes saved for this venue.',
+    title: t('calc.loading'),
+    sub: t('calc.fetchingTheRecipesSaved'),
   },
   'no-recipes': {
-    title: 'No recipes yet',
-    sub: 'The Calculator works out how much dough to make from what your clients '
-      + 'have ordered. Add your first recipe — its ingredients and their '
-      + 'amounts — and it becomes a tab up here.',
-    action: 'Add a recipe',
+    title: t('calc.noRecipesYet'),
+    sub: t('calc.empty.noRecipes.sub'),
+    action: t('calc.addARecipe'),
   },
   'hidden-recipes': {
-    title: 'No recipe is shown here',
-    sub: 'You have recipes, but none of them is set to appear as a tab. Choose '
-      + 'which ones to show, up to four.',
-    action: 'Choose which to show',
+    title: t('calc.noRecipeIsShown'),
+    sub: t('calc.empty.noneShown.sub'),
+    action: t('calc.chooseWhichToShow'),
   },
 };
 
@@ -252,8 +250,7 @@ export function renderTab(config, tab, container) {
     // recipe, or every one of them paused — and it points at the screen that fixes
     // all three. The words are the ones Settings already uses for the same idea.
     container.appendChild(el('div', { class: 'cp-empty-hint' },
-      'No products in this tab yet. Add your clients, and the products they buy, '
-      + 'in Settings.'));
+      t('calc.empty.noProducts.sub')));
     return;
   }
   let currentCard = null;

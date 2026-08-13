@@ -5,6 +5,8 @@
 // only: it reaches js/firebase.js and js/location.js through its own data layer
 // and never imports from js/orders/ or js/catalogue/.
 
+import { weekdayLabel } from './pastries-model.js';
+import { t } from '../i18n.js';
 import {
   initPastries, getDays, getItems, getNote, getCounts, saveDay, setItemQuantity,
   setSyncErrorHandler,
@@ -170,7 +172,7 @@ function showDay(day, opts = {}) {
     title: day,
     // Naming the day AND saying it is the one you came for, so a glance answers
     // both "which list is this?" and "is this today's job?".
-    sub: day === openingDay ? 'Tomorrow · to prove' : 'To prove',
+    sub: day === openingDay ? t('past.tomorrowToProve') : t('past.toProve'),
     back: false,
     edit: true,
   });
@@ -204,7 +206,7 @@ function showLogs() {
   footer.hidden = true;
   screen.removeAttribute('aria-labelledby');
   setHeader({
-    title: 'Records',
+    title: t('past.records'),
     sub: `Last ${LOG_VISIBLE_DAYS} days`,
     back: true,
     edit: false,
@@ -218,7 +220,7 @@ function showLogs() {
   logsStarted = true;
   initPastryLogs(
     () => { if (view === 'logs' && logsView) logsView.update(getVisibleLogs(Date.now())); },
-    () => toast('Live sync interrupted — these records may be out of date.'),
+    () => toast(t('past.liveSyncInterruptedThese')),
   );
 }
 
@@ -276,7 +278,11 @@ async function confirmToday(day, items, note) {
     ? `${base}\n\nTonight’s record for ${day} will be replaced.`
     : `${base}\n\n${day} will show as done. You can still change it — it will ask first.`;
 
-  const ok = await confirmDialog({ title: `Confirm ${day}?`, message, okLabel: 'Confirm' });
+  const ok = await confirmDialog({
+    title: t('past.confirmDay', { day: weekdayLabel(day) }),
+    message,
+    okLabel: t('past.confirm'),
+  });
   if (!ok) return;
 
   const saved = await confirmDay(day, list, note);
@@ -339,7 +345,7 @@ logsBtn.addEventListener('click', () => { if (view === 'day') showLogs(); });
 
 initPastries(
   () => repaint(),
-  () => toast('Live sync interrupted — this list may be out of date.'),
+  () => toast(t('past.liveSyncInterruptedThis')),
 );
 
 // Which lists are already done tonight. One query, at most seven documents, and

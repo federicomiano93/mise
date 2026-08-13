@@ -9,6 +9,7 @@
 // before saving, Delete is low-key and confirmed, and leaving with unsaved edits
 // asks first.
 
+import { t } from '../i18n.js';
 import { canManageHere } from './firebase-foodcost.js';
 import { el } from './dom.js';
 import {
@@ -21,7 +22,7 @@ import { costRecipe } from '../catalogue/recipe-cost-model.js';
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
-const STATUS_TEXT = { green: 'On target', amber: 'Slightly over target', red: 'Over target' };
+const STATUS_TEXT = { green: t('fc.onTarget'), amber: t('fc.slightlyOverTarget'), red: t('fc.overTarget') };
 
 export function renderEditor({ product, app }) {
   // A working COPY. Nothing reaches the stored product until Save.
@@ -47,7 +48,7 @@ export function renderEditor({ product, app }) {
 
     if (result.foodCostPct === null) {
       answer.className = 'fc-answer muted';
-      answer.appendChild(el('p', { class: 'fc-answer-none', text: 'Not costed yet' }));
+      answer.appendChild(el('p', { class: 'fc-answer-none', text: t('fc.notCostedYet') }));
       // Everything still missing, in the order a person would fill it in — not
       // just the first one, so the screen is a checklist rather than a drip-feed.
       const list = el('ul', { class: 'fc-blockers' });
@@ -61,7 +62,7 @@ export function renderEditor({ product, app }) {
     const status = result.status;
     answer.className = `fc-answer ${status || 'none'}`;
     answer.appendChild(el('div', { class: 'fc-answer-head' }, [
-      el('span', { class: 'fc-answer-label', text: 'Food cost' }),
+      el('span', { class: 'fc-answer-label', text: t('fc.foodCost') }),
       el('span', { class: 'fc-answer-value', text: `${result.foodCostPct}%` }),
     ]));
 
@@ -76,14 +77,14 @@ export function renderEditor({ product, app }) {
     // direction a food cost must not be wrong in.
     if (result.partial) {
       answer.appendChild(el('p', { class: 'fc-answer-partial', text:
-        'Part of this product is not priced yet, so the real food cost is higher than this.' }));
+        t('fc.partOfThisProduct') }));
     }
   }
 
   // ── Name ───────────────────────────────────────────────────────────────────
   const nameInput = el('input', {
-    id: 'fcName', class: 'fc-input', type: 'text', placeholder: 'Product name',
-    value: working.name, 'aria-label': 'Product name',
+    id: 'fcName', class: 'fc-input', type: 'text', placeholder: t('fc.productName'),
+    value: working.name, 'aria-label': t('fc.productName'),
     oninput: e => { working.name = e.target.value; markDirty(); if (showErrors) validateUI(); },
   });
 
@@ -101,7 +102,7 @@ export function renderEditor({ product, app }) {
       class: 'fc-input fc-select', 'aria-label': isRecipe ? 'Recipe' : 'Packaging item',
       onchange: e => { entry[idKey] = e.target.value; markDirty(); repaint(); },
     }, [
-      el('option', { value: '' }, isRecipe ? '— Choose a recipe —' : '— Choose an item —'),
+      el('option', { value: '' }, isRecipe ? t('fc.chooseARecipe') : t('fc.chooseAnItem')),
       ...options.map(o => el('option', { value: o.id }, o.label)),
     ]);
     select.value = entry[idKey] || '';
@@ -115,7 +116,7 @@ export function renderEditor({ product, app }) {
 
     const remove = el('button', {
       class: 'fc-del-icon', type: 'button', icon: TRASH_SVG,
-      'aria-label': isRecipe ? 'Remove recipe' : 'Remove packaging item',
+      'aria-label': isRecipe ? t('fc.removeRecipe') : t('fc.removePackagingItem'),
       onclick: () => { list.splice(index, 1); markDirty(); repaint(); },
     });
 
@@ -131,18 +132,18 @@ export function renderEditor({ product, app }) {
   function lineNote(entry, kind) {
     if (kind === 'recipe') {
       const recipe = app.tables().recipes[entry.recipeId];
-      if (!recipe) return entry.recipeId ? 'This recipe no longer exists' : '';
+      if (!recipe) return entry.recipeId ? t('fc.thisRecipeNoLonger') : '';
       const costed = costRecipe(recipe, app.tables());
-      if (costed.pricePerKg === null) return 'This recipe is not priced yet';
+      if (costed.pricePerKg === null) return t('fc.thisRecipeIsNot');
       const line = (Number(entry.qtyKg) || 0) * costed.pricePerKg;
       return `${formatRate(costed.pricePerKg)} / kg  ·  ${formatMoney(line)}${costed.partial ? '  ·  partly priced' : ''}`;
     }
     const ingredient = app.tables().ingredients[entry.ingredientId];
-    if (!ingredient) return entry.ingredientId ? 'This item no longer exists' : '';
+    if (!ingredient) return entry.ingredientId ? t('fc.thisItemNoLonger') : '';
     if (ingredient.priceUnit !== 'pcs') {
       // Counted in pieces, so it has to be BOUGHT by the piece. Said plainly
       // rather than silently costing nothing.
-      return 'Priced by weight — set it up as a per-piece price in Orders to count it here';
+      return t('fc.pricedByWeightSet');
     }
     const each = Number(ingredient.pricePerUnit) || 0;
     return `${formatRate(each)} each  ·  ${formatMoney((Number(entry.qtyPcs) || 0) * each)}`;
@@ -161,33 +162,33 @@ export function renderEditor({ product, app }) {
 
   // ── How it is sold ─────────────────────────────────────────────────────────
   const modeSelect = el('select', {
-    id: 'fcMode', class: 'fc-input', 'aria-label': 'How it is sold',
+    id: 'fcMode', class: 'fc-input', 'aria-label': t('fc.howItIsSold'),
     onchange: e => {
       working.sellingMode = e.target.value || null;
       markDirty();
       repaint();
     },
   }, [
-    el('option', { value: '' }, '— Choose —'),
-    el('option', { value: 'piece' }, 'By the piece'),
-    el('option', { value: 'weight' }, 'By weight (per kg)'),
+    el('option', { value: '' }, t('fc.choose')),
+    el('option', { value: 'piece' }, t('fc.byThePiece')),
+    el('option', { value: 'weight' }, t('fc.byWeightPerKg')),
   ]);
   modeSelect.value = working.sellingMode || '';
 
-  const piecesInput = numberInput('fcPieces', 'How many pieces come out of one batch',
+  const piecesInput = numberInput('fcPieces', t('fc.howManyPiecesCome'),
     working.piecesPerBatch, v => { working.piecesPerBatch = v; });
-  const piecesField = field('Pieces per batch', piecesInput,
-    'How many finished pieces one batch of the recipes above makes.');
+  const piecesField = field(t('fc.piecesPerBatch'), piecesInput,
+    t('fc.howManyFinishedPieces'));
 
   // ⚠️ GROSS, and the label says so. The number typed here is the one on the
   // label; the app takes the VAT out before working out the food cost.
-  const priceInput = numberInput('fcPrice', 'Selling price including VAT',
+  const priceInput = numberInput('fcPrice', t('fc.sellingPriceIncludingVat'),
     working.sellingPrice, v => { working.sellingPrice = v; });
 
   // A dropdown of the UK rates plus a free field, because which rate applies to a
   // bakery product is a question for an accountant, not for this app.
   const vatSelect = el('select', {
-    id: 'fcVat', class: 'fc-input', 'aria-label': 'VAT rate',
+    id: 'fcVat', class: 'fc-input', 'aria-label': t('fc.vatRate'),
     onchange: e => {
       const value = e.target.value;
       working.vatRate = value === 'other' ? working.vatRate : (value === '' ? null : Number(value));
@@ -196,12 +197,12 @@ export function renderEditor({ product, app }) {
       repaint();
     },
   }, [
-    el('option', { value: '' }, '— Choose —'),
+    el('option', { value: '' }, t('fc.choose')),
     ...VAT_RATES.map(rate => el('option', { value: String(rate) },
       rate === 20 ? '20% — standard' : rate === 5 ? '5% — reduced' : '0% — zero-rated')),
-    el('option', { value: 'other' }, 'Another rate…'),
+    el('option', { value: 'other' }, t('fc.anotherRate')),
   ]);
-  const vatOther = numberInput('fcVatOther', 'Another VAT rate, as a percentage',
+  const vatOther = numberInput('fcVatOther', t('fc.anotherVatRateAs'),
     null, v => { working.vatRate = v; });
   vatOther.hidden = true;
   if (working.vatRate !== null && !VAT_RATES.includes(working.vatRate)) {
@@ -212,7 +213,7 @@ export function renderEditor({ product, app }) {
     vatSelect.value = String(working.vatRate);
   }
 
-  const targetInput = numberInput('fcTarget', 'Food cost target, as a percentage',
+  const targetInput = numberInput('fcTarget', t('fc.foodCostTargetAs'),
     working.foodCostTarget, v => { working.foodCostTarget = v; });
 
   function numberInput(id, label, value, set) {
@@ -259,12 +260,12 @@ export function renderEditor({ product, app }) {
       showErrors = true;
       validateUI();
       nameInput.focus();
-      app.toast('Please enter a product name.');
+      app.toast(t('fc.pleaseEnterAProduct'));
       return;
     }
 
     busy = true;
-    const ok = await app.confirm({ title: 'Save product?', message: 'Save these changes?', okLabel: 'Save' });
+    const ok = await app.confirm({ title: t('fc.saveProduct'), message: t('fc.saveTheseChanges'), okLabel: 'Save' });
     if (!ok) { busy = false; return; }
 
     const clean = { ...working, name: String(working.name).trim() };
@@ -278,7 +279,7 @@ export function renderEditor({ product, app }) {
 
     dirty = false;
     app.saveProduct(clean, snapshot);
-    app.toast(product ? 'Product saved.' : 'Product added.');
+    app.toast(product ? t('fc.productSaved') : t('fc.productAdded'));
     app.showList();
   }
 
@@ -286,27 +287,27 @@ export function renderEditor({ product, app }) {
     if (busy) return;
     busy = true;
     const ok = await app.confirm({
-      title: 'Delete product?',
+      title: t('fc.deleteProduct'),
       message: `Delete “${product.name || 'this product'}”? This cannot be undone, and its margin history goes with it.`,
       okLabel: 'Delete', danger: true,
     });
     if (!ok) { busy = false; return; }
     dirty = false;
     app.deleteProduct(product.id);
-    app.toast('Product deleted.');
+    app.toast(t('fc.productDeleted'));
     app.showList();
   }
 
   app.setLeaveGuard(async () => {
     if (!dirty) return true;
     return app.confirm({
-      title: 'Discard changes?', message: 'You have unsaved changes. Discard them?',
+      title: t('fc.discardChanges'), message: t('fc.youHaveUnsavedChanges'),
       okLabel: 'Discard', danger: true,
     });
   });
 
   const historyBtn = product
-    ? el('button', { class: 'fc-link', type: 'button', text: 'Margin history',
+    ? el('button', { class: 'fc-link', type: 'button', text: t('fc.marginHistory'),
       onclick: () => app.openHistory(product) })
     : null;
 
@@ -317,27 +318,27 @@ export function renderEditor({ product, app }) {
 
     field('Name', nameInput),
 
-    el('h2', { class: 'fc-section', text: 'Made of' }),
+    el('h2', { class: 'fc-section', text: t('fc.madeOf') }),
     componentRows,
-    el('button', { class: 'fc-add-row', type: 'button', text: '+ Add recipe',
+    el('button', { class: 'fc-add-row', type: 'button', text: t('fc.addRecipe'),
       onclick: () => { working.components.push({ recipeId: '', qtyKg: 0 }); markDirty(); repaint(); } }),
 
     el('h2', { class: 'fc-section', text: 'Packaging' }),
     packagingRows,
-    el('button', { class: 'fc-add-row', type: 'button', text: '+ Add packaging',
+    el('button', { class: 'fc-add-row', type: 'button', text: t('fc.addPackaging'),
       onclick: () => { working.packaging.push({ ingredientId: '', qtyPcs: 0 }); markDirty(); repaint(); } }),
     el('p', { class: 'fc-note', text:
-      'Boxes, bags, ribbon — anything bought by the piece. It adds cost but no weight.' }),
+      t('fc.boxesBagsRibbonAnything') }),
 
-    el('h2', { class: 'fc-section', text: 'How it is sold' }),
+    el('h2', { class: 'fc-section', text: t('fc.howItIsSold') }),
     field('Sold', modeSelect),
     piecesField,
     field(`Selling price, including VAT (${CURRENCY})`, priceInput,
-      'The price on the label. The app takes the VAT off before working out the food cost.'),
-    field('VAT rate', vatSelect),
+      t('fc.thePriceOnThe')),
+    field(t('fc.vatRate'), vatSelect),
     vatOther,
-    field('Food cost target (%)', targetInput,
-      'The share of the net price you want the ingredients to be. Leave empty for no target.'),
+    field(t('fc.foodCostTarget'), targetInput,
+      t('fc.theShareOfThe')),
 
     el('div', { class: 'fc-actions' }, [
       el('button', { class: 'fc-save', type: 'button', text: 'Save', onclick: onSave }),
@@ -348,7 +349,7 @@ export function renderEditor({ product, app }) {
       // component rows above are NOT this: they edit the working copy and touch
       // nothing until Save, so they stay available to everybody.
       product && canManageHere() ? el('button', { class: 'fc-delete', type: 'button', onclick: onDelete }, [
-        el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }), 'Delete product',
+        el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }), t('fc.deleteProduct2'),
       ]) : null,
     ]),
   ]);

@@ -4,6 +4,7 @@
 // (only once scaled) returns to the base; an Import button copies it into the
 // Calculator.
 
+import { t } from '../i18n.js';
 import { canManageHere } from './firebase-catalogue.js';
 import { el } from './dom.js';
 import { currentSession } from '../firebase.js';
@@ -62,7 +63,7 @@ function costPanel(recipe) {
     // recipe has rows worth linking, so a brand-new empty recipe stays silent.
     if (!result.unpriced.length) { panel.hidden = true; return panel; }
     panel.appendChild(el('p', { class: 'cat-cost-none', text:
-      'No cost yet — link the ingredients to price this recipe.' }));
+      t('cat.noCostYetLink') }));
     return panel;
   }
 
@@ -136,7 +137,7 @@ function allergenPanel(recipe, app) {
   ]));
   panel.appendChild(el('p', { class: 'cat-alg-list', text: result.allergens.length
     ? result.allergens.map(allergenLabel).join(', ')
-    : 'None of the 14' }));
+    : t('cat.noneOfThe14') }));
   if (result.mayContain.length) {
     panel.appendChild(el('p', { class: 'cat-alg-traces', text:
       `May contain: ${result.mayContain.map(allergenLabel).join(', ')}` }));
@@ -145,7 +146,7 @@ function allergenPanel(recipe, app) {
   // it cannot know what happened on the bench this morning, and a screen that
   // implies otherwise is worse than one that says nothing.
   panel.appendChild(el('p', { class: 'cat-alg-caveat', text:
-    'From the suppliers’ specifications. It does not cover what your own kitchen may add.' }));
+    t('cat.fromTheSuppliersSpecifications2') }));
 
   // ⚠️ THE WAY TO THE LABEL EXISTS ONLY WHEN THERE IS A LABEL TO MAKE. Offering
   // it on a recipe with gaps would mean tapping through to a refusal — and the
@@ -153,7 +154,7 @@ function allergenPanel(recipe, app) {
   panel.appendChild(el('button', {
     class: 'cat-alg-label-btn', type: 'button',
     onclick: () => app.openLabel(recipe),
-  }, ['Make a label', el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]));
+  }, [t('cat.makeALabel'), el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]));
 
   return panel;
 }
@@ -178,9 +179,9 @@ function guidedPanel(recipe, app, getTarget) {
     panel.appendChild(el('button', {
       class: 'cat-guided-write', type: 'button',
       onclick: () => app.openGuidedEditor(recipe),
-    }, ['Write the mixing steps']));
+    }, [t('cat.writeTheMixingSteps')]));
     panel.appendChild(el('p', { class: 'cat-guided-hint', text:
-      'A step at a time, with the amounts from this recipe, a timer and the mixer speed.' }));
+      t('cat.aStepAtA') }));
     return panel;
   }
 
@@ -194,7 +195,7 @@ function guidedPanel(recipe, app, getTarget) {
   panel.appendChild(el('button', {
     class: 'cat-guided-go', type: 'button',
     onclick: () => app.startGuided(recipe, getTarget()),
-  }, [session ? 'Start again from the beginning' : 'Guided mixing']));
+  }, [session ? t('cat.startAgainFromThe') : t('cat.guidedMixing')]));
 
   const timed = steps.reduce((sum, s) => sum + s.seconds, 0);
   panel.appendChild(el('p', { class: 'cat-guided-hint', text:
@@ -233,14 +234,14 @@ export function renderDetail({ recipe, app }) {
 
   // Close (×) lives inside the overlay and only shows while zoomed.
   const closeBtn = el('button', {
-    class: 'cat-zoom-close', type: 'button', 'aria-label': 'Exit full screen',
+    class: 'cat-zoom-close', type: 'button', 'aria-label': t('cat.exitFullScreen'),
     onclick: (e) => { e.stopPropagation(); setZoom(false); },
     icon: CLOSE_SVG,
   });
 
   const ingList = el('div', {
     class: 'cat-ing-list', role: 'button', tabindex: '0', 'aria-pressed': 'false',
-    'aria-label': 'View recipe full screen',
+    'aria-label': t('cat.viewRecipeFullScreen'),
     onclick: () => setZoom(!zoomed),
     onkeydown: (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoom(!zoomed); }
@@ -252,7 +253,7 @@ export function renderDetail({ recipe, app }) {
     zoomed = on;
     ingList.classList.toggle('cat-ing-list--zoom', on);
     ingList.setAttribute('aria-pressed', on ? 'true' : 'false');
-    ingList.setAttribute('aria-label', on ? 'Exit full screen' : 'View recipe full screen');
+    ingList.setAttribute('aria-label', on ? t('cat.exitFullScreen') : t('cat.viewRecipeFullScreen'));
     // Lock the page behind the overlay so it can't scroll under it.
     document.body.classList.toggle('cat-zoom-lock', on);
     if (on) { try { ingList.focus({ preventScroll: true }); } catch (e) { /* best-effort */ } }
@@ -264,12 +265,12 @@ export function renderDetail({ recipe, app }) {
   const gramsInput = el('input', {
     id: 'catGrams', type: 'number', min: '0', step: '1',
     value: displayTarget > 0 ? String(Math.round(displayTarget)) : '', placeholder: '0',
-    inputmode: 'numeric', 'aria-label': 'Total dough weight in grams',
+    inputmode: 'numeric', 'aria-label': t('cat.totalDoughWeightIn'),
   });
 
   const clearBtn = el('button', {
     class: 'cat-clear-btn', type: 'button', hidden: 'hidden',
-    text: 'Clear — back to base recipe',
+    text: t('cat.clearBackToBase'),
     onclick: () => { displayTarget = 0; gramsInput.value = ''; clearScaledTarget(recipe.id); renderRows(); },
   });
 
@@ -312,7 +313,7 @@ export function renderDetail({ recipe, app }) {
     const warning = batchWarning(grams, weighableTotalGrams(recipe));
     const readable = `${nf.format(grams)} g (${formatWeight(grams)})`;
     const ok = await app.confirm({
-      title: warning ? 'That is a very large batch' : 'Calculate recipe?',
+      title: warning ? t('cat.thatIsAVery') : t('cat.calculateRecipe'),
       message: warning
         ? `${warning}\n\nCalculate ${recipe.name} for ${readable}?`
         : `Calculate ${recipe.name} for ${readable}?`,
@@ -325,7 +326,7 @@ export function renderDetail({ recipe, app }) {
   }
 
   const weightPanel = el('div', { class: 'cat-weight-panel' }, [
-    el('label', { for: 'catGrams', text: 'Total dough weight' }),
+    el('label', { for: 'catGrams', text: t('cat.totalDoughWeight') }),
     el('div', { class: 'cat-weight-input' }, [
       el('div', { class: 'cat-field' }, [gramsInput, el('span', { class: 'unit', text: 'g' })]),
       calcBtn,
@@ -345,7 +346,7 @@ export function renderDetail({ recipe, app }) {
     onclick: () => app.importRecipe(recipe),
   }, [
     el('span', { icon: IMPORT_SVG, 'aria-hidden': 'true' }),
-    'Import into Calculator',
+    t('cat.importIntoCalculator'),
   ]);
 
   // Low-key delete (P20 — de-emphasised destructive action): routed through the
@@ -361,7 +362,7 @@ export function renderDetail({ recipe, app }) {
     onclick: () => app.confirmAndDelete(recipe),
   }, [
     el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }),
-    'Delete recipe',
+    t('cat.deleteRecipe'),
   ]);
 
   renderRows();
@@ -391,7 +392,7 @@ export function renderDetail({ recipe, app }) {
       importBtn,
       el('p', {
         class: 'cat-import-hint',
-        text: 'Makes a copy you can tweak just for the Calculator — the catalogue recipe stays untouched.',
+        text: t('cat.makesACopyYou'),
       }),
       deleteBtn,
     ]),

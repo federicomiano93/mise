@@ -6,6 +6,7 @@
 // more, so the sentence had to change with it — a screen that still promised a
 // deletion nobody performs would be worse than one that never mentioned it.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { LOG_VISIBLE_DAYS } from './pastries-log-model.js';
 
@@ -43,7 +44,7 @@ export function renderLogs({ logs, app }) {
     ];
 
     if (rows.length) parts.push(...rows);
-    else parts.push(el('div', { class: 'pas-log-empty', text: 'Nothing was proved.' }));
+    else parts.push(el('div', { class: 'pas-log-empty', text: t('past.nothingWasProved') }));
 
     if (log.note) parts.push(el('div', { class: 'pas-log-note', text: log.note }));
 
@@ -55,14 +56,14 @@ export function renderLogs({ logs, app }) {
         'aria-label': `Remove the record for ${log.day}, ${spellDate(log.date)}`,
         onclick: async () => {
           const ok = await app.confirm({
-            title: 'Remove this record?',
+            title: t('past.removeThisRecord'),
             message: `Remove the record for ${log.day}, ${spellDate(log.date)}? This cannot be undone.`,
             okLabel: 'Remove',
             danger: true,
           });
           if (!ok) return;
           const done = await app.removeLog(log.id);
-          if (done) app.toast('Record removed.');
+          if (done) app.toast(t('past.recordRemoved'));
         },
       }),
     ]));
@@ -74,10 +75,10 @@ export function renderLogs({ logs, app }) {
     const items = nextLogs || [];
     if (!items.length) {
       list.replaceChildren(el('p', { class: 'pas-empty' }, [
-        'No records yet.',
+        t('past.noRecordsYet'),
         el('span', {
           class: 'pas-empty-hint',
-          text: 'Tap Confirm at the bottom of a day to keep one.',
+          text: t('past.tapConfirmAtThe'),
         }),
       ]));
       return;

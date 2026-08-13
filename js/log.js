@@ -2,6 +2,7 @@
 // Today/Tomorrow choice), and the tap / edit / delete / history actions. The data
 // model and persistence live in log-model.js (pure) and log-store.js (Firestore).
 
+import { t } from './i18n.js';
 import { showResult, hideResult, markRevealed, clearRevealed, getLock, setLock } from './calc.js';
 import { getConfig } from './calculator-config-store.js';
 import {
@@ -75,7 +76,7 @@ export function saveDay(tab, day) {
 // and hide the recipe so it can't change live; it returns, recomputed, on the next save.
 export async function editTab(tab) {
   if (!getLock(tab).locked) return;
-  if (!(await confirmDialog({ message: 'Edit these quantities? The recipe updates only after you save it again.', okLabel: 'Edit' }))) return;
+  if (!(await confirmDialog({ message: t('calc.editTheseQuantitiesThe'), okLabel: 'Edit' }))) return;
   clearRevealed(tab);
   hideResult(tab + '-result');
   setLock(tab, false, getLock(tab).logId);
@@ -143,14 +144,14 @@ export function renderLog() {
     // current Log settings", so the empty state is never misleading.
     const anySaved = getLogs().length > 0;
     container.appendChild(el('p', { class: 'log-empty' }, anySaved
-      ? 'No logs to show right now — check the Log settings (visibility and duration).'
-      : 'No logs yet. Calculate and confirm a dough to save it here.'));
+      ? t('calc.noLogsToShow')
+      : t('calc.noLogsYetCalculate')));
   } else {
     for (const log of logs) container.appendChild(logCard(log));
   }
 
   // Manual add-log entry point, always available below the list.
-  const addBtn = el('button', { class: 'cp-add-client', type: 'button', id: 'log-add-btn' }, '+ Add log');
+  const addBtn = el('button', { class: 'cp-add-client', type: 'button', id: 'log-add-btn' }, t('calc.addLog'));
   addBtn.addEventListener('click', openLogAdd);
   container.appendChild(addBtn);
 }
@@ -169,7 +170,7 @@ function logCard(log) {
   const at = v.at || {};
   body.appendChild(el('div', { class: 'log-timestamp' }, [icon('calendar', 14), ' ' + (at.date || '') + ' — ' + (at.time || '')]));
   if (v.calculatedBy) body.appendChild(el('div', { class: 'logview-by' }, 'by ' + v.calculatedBy));
-  if ((log.versions || []).length > 1) body.appendChild(el('div', { class: 'log-ver-count' }, 'v' + log.versions.length + ' (edited)'));
+  if ((log.versions || []).length > 1) body.appendChild(el('div', { class: 'log-ver-count' }, 'v' + log.versions.length + t('calc.edited')));
   body.appendChild(renderOrder(v));
   card.appendChild(body);
 
@@ -177,8 +178,8 @@ function logCard(log) {
   // log is edited from the calculator (Edit → Confirm), never here, so its Edit button
   // is omitted; only a hand-entered log ("+ Add log") shows it.
   const actions = el('div', { class: 'log-actions' });
-  const hist = el('button', { class: 'log-hist-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Version history' }, [icon('clock', 16), ' History']);
-  const del = el('button', { class: 'log-delete-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Delete log' }, icon('trash', 16));
+  const hist = el('button', { class: 'log-hist-btn', type: 'button', 'data-id': log.id, 'aria-label': t('calc.versionHistory') }, [icon('clock', 16), ' History']);
+  const del = el('button', { class: 'log-delete-btn', type: 'button', 'data-id': log.id, 'aria-label': t('calc.deleteLog') }, icon('trash', 16));
   actions.appendChild(hist);
   if (log.origin === 'manual') {
     actions.appendChild(el('button', { class: 'log-edit-btn', type: 'button', 'data-id': log.id }, 'Edit'));
@@ -202,7 +203,7 @@ function closeLogView() { document.getElementById('logview-overlay').classList.r
 
 // Edit (B): confirm first, then open the dedicated edit screen (never the calculator).
 async function startEdit(id) {
-  if (!(await confirmDialog({ message: 'Edit this log?', okLabel: 'Edit' }))) return;
+  if (!(await confirmDialog({ message: t('calc.editThisLog'), okLabel: 'Edit' }))) return;
   openLogEdit(id);
 }
 
@@ -220,7 +221,7 @@ document.getElementById('log-content').addEventListener('click', async e => {
   if (delB) {
     const id = delB.dataset.id;
     const log = getLogById(id);
-    const msg = 'Delete this ' + (log ? log.dough : '') + ' log? This cannot be undone.';
+    const msg = t('calc.deleteThis') + (log ? log.dough : '') + t('calc.logThisCannotBe');
     if (await confirmDialog({ message: msg, okLabel: 'Delete', danger: true })) deleteLog(id);
     return;
   }

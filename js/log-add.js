@@ -4,6 +4,7 @@
 // Confirm would (same generic buildSheet + createAndSave). Independent of the
 // calculator screen — the recipe and the log stay separate.
 
+import { t } from './i18n.js';
 import { el } from './calculator-render.js';
 import { getConfig } from './calculator-config-store.js';
 import { getRecipes, getRecipeById, getTabProducts, getDivisorIncluded } from './calculator-config.js';
@@ -58,7 +59,7 @@ function render() {
   const choices = el('div', { class: 'logday-choices' });
   const recipes = getRecipes(getConfig());
   if (!recipes.length) {
-    c.appendChild(el('div', { class: 'cp-empty-hint' }, 'No recipes yet. Add one in Settings → Recipes.'));
+    c.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.noRecipesYetAdd')));
     return;
   }
   for (const r of recipes) {
@@ -69,7 +70,7 @@ function render() {
   c.appendChild(choices);
 
   if (!state.recipeId) {
-    c.appendChild(el('div', { class: 'cp-empty-hint' }, 'Pick a recipe to enter quantities.'));
+    c.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.pickARecipeTo')));
     return;
   }
   const recipe = getRecipeById(getConfig(), state.recipeId);
@@ -77,7 +78,7 @@ function render() {
   const hasTotal = recipe && (recipe.logic === 'total' || recipe.logic === 'both');
 
   // Today / Tomorrow (required).
-  c.appendChild(el('div', { class: 'cp-label' }, 'When is this dough for?'));
+  c.appendChild(el('div', { class: 'cp-label' }, t('calc.whenIsThisDough')));
   const dayChoices = el('div', { class: 'logday-choices' });
   for (const d of ['today', 'tomorrow']) {
     const btn = el('button', { class: 'logday-choice' + (state.forDay === d ? ' selected' : ''), type: 'button' }, d === 'today' ? 'Today' : 'Tomorrow');
@@ -91,15 +92,15 @@ function render() {
     const input = el('input', { type: 'number', class: 'cp-prod-weight', min: '0', step: '1', value: String(num(state.totalInput)), inputmode: 'numeric' });
     input.addEventListener('input', () => { state.totalInput = num(input.value); });
     c.appendChild(el('div', { class: 'cp-field' }, [
-      el('label', { class: 'cp-label' }, 'Total dough (g)'),
+      el('label', { class: 'cp-label' }, t('calc.totalDoughG')),
       el('div', { class: 'cp-prod-card-row' }, [input, el('span', { class: 'cp-unit' }, 'g')]),
     ]));
   }
 
   // Quantities, grouped by client (orders/both).
   if (hasOrders) {
-    c.appendChild(el('div', { class: 'cp-label' }, 'Products — quantities only'));
-    if (!state.items.length) c.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products for this recipe.'));
+    c.appendChild(el('div', { class: 'cp-label' }, t('calc.productsQuantitiesOnly')));
+    if (!state.items.length) c.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.noProductsForThis')));
     let lastClient = null;
     let card = null;
     for (const it of state.items) {
@@ -112,7 +113,7 @@ function render() {
     }
   }
 
-  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save log');
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, t('calc.saveLog'));
   save.addEventListener('click', commit);
   c.appendChild(save);
 }
@@ -120,7 +121,7 @@ function render() {
 // Build and save a brand-new log — same generic math/shape as a calculator Confirm.
 async function commit() {
   if (!state || !state.recipeId || !state.forDay) return;
-  if (!(await confirmDialog({ message: 'Save this log?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveThisLog'), okLabel: 'Save' }))) return;
   const recipe = getRecipeById(getConfig(), state.recipeId);
   if (!recipe) return;
   const items = state.items.map(it => ({

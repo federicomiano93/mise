@@ -77,8 +77,8 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
   </a>
   <div class="orders-header-title">
-    <h1>Orders</h1>
-    <p>Supplier orders</p>
+    <h1 data-i18n="section.orders">Orders</h1>
+    <p data-i18n="ui.supplierOrders">Supplier orders</p>
   </div>
   <span class="help-host" data-help="orders"></span>
   <button class="orders-icon-btn" id="orders-wa-btn" type="button" aria-label="Send order on WhatsApp">
@@ -87,8 +87,8 @@
 </header>
 
 <nav class="tab-bar" aria-label="Orders sections">
-  <button class="tab active" id="tab-order-btn">Order</button>
-  <button class="tab" id="tab-history-btn">History</button>
+  <button class="tab active" id="tab-order-btn" data-i18n="ui.order">Order</button>
+  <button class="tab" id="tab-history-btn" data-i18n="ui.history">History</button>
 </nav>
 
 <div class="scroll-area">
@@ -118,16 +118,16 @@
          no second list to keep in step. "By supplier" is the default and the choice
          is remembered in localStorage. -->
     <div class="view-switch" id="order-view-switch" role="tablist" aria-label="Order view" hidden>
-      <button class="view-switch-btn active" id="view-by-supplier" type="button" role="tab" aria-selected="true">By supplier</button>
-      <button class="view-switch-btn" id="view-all-ingredients" type="button" role="tab" aria-selected="false">All ingredients</button>
+      <button class="view-switch-btn active" id="view-by-supplier" type="button" role="tab" aria-selected="true" data-i18n="orders.bySupplier">By supplier</button>
+      <button class="view-switch-btn" id="view-all-ingredients" type="button" role="tab" aria-selected="false" data-i18n="ui.allIngredients">All ingredients</button>
     </div>
     <div id="suppliers-list"></div>
-    <button class="btn-primary" id="place-all-btn" type="button" hidden>Order placed…</button>
+    <button class="btn-primary" id="place-all-btn" type="button" hidden data-i18n="ui.orderPlaced">Order placed…</button>
     <!-- Start the order again. Shows from ONE supplier up, unlike the button above:
          in the flat list there are no per-supplier cards, so without it a single
          supplier could not be cleared at all. Quiet by design (P20) — it throws
          work away and must never compete with the green button. -->
-    <button class="clear-all-btn" id="clear-all-btn" type="button" hidden>Clear quantities…</button>
+    <button class="clear-all-btn" id="clear-all-btn" type="button" hidden data-i18n="ui.clearQuantities">Clear quantities…</button>
   </section>
 
   <!-- HISTORY -->
@@ -145,8 +145,9 @@
 <!-- Offline bar: shown ONLY while the device has no network connection
      (js/orders/orders-main.js toggles [hidden] on the browser online/offline
      events). Fixed to the bottom so it stays visible whatever the scroll. -->
-<p class="orders-offline" id="orders-offline" role="status" hidden>You're offline — reconnect to load and save orders.</p>
+<p class="orders-offline" id="orders-offline" role="status" hidden data-i18n="ui.youReOfflineReconnect">You’re offline — reconnect to load and save orders.</p>
 
+<script type="module" src="js/i18n-dom.js"></script>
 <script type="module" src="js/auth-gate.js"></script>
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>

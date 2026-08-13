@@ -9,10 +9,11 @@
 // ASYNC: callers must `await confirmDiscard(...)`. An un-awaited call would
 // treat the pending Promise as truthy and silently skip the guard.
 
+import { t } from './i18n.js';
 import { confirmDialog } from './confirm-dialog.js';
 
 export const UNSAVED_MESSAGE =
-  'You have unsaved changes. Leave without saving? Your changes will be lost.';
+  t('calc.youHaveUnsavedChanges');
 
 // Resolves true when it is safe to leave the editor now: either nothing was
 // changed, or the user confirmed they want to discard their edits.

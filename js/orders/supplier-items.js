@@ -12,6 +12,7 @@
 // passes it): a deactivated product is invisible here exactly as it is there. Two
 // screens disagreeing about what a supplier sells would be worse than no screen.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { ingredientLabel } from './archive.js';
 
@@ -46,7 +47,7 @@ export function itemGroups(ingredients) {
       id: ing.id,
       // Never the raw document id: "Fdx92kQ1" tells nobody what it is. Same
       // reasoning, and the same helper, as the names in History.
-      label: ingredientLabel(ing) || 'Unnamed product',
+      label: ingredientLabel(ing) || t('orders.unnamedProduct'),
       unit: ing.unit || '',
     });
   });
@@ -95,7 +96,7 @@ export function buildSupplierItems(supplier, ingredients, ctx) {
 
     if (!list.length) {
       // The same sentence the supplier's order screen shows, for the same situation.
-      body.appendChild(el('p', { class: 'ing-empty', text: 'No ingredients yet — add them in Settings.' }));
+      body.appendChild(el('p', { class: 'ing-empty', text: t('orders.noIngredientsYetAdd') }));
       return;
     }
 

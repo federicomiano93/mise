@@ -86,7 +86,7 @@ export function openPeople(myUid) {
         type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back',
         icon: BACK_ICON, onClick: close,
       }),
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Who can get in' })]),
+      el('div', { class: 'orders-header-title' }, [el('h1', { text: t('people.title') })]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
     el('div', { class: 'people-scroll' }, [codeBox, list]),
@@ -131,7 +131,7 @@ export function openPeople(myUid) {
 
     if (members === null) {
       list.appendChild(el('p', { class: 'people-empty', text:
-        'Could not read who works here. Check your connection.' }));
+        t('people.err.read') }));
       return;
     }
 
@@ -170,10 +170,10 @@ export function openPeople(myUid) {
           el('button', {
             type: 'button', class: 'mgmt-link',
             onClick: () => { renaming = person.uid; paint(); },
-          }, 'Rename'),
+          }, t('people.rename')),
           el('button', {
             type: 'button', class: 'mgmt-link danger', onClick: () => remove(person),
-          }, 'Remove'),
+          }, t('people.remove')),
         ]));
       }
 
@@ -181,7 +181,7 @@ export function openPeople(myUid) {
     }
 
     if (!sorted.length) {
-      list.appendChild(el('p', { class: 'people-empty', text: 'Nobody else yet.' }));
+      list.appendChild(el('p', { class: 'people-empty', text: t('people.empty') }));
     }
   }
 
@@ -198,10 +198,10 @@ export function openPeople(myUid) {
   // whose.
   function renameRow(person) {
     const first = el('input', { class: 'people-input', type: 'text', value: cleanName(person.firstName) });
-    first.placeholder = 'First name';
+    first.placeholder = t('people.firstName');
     first.autocomplete = 'given-name';
     const last = el('input', { class: 'people-input', type: 'text', value: cleanName(person.lastName) });
-    last.placeholder = 'Surname';
+    last.placeholder = t('people.surname');
     last.autocomplete = 'family-name';
 
     const status = el('p', { class: 'people-note' });
@@ -222,11 +222,11 @@ export function openPeople(myUid) {
         paint();
       } catch (err) {
         save.disabled = false;
-        status.textContent = callFailureText(err, 'Could not save that name. Check your connection.');
+        status.textContent = callFailureText(err, t('people.err.name'));
       }
     });
 
-    const cancel = el('button', { type: 'button', class: 'btn-secondary people-save' }, 'Cancel');
+    const cancel = el('button', { type: 'button', class: 'btn-secondary people-save' }, t('people.cancel'));
     cancel.addEventListener('click', () => { renaming = null; paint(); });
 
     const row = el('div', { class: 'people-row people-row--editing' }, [
@@ -252,20 +252,22 @@ export function openPeople(myUid) {
     if (!ok) return;
     try { await setMemberRole(person.uid, choice.role, choice.title); }
     catch (err) {
-      await alertDialog(callFailureText(err, 'Could not change that. Check your connection and try again.'));
+      await alertDialog(callFailureText(err, t('people.err.change')));
     }
   }
 
   async function remove(person) {
     const ok = await confirmDialog({
-      title: 'Remove this person?',
-      message: `${displayName(person)} (${person.email || 'no email'}) will lose access to this location immediately. Everything they have entered stays.`,
-      okLabel: 'Remove', danger: true,
+      title: t('people.remove.title'),
+      message: t('people.remove.message', {
+        name: displayName(person), email: person.email || t('people.noEmail'),
+      }),
+      okLabel: t('people.remove'), danger: true,
     });
     if (!ok) return;
     try { await setMemberRole(person.uid, null); }
     catch (err) {
-      await alertDialog(callFailureText(err, 'Could not remove them. Check your connection and try again.'));
+      await alertDialog(callFailureText(err, t('people.err.remove')));
     }
   }
 
@@ -276,7 +278,7 @@ export function openPeople(myUid) {
 
     if (!pending) {
       codeBox.appendChild(el('p', { class: 'people-hint', text:
-        'Add someone who works here. They install the app, create their own account with their name, and type the code you give them.' }));
+        t('people.invite.intro') }));
       // ⚠️ THE ROLE IS CHOSEN BEFORE THE CODE, not after they arrive. A code is
       // read out to somebody standing there, and going back to change their role
       // afterwards is a second errand nobody remembers. It starts at Employee —
@@ -294,7 +296,7 @@ export function openPeople(myUid) {
     // screen is the only place the code exists in readable form — which is why it
     // is large, and why the sentence under it says what happens next rather than
     // leaving somebody holding six digits and no instructions.
-    codeBox.appendChild(el('p', { class: 'people-hint', text: 'Read this out to them:' }));
+    codeBox.appendChild(el('p', { class: 'people-hint', text: t('people.readOut') }));
     codeBox.appendChild(el('p', { class: 'people-digits', text: pending.code }));
     codeBox.appendChild(el('p', { class: 'people-note', text:
       t('people.joinsAs', {
@@ -302,7 +304,7 @@ export function openPeople(myUid) {
         expires: expiresInWords(pending),
       }) }));
 
-    const again = el('button', { type: 'button', class: 'btn-secondary people-add' }, 'Done');
+    const again = el('button', { type: 'button', class: 'btn-secondary people-add' }, t('people.done'));
     again.addEventListener('click', () => { pending = null; paintCode(); });
     codeBox.appendChild(again);
   }
@@ -316,7 +318,7 @@ export function openPeople(myUid) {
       pending = await createJoinCode(newChoice.role, newChoice.title);
       paintCode();
     } catch (err) {
-      await alertDialog(callFailureText(err, 'Could not make a code. Check your connection and try again.'));
+      await alertDialog(callFailureText(err, t('people.err.code')));
     }
   }
 

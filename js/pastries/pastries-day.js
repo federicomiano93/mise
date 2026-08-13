@@ -15,6 +15,8 @@
 // written until the tick. So a stray thumb costs nothing, and the number someone
 // will read tonight can never be altered by a tap.
 
+import { t } from '../i18n.js';
+import { weekdayLabel } from './pastries-model.js';
 import { el } from './dom.js';
 import { MAX_QTY } from './pastries-model.js';
 
@@ -35,8 +37,8 @@ export function renderDay({ day, items, note, locked = false, app }) {
 
   const list = el('div', { class: 'pas-list' });
   const empty = el('p', { class: 'pas-empty' }, [
-    `Nothing to prove for ${day} yet.`,
-    el('span', { class: 'pas-empty-hint', text: 'Tap the pencil to add.' }),
+    t('past.nothingToProveFor', { day: weekdayLabel(day) }),
+    el('span', { class: 'pas-empty-hint', text: t('past.tapThePencilTo') }),
   ]);
   const body = el('div', { class: 'pas-body' });
 
@@ -132,7 +134,7 @@ export function renderDay({ day, items, note, locked = false, app }) {
       typed.delete(key);
       openName = null;
       if (!ok) {
-        app.toast('That row has changed — check the list.');
+        app.toast(t('past.thatRowHasChanged'));
         return;
       }
       app.toast(`${item.name}: ${n}.`);
@@ -197,7 +199,7 @@ export function renderDay({ day, items, note, locked = false, app }) {
   const confirmBtn = el('button', {
     class: 'pas-confirm-btn',
     type: 'button',
-    text: 'Confirm',
+    text: t('past.confirm'),
     onclick: async () => {
       if (confirming) return;     // the dialog takes time to read; taps keep arriving
       confirming = true;

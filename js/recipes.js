@@ -11,6 +11,7 @@
 // the calculator. Required fields are validated on Save. Recipes are SHARED (in
 // config), no longer device-local localStorage.
 
+import { t } from './i18n.js';
 import { confirmDiscard } from './calculator-confirm.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { recipeTotal } from './calculator-dough-math.js';
@@ -24,7 +25,7 @@ import { icon } from './calculator-icons.js';
 // recipeTotal is re-exported so any importer keeps its path unchanged.
 export { recipeTotal };
 
-const LOGIC_LABELS = { orders: 'From orders', total: 'From a total', both: 'Both (orders + total)' };
+const LOGIC_LABELS = { orders: t('calc.fromOrders'), total: t('calc.fromATotal'), both: t('calc.bothOrdersTotal') };
 
 let working = null;       // deep copy being edited
 let activeRecipe = null;  // null = the recipe list, an index = a recipe's detail
@@ -74,7 +75,7 @@ export async function closeRecipes() {
   if (activeRecipe !== null) {
     const r = recipes()[activeRecipe];
     if (freshlyAdded && isEmptyRecipe(r)) {
-      if (!(await confirmDialog({ message: 'Discard this new recipe? You have not added anything to it.', okLabel: 'Discard', danger: true }))) return;
+      if (!(await confirmDialog({ message: t('calc.discardThisNewRecipe'), okLabel: 'Discard', danger: true }))) return;
       recipes().splice(activeRecipe, 1);
     }
     freshlyAdded = false;
@@ -119,10 +120,10 @@ async function saveRecipes() {
     showErrors = true;
     activeRecipe = invalid;
     renderEditor();
-    alertDialog('Please give every recipe a name and at least one named ingredient before saving.');
+    alertDialog(t('calc.pleaseGiveEveryRecipe'));
     return;
   }
-  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -134,7 +135,7 @@ async function saveRecipes() {
     renderEditor();
     document.dispatchEvent(new CustomEvent('recipes-saved'));
   } catch (e) {
-    alertDialog('Could not save. Check your connection and try again.');
+    alertDialog(t('calc.couldNotSaveCheck'));
   }
 }
 
@@ -145,25 +146,25 @@ function renderRecipeList() {
   const content = contentEl();
   content.textContent = '';
   content.appendChild(el('p', { class: 'extra-help' },
-    'Your recipes — the base of the calculator. Tap one to edit it, or add a new one. Up to ' + MAX_VISIBLE_RECIPES + ' can show as calculator tabs.'));
+    t('calc.yourRecipesTheBase') + MAX_VISIBLE_RECIPES + t('calc.canShowAsCalculator')));
 
   recipes().forEach((r, ri) => {
     const ings = (r.ingredients || []).length;
     const sub = LOGIC_LABELS[r.logic] + '  ·  ' + ings + (ings === 1 ? ' ingredient' : ' ingredients')
-      + (r.visible !== false ? '  ·  shown' : '  ·  hidden');
+      + (r.visible !== false ? t('calc.shown') : t('calc.hidden'));
     const open = el('button', { class: 'drill-item wa-entry-open', type: 'button' }, [
       el('span', { class: 'wa-entry-text' }, [
-        el('span', { class: 'wa-entry-name' }, r.name || 'Unnamed recipe'),
+        el('span', { class: 'wa-entry-name' }, r.name || t('calc.unnamedRecipe')),
         el('span', { class: 'wa-entry-sub' }, sub),
       ]),
       el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
     ]);
     open.addEventListener('click', () => { freshlyAdded = false; activeRecipe = ri; renderEditor(); });
-    const del = deleteIcon('Delete recipe', () => deleteRecipe(ri));
+    const del = deleteIcon(t('calc.deleteRecipe'), () => deleteRecipe(ri));
     content.appendChild(el('div', { class: 'wa-entry-card' }, [open, del]));
   });
 
-  const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add recipe');
+  const add = el('button', { class: 'cp-add-client', type: 'button' }, t('calc.addRecipe'));
   add.addEventListener('click', () => {
     recipes().push({
       id: genId('r'), name: '', logic: 'orders', ingredients: [],
@@ -187,10 +188,10 @@ async function deleteRecipe(ri) {
   const r = recipes()[ri];
   const used = productCountFor(r.id);
   if (used > 0) {
-    alertDialog('This recipe is used by ' + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
+    alertDialog(t('calc.thisRecipeIsUsed') + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
     return;
   }
-  if (!(await confirmDialog({ message: 'Delete the ' + (r.name || 'this') + ' recipe?', okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThe') + (r.name || 'this') + t('calc.recipe'), okLabel: 'Delete', danger: true }))) return;
   recipes().splice(ri, 1);
   markDirty();
   activeRecipe = null;
@@ -201,7 +202,7 @@ async function deleteRecipe(ri) {
 function renderRecipeDetail(ri) {
   const r = recipes()[ri];
   if (!Array.isArray(r.ingredients)) r.ingredients = [];
-  titleEl().textContent = 'Edit recipe';
+  titleEl().textContent = t('calc.editRecipe');
   setHomeVisible(false);
   const content = contentEl();
   content.textContent = '';
@@ -213,21 +214,21 @@ function renderRecipeDetail(ri) {
   content.appendChild(datalist);
 
   // Name + delete.
-  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: r.name || '', placeholder: 'Recipe name' });
+  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: r.name || '', placeholder: t('calc.recipeName') });
   if (showErrors && isBlank(r.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { r.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
   content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'Recipe name'),
-    el('div', { class: 'cp-name-row' }, [nameInput, deleteIcon('Delete recipe', () => deleteRecipe(ri))]),
+    el('label', { class: 'cp-label' }, t('calc.recipeName')),
+    el('div', { class: 'cp-name-row' }, [nameInput, deleteIcon(t('calc.deleteRecipe'), () => deleteRecipe(ri))]),
   ]));
 
   // Calc logic.
-  const logic = el('select', { class: 'cp-prod-dough', 'aria-label': 'Calc logic' });
+  const logic = el('select', { class: 'cp-prod-dough', 'aria-label': t('calc.calcLogic') });
   for (const l of LOGICS) logic.appendChild(el('option', { value: l }, LOGIC_LABELS[l]));
   logic.value = LOGICS.includes(r.logic) ? r.logic : 'orders';
   logic.addEventListener('change', () => { r.logic = logic.value; markDirty(); renderEditor(); });
   content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'How it calculates'),
+    el('label', { class: 'cp-label' }, t('calc.howItCalculates')),
     logic,
   ]));
 
@@ -235,7 +236,7 @@ function renderRecipeDetail(ri) {
   const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Ingredients')]);
   const showLeaveningPicker = (r.logic === 'orders' || r.logic === 'both');
   r.ingredients.forEach((ing, gi) => ingField.appendChild(ingredientRow(r, ing, gi, listId, showLeaveningPicker)));
-  const addIng = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add ingredient');
+  const addIng = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.addIngredient'));
   addIng.addEventListener('click', () => {
     r.ingredients.push({ key: '', label: '', grams: 0 });
     markDirty();
@@ -258,7 +259,7 @@ function renderRecipeDetail(ri) {
     content.appendChild(el('div', { class: 'cp-field' }, [
       el('label', { class: 'cp-label' }, 'Leavening'),
       el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Default'), pct, el('span', { class: 'cp-unit' }, '%')]),
-      el('label', { class: 'cp-crate-label' }, [showCb, el('span', {}, 'Show the adjust knob in the tab')]),
+      el('label', { class: 'cp-crate-label' }, [showCb, el('span', {}, t('calc.showTheAdjustKnob'))]),
     ]));
   }
 
@@ -268,14 +269,14 @@ function renderRecipeDetail(ri) {
   visCb.addEventListener('change', () => {
     if (visCb.checked && r.visible === false && visibleCount() >= MAX_VISIBLE_RECIPES) {
       visCb.checked = false;
-      alertDialog('Only ' + MAX_VISIBLE_RECIPES + ' recipes can show as tabs at once. Hide another first.');
+      alertDialog('Only ' + MAX_VISIBLE_RECIPES + t('calc.recipesCanShowAs'));
       return;
     }
     r.visible = visCb.checked;
     markDirty();
   });
   content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-crate-label' }, [visCb, el('span', {}, 'Show as a calculator tab (max ' + MAX_VISIBLE_RECIPES + ')')]),
+    el('label', { class: 'cp-crate-label' }, [visCb, el('span', {}, t('calc.showAsACalculator') + MAX_VISIBLE_RECIPES + ')')]),
   ]));
 
   const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
@@ -295,7 +296,7 @@ function ingredientRow(recipe, ing, gi, listId, showLeaveningPicker) {
   });
   grams.addEventListener('input', () => { ing.grams = +grams.value || 0; markDirty(); });
 
-  const del = deleteIcon('Remove ingredient', () => {
+  const del = deleteIcon(t('calc.removeIngredient'), () => {
     if (recipe.leaveningKey && recipe.leaveningKey === ing.key) recipe.leaveningKey = null;
     recipe.ingredients.splice(gi, 1);
     markDirty();
@@ -324,7 +325,7 @@ function ingredientRow(recipe, ing, gi, listId, showLeaveningPicker) {
       markDirty();
       renderEditor();
     });
-    rows.push(el('label', { class: 'cp-crate-label' }, [cb, el('span', {}, 'This is the leavening (yeast/starter)')]));
+    rows.push(el('label', { class: 'cp-crate-label' }, [cb, el('span', {}, t('calc.thisIsTheLeavening'))]));
   }
 
   return el('div', { class: 'cp-prod-card' }, rows);

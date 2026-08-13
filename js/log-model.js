@@ -38,6 +38,7 @@
 //     source: 'client' (a configured category product) | 'occasional'
 //   occ  = { name, products: [ { name, qty, weightG, unit } ] }
 
+import { t } from './i18n.js';
 import { scaleRecipe } from './calculator-dough-math.js';
 import { recipeSpec } from './calculator-config.js';
 
@@ -147,11 +148,11 @@ export function buildLogText(items, occasional, extra) {
   for (const occ of (occasional || [])) {
     const prods = (occ.products || []).filter(p => num(p.qty) > 0);
     if (!prods.length) continue;
-    lines.push((occ.name || 'Occasional client') + ':');
+    lines.push((occ.name || t('calc.occasionalClient')) + ':');
     for (const p of prods) lines.push('  ' + p.name + ': ' + num(p.qty) + (p.unit === 'kg' ? ' kg' : ' pz'));
   }
   if (extra && num(extra.grams) > 0) {
-    lines.push('Extra dough: ' + (extra.value != null ? extra.value : num(extra.grams)) + ' ' + (extra.unit || 'g'));
+    lines.push(t('calc.extraDough') + (extra.value != null ? extra.value : num(extra.grams)) + ' ' + (extra.unit || 'g'));
   }
   return lines.join('\n');
 }

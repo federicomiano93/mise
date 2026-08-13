@@ -12,6 +12,7 @@
 // the app closed needs the server step (Firebase Cloud Functions), deferred for
 // now — see js/firebase.example.js.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { isBankHoliday } from './bank-holidays.js';
 
@@ -91,7 +92,7 @@ export function computeAlerts(suppliers, now = new Date()) {
     alerts.push({
       kind: 'order',
       key: `order-${toISODate(now)}`,
-      title: toOrder.length === 1 ? 'Order to place today' : 'Orders to place today',
+      title: toOrder.length === 1 ? t('orders.orderToPlaceToday') : t('orders.ordersToPlaceToday'),
       items,
       // Notification body: supplier names only. The title carries the action and
       // the phone already shows "from Misé", so the app name is never
@@ -180,29 +181,29 @@ export function renderNotificationSettings(container) {
   container.textContent = '';
 
   if (!('Notification' in window)) {
-    container.appendChild(el('p', { class: 'notif-note', text: 'This device does not support notifications.' }));
+    container.appendChild(el('p', { class: 'notif-note', text: t('orders.thisDeviceDoesNot') }));
     return;
   }
 
   container.appendChild(el('p', { class: 'notif-desc', text:
-    'Get an alert when an order is due (on a supplier’s order day), when a UK bank holiday is coming up, or when a holiday clashes with a supplier delivery day. Note: alerts only show while the app is open.' }));
+    t('orders.getAnAlertWhen') }));
 
   const perm = Notification.permission;
   if (perm === 'granted') {
     container.appendChild(el('p', { class: 'notif-status on' }, [
       el('span', { icon: BELL_SVG, 'aria-hidden': 'true' }),
-      ' Notifications are on for this device.',
+      t('orders.notificationsAreOnFor'),
     ]));
   } else if (perm === 'denied') {
     container.appendChild(el('p', { class: 'notif-status off', text:
-      'Notifications are blocked. Turn them on for this app in your browser/site settings, then reload.' }));
+      t('orders.notificationsAreBlockedTurn') }));
   } else {
     container.appendChild(el('button', { type: 'button', class: 'enable-notifs', onClick: async () => {
       try { await Notification.requestPermission(); } catch (err) { console.warn('Permission request failed:', err); }
       renderNotificationSettings(container);
     } }, [
       el('span', { icon: BELL_SVG, 'aria-hidden': 'true' }),
-      ' Enable notifications',
+      t('orders.enableNotifications'),
     ]));
   }
 }

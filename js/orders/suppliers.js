@@ -17,6 +17,7 @@
 // So the box and the filter are built once and only the rows are repainted — the same
 // arrangement as the flat ingredient list.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { buildSearchBox } from './search-box.js';
 import { filterSuppliers } from './ingredient-search.js';
@@ -82,7 +83,7 @@ export function mountSupplierList(container, ctx) {
 
   const search = buildSearchBox({
     value: query,
-    placeholder: 'Search a supplier…',
+    placeholder: t('orders.searchASupplier'),
     onInput: text => { query = text; ctx.onQuery?.(text); },
     onChange: paint,
   });
@@ -140,7 +141,7 @@ export function mountSupplierList(container, ctx) {
     if (!rows.length) {
       list.appendChild(el('p', {
         class: 'mgmt-empty',
-        text: query ? 'No supplier matches your search.' : 'Nothing is being ordered yet.',
+        text: query ? t('orders.noSupplierMatchesYour') : t('orders.nothingIsBeingOrdered'),
       }));
       return;
     }

@@ -8,6 +8,7 @@
 // js/ root (price-model.js and the recipe cost maths), which both features already
 // share for the same reason.
 
+import { t } from '../i18n.js';
 import {
   initFoodCost, getProducts, tables, saveProduct, deleteProduct, setSyncErrorHandler,
   getRecipes, getIngredients,
@@ -51,7 +52,7 @@ function showList() {
   activeEditor = null;
   currentProduct = null;
   leaveGuard = null;
-  setHeader({ title: 'Food cost', sub: 'Products and margins', back: false });
+  setHeader({ title: t('fc.foodCost'), sub: t('fc.productsAndMargins'), back: false });
   activeList = renderList({
     products: getProducts(), tables: tables(), onOpen: openProduct, onAdd: () => openProduct(null),
   });
@@ -63,7 +64,7 @@ function openProduct(product) {
   activeList = null;
   currentProduct = product;
   leaveGuard = null;
-  setHeader({ title: product ? (product.name || 'Product') : 'New product', sub: 'Food cost', back: true });
+  setHeader({ title: product ? (product.name || 'Product') : t('fc.newProduct'), sub: t('fc.foodCost'), back: true });
   activeEditor = renderEditor({ product, app });
   swap(activeEditor.root);
 }
@@ -73,9 +74,9 @@ async function openHistory(product) {
   view = 'history';
   activeEditor = null;
   leaveGuard = null;
-  setHeader({ title: 'Margin history', sub: product.name || 'Product', back: true });
+  setHeader({ title: t('fc.marginHistory'), sub: product.name || 'Product', back: true });
 
-  const body = el('div', { class: 'fc-view' }, [el('p', { class: 'fc-empty', text: 'Loading…' })]);
+  const body = el('div', { class: 'fc-view' }, [el('p', { class: 'fc-empty', text: t('fc.loading') })]);
   swap(body);
 
   let entries;
@@ -84,13 +85,13 @@ async function openHistory(product) {
   } catch (err) {
     console.error('Could not read the margin history:', err);
     body.replaceChildren(el('p', { class: 'fc-empty', text:
-      'Could not load the history — check your connection and try again.' }));
+      t('fc.couldNotLoadThe') }));
     return;
   }
 
   if (!entries.length) {
     body.replaceChildren(el('p', { class: 'fc-empty', text:
-      'Nothing recorded yet. A point is added whenever the price or the recipe changes.' }));
+      t('fc.nothingRecordedYetA') }));
     return;
   }
 
@@ -105,7 +106,7 @@ async function openHistory(product) {
     // where somebody changed something; ingredient prices drifting upward leave no
     // mark here at all, so a flat line does NOT mean a flat margin.
     el('p', { class: 'fc-note', text:
-      'A point is recorded when the price or the recipe changes — not when ingredient prices drift, so a flat line here does not mean the margin held.' }),
+      t('fc.aPointIsRecorded') }),
   );
 }
 
@@ -185,7 +186,7 @@ initFoodCost(
     // change made on another phone, without losing the edit in progress.
     if (view === 'editor' && activeEditor) activeEditor.refreshData();
   },
-  () => toast('Live sync interrupted — products may be out of date.'),
+  () => toast(t('fc.liveSyncInterruptedProducts')),
 );
 
 showList();

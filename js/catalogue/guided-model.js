@@ -16,6 +16,7 @@
 // with the order, buying nothing. The ingredient ROWS are the opposite case —
 // see `rid` below.
 
+import { t } from '../i18n.js';
 import { unitOf, scaleCatalogue, baseAmounts, weighableTotalGrams } from './catalogue-model.js';
 
 // ── Limits ────────────────────────────────────────────────────────────────────
@@ -214,7 +215,7 @@ export function stepRows(step, recipe, amounts) {
   const wanted = (step && Array.isArray(step.rows)) ? step.rows : [];
   return wanted.map((rid) => {
     const hit = byRid.get(rid);
-    if (!hit) return { rid, label: 'No longer in the recipe', amount: null, unit: '', missing: true };
+    if (!hit) return { rid, label: t('cat.noLongerInThe'), amount: null, unit: '', missing: true };
     const amount = Array.isArray(amounts) ? amounts[hit.i] : null;
     return {
       rid,
@@ -275,11 +276,11 @@ export function overdueText(endsAt, nowMs) {
   const late = -remainingMs(endsAt, nowMs);
   if (!(late > 0)) return '';
   const mins = Math.floor(late / 60000);
-  if (mins < 1) return 'Time is up — just now.';
-  if (mins === 1) return 'Time was up 1 minute ago.';
+  if (mins < 1) return t('cat.timeIsUpJust');
+  if (mins === 1) return t('cat.timeWasUp1');
   if (mins < 60) return `Time was up ${mins} minutes ago.`;
   const hours = Math.floor(mins / 60);
-  return hours === 1 ? 'Time was up over an hour ago.' : `Time was up over ${hours} hours ago.`;
+  return hours === 1 ? t('cat.timeWasUpOver') : `Time was up over ${hours} hours ago.`;
 }
 
 // ── Picking up an interrupted run ─────────────────────────────────────────────
