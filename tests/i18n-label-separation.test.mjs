@@ -55,10 +55,58 @@ const LABEL_FILES = [
 // forbidden, never to make the check quieter so the code could pass.
 const LABEL_WORD_CALLS = /\b(labelWord|allergenName|nutrientName)\s*\(/;
 
-test('no label file imports the interface language', () => {
-  for (const file of LABEL_FILES) {
+// ⚠️⚠️ THE BAN IS TOTAL WHERE IT COSTS NOTHING, AND SHARPER WHERE IT DOES NOT.
+//
+// js/market.js and recipe-label-model.js are model code: they build what a label
+// SAYS and nothing else, so they may not touch the dictionary at all. label-view.js
+// also draws the screen AROUND the label — a Copy button, a caveat, the sentence
+// explaining why no label can be made — and those are ordinary interface. Leaving
+// them English gave an Italian bakery one screen in the wrong language.
+//
+// So for that one file the import ban is replaced by the invariant it was
+// standing in for, which is stricter about the thing that matters:
+//
+//   the label's words are chosen by outputLanguage(location) — the country
+//   currentLanguage() and setLanguage() are the two ways the INTERFACE could get
+//   into a label, and neither may appear in any label file at all.
+const MODEL_ONLY = ['js/market.js', 'js/catalogue/recipe-label-model.js'];
+
+test('the label MODEL files do not import the interface language at all', () => {
+  for (const file of MODEL_ONLY) {
     assert.doesNotMatch(read(file), /from\s+['"][^'"]*i18n\.js['"]/,
-      `${file} decides what goes ON A LABEL — its words come from the country, never from a person's setting`);
+      `${file} builds what a label SAYS and nothing else — it has no reason to know what is on screen`);
+  }
+});
+
+test('no label file can reach the interface language', () => {
+  for (const file of LABEL_FILES) {
+    const src = codeOf(read(file));
+    assert.doesNotMatch(src, /\bcurrentLanguage\b/,
+      `${file} must never ask what language the SCREEN is in — a label follows the country`);
+    assert.doesNotMatch(src, /\bsetLanguage\b/,
+      `${file} must never change the interface language`);
+    assert.doesNotMatch(src, /\blanguageFromTag\b/,
+      `${file} must never take a language from the device`);
+    assert.doesNotMatch(src, /\binterfaceLanguage\b/,
+      `${file} must never read the venue's interface setting`);
+  }
+});
+
+// ⚠️ AND THE POSITIVE HALF: the language a label is built in is assigned from
+// outputLanguage(), once, and that variable is what every label word is asked
+// for. Without this the file could import t() and quietly pass currentLanguage()
+// under another name.
+test('the label language comes from the country, and every label word is asked in it', () => {
+  const src = codeOf(read('js/catalogue/label-view.js'));
+  assert.match(src, /const lang = outputLanguage\(location\);/,
+    'the label language is derived from the venue’s country, once');
+
+  const calls = [...src.matchAll(/\b(labelWord|allergenName|nutrientName)\s*\(([^)]*)\)/g)];
+  assert.ok(calls.length >= 5, 'the label is built from label words');
+  for (const call of calls) {
+    const args = call[2].split(',').map(a => a.trim());
+    assert.equal(args[args.length - 1], 'lang',
+      `${call[1]}(${call[2]}) must be asked in the LABEL's language, not the screen's`);
   }
 });
 

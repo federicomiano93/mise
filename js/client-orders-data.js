@@ -11,6 +11,8 @@
 // for one (an ES module's imports run before its body — see
 // tests/firebase-offline-cache.test.mjs).
 
+import { t } from './i18n.js';
+import { countryOf } from './market.js';
 import { firebaseConfig, sessionReady, isLocalEmulator, currentSession } from './firebase.js';
 import { currentLocationId, pathFor } from './location.js';
 import {
@@ -87,7 +89,7 @@ export async function publishMenus(config) {
   let written = 0;
   for (const client of getClients(config)) {
     if (!client || !isValidOrderClientId(client.id)) continue;
-    const wanted = menuFor(client, currentSession().name);
+    const wanted = menuFor(client, currentSession().name, countryOf(currentSession().location));
     if (!menuChanged(published.get(client.id), wanted)) continue;
     await setDoc(doc(db, pathFor(MENUS), client.id), stamped({ ...wanted, updatedAt: nowIso() }));
     written++;
@@ -146,7 +148,7 @@ export async function listOrderingAccounts() {
 export async function createOrderingLink(client, { replacing = null } = {}) {
   await sessionReady;
   if (!client || !isValidOrderClientId(client.id)) {
-    throw new Error('This client cannot have an ordering link until it has been saved.');
+    throw new Error(t('co.thisClientCannotHave'));
   }
 
   const token = mintToken();
@@ -182,7 +184,10 @@ export async function createOrderingLink(client, { replacing = null } = {}) {
   if (replacing && replacing !== uid) await revokeOrderingLink(replacing);
 
   await setDoc(doc(db, pathFor(MENUS), client.id),
-    stamped({ ...menuFor(client, currentSession().name), updatedAt: nowIso() }));
+    stamped({
+      ...menuFor(client, currentSession().name, countryOf(currentSession().location)),
+      updatedAt: nowIso(),
+    }));
 
   return { uid, token, link: orderingLinkFor(token) };
 }

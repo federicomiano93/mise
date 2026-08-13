@@ -19,6 +19,7 @@
 // anything either way: the rules decide what an account may touch, not which
 // JavaScript happens to be loaded next to it.
 
+import { t } from '../i18n.js';
 import { firebaseConfig, isLocalEmulator } from '../firebase.js';
 import { linkEmailFor } from '../client-order-model.js';
 import {
@@ -61,7 +62,7 @@ export function setLocation(id) {
 }
 
 function pathFor(collectionName) {
-  if (location === null) throw new Error('The link did not say which bakery this is.');
+  if (location === null) throw new Error(t('co.theLinkDidNot'));
   return `locations/${location}/${collectionName}`;
 }
 

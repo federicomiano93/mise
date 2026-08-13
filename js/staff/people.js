@@ -65,7 +65,7 @@ const CONFIRM_TITLE = {
 function displayName(person) {
   const full = [cleanName(person.firstName), cleanName(person.lastName)]
     .filter(Boolean).join(' ');
-  return full || '(no name yet)';
+  return full || t('people.noNameYet');
 }
 
 export function openPeople(myUid) {
@@ -152,8 +152,8 @@ export function openPeople(myUid) {
 
       const row = el('div', { class: 'people-row' }, [
         el('div', { class: 'people-row-main' }, [
-          el('span', { class: 'people-name', text: displayName(person) + (isMe ? ' · you' : '') }),
-          el('span', { class: 'people-email', text: person.email || '(no email)' }),
+          el('span', { class: 'people-name', text: displayName(person) + (isMe ? t('people.you') : '') }),
+          el('span', { class: 'people-email', text: person.email || t('people.noEmailParen') }),
         ]),
       ]);
 

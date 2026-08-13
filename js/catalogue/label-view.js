@@ -12,6 +12,7 @@
 // is then hidden, so an ingredient with no nutrition cannot block an allergen
 // label.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { buildLabel, ingredientLine, containsLine, LABEL_SHOWS } from './recipe-label-model.js';
 import { NUTRIENTS } from '../allergen-model.js';
@@ -29,6 +30,26 @@ const SHOW_LABELS = Object.freeze({
 // `location` is the venue's own document — its country decides what language the
 // label is PRINTED in. It is not a preference and no screen may override it; see
 // js/market.js for the law behind that.
+//
+// ⚠️⚠️ THIS FILE IMPORTS t(), AND THE RULE THAT LETS IT IS SHARPER THAN THE ONE
+// IT REPLACES. Until 13 Aug 2026 no label file could import the dictionary at
+// all — a coarse ban, and a correct one while this file held nothing but the
+// label. But the screen AROUND the label is ordinary interface: a Copy button, a
+// caveat, the sentence explaining why a label cannot be made. Leaving those in
+// English gave an Italian bakery one screen in the wrong language.
+//
+// So the ban was replaced, HERE ONLY, by the invariant it was standing in for:
+//
+//   the label's WORDS come from outputLanguage(location) — the country, the law
+//   the screen's words come from t()                     — the interface
+//
+// `lang` below is assigned once, from outputLanguage(), and every labelWord /
+// allergenName / nutrientName call is passed it. tests/i18n-label-separation.test.mjs
+// pins exactly that, and pins that no label file may import currentLanguage or
+// setLanguage — the two ways the interface could get into the label by accident.
+// js/market.js and js/catalogue/recipe-label-model.js keep the total ban: they
+// have no chrome, so it costs them nothing.
+
 export function renderLabel({ recipe, ingredients, recipesById, location, initialShows = 'both', onShowsChange }) {
   const tables = { ingredients, recipes: recipesById };
   let shows = LABEL_SHOWS.includes(initialShows) ? initialShows : 'both';
@@ -38,7 +59,7 @@ export function renderLabel({ recipe, ingredients, recipesById, location, initia
   const root = el('div', { class: 'cat-view lab-view' });
 
   // ── The switch ──────────────────────────────────────────────────────────────
-  const switcher = el('div', { class: 'lab-switch', role: 'group', 'aria-label': 'What the label shows' });
+  const switcher = el('div', { class: 'lab-switch', role: 'group', 'aria-label': t('label.whatItShows') });
   const buttons = new Map();
   for (const key of LABEL_SHOWS) {
     const btn = el('button', {
@@ -70,7 +91,7 @@ export function renderLabel({ recipe, ingredients, recipesById, location, initia
     // rather say "I do not know" than print something that looks finished.
     if (!canPrintLabel(location)) {
       body.replaceChildren(el('div', { class: 'lab-blocked' }, [
-        el('p', { class: 'lab-blocked-title', text: 'No label can be made' }),
+        el('p', { class: 'lab-blocked-title', text: t('label.blocked') }),
         el('p', { class: 'lab-blocked-text', text: noCountryReason() }),
       ]));
       return;
@@ -85,10 +106,12 @@ export function renderLabel({ recipe, ingredients, recipesById, location, initia
       // between opening the screen and reading it, and the honest answer then is
       // the refusal rather than a stale label.
       body.replaceChildren(el('div', { class: 'lab-blocked' }, [
-        el('p', { class: 'lab-blocked-title', text: 'No label can be made' }),
+        el('p', { class: 'lab-blocked-title', text: t('label.blocked') }),
+        // ⚠️ A REAL PLURAL, not `n === 1 ?`. That ternary is English's rule
+        // written into the code, and it cannot be translated by moving either half.
         el('p', { class: 'lab-blocked-text', text: label.reason === 'no-ingredients'
-          ? 'This recipe has no ingredients with a weight.'
-          : `${label.gaps.length} ${label.gaps.length === 1 ? 'ingredient is' : 'ingredients are'} not declared. The recipe screen lists them.` }),
+          ? t('label.blocked.noWeights')
+          : t('label.blocked.notDeclared', { n: label.gaps.length }) }),
       ]));
       return;
     }
@@ -138,13 +161,13 @@ export function renderLabel({ recipe, ingredients, recipesById, location, initia
         card.appendChild(table);
         if (label.nutrition.lossPct > 0) {
           card.appendChild(el('p', { class: 'lab-yield', text:
-            `Worked out on the finished weight — ${label.nutrition.lossPct}% is lost in baking.` }));
+            t('label.onFinishedWeight', { pct: label.nutrition.lossPct }) }));
         }
       } else {
         // ⚠️ SAID OUT LOUD. A label asked for nutrition that cannot be worked out
         // must not print the allergen half and look finished.
         card.appendChild(el('p', { class: 'lab-missing', text:
-          'No nutrition table: at least one ingredient has no values per 100 g yet. The allergens above are still complete.' }));
+          t('label.noNutrition') }));
       }
     }
 
@@ -169,9 +192,8 @@ export function renderLabel({ recipe, ingredients, recipesById, location, initia
 
   function caveat() {
     return el('div', { class: 'lab-caveat' }, [
-      el('p', { class: 'lab-caveat-title', text: 'Check this before it goes on food' }),
-      el('p', { text:
-        'It is built from what the suppliers declared and from the recipe as written. It cannot know about your own kitchen — shared benches, shared equipment — or about a substitution made this morning.' }),
+      el('p', { class: 'lab-caveat-title', text: t('label.caveat.title') }),
+      el('p', { text: t('label.caveat.body') }),
     ]);
   }
 
@@ -205,12 +227,12 @@ export function renderLabel({ recipe, ingredients, recipesById, location, initia
             navigator.clipboard.writeText(lines.join('\n')),
             new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000)),
           ]);
-          status.textContent = 'Copied';
+          status.textContent = t('label.copied');
         } catch (e) {
-          status.textContent = 'Could not copy — select the text above instead';
+          status.textContent = t('label.copyFailed');
         }
       },
-    }, ['Copy the text', status]);
+    }, [t('label.copy'), status]);
     return btn;
   }
 

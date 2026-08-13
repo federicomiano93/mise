@@ -13,6 +13,7 @@
 // doughs with nothing on screen saying which is right. Same reasoning, same place, as
 // js/price-model.js.
 
+import { t } from './i18n.js';
 import { pairId } from './calculator-config.js';
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -23,6 +24,10 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 // one exists so a night shift counts as one shift, which is a fact about baking, not
 // about when a shop opens. Mixing the two would tell a client ordering at 01:00 that
 // they are ordering for the previous day.
+
+// ⚠️ COUNTRIES comes from js/market.js, the one place that decides what a
+// country may be. A second list here is a second answer waiting to disagree.
+import { COUNTRIES } from './market.js';
 
 export const ORDER_HORIZON_DAYS = 14;
 
@@ -206,7 +211,7 @@ export function linkEmailFor(token) {
 // read. This document already is that thing, and it is republished whenever the
 // address book is saved, so a venue that renames itself corrects every client's
 // page by itself.
-export function menuFor(client, bakeryName) {
+export function menuFor(client, bakeryName, country) {
   const products = (client && Array.isArray(client.products) ? client.products : [])
     // A paused product leaves the Calculator entirely (getTabProducts), so offering it
     // here would let a client order something the bakery has decided not to make.
@@ -217,6 +222,17 @@ export function menuFor(client, bakeryName) {
   // absent field is what every menu published before today looks like.
   const name = String(bakeryName || '').trim();
   if (name) menu.bakeryName = name.slice(0, 200);
+  // ⚠️⚠️ THE COUNTRY TRAVELS FOR THE SAME REASON THE NAME DOES, AND DECIDES THE
+  // SAME KIND OF THING. This page is read by the BAKERY'S CUSTOMER, in the
+  // country the bakery sells in — so its language follows the country, exactly
+  // as a label does, and never the staff's interface preference. An Italian
+  // bakery whose owner reads the app in English still hands its clients an
+  // Italian ordering page.
+  //
+  // ⚠️ Omitted rather than written empty, like bakeryName: every menu published
+  // before today has no country, and an absent field is what those look like.
+  // The client page falls back to English, which is what it has always shown.
+  if (COUNTRIES.includes(country)) menu.country = country;
   return menu;
 }
 
@@ -231,6 +247,10 @@ export function menuChanged(published, wanted) {
   // new name would sit in the address book and never reach a single client page,
   // and nothing would say why.
   if (String(published.bakeryName || '') !== String(wanted.bakeryName || '')) return true;
+  // ⚠️ COMPARED, for the reason above it. A venue that gets its country set — or
+  // corrected — must have that reach every client page; without this line the
+  // change would sit in the location document and no client would ever see it.
+  if (String(published.country || '') !== String(wanted.country || '')) return true;
   const a = Array.isArray(published.products) ? published.products : [];
   const b = Array.isArray(wanted.products) ? wanted.products : [];
   if (a.length !== b.length) return true;
@@ -325,7 +345,7 @@ export function orderRows(order, liveNameOf) {
     id,
     name: (typeof liveNameOf === 'function' && liveNameOf(id))
       || frozen[id]
-      || 'Deleted product',
+      || t('co.deletedProduct'),
     qty: num(quantities[id]),
     // The row is still shown, but the screen can mark it: a product nobody sells any
     // more cannot be put into the Calculator, because there is no field for it.

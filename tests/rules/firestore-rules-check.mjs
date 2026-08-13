@@ -1425,6 +1425,47 @@ async function clientOrders() {
     return wholeWrite(ORDER_A, o, asAccount(CLIENT_A));
   });
 
+  // ── The country on a published menu ──
+  //
+  // ⚠️ IT DECIDES WHAT LANGUAGE THE CLIENT'S OWN ORDERING PAGE IS IN, for the
+  // same reason it decides a label's: that page is read by the bakery's customer,
+  // in the country the bakery sells in. It travels on the menu because the client
+  // cannot read locations/{lid}.
+  await expectAllowed('a menu MAY carry the country the venue sells in', () =>
+    wholeWrite(`${L}/client-menus/c-one`, {
+      bakery: 'main', clientName: 'CLIENT A', country: 'GB',
+      updatedAt: '2026-08-13T09:00:00.000Z',
+      products: [{ id: 'p-buns', name: 'Buns', kind: 'number' }],
+    }, asUser()));
+  // ⚠️ OPTIONAL IN BOTH DIRECTIONS. Every menu published before today has none,
+  // and a phone still on the old code sends none — a required field would refuse
+  // every one of those saves the moment these rules landed.
+  await expectAllowed('…and a menu WITHOUT one is still accepted', () =>
+    wholeWrite(`${L}/client-menus/c-one`, {
+      bakery: 'main', clientName: 'CLIENT A',
+      updatedAt: '2026-08-13T09:01:00.000Z',
+      products: [{ id: 'p-buns', name: 'Buns', kind: 'number' }],
+    }, asUser()));
+  // ⚠️ OPTIONAL IS NOT UNCHECKED. A country the app does not know would leave the
+  // client page with no language it can resolve, and the app must not invent one.
+  await expectDenied('a country the app does not know is refused', () =>
+    wholeWrite(`${L}/client-menus/c-one`, {
+      bakery: 'main', clientName: 'CLIENT A', country: 'FR',
+      updatedAt: '2026-08-13T09:02:00.000Z', products: [],
+    }, asUser()));
+  await expectDenied('…and so is a country that is not even a string', () =>
+    wholeWrite(`${L}/client-menus/c-one`, {
+      bakery: 'main', clientName: 'CLIENT A', country: 7,
+      updatedAt: '2026-08-13T09:03:00.000Z', products: [],
+    }, asUser()));
+  // ⚠️ AND A CLIENT STILL CANNOT WRITE ITS OWN MENU — the country is the venue's
+  // fact about itself, not something the customer may set.
+  await expectDenied('a client CANNOT set the country on its own menu', () =>
+    wholeWrite(`${L}/client-menus/c-one`, {
+      bakery: 'main', clientName: 'CLIENT A', country: 'IT',
+      updatedAt: '2026-08-13T09:04:00.000Z', products: [],
+    }, asAccount(CLIENT_A)));
+
   // ── One client is not another ──
   await expectDenied('a client CANNOT read another client\'s product list',
     readAs(CLIENT_A, `${L}/client-menus/c-two`));
