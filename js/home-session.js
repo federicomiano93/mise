@@ -12,6 +12,7 @@
 // Log out sits here too, deliberately quiet next to the location name (P20:
 // a destructive action never competes with the thing you actually came to do).
 
+import { t } from './i18n.js';
 import { onSession, signOutNow, switchLocation, forgetLocation, openVenuePicker } from './firebase.js';
 import { sectionsFor, hasLevelAbove } from './sections.js';
 import { confirmDialog } from './confirm-dialog.js';
@@ -65,19 +66,19 @@ function renderSessionActions(session) {
   // different errands, "take me to the other one" and "show me everything". With
   // three it already only opens the picker, so nothing is lost by having both.
   if (!session.isAppAdmin && options.length > 1) {
-    logoutHost.append(button('Switch location', 'session-logout', async () => {
+    logoutHost.append(button(t('home.switch'), 'session-logout', async () => {
       const other = options.filter(id => id !== session.locationId);
       const names = session.optionNames || {};
-      const cleared = 'Anything typed but not saved on this device is cleared.';
+      const cleared = t('home.switch.cleared');
       // One other location is unambiguous, so name it and go straight there.
       // More than one and the app cannot pick for you: forget the remembered
       // location so the reload comes back to the picker.
       const ok = await confirmDialog({
-        title: 'Switch location?',
+        title: t('home.switch.title'),
         message: other.length === 1
-          ? `Open ${names[other[0]] || other[0]} instead of ${session.name}?\n\n${cleared}`
-          : `Choose a different location?\n\n${cleared}`,
-        okLabel: 'Switch',
+          ? `${t('home.switch.toOne', { other: names[other[0]] || other[0], here: session.name })}\n\n${cleared}`
+          : `${t('home.switch.toMany')}\n\n${cleared}`,
+        okLabel: t('home.switch.ok'),
       });
       if (!ok) return;
       if (other.length === 1) switchLocation(other[0]);
@@ -91,7 +92,7 @@ function renderSessionActions(session) {
   // competing with the work (P20). Drawing it for staff would be an invitation
   // to a screen where every button is refused.
   if (session.isOwner) {
-    logoutHost.append(button('Who can get in', 'session-logout', async () => {
+    logoutHost.append(button(t('people.title'), 'session-logout', async () => {
       const { openPeople } = await import('./staff/people.js');
       openPeople(session.user && session.user.uid);
     }));
@@ -104,11 +105,11 @@ function renderSessionActions(session) {
   // how an administrator reaches it. Putting it back here would restore the
   // three-scopes-in-one-list problem Federico spotted on his own phone.
 
-  logoutHost.append(button('Log out', 'session-logout', async () => {
+  logoutHost.append(button(t('auth.logOut'), 'session-logout', async () => {
     const ok = await confirmDialog({
-      title: 'Log out?',
-      message: 'You will need your email and password to get back in.',
-      okLabel: 'Log out',
+      title: t('auth.logOut.title'),
+      message: t('auth.logOut.message'),
+      okLabel: t('auth.logOut'),
       danger: true,
     });
     if (ok) signOutNow();

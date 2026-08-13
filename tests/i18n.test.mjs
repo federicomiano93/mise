@@ -72,6 +72,45 @@ test('the data words include the ones that have already cost this project a day'
   }
 });
 
+// ── A translated word is never transformed ──────────────────────────────────
+
+// ⚠️⚠️ FOUND TWICE IN THE FIRST TWO DAYS OF THIS EXTRACTION, in code that read
+// perfectly: a button label built by lower-casing the role word and gluing it
+// after "Make", and a date line built with .replace(/^Created/, 'created').
+//
+// Both are English grammar written into the code. The second does nothing at all
+// in a language whose word does not begin with those seven letters — so it fails
+// SILENTLY, leaving a capital in the middle of an Italian sentence. And case is a
+// property of a language, not an operation anybody may perform on somebody else's.
+// The form that goes inside a phrase is its own dictionary entry.
+//
+// This is the rule stated as a test, because it is the one that gets broken by
+// somebody being helpful. A legitimate exception is added HERE, in the open,
+// rather than discovered in Italian six months later.
+const RESHAPE = /\.\s*(toLowerCase|toUpperCase|toLocaleLowerCase|toLocaleUpperCase)\s*\(/;
+const WORD_SOURCES = /\b(t|personLabel|roleLabel|titleLabel|choiceLabel|choiceLabelInSentence|personLabelInSentence|statusWords|createdWords|createdWordsInLine|sectionSummary|labelWord)\s*\(/;
+
+test('nothing reshapes the result of a translation', () => {
+  const offenders = [];
+  for (const [name, src] of sourceFiles()) {
+    stripComments(src).split('\n').forEach((line, i) => {
+      if (WORD_SOURCES.test(line) && RESHAPE.test(line)) {
+        offenders.push(`${name}:${i + 1}  ${line.trim().slice(0, 90)}`);
+      }
+    });
+  }
+  assert.deepEqual(offenders, [],
+    'ask the dictionary for the form you need — never reshape a word somebody else translated');
+});
+
+function stripComments(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map(line => { const at = line.indexOf('//'); return at === -1 ? line : line.slice(0, at); })
+    .join('\n');
+}
+
 // ── The two languages must stay in step ──────────────────────────────────────
 
 // A missing translation falls back to English so a screen still works, which

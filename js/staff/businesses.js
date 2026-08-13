@@ -16,12 +16,15 @@
 // so adding one switches it on for every venue that already exists and needs
 // `sections.<name>: false` typed into each of them in the console first.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { listWorkspaces, reissueOwnerLink, deleteWorkspace, callFailureText } from './firebase-staff.js';
 import { joinLinkFor } from '../join-link.js';
 import { expiresInWords } from '../join-code.js';
-import { isStranded, statusWords, sectionSummary, createdWords } from '../workspace-row.js';
+import {
+  isStranded, statusWords, sectionSummary, createdWords, createdWordsInLine,
+} from '../workspace-row.js';
 
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 
@@ -52,9 +55,8 @@ async function copyToClipboard(text) {
 async function handOver(name, link, expiresAt) {
   const copied = await copyToClipboard(link);
   await alertDialog(copied
-    ? `The new link for ${name} is copied. Paste it into a message to them.\n\n`
-      + `It works once and has ${expiresInWords({ expiresAt })}.`
-    : `Copy this link and send it to ${name}:\n\n${link}`);
+    ? `${t('bz.link.copied', { name })}\n\n${t('bz.link.once', { expires: expiresInWords({ expiresAt }) })}`
+    : `${t('bz.link.manual', { name })}\n\n${link}`);
 }
 
 // `host` is where the overlay is mounted, and it matters in exactly one case.
@@ -79,7 +81,7 @@ export function openBusinesses({ host } = {}) {
       // The FILE keeps its name on purpose: renaming it would add an entry to the
       // service worker's precache list, which is the one failure that does not
       // heal itself on the next load.
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Customer businesses' })]),
+      el('div', { class: 'orders-header-title' }, [el('h1', { text: t('bz.title') })]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
     el('div', { class: 'people-scroll' }, [top, list]),
@@ -87,7 +89,7 @@ export function openBusinesses({ host } = {}) {
 
   // ── The top of the screen ──────────────────────────────────────────────────
 
-  const add = el('button', { type: 'button', class: 'btn-primary people-save', text: 'New business' });
+  const add = el('button', { type: 'button', class: 'btn-primary people-save', text: t('bz.new') });
   add.addEventListener('click', async () => {
     const { openNewCustomer } = await import('./new-customer.js');
     // ⚠️ The list is reloaded when that screen closes, not when it opens: a
@@ -107,7 +109,7 @@ export function openBusinesses({ host } = {}) {
     // and the part that matters — where your own venues actually are — is at the
     // end of it. So only that part survives.
     el('p', { class: 'people-hint', text:
-      'Your own venues are not here — they are behind “My businesses”.' }),
+      t('bz.hint') }),
     add,
   );
 
@@ -130,7 +132,12 @@ export function openBusinesses({ host } = {}) {
         // whole sentence, month included. Exactly the defect fixed in v180
         // ("typed sat 11 jul 2026") — the second time this project has lowercased
         // a string with a date inside it. Found by looking at a screenshot.
-        text: `${statusWords(row)} · ${createdWords(row.createdAt).replace(/^Created/, 'created')}`,
+        // ⚠️ THE TWO HALVES ARE JOINED BY THE DICTIONARY, not by a lower-cased
+        // English word. `.replace(/^Created/, 'created')` was English grammar
+        // written into the code: it would leave «Creato» capitalised mid-line in
+        // Italian, and it silently does nothing in any language whose word does
+        // not begin with those seven letters.
+        text: t('bz.rowState', { status: statusWords(row), created: createdWordsInLine(row.createdAt) }),
       }),
     ];
 
@@ -145,7 +152,7 @@ export function openBusinesses({ host } = {}) {
     // reason "Make a label" only appears on a fully declared recipe.
     if (stranded) {
       const again = el('button', {
-        type: 'button', class: 'mgmt-link', text: 'Make a new link',
+        type: 'button', class: 'mgmt-link', text: t('bz.newLink'),
         onClick: () => reissue(row, again),
       });
       // ⚠️ AN ICON, KEPT QUIET, AND LAST. Deleting is the rarest thing done here
@@ -165,22 +172,21 @@ export function openBusinesses({ host } = {}) {
 
   async function reissue(row, button) {
     const ok = await confirmDialog({
-      title: 'Make a new link?',
-      message: `A new link for ${row.name}. `
-        + 'Any link sent before stops working, so whoever holds one cannot use it.',
-      okLabel: 'Make a new link',
+      title: t('bz.newLink.title'),
+      message: t('bz.newLink.message', { name: row.name }),
+      okLabel: t('bz.newLink'),
     });
     if (!ok) return;
 
     button.disabled = true;
     const was = button.textContent;
-    button.textContent = 'Making…';
+    button.textContent = t('bz.making');
     try {
       const res = await reissueOwnerLink(row.id);
       await handOver(row.name, joinLinkFor(res.token), res.expiresAt);
       await load();
     } catch (err) {
-      await alertDialog(callFailureText(err, 'Could not make a new link. Try again.'));
+      await alertDialog(callFailureText(err, t('bz.err.newLink')));
       button.disabled = false;
       button.textContent = was;
     }
@@ -195,10 +201,9 @@ export function openBusinesses({ host } = {}) {
   // expect that sentence on a screen where it could be false.
   async function remove(row, button) {
     const ok = await confirmDialog({
-      title: 'Delete this business?',
-      message: `${row.name} will be removed, along with the link that opens it. `
-        + 'Nobody has opened it, so nothing else is lost — but this cannot be undone.',
-      okLabel: 'Delete',
+      title: t('bz.delete.title'),
+      message: t('bz.delete.message', { name: row.name }),
+      okLabel: t('bz.delete'),
       danger: true,
     });
     if (!ok) return;
@@ -210,7 +215,7 @@ export function openBusinesses({ host } = {}) {
     } catch (err) {
       // The server refuses if somebody opened it in the meantime, and that refusal
       // has to arrive as words rather than as a button that stopped working.
-      await alertDialog(callFailureText(err, 'Could not delete this business. Try again.'));
+      await alertDialog(callFailureText(err, t('bz.err.delete')));
       button.disabled = false;
     }
   }
@@ -221,7 +226,7 @@ export function openBusinesses({ host } = {}) {
     list.textContent = '';
     if (!rows.length) {
       list.appendChild(el('p', { class: 'people-empty', text:
-        'No businesses yet. “New business” above creates one.' }));
+        t('bz.empty') }));
       return;
     }
     // Stranded first: they are the ones with something to do about them.
@@ -231,7 +236,7 @@ export function openBusinesses({ host } = {}) {
 
   async function load() {
     list.textContent = '';
-    list.appendChild(el('p', { class: 'people-empty', text: 'Loading…' }));
+    list.appendChild(el('p', { class: 'people-empty', text: t('common.loading') }));
     try {
       rows = await listWorkspaces();
       paint();
@@ -241,7 +246,7 @@ export function openBusinesses({ host } = {}) {
       // customers" while the other means "ask again in a minute".
       list.textContent = '';
       list.appendChild(el('p', { class: 'people-empty', text:
-        callFailureText(err, 'Could not load the businesses. Check your connection.') }));
+        callFailureText(err, t('bz.err.load')) }));
     }
   }
 
