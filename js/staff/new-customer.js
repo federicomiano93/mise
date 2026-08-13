@@ -15,6 +15,7 @@
 // hires into one. The function checks admins/{uid} itself and refuses anybody
 // else, so what is drawn here is courtesy, never the protection (P2).
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { createWorkspace, callFailureText } from './firebase-staff.js';
@@ -31,11 +32,13 @@ const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" w
 // mistake is invisible — an unbought section looks exactly like a bought one once
 // the customer is inside it.
 const SECTIONS = [
-  ['calculator', 'Calculator', 'Dough scaling for the day’s orders'],
-  ['orders', 'Orders', 'Suppliers, ingredients and the WhatsApp order'],
-  ['catalogue', 'Recipe catalogue', 'Recipes, scaling and guided mixing'],
-  ['pastries', 'Pastries', 'The seven weekday proving lists'],
-  ['foodcost', 'Food cost', 'Prices, margins and labels'],
+  // ⚠️ THE FIRST COLUMN IS THE SECTION ID AND IS NEVER TRANSLATED — it is what
+  // the venue document stores. The other two are keys, looked up when drawn.
+  ['calculator', 'section.calculator', 'section.calculator.sub'],
+  ['orders', 'section.orders', 'section.orders.sub'],
+  ['catalogue', 'section.catalogue', 'section.catalogue.sub'],
+  ['pastries', 'section.pastries', 'section.pastries.sub'],
+  ['foodcost', 'section.foodcost', 'section.foodcost.sub'],
 ];
 
 const MAX_NAME = 80;   // the server refuses longer, so refuse it here first
@@ -118,7 +121,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
       // about, so a venue of your own was created under a heading calling it
       // somebody else's — the same mistake as the screen itself, in one word.
       el('div', { class: 'orders-header-title' }, [
-        el('h1', { text: forSelf ? 'Add a business' : 'New customer' }),
+        el('h1', { text: t(forSelf ? 'nc.title.self' : 'nc.title.customer') }),
       ]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
@@ -139,11 +142,10 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
   async function leave() {
     if (made && !made.mine && !handedOver) {
       const ok = await confirmDialog({
-        title: 'Leave without sending the link?',
-        message: `${made.name} has been created, but their link is shown only here `
-          + 'and cannot be shown again. Without it nobody can open their app.',
-        okLabel: 'Leave anyway',
-        cancelLabel: 'Stay',
+        title: t('nc.leave.title'),
+        message: t('nc.leave.message', { name: made.name }),
+        okLabel: t('nc.leave.ok'),
+        cancelLabel: t('nc.leave.stay'),
         danger: true,
       });
       if (!ok) return;
@@ -156,9 +158,9 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
 
   const name = el('input', {
     class: 'people-input', type: 'text', maxLength: String(MAX_NAME),
-    placeholder: 'Panificio Rossi', autocapitalize: 'words',
+    placeholder: t('nc.namePlaceholder'), autocapitalize: 'words',
   });
-  const nameLabel = el('label', { class: 'people-label', text: 'The business name' });
+  const nameLabel = el('label', { class: 'people-label', text: t('nc.nameLabel') });
   nameLabel.appendChild(name);
 
   const boxes = new Map();
@@ -210,29 +212,26 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
       }));
 
   const status = el('p', { class: 'people-note', role: 'alert' });
-  const create = el('button', { type: 'button', class: 'btn-primary people-save', text: 'Create' });
+  const create = el('button', { type: 'button', class: 'btn-primary people-save', text: t('nc.create') });
 
   // ⚠️ THE SENTENCE STILL HAS TO BE THERE, even with nothing to choose. It is what
   // makes the outcome predictable BEFORE the Create button — that this one opens
   // straight away, or that this one produces a link somebody else opens. Removing
   // the question is not a reason to remove the explanation: it is a reason for the
   // explanation to be certain instead of conditional.
-  const hint = el('p', { class: 'people-hint', text: forSelf
-    ? 'Creates the business in YOUR account, as owner. It opens straight away — '
-      + 'no link, nothing to send.'
-    : 'Creates the business and a link that makes whoever opens it its owner. '
-      + 'They choose their own email and password. You do not go in.' });
+  const hint = el('p', { class: 'people-hint',
+    text: t(forSelf ? 'nc.explain.self' : 'nc.explain.customer') });
 
   const sectionsLabel = el('p', { class: 'people-label', text: forSelf
-    ? 'Which sections it uses'
-    : 'What they are buying' });
+    ? t('nc.sections.self')
+    : t('nc.sections.customer') });
 
   form.append(
     hint,
     nameLabel,
     // Before the sections on purpose: it is a fact about the business, where the
     // sections are a fact about the sale.
-    el('p', { class: 'people-label', text: 'Which country does it sell in?' }),
+    el('p', { class: 'people-label', text: t('nc.country') }),
     el('p', { class: 'people-note', text:
       'This decides the language its allergen labels are printed in, and it cannot '
       + 'be worked out later. The law asks for a label in the language of the country '
@@ -249,13 +248,13 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
   // anywhere that can switch one back on — that needs the Firebase console.
   function problem() {
     const typed = name.value.trim();
-    if (!typed) return ['Give the business a name.', name];
-    if (typed.length > MAX_NAME) return [`That name is longer than ${MAX_NAME} characters.`, name];
+    if (!typed) return [t('nc.err.noName'), name];
+    if (typed.length > MAX_NAME) return [t('nc.err.longName', { n: MAX_NAME }), name];
     // ⚠️ REFUSED, NOT DEFAULTED. The server refuses it too; this one only exists
     // so the refusal arrives before the network and says something useful.
-    if (!country) return ['Choose the country this business sells in — it decides the language of its labels.', null];
+    if (!country) return [t('nc.err.noCountry'), null];
     const any = [...boxes.values()].some(box => box.checked);
-    if (!any) return ['Choose at least one section — otherwise their app opens empty.', null];
+    if (!any) return [t('nc.err.noSection'), null];
     return null;
   }
 

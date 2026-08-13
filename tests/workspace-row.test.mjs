@@ -9,9 +9,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  isStranded, statusOf, statusWords, STATUS_WORDS,
+  isStranded, statusOf, statusWords, STATUS_KEYS,
   sectionNames, sectionSummary, createdWords,
 } from '../js/workspace-row.js';
+import { _dictionaries, setLanguage, currentLanguage } from '../js/i18n.js';
 
 // ── The one distinction that matters ─────────────────────────────────────────
 
@@ -47,10 +48,26 @@ test('no row at all is stranded rather than a crash', () => {
 });
 
 test('the words say which of the two it is, in a sentence', () => {
-  assert.equal(statusWords({ claimed: true }), STATUS_WORDS.open);
-  assert.equal(statusWords({ claimed: false }), STATUS_WORDS.stranded);
-  assert.match(STATUS_WORDS.stranded, /Nobody/);
-  assert.notEqual(STATUS_WORDS.open, STATUS_WORDS.stranded);
+  // ⚠️ THE WORDS MOVED TO THE DICTIONARY AND THE TEST FOLLOWED THEM, asking
+  // EVERY language rather than only English — because the thing this protects is
+  // that a row whose state did not arrive reads as STRANDED, and a translation
+  // that made the two sentences alike would take that away silently.
+  const dicts = _dictionaries();
+  const before = currentLanguage();
+  try {
+    for (const lang of Object.keys(dicts)) {
+      setLanguage(lang);
+      const open = statusWords({ claimed: true });
+      const stranded = statusWords({ claimed: false });
+      assert.equal(open, dicts[lang][STATUS_KEYS.open]);
+      assert.equal(stranded, dicts[lang][STATUS_KEYS.stranded]);
+      assert.notEqual(open, stranded,
+        `in ${lang} the two states must not read the same`);
+      assert.ok(stranded.trim().length > 3, `in ${lang} the stranded state must say something`);
+    }
+    setLanguage('en');
+    assert.match(statusWords({ claimed: false }), /Nobody/);
+  } finally { setLanguage(before); }
 });
 
 // ── What they bought ─────────────────────────────────────────────────────────

@@ -201,6 +201,102 @@ const DICTIONARIES = Object.freeze({
     'invite.message': 'Add this business to {who}?',
     'invite.ok': 'Add it',
     'invite.cancel': 'Not now',
+
+    // ── Who can get in ──────────────────────────────────────────────────────
+    'people.title': 'Who can get in',
+    'people.rename': 'Rename',
+    'people.remove': 'Remove',
+    'people.cancel': 'Cancel',
+    'people.done': 'Done',
+    'people.empty': 'Nobody else yet.',
+    'people.firstName': 'First name',
+    'people.surname': 'Surname',
+    'people.noEmail': 'no email',
+    'people.readOut': 'Read this out to them:',
+    'people.invite.intro': 'Add someone who works here. They install the app, create their own account with their name, and type the code you give them.',
+    'people.remove.title': 'Remove this person?',
+    'people.remove.message': '{name} ({email}) will lose access to this location immediately. Everything they have entered stays.',
+    'people.err.read': 'Could not read who works here. Check your connection.',
+    'people.err.name': 'Could not save that name. Check your connection.',
+    'people.err.change': 'Could not change that. Check your connection and try again.',
+    'people.err.remove': 'Could not remove them. Check your connection and try again.',
+    'people.err.code': 'Could not make a code. Check your connection and try again.',
+
+    // ── The venue's Home strip ──────────────────────────────────────────────
+    'home.switch': 'Switch location',
+    'home.switch.title': 'Switch location?',
+    'home.switch.ok': 'Switch',
+    'home.switch.cleared': 'Anything typed but not saved on this device is cleared.',
+    'home.switch.toOne': 'Open {other} instead of {here}?',
+    'home.switch.toMany': 'Choose a different location?',
+
+    // ── The sections a venue has ────────────────────────────────────────────
+    // ⚠️ THE WORD ONLY. `calculator`, `orders`, `catalogue`, `pastries` and
+    // `foodcost` are stored on the venue document and decide what somebody
+    // bought; they are in DATA_WORDS and can never be a key here.
+    'section.calculator': 'Calculator',
+    'section.orders': 'Orders',
+    'section.catalogue': 'Recipe catalogue',
+    'section.pastries': 'Pastries',
+    'section.foodcost': 'Food cost',
+    'section.calculator.sub': 'Dough scaling for the day’s orders',
+    'section.orders.sub': 'Suppliers, ingredients and the WhatsApp order',
+    'section.catalogue.sub': 'Recipes, scaling and guided mixing',
+    'section.pastries.sub': 'The seven weekday proving lists',
+    'section.foodcost.sub': 'Prices, margins and labels',
+
+    // ── The app's own customers ─────────────────────────────────────────────
+    'bz.title': 'Customer businesses',
+    'bz.new': 'New business',
+    'bz.hint': 'Your own venues are not here — they are behind “My businesses”.',
+    'bz.empty': 'No businesses yet. “New business” above creates one.',
+    'bz.noSections': 'No sections',
+    'bz.status.open': 'Somebody has opened this',
+    'bz.status.stranded': 'Nobody has opened this yet',
+    'bz.created': 'Created {day} {month} {year}',
+    'bz.createdRecently': 'Created recently',
+    // ⚠️ THE IN-SENTENCE FORMS ARE THEIR OWN ENTRIES, not a lower-cased copy. The
+    // screen used to write .replace(/^Created/, 'created'), which is English
+    // grammar in the code: it does nothing in a language whose word starts
+    // differently, and leaves Italian capitalised mid-line.
+    'bz.created.inSentence': 'created {day} {month} {year}',
+    'bz.createdRecently.inSentence': 'created recently',
+    'bz.rowState': '{status} · {created}',
+    'bz.newLink': 'Make a new link',
+    'bz.newLink.title': 'Make a new link?',
+    'bz.newLink.message': 'A new link for {name}. Any link sent before stops working, so whoever holds one cannot use it.',
+    'bz.making': 'Making…',
+    'bz.delete': 'Delete',
+    'bz.delete.title': 'Delete this business?',
+    'bz.delete.message': '{name} will be removed, along with the link that opens it. Nobody has opened it, so nothing else is lost — but this cannot be undone.',
+    'bz.link.copied': 'The new link for {name} is copied. Paste it into a message to them.',
+    'bz.link.once': 'It works once and has {expires}.',
+    'bz.link.manual': 'Copy this link and send it to {name}:',
+    'bz.err.newLink': 'Could not make a new link. Try again.',
+    'bz.err.delete': 'Could not delete this business. Try again.',
+    'bz.err.load': 'Could not load the businesses. Check your connection.',
+
+    // ── Creating a business ─────────────────────────────────────────────────
+    'nc.title.self': 'Add a business',
+    'nc.title.customer': 'New customer',
+    'nc.nameLabel': 'The business name',
+    'nc.namePlaceholder': 'Panificio Rossi',
+    'nc.create': 'Create',
+    'nc.country': 'Which country does it sell in?',
+    'nc.sections.self': 'Which sections it uses',
+    'nc.sections.customer': 'What they are buying',
+    'nc.explain.self': 'Creates the business in YOUR account, as owner. It opens straight away — no link, nothing to send.',
+    'nc.explain.customer': 'Creates the business and a link that makes whoever opens it its owner. They choose their own email and password. You do not go in.',
+    'nc.leave.title': 'Leave without sending the link?',
+    'nc.leave.message': '{name} has been created, but their link is shown only here and cannot be shown again. Without it nobody can open their app.',
+    'nc.leave.ok': 'Leave anyway',
+    'nc.leave.stay': 'Stay',
+    'nc.err.noName': 'Give the business a name.',
+    'nc.err.longName': 'That name is longer than {n} characters.',
+    'nc.err.noCountry': 'Choose the country this business sells in — it decides the language of its labels.',
+    'nc.err.noSection': 'Choose at least one section — otherwise their app opens empty.',
+
+    'common.loading': 'Loading…',
   }),
   it: Object.freeze({
     'role.owner': 'Titolare',
@@ -299,6 +395,90 @@ const DICTIONARIES = Object.freeze({
     'invite.message': 'Vuoi aggiungere questa attività a {who}?',
     'invite.ok': 'Aggiungila',
     'invite.cancel': 'Non ora',
+
+    'people.title': 'Chi può entrare',
+    'people.rename': 'Rinomina',
+    'people.remove': 'Rimuovi',
+    'people.cancel': 'Annulla',
+    'people.done': 'Fatto',
+    'people.empty': 'Ancora nessun altro.',
+    'people.firstName': 'Nome',
+    'people.surname': 'Cognome',
+    'people.noEmail': 'nessuna email',
+    'people.readOut': 'Leggilo a voce a loro:',
+    'people.invite.intro': 'Aggiungi qualcuno che lavora qui. Installano l’app, creano il loro account con il loro nome, e digitano il codice che gli dai.',
+    'people.remove.title': 'Vuoi rimuovere questa persona?',
+    'people.remove.message': '{name} ({email}) perderà subito l’accesso a questo locale. Tutto quello che ha inserito resta.',
+    'people.err.read': 'Non è stato possibile leggere chi lavora qui. Controlla la connessione.',
+    'people.err.name': 'Non è stato possibile salvare quel nome. Controlla la connessione.',
+    'people.err.change': 'Non è stato possibile cambiarlo. Controlla la connessione e riprova.',
+    'people.err.remove': 'Non è stato possibile rimuoverli. Controlla la connessione e riprova.',
+    'people.err.code': 'Non è stato possibile creare un codice. Controlla la connessione e riprova.',
+
+    'home.switch': 'Cambia locale',
+    'home.switch.title': 'Vuoi cambiare locale?',
+    'home.switch.ok': 'Cambia',
+    'home.switch.cleared': 'Tutto quello che è stato digitato e non salvato su questo dispositivo viene cancellato.',
+    'home.switch.toOne': 'Vuoi aprire {other} invece di {here}?',
+    'home.switch.toMany': 'Vuoi scegliere un altro locale?',
+
+    'section.calculator': 'Calcolatore',
+    'section.orders': 'Ordini',
+    'section.catalogue': 'Ricettario',
+    'section.pastries': 'Paste',
+    'section.foodcost': 'Food cost',
+    'section.calculator.sub': 'Calcolo degli impasti per gli ordini del giorno',
+    'section.orders.sub': 'Fornitori, ingredienti e l’ordine su WhatsApp',
+    'section.catalogue.sub': 'Ricette, scalatura e impasto guidato',
+    'section.pastries.sub': 'Le sette liste di lievitazione della settimana',
+    'section.foodcost.sub': 'Prezzi, margini ed etichette',
+
+    'bz.title': 'Attività dei clienti',
+    'bz.new': 'Nuova attività',
+    'bz.hint': 'I tuoi locali non sono qui — stanno dietro a “Le mie attività”.',
+    'bz.empty': 'Ancora nessuna attività. “Nuova attività” qui sopra ne crea una.',
+    'bz.noSections': 'Nessuna sezione',
+    'bz.status.open': 'Qualcuno l’ha aperta',
+    'bz.status.stranded': 'Nessuno l’ha ancora aperta',
+    'bz.created': 'Creata il {day} {month} {year}',
+    'bz.createdRecently': 'Creata da poco',
+    'bz.created.inSentence': 'creata il {day} {month} {year}',
+    'bz.createdRecently.inSentence': 'creata da poco',
+    'bz.rowState': '{status} · {created}',
+    'bz.newLink': 'Crea un nuovo link',
+    'bz.newLink.title': 'Vuoi creare un nuovo link?',
+    'bz.newLink.message': 'Un nuovo link per {name}. Ogni link mandato prima smette di funzionare, quindi chi ne ha uno non potrà usarlo.',
+    'bz.making': 'Creazione…',
+    'bz.delete': 'Elimina',
+    'bz.delete.title': 'Vuoi eliminare questa attività?',
+    'bz.delete.message': '{name} verrà rimossa, insieme al link che la apre. Nessuno l’ha aperta, quindi non si perde altro — ma questa cosa non si può annullare.',
+    'bz.link.copied': 'Il nuovo link per {name} è stato copiato. Incollalo in un messaggio per loro.',
+    'bz.link.once': 'Funziona una volta sola e {expires}.',
+    'bz.link.manual': 'Copia questo link e mandalo a {name}:',
+    'bz.err.newLink': 'Non è stato possibile creare un nuovo link. Riprova.',
+    'bz.err.delete': 'Non è stato possibile eliminare questa attività. Riprova.',
+    'bz.err.load': 'Non è stato possibile caricare le attività. Controlla la connessione.',
+
+    'nc.title.self': 'Aggiungi un’attività',
+    'nc.title.customer': 'Nuovo cliente',
+    'nc.nameLabel': 'Il nome dell’attività',
+    'nc.namePlaceholder': 'Panificio Rossi',
+    'nc.create': 'Crea',
+    'nc.country': 'In quale paese vende?',
+    'nc.sections.self': 'Quali sezioni usa',
+    'nc.sections.customer': 'Che cosa stanno comprando',
+    'nc.explain.self': 'Crea l’attività NEL TUO account, come titolare. Si apre subito — nessun link, niente da mandare.',
+    'nc.explain.customer': 'Crea l’attività e un link che rende titolare chi lo apre. Scelgono da soli email e password. Tu non entri.',
+    'nc.leave.title': 'Vuoi uscire senza mandare il link?',
+    'nc.leave.message': '{name} è stata creata, ma il suo link si vede solo qui e non può essere mostrato di nuovo. Senza, nessuno può aprire la loro app.',
+    'nc.leave.ok': 'Esci comunque',
+    'nc.leave.stay': 'Resta',
+    'nc.err.noName': 'Dai un nome all’attività.',
+    'nc.err.longName': 'Quel nome supera i {n} caratteri.',
+    'nc.err.noCountry': 'Scegli il paese in cui vende questa attività — decide la lingua delle sue etichette.',
+    'nc.err.noSection': 'Scegli almeno una sezione — altrimenti la loro app si apre vuota.',
+
+    'common.loading': 'Caricamento…',
   }),
 });
 
@@ -350,6 +530,19 @@ export function interfaceLanguage(location) {
 export function languageFromTag(tag) {
   const base = String(tag || '').toLowerCase().split('-')[0];
   return LANGUAGES.includes(base) ? base : DEFAULT_LANGUAGE;
+}
+
+// The tag to hand Intl for dates and numbers.
+//
+// ⚠️ IT FOLLOWS THE INTERFACE, AND SO DID THE HARDCODED 'en-GB' IT REPLACES —
+// nobody chose that, it was simply the only language there was. A date is read by
+// the same person reading the screen around it, so it belongs to the interface.
+// 14 March and 14 marzo are the same day; nothing is decided by which is shown.
+//
+// ⚠️ A DATE ON A LABEL WOULD NOT COME THROUGH HERE, and there is none today. If
+// one is ever added it follows the country, like every other word on a label.
+export function localeTag(lang = current) {
+  return lang === 'it' ? 'it-IT' : 'en-GB';
 }
 
 // ── Looking a phrase up ──────────────────────────────────────────────────────

@@ -23,6 +23,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { _dictionaries } from '../js/i18n.js';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SERVER = readFileSync(join(ROOT, 'functions', 'onboarding.js'), 'utf8');
 const INDEX = readFileSync(join(ROOT, 'functions', 'index.js'), 'utf8');
@@ -147,7 +149,15 @@ test('deleting asks first, names the business, and is dressed as destructive', (
   const fn = SCREEN.slice(at, SCREEN.indexOf('\n  }', at));
   assert.match(fn, /confirmDialog\(/, 'it must confirm');
   assert.match(fn, /danger: true/, 'and be coloured as a destructive action');
-  assert.match(fn, /\$\{row\.name\}/, 'and name the business it is about to remove');
+  // ⚠️ THE NAME IS A HOLE IN THE SENTENCE NOW, not a template in the code — and
+  // every language must keep the hole, or the dialog stops saying WHICH business
+  // is about to be deleted while still looking exactly as convincing.
+  assert.match(fn, /t\('bz\.delete\.message', \{ name: row\.name \}\)/,
+    'and name the business it is about to remove');
+  for (const [lang, dict] of Object.entries(_dictionaries())) {
+    assert.match(dict['bz.delete.message'], /\{name\}/,
+      `in ${lang} the confirmation must name the business`);
+  }
   assert.doesNotMatch(SCREEN, /\bwindow\.confirm\(|[^.]\bconfirm\(/,
     'never the browser\'s own confirm()');
 });
