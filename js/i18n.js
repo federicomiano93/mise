@@ -93,7 +93,12 @@ const DICTIONARIES = Object.freeze({
     // may perform on somebody else's — so the form that goes inside a phrase is
     // its own entry, and the translator decides what it looks like.
     'people.make': 'Make {role}',
-    'people.add': 'Add {role}',
+    // ⚠️ NO ROLE IN THESE TWO. 'Add {role}' worked while there was one button;
+    // with two, English needs an article Italian does not take, and the role is
+    // already stated by the note above them and by the result screen below.
+    'people.sendHow': 'How do you want to send it?',
+    'people.add.link': 'Send a link',
+    'people.add.digits': 'Read out a code',
     'role.owner.inSentence': 'owner',
     'role.manager.inSentence': 'manager',
     'role.headChef.inSentence': 'head chef',
@@ -114,11 +119,24 @@ const DICTIONARIES = Object.freeze({
     'people.confirm.headChef': 'Make {name} the head chef?',
     'people.confirm.staff': 'Make {name} an employee?',
 
-    // ⚠️ The quoted button name has to match what auth-gate.js actually shows.
-    // It is repeated here rather than composed because that screen's words are
-    // not extracted yet; when they are, this becomes a hole. Until then, changing
-    // one means changing the other — the drift is real, and small.
-    'people.joinsAs': 'Joins as {role} · {expires} · they open the app, tap “I have a code”, create their account and type it.',
+    // ⚠️ THE PROMISE IN THE OLD COMMENT HERE, KEPT — AND THE DRIFT IT PREDICTED
+    // HAD ALREADY HAPPENED. It said the button name was repeated rather than
+    // composed only because auth-gate.js was not extracted yet, and that "when
+    // they are, this becomes a hole". It is one now: the button has always read
+    // "I have a JOIN code", so the quoted instruction was wrong in English, and
+    // the Italian sentence quoted the English words at somebody whose screen says
+    // «Ho un codice di accesso». Composed, it cannot drift again in either.
+    'people.joinsAs': 'Joins as {role} · {expires} · they open the app, tap “{button}”, create their account and type it.',
+
+    // ── The same invitation, sent as a link ─────────────────────────────────
+    'people.link.intro': 'Send this link to them. It works once, and when they open it they choose their own email and password.',
+    'people.link.joinsAs': 'Joins as {role} · {expires}',
+    // ⚠️ IT NAMES THE VENUE. A message that says only "open this link" is what
+    // every scam sent over WhatsApp looks like; the person has to be able to tell
+    // before tapping that this is where they work.
+    'people.link.message': 'Hi! Here is your way in to {venue}. Open this link, choose your own password, and you are in: {link}',
+    'people.link.copied': 'The link is copied. Paste it into a message to them.',
+    'people.link.manual': 'Copy this link and send it to them:\n\n{link}',
 
     // ── Signing in ──────────────────────────────────────────────────────────
     // ⚠️ «Misé» IS NOT HERE. It is the product's name, not a phrase — the same
@@ -181,6 +199,16 @@ const DICTIONARIES = Object.freeze({
     'join.badCode': 'That code does not work. Ask for a new one.',
     'join.shapeHint': 'Enter your six-digit code, or open the link you were sent.',
 
+    // How long an invitation has left. ⚠️ SELF-CONTAINED PHRASES, because the
+    // three sentences that use them join them differently and English cannot
+    // borrow Italian's verb: «scade fra 24 ore» is a clause, "24 hours left" is
+    // a noun phrase, and neither survives being forced into the other's slot.
+    // ⚠️ REAL PLURALS via Intl.PluralRules — never `n === 1 ? …`.
+    'join.expires.expired': 'expired',
+    'join.expires.minutes': { one: '{n} minute left', other: '{n} minutes left' },
+    'join.expires.hours': { one: '{n} hour left', other: '{n} hours left' },
+    'join.expires.days': { one: '{n} day left', other: '{n} days left' },
+
     // ── Above every venue ───────────────────────────────────────────────────
     'hub.where': 'Where would you like to go?',
     'hub.mine': 'My businesses',
@@ -213,7 +241,13 @@ const DICTIONARIES = Object.freeze({
     'people.surname': 'Surname',
     'people.noEmail': 'no email',
     'people.readOut': 'Read this out to them:',
-    'people.invite.intro': 'Add someone who works here. They install the app, create their own account with their name, and type the code you give them.',
+    // ⚠️ «you never choose it for them» EARNS ITS PLACE. It is the first thing
+    // Federico assumed on reading this screen — that the owner hands out an email
+    // and a password. An owner who knows somebody's password makes the roster
+    // meaningless (nothing that account does can be pinned to that person) and
+    // becomes the password desk for ever. The screen says so rather than relying
+    // on the join form to make it obvious later.
+    'people.invite.intro': 'Add someone who works here. They install the app and create their own account, with their own email and password — you never choose it for them.',
     'people.remove.title': 'Remove this person?',
     'people.remove.message': '{name} ({email}) will lose access to this location immediately. Everything they have entered stays.',
     'people.err.read': 'Could not read who works here. Check your connection.',
@@ -282,6 +316,14 @@ const DICTIONARIES = Object.freeze({
     'nc.nameLabel': 'The business name',
     'nc.namePlaceholder': 'Panificio Rossi',
     'nc.create': 'Create',
+    // ⚠️ THESE TWO WERE WRITTEN OUT AS FINISHED WORDS in the country list, one of
+    // them in Italian — so an English app offered a country whose sub-line read
+    // «Le etichette sono prodotte in italiano.» The list beside it held KEYS, and
+    // two lists drawn by the same code holding two different things is how a
+    // lookup gets added to one and forgotten on the other.
+    'nc.country.labels.GB': 'Labels are printed in English.',
+    'nc.country.labels.IT': 'Labels are printed in Italian.',
+    'nc.link.message': 'Here is your link to set up {name}: {link}',
     'nc.country': 'Which country does it sell in?',
     'nc.sections.self': 'Which sections it uses',
     'nc.sections.customer': 'What they are buying',
@@ -1127,7 +1169,9 @@ const DICTIONARIES = Object.freeze({
     // a phrase is one entry with a hole and not two halves joined at the call
     // site. «Rendi responsabile», not «Fai responsabile».
     'people.make': 'Rendi {role}',
-    'people.add': 'Aggiungi {role}',
+    'people.sendHow': 'Come vuoi mandarlo?',
+    'people.add.link': 'Manda un link',
+    'people.add.digits': 'Detta un codice',
     'role.owner.inSentence': 'titolare',
     'role.manager.inSentence': 'responsabile',
     'role.headChef.inSentence': 'chef di cucina',
@@ -1145,7 +1189,13 @@ const DICTIONARIES = Object.freeze({
     'people.confirm.headChef': 'Rendere {name} chef di cucina?',
     'people.confirm.staff': 'Rendere {name} dipendente?',
 
-    'people.joinsAs': 'Entra come {role} · {expires} · apre l’app, tocca “I have a code”, crea il suo account e digita il codice.',
+    'people.joinsAs': 'Entra come {role} · {expires} · apre l’app, tocca “{button}”, crea il suo account e digita il codice.',
+
+    'people.link.intro': 'Manda questo link alla persona. Funziona una volta sola, e quando lo apre sceglie da sé la sua email e la sua password.',
+    'people.link.joinsAs': 'Entra come {role} · {expires}',
+    'people.link.message': 'Ciao! Ecco il tuo accesso a {venue}. Apri questo link, scegli la tua password ed entri: {link}',
+    'people.link.copied': 'Link copiato. Incollalo in un messaggio per la persona.',
+    'people.link.manual': 'Copia questo link e mandalo alla persona:\n\n{link}',
 
     'auth.signIn.sub': 'Accedi per aprire il tuo locale.',
     'auth.email': 'Email',
@@ -1198,6 +1248,11 @@ const DICTIONARIES = Object.freeze({
     'join.badCode': 'Questo codice non funziona. Chiedine uno nuovo.',
     'join.shapeHint': 'Inserisci il codice di sei cifre, oppure apri il link che ti hanno mandato.',
 
+    'join.expires.expired': 'scaduto',
+    'join.expires.minutes': { one: 'scade fra {n} minuto', other: 'scade fra {n} minuti' },
+    'join.expires.hours': { one: 'scade fra {n} ora', other: 'scade fra {n} ore' },
+    'join.expires.days': { one: 'scade fra {n} giorno', other: 'scade fra {n} giorni' },
+
     'hub.where': 'Dove vuoi andare?',
     'hub.mine': 'Le mie attività',
     'hub.mine.sub': { one: 'Il locale che gestisci', other: 'I locali che gestisci' },
@@ -1225,7 +1280,7 @@ const DICTIONARIES = Object.freeze({
     'people.surname': 'Cognome',
     'people.noEmail': 'nessuna email',
     'people.readOut': 'Leggilo a voce a loro:',
-    'people.invite.intro': 'Aggiungi qualcuno che lavora qui. Installano l’app, creano il loro account con il loro nome, e digitano il codice che gli dai.',
+    'people.invite.intro': 'Aggiungi qualcuno che lavora qui. Installa l’app e crea il suo account, con la sua email e la sua password: non le scegli tu.',
     'people.remove.title': 'Vuoi rimuovere questa persona?',
     'people.remove.message': '{name} ({email}) perderà subito l’accesso a questo locale. Tutto quello che ha inserito resta.',
     'people.err.read': 'Non è stato possibile leggere chi lavora qui. Controlla la connessione.',
@@ -1283,6 +1338,9 @@ const DICTIONARIES = Object.freeze({
     'nc.nameLabel': 'Il nome dell’attività',
     'nc.namePlaceholder': 'Panificio Rossi',
     'nc.create': 'Crea',
+    'nc.country.labels.GB': 'Le etichette sono prodotte in inglese.',
+    'nc.country.labels.IT': 'Le etichette sono prodotte in italiano.',
+    'nc.link.message': 'Ecco il link per configurare {name}: {link}',
     'nc.country': 'In quale paese vende?',
     'nc.sections.self': 'Quali sezioni usa',
     'nc.sections.customer': 'Che cosa stanno comprando',

@@ -11,7 +11,7 @@ import * as i18n from '../js/i18n.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  JOIN_PAGE, joinLinkFor, readJoinToken, kindOfTyped, codeShapeHint,
+  JOIN_PAGE, joinLinkFor, readJoinToken, kindOfTyped, codeShapeHint, expiresInWords,
 } from '../js/join-link.js';
 import { LINK_LENGTH, DIGITS_LENGTH } from '../js/join-code.js';
 
@@ -134,6 +134,68 @@ test('the hint names both ways in, in every language', () => {
       const hint = codeShapeHint();
       assert.ok(/six-digit|sei cifre/.test(hint), `${lang} must name the six digits: ${hint}`);
       assert.ok(/link/i.test(hint), `${lang} must name the link: ${hint}`);
+    }
+  } finally { setLanguage(before); }
+});
+
+// ── How long it has left, in words ──────────────────────────────────────────
+//
+// ⚠️⚠️ THE WORDS LIVE HERE AND NOT BESIDE THE ARITHMETIC, and this is the defect
+// being closed rather than a refactor. expiresInWords() used to sit in
+// js/join-code.js, which is copied byte for byte into functions/ and therefore
+// may not ask the dictionary — so it returned English, and three screens dropped
+// that English into the middle of a translated sentence. In Italian, "Who can get
+// in" read «Entra come dipendente · 24 hours left · …»: the same shape as «sono
+// prodotte in English» a release earlier.
+test('the time left is said in the language on screen', () => {
+  const { setLanguage, currentLanguage } = i18n;
+  const before = currentLanguage();
+  const NOW = Date.UTC(2026, 7, 13, 12, 0, 0);
+  try {
+    setLanguage('en');
+    assert.equal(expiresInWords({ expiresAt: NOW + 24 * 3600_000 }, NOW), '24 hours left');
+    setLanguage('it');
+    const it = expiresInWords({ expiresAt: NOW + 24 * 3600_000 }, NOW);
+    assert.equal(it, 'scade fra 24 ore');
+    // The whole point, stated as the thing that must not come back: no English
+    // may survive into the Italian phrase.
+    assert.ok(!/hour|left|day|minute/i.test(it), `Italian must not carry English: ${it}`);
+  } finally { setLanguage(before); }
+});
+
+// ⚠️ REAL PLURALS, NEVER `n === 1 ? …`. Italian and English do not agree about
+// which numbers are singular, and a ternary written by an English speaker is a
+// rule about English smuggled into every other language.
+test('one is singular and two is plural, in both languages', () => {
+  const { setLanguage, currentLanguage, LANGUAGES } = i18n;
+  const before = currentLanguage();
+  const NOW = Date.UTC(2026, 7, 13, 12, 0, 0);
+  try {
+    for (const lang of LANGUAGES) {
+      setLanguage(lang);
+      const one = expiresInWords({ expiresAt: NOW + 3600_000 }, NOW);
+      const many = expiresInWords({ expiresAt: NOW + 3 * 3600_000 }, NOW);
+      assert.notEqual(one, many, `${lang} must not say the same for 1 and 3`);
+      assert.match(one, /\b1\b/, `${lang}: ${one}`);
+      assert.match(many, /\b3\b/, `${lang}: ${many}`);
+    }
+  } finally { setLanguage(before); }
+});
+
+// ⚠️ AND AN EXPIRED ONE SAYS SO IN EVERY LANGUAGE, rather than falling through to
+// the key. A key on screen is the failure mode this whole dictionary has: it
+// looks like a bug report nobody can read.
+test('an expired invitation says so, and never shows its key', () => {
+  const { setLanguage, currentLanguage, LANGUAGES } = i18n;
+  const before = currentLanguage();
+  try {
+    for (const lang of LANGUAGES) {
+      setLanguage(lang);
+      for (const doc of [{ expiresAt: 1 }, {}, null]) {
+        const words = expiresInWords(doc, Date.now());
+        assert.ok(words && !words.startsWith('join.expires'),
+          `${lang} fell through to the key: ${words}`);
+      }
     }
   } finally { setLanguage(before); }
 });

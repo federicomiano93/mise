@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v290';
+const CACHE_NAME = 'theitalianclub-v291';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -77,8 +77,15 @@ const ASSETS = [
   './js/staff/dom.js',
   './js/staff/confirm-dialog.js',
   './js/staff/firebase-staff.js',
+  // ⚠️ share.js IS LISTED EVEN THOUGH TWO OF ITS THREE CALLERS ARE NOT. The two
+  // that are absent are the app owner's back office; people.js is not, and it now
+  // needs this to hand over an invitation link. A dependency of a precached file
+  // has to be precached, or an installed owner who goes offline finds the import
+  // missing — the one failure this list exists to prevent, and the one that does
+  // not repair itself on the next load.
+  './js/staff/share.js',
   // people.js IS listed: "Who can get in" belongs to the OWNER OF EVERY CUSTOMER'S
-  // venue, not to whoever runs this app. The three files above are its dependencies.
+  // venue, not to whoever runs this app. The files above are its dependencies.
   './js/staff/people.js',
   './js/staff/language.js',
   // ⚠️ js/staff/businesses.js, js/staff/new-customer.js AND js/workspace-row.js ARE

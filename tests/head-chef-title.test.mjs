@@ -101,10 +101,10 @@ test('a code minted for a head chef makes a head chef', () => {
 test('the screen really sends the title, through the data layer', () => {
   assert.match(CLIENT, /setMemberRole\(uid, role, title = null\)/,
     'the data layer must accept it');
-  assert.match(CLIENT, /createJoinCode\(role = 'staff', title = null\)/);
+  assert.match(CLIENT, /createJoinCode\(role = 'staff', title = null, kind = 'digits'\)/);
   assert.match(SCREEN, /setMemberRole\(person\.uid, choice\.role, choice\.title\)/,
     'the roster pills must pass it');
-  assert.match(SCREEN, /createJoinCode\(newChoice\.role, newChoice\.title\)/,
+  assert.match(SCREEN, /createJoinCode\(newChoice\.role, newChoice\.title, kind\)/,
     'and so must the invite panel');
 });
 

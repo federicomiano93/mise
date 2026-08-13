@@ -39,11 +39,28 @@ export const LINK_LENGTH = 32;
 
 const HOUR = 60 * 60 * 1000;
 
-// A staff code is meant to be used within minutes, in person. A day is already
-// generous; a week would leave a live key in a WhatsApp thread nobody rereads.
-// The owner link gets longer because it travels to somebody who may not be at
-// their desk, and it is the only thing standing between them and their new app.
-export const TTL_MS = Object.freeze({ digits: 24 * HOUR, link: 7 * 24 * HOUR });
+// ⚠️⚠️ HOW LONG A CODE LIVES IS DECIDED BY ITS PURPOSE, NOT BY ITS SHAPE — and
+// this file already contained the argument for that before it was written down.
+//
+// The table used to read `{ digits: 24h, link: 7d }` and the comment above it
+// reasoned in words about PURPOSE — "a staff code", "the owner link" — because
+// while every staff invitation was six digits, shape and purpose were the same
+// fact wearing two names. They came apart the day a staff invitation could also
+// be a link. Keying on the shape would then have handed a staff link the
+// customer's seven days, which is the exact thing the old comment warned
+// against: "a week would leave a live key in a WhatsApp thread nobody rereads".
+//
+//   'staff'     hiring somebody into a location that already exists. They are
+//               standing in the kitchen, or they start tomorrow. A day is
+//               already generous.
+//   'customer'  selling the app to a stranger. It travels to somebody who may
+//               not be at their desk, and it is the only thing standing between
+//               them and their new app.
+//
+// ⚠️ CHANGING THIS TABLE CANNOT DISTURB A CODE THAT ALREADY EXISTS. It is read
+// once, at minting, and what is stored is an absolute `expiresAt`.
+export const PURPOSES = Object.freeze(['staff', 'customer']);
+export const TTL_MS = Object.freeze({ staff: 24 * HOUR, customer: 7 * 24 * HOUR });
 
 // Per CODE. Five wrong guesses and it is dead — the owner reads out another one,
 // which costs ten seconds, while an attacker has to start again from nothing.
@@ -139,6 +156,14 @@ export function retryAfterMs(record, now = Date.now()) {
 // Telling somebody "that code has expired" confirms the code EXISTED, which is
 // exactly the signal a search wants. The rate limit is the one exception because
 // it says nothing about any code — only about how often this account has asked.
+//
+// ⚠️ THIS ONE STAYS IN ENGLISH AND MUST. It is thrown by the server (three call
+// sites in functions/onboarding.js), and the server has no dictionary — this file
+// is copied there byte for byte, so importing one would resolve on this machine
+// and be MISSING in the cloud. It also could not know which language to pick:
+// whoever is redeeming has no location open yet, which is the entire point.
+// Translating it means the server sending a status and the app choosing the
+// words — a real piece of work, and it must not confirm that a code exists.
 export function redeemFailureText(status, retryMs = 0) {
   if (status === 'rate-limited') {
     const mins = Math.max(1, Math.ceil(retryMs / 60000));
@@ -147,14 +172,30 @@ export function redeemFailureText(status, retryMs = 0) {
   return 'That code does not work. Ask for a new one.';
 }
 
-// How long a code has left, in words, for the owner reading it out. Deliberately
-// coarse: a countdown to the second invites somebody to watch it.
-export function expiresInWords(doc, now = Date.now()) {
+// How long a code has left: a NUMBER and a UNIT, never words.
+//
+// ⚠️⚠️ IT RETURNED ENGLISH UNTIL 13 AUG 2026, AND THREE SCREENS DROPPED THAT
+// ENGLISH STRAIGHT INTO A TRANSLATED SENTENCE. In Italian, "Who can get in" read
+// «Entrerà come dipendente, e il codice ha 24 hours left» — the same defect, and
+// the same shape, as «sono prodotte in English» a release earlier: a sentence
+// that is translated everywhere except the hole in the middle of it.
+//
+// ⚠️ AND IT COULD NOT BE FIXED HERE. This file is copied byte for byte into
+// functions/, so it may not import the dictionary — a deploy uploads only that
+// folder, and `../js/` would resolve on this machine and be missing in the cloud.
+// So the arithmetic stays (it is the same on both sides and testable without a
+// dictionary) and the WORDS move to js/join-link.js, which has no server copy and
+// says so in its own header. Same split as the allergen codes and their labels.
+//
+// Deliberately coarse: a countdown to the second invites somebody to watch it.
+export function expiresIn(doc, now = Date.now()) {
   const left = Number(doc && doc.expiresAt) - now;
-  if (!Number.isFinite(left) || left <= 0) return 'expired';
-  const mins = Math.round(left / 60000);
-  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} left`;
+  if (!Number.isFinite(left) || left <= 0) return { unit: 'expired', n: 0 };
+  // ⚠️ NEVER "0 minutes left" — a code with forty seconds on it is still alive,
+  // and a screen saying zero reads as one that is not. Round up the last minute.
+  const mins = Math.max(1, Math.round(left / 60000));
+  if (mins < 60) return { unit: 'minutes', n: mins };
   const hours = Math.round(left / HOUR);
-  if (hours < 48) return `${hours} hour${hours === 1 ? '' : 's'} left`;
-  return `${Math.round(hours / 24)} days left`;
+  if (hours < 48) return { unit: 'hours', n: hours };
+  return { unit: 'days', n: Math.round(hours / 24) };
 }

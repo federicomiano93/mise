@@ -12,7 +12,7 @@
 // case are not — they are mistyped, and every mistype spends one of five attempts
 // an hour. A link is the only honest way to hand that one over.
 
-import { normalizeTyped, isWellFormed } from './join-code.js';
+import { normalizeTyped, isWellFormed, expiresIn } from './join-code.js';
 
 // Where a join link lands: the app's front door. Not a page of its own — whoever
 // opens it may already be signed in, may have an account and no location, or may
@@ -97,4 +97,25 @@ export function kindOfTyped(input) {
 // given and never has to work it out.
 export function codeShapeHint() {
   return t('join.shapeHint');
+}
+
+// How long an invitation has left, in words.
+//
+// ⚠️⚠️ IT LIVES HERE AND NOT BESIDE THE ARITHMETIC IT WRAPS, for exactly the
+// reason given at the top of this file: js/join-code.js is copied byte for byte
+// into functions/, so it may not ask the dictionary — an import there resolves on
+// this machine and is MISSING in the cloud. This file has no server copy.
+//
+// ⚠️ AND IT MOVED BECAUSE IT WAS A DEFECT. expiresInWords() used to be in that
+// copied file and returned English, which three screens dropped into the middle
+// of a translated sentence: in Italian, "Who can get in" read «Entra come
+// dipendente · 24 hours left · …». Same shape as «sono prodotte in English» a
+// release earlier — a sentence translated everywhere except its own hole.
+//
+// The phrase is self-contained on purpose ("24 hours left" / «scade fra 24 ore»),
+// because the three sentences that use it join it differently and English cannot
+// borrow Italian's verb.
+export function expiresInWords(doc, now = Date.now()) {
+  const { unit, n } = expiresIn(doc, now);
+  return t(`join.expires.${unit}`, { n });
 }

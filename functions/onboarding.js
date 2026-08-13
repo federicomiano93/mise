@@ -13,7 +13,7 @@
 //
 // The four, and who may call each:
 //   createWorkspace   the app's owner only   a new customer's location + its first link
-//   createJoinCode    a location's owner     a six-digit code for one person
+//   createJoinCode    a location's owner     one invitation: digits, or a link
 //   redeemJoinCode    anybody signed in      THE only write to users/{uid}
 //   setMemberRole     a location's owner     promote, demote, remove
 //
@@ -137,17 +137,28 @@ async function requireAppAdmin(uid) {
 // nobody would ever find out, because nobody re-reads a screen they filled in
 // yesterday. It grants nothing (see WRITABLE_TITLES): it is the word, travelling
 // with the level it belongs to.
-async function storeCode({ code, kind, locationId, role, title, createdBy }) {
+// ⚠️ `kind` IS THE SHAPE, `purpose` IS THE ERRAND, AND THEY ARE NOW TWO THINGS.
+// Six digits or a link decides how it is handed over and how it is validated;
+// hiring or selling decides how long it lives and, below, what a re-issue is
+// allowed to revoke. They lined up one-to-one until a staff invitation could
+// travel as a link, and every place that used one to mean the other is a trap
+// that springs on that day. See TTL_MS in join-code.js.
+async function storeCode({ code, kind, purpose, locationId, role, title, createdBy }) {
   const now = Date.now();
+  const ttl = TTL_MS[purpose];
+  // A purpose nobody recognises has no lifetime, and a key with no lifetime must
+  // never be immortal — the same direction codeStatus() takes for an unreadable
+  // expiry. Refusing here is safe because both callers are in this file.
+  if (!Number.isFinite(ttl)) throw new HttpsError('internal', 'Unknown code purpose.');
   await db().doc(`join-codes/${codeId(code)}`).set({
-    kind, locationId, role,
+    kind, purpose, locationId, role,
     title: role === 'manager' ? (title || 'manager') : '',
     createdBy, createdAt: now,
-    expiresAt: now + TTL_MS[kind],
+    expiresAt: now + ttl,
     failedAttempts: 0,
     usedAt: null, usedBy: null,
   });
-  return now + TTL_MS[kind];
+  return now + ttl;
 }
 
 // ── 1. A new customer's location ─────────────────────────────────────────────
@@ -247,7 +258,7 @@ export const createWorkspace = onCall(CALL, async (request) => {
     name, sections, country, createdAt: now, createdBy: uid,
   });
   const expiresAt = await storeCode({
-    code: token, kind: 'link', locationId, role: 'owner', createdBy: uid,
+    code: token, kind: 'link', purpose: 'customer', locationId, role: 'owner', createdBy: uid,
   });
 
   // ⚠️ NO ACCOUNT IS CREATED FOR THE CUSTOMER. They sign up themselves, with
@@ -342,7 +353,21 @@ export const reissueOwnerLink = onCall(CALL, async (request) => {
   let revoked = 0;
   codes.docs.forEach((code) => {
     const value = code.data() || {};
-    if (value.kind === 'link' && !value.usedAt) {
+    // ⚠️ THE OWNER'S LINK, NOT EVERY LINK — and until 13 Aug 2026 those were the
+    // same sentence, because only a customer's link was ever a link. Now a staff
+    // invitation can be one too, so `kind === 'link'` here would quietly kill the
+    // invitations an owner had sent out along with the one being replaced.
+    // It cannot happen TODAY (this call is only reachable for a business nobody
+    // has opened, so it has no owner to have invited anybody) — which is exactly
+    // why it would have gone unnoticed until the day it could.
+    //
+    // ⚠️ A CODE MINTED BEFORE THIS RELEASE HAS NO `purpose`, and for those the old
+    // reading was correct. Getting this wrong leaves a stranded customer's old
+    // link alive after a re-issue, which is the one thing this loop exists to
+    // prevent — so legacy is answered explicitly rather than by a default.
+    const isOwnerLink = value.purpose === 'customer'
+      || (value.purpose === undefined && value.kind === 'link');
+    if (isOwnerLink && !value.usedAt) {
       // usedAt is what codeStatus() reads, so the old link now reports itself
       // spent through exactly the path every other dead code takes.
       batch.update(code.ref, { usedAt: now, revokedBy: uid });
@@ -353,7 +378,7 @@ export const reissueOwnerLink = onCall(CALL, async (request) => {
 
   const token = mintLinkToken();
   const expiresAt = await storeCode({
-    code: token, kind: 'link', locationId, role: 'owner', createdBy: uid,
+    code: token, kind: 'link', purpose: 'customer', locationId, role: 'owner', createdBy: uid,
   });
 
   logger.info('Owner link reissued', { locationId, by: uid, revoked });
@@ -493,12 +518,30 @@ export const createJoinCode = onCall(CALL, async (request) => {
   // a refusal. It grants nothing either way.
   const askedTitle = request.data && request.data.title;
   const title = WRITABLE_TITLES.includes(askedTitle) ? askedTitle : 'manager';
-  const code = mintDigits();
-  const expiresAt = await storeCode({ code, kind: 'digits', locationId, role, title, createdBy: uid });
 
-  logger.info('Join code created', { locationId, role, title, by: uid });
-  // The plain code is returned to the owner's screen ONCE and never stored.
-  return { code, role, title: role === 'manager' ? title : '', expiresAt };
+  // ⚠️ HOW IT TRAVELS, chosen by the owner: six digits read aloud to somebody
+  // standing there, or a link sent over WhatsApp to somebody who is not.
+  //
+  // ⚠️ THE DEFAULT IS 'digits', AND IT IS WHAT KEEPS AN OLD PHONE WORKING. A
+  // functions deploy reaches every caller at once while the app arrives device by
+  // device, so this call will be made for a while by phones that have never heard
+  // of a link — and they must get exactly what they got yesterday. Anything that
+  // is not the word 'link' is read as digits, so a garbled field cannot invent a
+  // long-lived key nobody asked for.
+  const kind = (request.data && request.data.kind) === 'link' ? 'link' : 'digits';
+  const code = kind === 'link' ? mintLinkToken() : mintDigits();
+  // ⚠️ 'staff' WHATEVER THE SHAPE. A link minted here is an invitation into a
+  // location that already exists — it lives a day, not the customer link's week.
+  const expiresAt = await storeCode({
+    code, kind, purpose: 'staff', locationId, role, title, createdBy: uid,
+  });
+
+  // ⚠️ THE CODE ITSELF IS NEVER LOGGED. Function logs outlive its 24 hours.
+  logger.info('Join code created', { locationId, kind, role, title, by: uid });
+  // The plain code is returned to the owner's screen ONCE and never stored. For a
+  // link it is the token; the app wraps it in a URL (js/join-link.js), because a
+  // server has no business knowing what address the app is served from.
+  return { code, kind, role, title: role === 'manager' ? title : '', expiresAt };
 });
 
 // ── 3. The only write to users/{uid} ─────────────────────────────────────────

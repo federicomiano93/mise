@@ -119,10 +119,15 @@ export async function deleteWorkspace(locationId) {
 // `title` names the manager level and travels WITH the code, so somebody invited
 // as a head chef joins as one — otherwise the roster would quietly disagree with
 // what the owner picked, and nobody re-reads a screen they filled in yesterday.
-export async function createJoinCode(role = 'staff', title = null) {
+//
+// `kind` is how the invitation TRAVELS: 'digits' to read out to somebody standing
+// there, 'link' to send them over WhatsApp. ⚠️ It changes the LIFETIME too — both
+// are staff invitations and live a day, never the customer link's week (TTL_MS in
+// js/join-code.js). The server decides that, not this call.
+export async function createJoinCode(role = 'staff', title = null, kind = 'digits') {
   await sessionReady;
   const res = await call('createJoinCode')({
-    locationId: currentSession().locationId, role, title,
+    locationId: currentSession().locationId, role, title, kind,
   });
   return res.data;
 }

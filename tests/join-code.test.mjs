@@ -10,12 +10,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CODE_KINDS, DIGITS_LENGTH, TTL_MS,
+  CODE_KINDS, DIGITS_LENGTH, TTL_MS, PURPOSES,
   MAX_FAILED_ATTEMPTS, MAX_ATTEMPTS_PER_HOUR, ATTEMPT_WINDOW_MS,
   normalizeTyped, isWellFormed,
   codeStatus, isRedeemable,
   recentAttempts, isRateLimited, retryAfterMs,
-  redeemFailureText, expiresInWords,
+  redeemFailureText, expiresIn,
 } from '../js/join-code.js';
 
 const NOW = Date.UTC(2026, 7, 11, 12, 0, 0);
@@ -91,10 +91,32 @@ test('a code that is not there at all is missing, not ok', () => {
   }
 });
 
-test('a staff code lasts a day and an owner link a week', () => {
-  assert.equal(TTL_MS.digits, 24 * 60 * 60 * 1000);
-  assert.equal(TTL_MS.link, 7 * 24 * 60 * 60 * 1000);
+test('a staff invitation lasts a day and a customer link a week', () => {
+  assert.equal(TTL_MS.staff, 24 * 60 * 60 * 1000);
+  assert.equal(TTL_MS.customer, 7 * 24 * 60 * 60 * 1000);
+  assert.deepEqual([...PURPOSES], ['staff', 'customer']);
   assert.deepEqual([...CODE_KINDS], ['digits', 'link']);
+});
+
+// ⚠️⚠️ THE POINT OF SPLITTING THEM, AND THE ONLY REASON THIS TEST EXISTS.
+//
+// The lifetime used to be keyed by SHAPE — `{ digits: 24h, link: 7d }` — which
+// was right for exactly as long as a staff invitation was always six digits.
+// The day one could travel as a link, that table would have handed it the
+// customer's SEVEN DAYS: a live key sitting in a WhatsApp thread for six days
+// longer than anybody intended, which is the precise thing the comment beside
+// that table had always warned against.
+//
+// A shape must therefore have no lifetime of its own. If somebody puts one back,
+// this fails and says why.
+test('a SHAPE has no lifetime — only an errand does', () => {
+  assert.equal(TTL_MS.digits, undefined,
+    'six digits sent for hiring and six digits sent for a sale would live equally long — the errand decides');
+  assert.equal(TTL_MS.link, undefined,
+    'a staff link must not inherit the customer link’s week');
+  for (const purpose of PURPOSES) {
+    assert.ok(Number.isFinite(TTL_MS[purpose]), `${purpose} needs a lifetime`);
+  }
 });
 
 // ── How hard somebody has been trying ────────────────────────────────────────
@@ -152,11 +174,26 @@ test('the rate limit is the one refusal that says something useful', () => {
   assert.match(redeemFailureText('rate-limited', 30_000), /Wait 1 minute\b/);
 });
 
-test('the time left is coarse, in words the owner can read aloud', () => {
-  assert.equal(expiresInWords({ expiresAt: NOW + 5 * 60_000 }, NOW), '5 minutes left');
-  assert.equal(expiresInWords({ expiresAt: NOW + 60_000 }, NOW), '1 minute left');
-  assert.equal(expiresInWords({ expiresAt: NOW + 3 * 60 * 60_000 }, NOW), '3 hours left');
-  assert.equal(expiresInWords({ expiresAt: NOW + 7 * 24 * 60 * 60_000 }, NOW), '7 days left');
-  assert.equal(expiresInWords({ expiresAt: NOW - 1 }, NOW), 'expired');
-  assert.equal(expiresInWords({}, NOW), 'expired');
+// ⚠️⚠️ A NUMBER AND A UNIT, NEVER A WORD, and the change is a defect being closed
+// rather than a tidy-up. This used to return English — "24 hours left" — and this
+// file is copied byte for byte into functions/, so it cannot ask the dictionary
+// to say it in anything else. Three screens dropped that English straight into a
+// translated sentence: in Italian, "Who can get in" read «Entra come dipendente ·
+// 24 hours left · …». The words now live in js/join-link.js, which has no server
+// copy; tests/join-link.test.mjs asks them in both languages.
+test('the time left is coarse, and it is numbers rather than words', () => {
+  assert.deepEqual(expiresIn({ expiresAt: NOW + 5 * 60_000 }, NOW), { unit: 'minutes', n: 5 });
+  assert.deepEqual(expiresIn({ expiresAt: NOW + 60_000 }, NOW), { unit: 'minutes', n: 1 });
+  assert.deepEqual(expiresIn({ expiresAt: NOW + 3 * 60 * 60_000 }, NOW), { unit: 'hours', n: 3 });
+  assert.deepEqual(expiresIn({ expiresAt: NOW + 7 * 24 * 60 * 60_000 }, NOW), { unit: 'days', n: 7 });
+  assert.deepEqual(expiresIn({ expiresAt: NOW - 1 }, NOW), { unit: 'expired', n: 0 });
+  assert.deepEqual(expiresIn({}, NOW), { unit: 'expired', n: 0 });
+});
+
+// ⚠️ NEVER "0 minutes left" WHILE IT IS STILL ALIVE. A code with forty seconds on
+// it can still be typed; rounding it to zero puts a number on screen that reads
+// as a code already gone, so the owner reads out another one for nothing.
+test('a code with seconds left still has a minute on it', () => {
+  assert.deepEqual(expiresIn({ expiresAt: NOW + 40_000 }, NOW), { unit: 'minutes', n: 1 });
+  assert.deepEqual(expiresIn({ expiresAt: NOW + 1 }, NOW), { unit: 'minutes', n: 1 });
 });

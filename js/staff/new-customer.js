@@ -19,8 +19,8 @@ import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { createWorkspace, callFailureText } from './firebase-staff.js';
-import { joinLinkFor } from '../join-link.js';
-import { expiresInWords } from '../join-code.js';
+import { copyToClipboard, sendOnWhatsApp } from './share.js';
+import { joinLinkFor, expiresInWords } from '../join-link.js';
 
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 
@@ -61,23 +61,6 @@ const MAX_NAME = 80;   // the server refuses longer, so refuse it here first
 // of his own there is nobody to invite, so he is made owner on the spot. That is
 // exactly why the answer must not be one tap away from the wrong one.
 const OWNER_KINDS = ['self', 'customer'];
-
-// ⚠️ THE CLIPBOARD IS RACED AGAINST A CLOCK. navigator.clipboard.writeText() can
-// sit there and never settle — the page losing focus is enough — and here it
-// would be the only thing between creating a customer and being shown their link.
-// The same defect was observed for real on the client ordering link (v1.29.1).
-const CLIPBOARD_WAIT_MS = 2000;
-
-async function copyToClipboard(text) {
-  try {
-    return await Promise.race([
-      navigator.clipboard.writeText(text).then(() => true),
-      new Promise(resolve => setTimeout(() => resolve(false), CLIPBOARD_WAIT_MS)),
-    ]);
-  } catch {
-    return false;   // an old browser, a denied permission, an insecure origin
-  }
-}
 
 // `onClose` lets the list behind this screen reload when it goes away — whether
 // a business was created or not. ⚠️ It fires on CLOSE and not on success, because
@@ -175,8 +158,14 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
       const row = el('label', { class: 'nc-section' }, [
         box,
         el('span', { class: 'nc-section-text' }, [
-          el('span', { class: 'nc-section-name', text: label }),
-          el('span', { class: 'nc-section-what', text: what }),
+          // ⚠️ LOOKED UP, NOT PRINTED. These are dictionary keys — the comment on
+          // SECTIONS said so from the day they were introduced — and they were
+          // handed straight to `text:`, so every row of this screen read
+          // «section.calculator» and «section.calculator.sub» in BOTH languages.
+          // Nobody had opened the screen since the extraction pass; it is the same
+          // family as the three spacing tokens that were used and never defined.
+          el('span', { class: 'nc-section-name', text: t(label) }),
+          el('span', { class: 'nc-section-what', text: t(what) }),
         ]),
       ]);
       return row;
@@ -197,16 +186,22 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
   // today, and silently non-compliant for the first Italian customer.
   let country = '';
   const countryList = el('div', { class: 'nc-sections' },
-    [['GB', t('help.unitedKingdom'), 'Labels are printed in English.'],
-      ['IT', 'Italia', 'Le etichette sono prodotte in italiano.']]
+    // ⚠️ KEYS, LIKE SECTIONS ABOVE — the two lists are drawn by the same shape of
+    // code, so one holding words and the other holding keys is how a lookup gets
+    // added to one and forgotten on the other. This list held its words already
+    // TRANSLATED, and one of them in Italian: an English app offered a country
+    // called «Italia» whose sub-line read «Le etichette sono prodotte in
+    // italiano.» — correct, in the wrong language, on the wrong screen.
+    [['GB', 'help.unitedKingdom', 'nc.country.labels.GB'],
+      ['IT', 'country.IT', 'nc.country.labels.IT']]
       .map(([key, label, what]) => {
         const radio = el('input', { type: 'radio', class: 'nc-check', name: 'nc-country' });
         radio.addEventListener('change', () => { if (radio.checked) country = key; });
         return el('label', { class: 'nc-section' }, [
           radio,
           el('span', { class: 'nc-section-text' }, [
-            el('span', { class: 'nc-section-name', text: label }),
-            el('span', { class: 'nc-section-what', text: what }),
+            el('span', { class: 'nc-section-name', text: t(label) }),
+            el('span', { class: 'nc-section-what', text: t(what) }),
           ]),
         ]);
       }));
@@ -268,7 +263,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     const sections = {};
     boxes.forEach((box, key) => { sections[key] = box.checked; });
 
-    const bought = SECTIONS.filter(([key]) => sections[key]).map(([, label]) => label);
+    const bought = SECTIONS.filter(([key]) => sections[key]).map(([, label]) => t(label));
     // ⚠️ THE COUNTRY IS IN THE CONFIRMATION, because it is the one answer here
     // that cannot be corrected from any screen afterwards.
     const where = country === 'IT' ? t('help.italyLabelsInItalian') : t('help.theUnitedKingdomLabels');
@@ -356,8 +351,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     const share = el('button', { type: 'button', class: 'btn-secondary people-save', text: t('help.sendOnWhatsapp') });
     share.addEventListener('click', () => {
       handedOver = true;
-      const text = `Here is your link to set up ${made.name}: ${made.link}`;
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+      sendOnWhatsApp(t('nc.link.message', { name: made.name, link: made.link }));
     });
 
     const done = el('button', { type: 'button', class: 'btn-secondary people-save', text: 'Done' });
