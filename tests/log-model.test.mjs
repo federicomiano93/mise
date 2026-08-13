@@ -10,11 +10,19 @@ import {
   createLog, latestVersion, addVersion, restoreVersion,
   migrateOldRecord, migrateOldLogs, sortLogs, filterVisibleLogs, dayLabel,
 } from '../js/log-model.js';
-import { computeTarget, DEFAULT_CONFIG, getRecipeById, pairId } from '../js/calculator-config.js';
+import { computeTarget, getRecipeById, pairId } from '../js/calculator-config.js';
+
+// ⚠️ THE BAKERY'S DATA IS A FIXTURE NOW, NOT THE APP'S DEFAULT (13 Aug 2026).
+// These assertions run through The Italian Club Bakery's own clients, products
+// and formulas — including the ones proving the config-driven scaler is
+// byte-identical to the three hand-written scalers it replaced. Every number is
+// unchanged; only where it is kept has moved, out of js/ and into tests/, so that
+// a customer who buys the app no longer opens it holding somebody else's recipes.
+import { BAKERY_CONFIG } from './fixtures/bakery-config.mjs';
 
 // Config-shaped recipes for buildSheet (mirror the default config recipes).
-const FOCACCIA = getRecipeById(DEFAULT_CONFIG, 'focaccia');
-const BRIOCHE = getRecipeById(DEFAULT_CONFIG, 'brioche');
+const FOCACCIA = getRecipeById(BAKERY_CONFIG, 'focaccia');
+const BRIOCHE = getRecipeById(BAKERY_CONFIG, 'brioche');
 
 function mkVersion(over = {}) {
   return {
@@ -66,7 +74,7 @@ test("buildSheet: 'total' logic uses the typed total, no products, pro-rata, no 
 
 test('buildSheet: matches the live computeTarget for the same quantities', () => {
   const getQty = (id) => ({ [pairId('c-bakery', 'f-pizze')]: 4, [pairId('c-bakery', 'f-focacce')]: 2 }[id] || 0);
-  const target = computeTarget(DEFAULT_CONFIG, 'focaccia', getQty);
+  const target = computeTarget(BAKERY_CONFIG, 'focaccia', getQty);
   const sheet = buildSheet({
     recipe: FOCACCIA, leaveningPct: 0.65,
     items: [

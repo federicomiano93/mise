@@ -10,6 +10,11 @@ import {
   LOG_RETENTION_OPTIONS, LOG_RETENTION_DEFAULT,
 } from '../js/calculator-config.js';
 
+// The per-recipe log switches are keyed BY RECIPE, so these cases need recipes to
+// exist. They used to come from the app's default; they now come from the fixture,
+// because the default no longer carries one bakery's recipes.
+import { BAKERY_CONFIG } from './fixtures/bakery-config.mjs';
+
 const HOUR = 3600 * 1000;
 const NOW = 1_000_000_000_000; // fixed "now" so the tests are deterministic
 
@@ -137,13 +142,13 @@ test('getLogRetentionHours: defaults to 24, accepts only 24/48', () => {
 
 // ── normalizeConfig fills the new fields with safe defaults ───────────────────
 test('normalizeConfig: adds logVisibility (all shown) and logRetentionHours (24)', () => {
-  const cfg = normalizeConfig({ clients: [] });
+  const cfg = normalizeConfig({ recipes: BAKERY_CONFIG.recipes, clients: [] });
   assert.deepEqual(cfg.logVisibility, { focaccia: true, brioche: true, sourdough: true });
   assert.equal(cfg.logRetentionHours, 24);
 });
 
 test('normalizeConfig: preserves stored log settings', () => {
-  const cfg = normalizeConfig({ clients: [], logVisibility: { focaccia: false }, logRetentionHours: 48 });
+  const cfg = normalizeConfig({ recipes: BAKERY_CONFIG.recipes, clients: [], logVisibility: { focaccia: false }, logRetentionHours: 48 });
   assert.equal(cfg.logVisibility.focaccia, false);
   assert.equal(cfg.logVisibility.brioche, true); // unspecified → default shown
   assert.equal(cfg.logRetentionHours, 48);
@@ -178,12 +183,12 @@ test('filterVisibleLogs: a per-dough retention map applies the right window to e
 });
 
 test('normalizeConfig: adds per-dough retention, migrating from the legacy global', () => {
-  const cfg = normalizeConfig({ clients: [], logRetentionHours: 48 });
+  const cfg = normalizeConfig({ recipes: BAKERY_CONFIG.recipes, clients: [], logRetentionHours: 48 });
   assert.deepEqual(cfg.logRetentionByDough, { focaccia: 48, brioche: 48, sourdough: 48 });
 });
 
 test('normalizeConfig: keeps explicit per-dough retention over the legacy global', () => {
-  const cfg = normalizeConfig({ clients: [], logRetentionHours: 24, logRetentionByDough: { focaccia: 48 } });
+  const cfg = normalizeConfig({ recipes: BAKERY_CONFIG.recipes, clients: [], logRetentionHours: 24, logRetentionByDough: { focaccia: 48 } });
   assert.equal(cfg.logRetentionByDough.focaccia, 48);
   assert.equal(cfg.logRetentionByDough.brioche, 24); // unspecified → legacy global fallback
 });

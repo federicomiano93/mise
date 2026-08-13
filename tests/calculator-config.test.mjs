@@ -13,7 +13,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEFAULT_CONFIG,
   getOrderPrefillWindow,
   isFreeLineId,
   ORDER_PREFILL_WINDOWS,
@@ -51,32 +50,40 @@ import {
   EXTRA_MAX_G,
 } from '../js/calculator-config.js';
 
+// ⚠️ THE BAKERY'S DATA IS A FIXTURE NOW, NOT THE APP'S DEFAULT (13 Aug 2026).
+// These assertions run through The Italian Club Bakery's own clients, products
+// and formulas — including the ones proving the config-driven scaler is
+// byte-identical to the three hand-written scalers it replaced. Every number is
+// unchanged; only where it is kept has moved, out of js/ and into tests/, so that
+// a customer who buys the app no longer opens it holding somebody else's recipes.
+import { BAKERY_CONFIG } from './fixtures/bakery-config.mjs';
+
 // Helper: build a getQty(qtyId) function from a plain { qtyId: qty } map.
 const qtyFrom = (map) => (id) => map[id] || 0;
 
 // ── Catalogue + tab view ──────────────────────────────────────────────────────
 
 test('the default config gives each client its own products (10 in all)', () => {
-  assert.equal(getProducts(DEFAULT_CONFIG).length, 10);
-  assert.equal(getClients(DEFAULT_CONFIG).length, 4);
+  assert.equal(getProducts(BAKERY_CONFIG).length, 10);
+  assert.equal(getClients(BAKERY_CONFIG).length, 4);
   // There is no shared catalogue any more: every product sits under exactly one client.
-  assert.equal('products' in DEFAULT_CONFIG, false);
-  for (const p of getProducts(DEFAULT_CONFIG)) {
+  assert.equal('products' in BAKERY_CONFIG, false);
+  for (const p of getProducts(BAKERY_CONFIG)) {
     assert.ok(p.clientId, p.name + ' knows which client orders it');
     assert.ok(p.name && p.recipeId && p.weight > 0, p.name + ' is fully described');
   }
 });
 
 test('getTabProducts is a filtered view: one row per (client, product) of that recipe', () => {
-  assert.deepEqual(getTabProducts(DEFAULT_CONFIG, 'focaccia').map(p => p.id),
+  assert.deepEqual(getTabProducts(BAKERY_CONFIG, 'focaccia').map(p => p.id),
     ['f-pizze', 'f-focacce', 'f-ciabatta', 'f-trayfocaccia', 'f-panini']);
-  assert.deepEqual(getTabProducts(DEFAULT_CONFIG, 'brioche').map(p => p.id),
+  assert.deepEqual(getTabProducts(BAKERY_CONFIG, 'brioche').map(p => p.id),
     ['b-burgerbuns', 'b-subrolls', 'b-bun', 'b-rolls']);
-  assert.deepEqual(getTabProducts(DEFAULT_CONFIG, 'sourdough').map(p => p.id), ['s-loaf']);
+  assert.deepEqual(getTabProducts(BAKERY_CONFIG, 'sourdough').map(p => p.id), ['s-loaf']);
 });
 
 test('each tab row carries its client, weight, kind, crate and a per-pair qtyId', () => {
-  const ciabatta = getTabProducts(DEFAULT_CONFIG, 'focaccia').find(p => p.id === 'f-ciabatta');
+  const ciabatta = getTabProducts(BAKERY_CONFIG, 'focaccia').find(p => p.id === 'f-ciabatta');
   assert.equal(ciabatta.clientName, 'Client 1');
   assert.equal(ciabatta.clientId, 'c-client-1');
   assert.equal(ciabatta.weight, 151);
@@ -94,7 +101,7 @@ test('focaccia target matches the legacy hardcoded formula (products only)', () 
     [pairId('c-client-3', 'f-panini')]: 24,
   };
   const legacy = 10 * 201 + 5 * 181 + 40 * 151 + 3 * 1800 + 24 * 131;
-  assert.equal(computeTarget(DEFAULT_CONFIG, 'focaccia', qtyFrom(q)), legacy);
+  assert.equal(computeTarget(BAKERY_CONFIG, 'focaccia', qtyFrom(q)), legacy);
 });
 
 test('brioche target matches the legacy hardcoded formula (products only)', () => {
@@ -105,18 +112,18 @@ test('brioche target matches the legacy hardcoded formula (products only)', () =
     [pairId('c-client-2', 'b-rolls')]: 15,
   };
   const legacy = 50 * 81 + 30 * 121 + 20 * 71 + 15 * 71;
-  assert.equal(computeTarget(DEFAULT_CONFIG, 'brioche', qtyFrom(q)), legacy);
+  assert.equal(computeTarget(BAKERY_CONFIG, 'brioche', qtyFrom(q)), legacy);
 });
 
 test('sourdough target matches loaves × default loaf weight (905 g)', () => {
   const q = { [pairId('c-client-2', 's-loaf')]: 12 };
-  assert.equal(computeTarget(DEFAULT_CONFIG, 'sourdough', qtyFrom(q)), 12 * 905);
+  assert.equal(computeTarget(BAKERY_CONFIG, 'sourdough', qtyFrom(q)), 12 * 905);
 });
 
 test('empty quantities give zero dough', () => {
-  assert.equal(computeTarget(DEFAULT_CONFIG, 'focaccia', () => 0), 0);
-  assert.equal(computeTarget(DEFAULT_CONFIG, 'brioche', () => 0), 0);
-  assert.equal(computeTarget(DEFAULT_CONFIG, 'sourdough', () => 0), 0);
+  assert.equal(computeTarget(BAKERY_CONFIG, 'focaccia', () => 0), 0);
+  assert.equal(computeTarget(BAKERY_CONFIG, 'brioche', () => 0), 0);
+  assert.equal(computeTarget(BAKERY_CONFIG, 'sourdough', () => 0), 0);
 });
 
 test('per-pair quantities: the SAME product on two clients has two independent boxes', () => {
@@ -125,6 +132,7 @@ test('per-pair quantities: the SAME product on two clients has two independent b
   // Two clients holding their own copy — deliberately sharing one id, as the migration
   // from the shared catalogue produces.
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [
       { id: 'cA', name: 'A', products: [{ id: 'p1', name: 'Ciabatta', recipeId: 'focaccia', weight: 150, kind: 'number' }] },
       { id: 'cB', name: 'B', products: [{ id: 'p1', name: 'Ciabatta', recipeId: 'focaccia', weight: 150, kind: 'number' }] },
@@ -139,6 +147,7 @@ test('per-pair quantities: the SAME product on two clients has two independent b
 
 test('per-client kind: the same product can be a dropdown for one client, a number for another', () => {
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [
       { id: 'cA', name: 'A', products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100, kind: 'dropdown' }] },
       { id: 'cB', name: 'B', products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100, kind: 'number' }] },
@@ -151,6 +160,7 @@ test('per-client kind: the same product can be a dropdown for one client, a numb
 
 test('a tab view only includes products of that recipe', () => {
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'Mixed', products: [
       { id: 'pf', name: 'F', recipeId: 'focaccia',  weight: 100, kind: 'number' },
       { id: 'pb', name: 'B', recipeId: 'brioche',   weight: 200, kind: 'number' },
@@ -171,6 +181,7 @@ test('getTabProducts tolerates a missing or malformed config', () => {
 
 test('a client product with no id is dropped rather than shown as a blank row', () => {
   const config = normalizeConfig({
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'A', products: [
       { id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100 },
       { name: 'no id at all', recipeId: 'focaccia', weight: 100 },
@@ -211,9 +222,9 @@ test('doughExtraGrams: kg multiplies, grams pass through, junk is zero, capped',
 // ── Catalogue read helpers ─────────────────────────────────────────────────────
 
 test('getProductById finds a catalogue product; getAllProducts tags ordering clients', () => {
-  assert.equal(getProductById(DEFAULT_CONFIG, 's-loaf').name, 'Loaf');
-  assert.equal(getProductById(DEFAULT_CONFIG, 'nope'), null);
-  const all = getAllProducts(DEFAULT_CONFIG);
+  assert.equal(getProductById(BAKERY_CONFIG, 's-loaf').name, 'Loaf');
+  assert.equal(getProductById(BAKERY_CONFIG, 'nope'), null);
+  const all = getAllProducts(BAKERY_CONFIG);
   assert.equal(all.length, 10);
   const loaf = all.find(p => p.id === 's-loaf');
   assert.deepEqual(loaf.clientNames, ['Client 2']);
@@ -226,6 +237,7 @@ test('two clients holding the same product are two separate entries', () => {
   // They may share an id (that is what the migration produces), but each is its own
   // product, owned by its own client — changing one must never move the other.
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [
       { id: 'cA', name: 'A', products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100 }] },
       { id: 'cB', name: 'B', products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100 }] },
@@ -238,12 +250,12 @@ test('two clients holding the same product are two separate entries', () => {
 });
 
 test('getClientById / getWhatsappLists / resolveListClients on the default config', () => {
-  assert.equal(getClientById(DEFAULT_CONFIG, 'c-client-2').name, 'Client 2');
-  assert.equal(getClientById(DEFAULT_CONFIG, 'nope'), null);
-  const lists = getWhatsappLists(DEFAULT_CONFIG);
+  assert.equal(getClientById(BAKERY_CONFIG, 'c-client-2').name, 'Client 2');
+  assert.equal(getClientById(BAKERY_CONFIG, 'nope'), null);
+  const lists = getWhatsappLists(BAKERY_CONFIG);
   assert.equal(lists.length, 1);
   assert.equal(lists[0].title, 'Market order');
-  const resolved = resolveListClients(DEFAULT_CONFIG, lists[0]);
+  const resolved = resolveListClients(BAKERY_CONFIG, lists[0]);
   assert.deepEqual(resolved.map(r => r.client.id), ['c-client-1', 'c-client-2', 'c-client-3']);
   const client1 = resolved.find(r => r.client.id === 'c-client-1');
   assert.deepEqual(client1.products.map(p => p.id), ['f-ciabatta', 'b-burgerbuns', 'b-subrolls']);
@@ -254,6 +266,7 @@ test('a WhatsApp list entry can still attach a product another client owns', () 
   // from what it orders. A product it does not own resolves globally rather than
   // silently dropping a line from the message.
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [
       { id: 'cA', name: 'A', products: [{ id: 'pA', name: 'Loaf', recipeId: 'sourdough', weight: 900 }] },
       { id: 'cB', name: 'B', products: [{ id: 'pB', name: 'Panini', recipeId: 'focaccia', weight: 130 }] },
@@ -269,6 +282,7 @@ test('a shared id resolves inside the entry OWN client, not the other copy', () 
   // Both clients hold id p1, but with different names after one was renamed. The list
   // belongs to B, so it must print B's name.
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [
       { id: 'cA', name: 'A', products: [{ id: 'p1', name: 'Loaves of bread', recipeId: 'sourdough', weight: 905 }] },
       { id: 'cB', name: 'B', products: [{ id: 'p1', name: 'Sourdough loaf', recipeId: 'sourdough', weight: 905 }] },
@@ -280,8 +294,9 @@ test('a shared id resolves inside the entry OWN client, not the other copy', () 
 });
 
 test('direct WhatsApp clients: typed name + products resolved by id', () => {
-  assert.deepEqual(getWhatsappClients(DEFAULT_CONFIG), []);
+  assert.deepEqual(getWhatsappClients(BAKERY_CONFIG), []);
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'cA', name: 'A', products: [{ id: 'pA', name: 'Loaf', recipeId: 'sourdough', weight: 900 }] }],
     whatsappClients: [{ id: 'wc1', name: 'Walk-in', products: ['pA', 'ghost'] }],
   };
@@ -294,6 +309,7 @@ test('direct WhatsApp clients: typed name + products resolved by id', () => {
 
 test('normalizeConfig clamps weights, re-homes an unknown recipe, drops junk products', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'X', products: [
       { id: 'p1', name: 'Big', recipeId: 'brioche', weight: 99999 },  // weight capped
       { id: 'p2', name: 'Bad', recipeId: 'weird',   weight: 'oops' }, // recipe re-homed, weight->MIN
@@ -312,6 +328,7 @@ test('a product on a recipe the owner CREATED is not dragged onto Focaccia', () 
   // The recipe list is configurable, so validating against the three shipped ids
   // silently moved every product on a custom recipe.
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'X', products: [{ id: 'p1', name: 'Ciabatta', recipeId: 'r-mine', weight: 150 }] }],
     recipes: [
       { id: 'focaccia', name: 'Focaccia', ingredients: [{ label: 'Flour', grams: 100 }] },
@@ -325,6 +342,7 @@ test('a product on a recipe the owner CREATED is not dragged onto Focaccia', () 
 
 test('one client never holds the same product twice (first wins)', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'X', products: [
       { id: 'p1', name: 'First', recipeId: 'focaccia', weight: 100 },
       { id: 'p1', name: 'Dup',   recipeId: 'brioche',  weight: 200 },
@@ -337,6 +355,7 @@ test('one client never holds the same product twice (first wins)', () => {
 
 test('a legacy quantity kind is migrated on a client product too', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'A', products: [
       { id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100, kind: 'ciabatta' },
     ] }],
@@ -348,6 +367,7 @@ test('a legacy quantity kind is migrated on a client product too', () => {
 
 test('a product crate box is kept and clamped', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'A', products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100, kind: 'number', crate: { show: true, perBox: 0 } }] }],
   };
   const row = getTabProducts(normalizeConfig(raw), 'focaccia')[0];
@@ -357,6 +377,7 @@ test('a product crate box is kept and clamped', () => {
 
 test('normalizeConfig keeps direct WhatsApp clients, pruning their dead product ids', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'A', products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100 }] }],
     whatsappClients: [{ id: 'wc1', name: 'Custom', products: ['p1', 'gone'] }, { notAnObject: true }],
   };
@@ -368,6 +389,7 @@ test('normalizeConfig keeps direct WhatsApp clients, pruning their dead product 
 
 test('normalizeConfig prunes WhatsApp list entries for dead clients/products', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'A', products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100 }] }],
     whatsappLists: [{ id: 'wl1', title: 'L', clients: [
       { clientId: 'c1', products: ['p1', 'ghost'] },
@@ -380,14 +402,28 @@ test('normalizeConfig prunes WhatsApp list entries for dead clients/products', (
   assert.deepEqual(norm.whatsappLists[0].clients[0], { clientId: 'c1', products: ['p1'], extras: [] });
 });
 
-test('normalizeConfig falls back to the default for missing/garbage input', () => {
-  assert.equal(getProducts(normalizeConfig(null)).length, 10);
-  assert.equal(getProducts(normalizeConfig('oops')).length, 10);
-  assert.equal(getProducts(normalizeConfig({})).length, 10);
+// ⚠️ REWRITTEN 13 Aug 2026, AND THE NEW EXPECTATION IS THE FEATURE. This used to
+// assert that garbage input produced TEN PRODUCTS — The Italian Club Bakery's ten,
+// which is what the default held. That is exactly what a customer who bought the
+// app used to be shown before their own document arrived.
+//
+// Nonsense in must still not crash and must still produce a usable shape; it must
+// simply produce an EMPTY one. Anything else is inventing somebody's data.
+test('missing or garbage input gives an empty config, never somebody else’s', () => {
+  for (const bad of [null, 'oops', {}, 42, [], undefined]) {
+    const cfg = normalizeConfig(bad);
+    assert.equal(getProducts(cfg).length, 0, `${JSON.stringify(bad)} must produce no products`);
+    assert.deepEqual(cfg.clients, [], 'and no clients');
+    assert.deepEqual(cfg.recipes, [], 'and no recipes');
+    // Still a usable shape: the settings are present, so no screen divides by
+    // undefined on a brand-new venue.
+    assert.equal(cfg.logRetentionHours, 24);
+    assert.equal(cfg.orderPrefillWindow, 'both');
+  }
 });
 
 test('isExtraDoughEnabled defaults to true and honours an explicit false', () => {
-  assert.equal(isExtraDoughEnabled(DEFAULT_CONFIG, 'focaccia'), true);
+  assert.equal(isExtraDoughEnabled(BAKERY_CONFIG, 'focaccia'), true);
   assert.equal(isExtraDoughEnabled({}, 'brioche'), true);
   assert.equal(isExtraDoughEnabled(null, 'sourdough'), true);
   assert.equal(isExtraDoughEnabled({ extraDough: { focaccia: false } }, 'focaccia'), false);
@@ -397,6 +433,7 @@ test('isExtraDoughEnabled defaults to true and honours an explicit false', () =>
 
 test('migration: a catalogue document becomes products owned by their client', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     products: [
       { id: 'p1', name: 'Ciabatta', recipeId: 'focaccia',  weight: 151 },
       { id: 'p2', name: 'Panini',   recipeId: 'focaccia',  weight: 131 },
@@ -429,6 +466,7 @@ test('migration: a product ordered by TWO clients keeps ONE id in both copies', 
   // lists, saved log rows and the typed quantities — and a fresh id for the second
   // client would quietly cut all four.
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     products: [{ id: 'shared', name: 'Loaves of bread', recipeId: 'sourdough', weight: 905 }],
     clients: [
       { id: 'cA', name: 'CLIENT A', items: [{ productId: 'shared', kind: 'number' }] },
@@ -452,6 +490,7 @@ test('migration: the stale nested copy left by the catalogue era is ignored', ()
   // v1.5.0 kept clients[].products as a revert window while maintaining items[].
   // Reading it instead of items[] would resurrect long-deleted products.
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     products: [{ id: 'live', name: 'Live', recipeId: 'focaccia', weight: 100 }],
     clients: [{
       id: 'c1', name: 'A',
@@ -464,6 +503,7 @@ test('migration: the stale nested copy left by the catalogue era is ignored', ()
 
 test('migration: an item pointing at a product that no longer exists is dropped', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     products: [{ id: 'p1', name: 'X', recipeId: 'focaccia', weight: 100 }],
     clients: [{ id: 'c1', name: 'A', items: [{ productId: 'p1', kind: 'number' }, { productId: 'gone', kind: 'number' }] }],
   };
@@ -472,6 +512,7 @@ test('migration: an item pointing at a product that no longer exists is dropped'
 
 test('migration: re-normalising the migrated config changes nothing', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     products: [{ id: 'p1', name: 'Pizzas', recipeId: 'focaccia', weight: 201 }],
     clients: [{ id: 'c1', name: 'A', items: [{ productId: 'p1', kind: 'number' }] }],
   };
@@ -495,6 +536,7 @@ test('rollback safety: the saved shape is the one older code migrates FROM', () 
 
 test('migration math equals the legacy formula after migrating', () => {
   const norm = normalizeConfig({
+    recipes: BAKERY_CONFIG.recipes,
     products: [{ id: 'f-pizze', name: 'Pizzas', recipeId: 'focaccia', weight: 201 }],
     clients: [{ id: 'c1', name: 'A', items: [{ productId: 'f-pizze', kind: 'number' }] }],
   });
@@ -505,6 +547,7 @@ test('migration math equals the legacy formula after migrating', () => {
 
 test('migration: the oldest per-tab + market shape becomes client-owned products', () => {
   const legacy = {
+    recipes: BAKERY_CONFIG.recipes,
     focaccia: { clients: [
       { id: 'f-c1', name: 'Client 1', products: [{ id: 'f-cia', name: 'Ciabatta', weight: 151, kind: 'ciabatta' }] },
     ] },
@@ -532,13 +575,14 @@ test('migration: the oldest per-tab + market shape becomes client-owned products
 
 test('divisor includes NOTHING by default (opt-in)', () => {
   const q = { [pairId('c-bakery', 'f-pizze')]: 10 };
-  assert.equal(divisorTotal(DEFAULT_CONFIG, 'focaccia', qtyFrom(q)), 0);
-  assert.equal(getDivisorProducts(DEFAULT_CONFIG, 'focaccia').length, 0);
-  assert.equal(isInDivisor(DEFAULT_CONFIG, 'focaccia', 'f-panini'), false);
+  assert.equal(divisorTotal(BAKERY_CONFIG, 'focaccia', qtyFrom(q)), 0);
+  assert.equal(getDivisorProducts(BAKERY_CONFIG, 'focaccia').length, 0);
+  assert.equal(isInDivisor(BAKERY_CONFIG, 'focaccia', 'f-panini'), false);
 });
 
 test('divisor sums only ticked products; it sums across every client of a ticked product', () => {
   const config = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [
       { id: 'cA', name: 'A', products: [
         { id: 'p1', name: 'Panini', recipeId: 'focaccia', weight: 100, kind: 'number' },
@@ -571,6 +615,7 @@ test('splitDough divides into crates, and is safe at the edges', () => {
 
 test('normalizeConfig prunes divisor inclusions for products that no longer exist', () => {
   const raw = {
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', name: 'X', products: [{ id: 'p1', name: 'Panini', recipeId: 'focaccia', weight: 100 }] }],
     divisorIncluded: { focaccia: ['p1', 'ghost'], brioche: ['also-gone'] },
   };
@@ -609,7 +654,7 @@ test('crate box is per association: off by default, on only when explicitly enab
 });
 
 test('the default ciabatta association has its crate box enabled (20 pieces)', () => {
-  const ciabatta = getTabProducts(DEFAULT_CONFIG, 'focaccia').find(p => p.id === 'f-ciabatta');
+  const ciabatta = getTabProducts(BAKERY_CONFIG, 'focaccia').find(p => p.id === 'f-ciabatta');
   assert.equal(isCrateEnabled(ciabatta), true);
   assert.equal(getCratePerBox(ciabatta), 20);
 });
@@ -636,6 +681,7 @@ test('names are trimmed on the way in, so a stored trailing space stops showing'
 
 test('the row the log prints has no space before the colon any more', () => {
   const norm = normalizeConfig({
+    recipes: BAKERY_CONFIG.recipes,
     products: [{ id: 'p1', name: 'Seeded burger buns ', recipeId: 'focaccia', weight: 80 }],
     clients: [{ id: 'c1', name: 'Bakery', items: [{ productId: 'p1', kind: 'number' }] }],
   });
@@ -659,6 +705,7 @@ test('a name of ONLY spaces falls back to the placeholder, never to an empty str
 
 test('a missing name still falls back, and nothing throws on junk', () => {
   const norm = normalizeConfig({
+    recipes: BAKERY_CONFIG.recipes,
     clients: [{ id: 'c1', products: [{ id: 'p1', recipeId: 'focaccia', weight: 80 }] }],
   });
   assert.equal(getProductById(norm, 'p1').name, 'Product');
@@ -670,7 +717,8 @@ test('a missing name still falls back, and nothing throws on junk', () => {
 // rebuild it later. A paused product keeps everything and simply leaves the calculator.
 
 const paused = (over = {}) => ({
-  clients: [{ id: 'c1', name: 'A', products: [
+  recipes: BAKERY_CONFIG.recipes,
+    clients: [{ id: 'c1', name: 'A', products: [
     { id: 'p1', name: 'Pizzas',    recipeId: 'focaccia', weight: 201, kind: 'number', ...over },
     { id: 'p2', name: 'Focaccias', recipeId: 'focaccia', weight: 181, kind: 'number' },
   ] }],
@@ -728,19 +776,19 @@ test('a paused product still blocks deleting the recipe it belongs to', () => {
 // quietly hide a day's work from an order somebody is about to send.
 
 test('the setting defaults to both days', () => {
-  assert.equal(DEFAULT_CONFIG.orderPrefillWindow, 'both');
-  assert.equal(getOrderPrefillWindow(normalizeConfig({ clients: [] })), 'both');
+  assert.equal(BAKERY_CONFIG.orderPrefillWindow, 'both');
+  assert.equal(getOrderPrefillWindow(normalizeConfig({ recipes: BAKERY_CONFIG.recipes, clients: [] })), 'both');
 });
 
 test('each of the three choices survives normalisation', () => {
   for (const w of ORDER_PREFILL_WINDOWS) {
-    assert.equal(normalizeConfig({ clients: [], orderPrefillWindow: w }).orderPrefillWindow, w, w);
+    assert.equal(normalizeConfig({ recipes: BAKERY_CONFIG.recipes, clients: [], orderPrefillWindow: w }).orderPrefillWindow, w, w);
   }
 });
 
 test('a value nobody recognises falls back to both, never to nothing', () => {
   for (const bad of [undefined, null, '', 'ieri', 'BOTH', 42, {}, []]) {
-    assert.equal(normalizeConfig({ clients: [], orderPrefillWindow: bad }).orderPrefillWindow,
+    assert.equal(normalizeConfig({ recipes: BAKERY_CONFIG.recipes, clients: [], orderPrefillWindow: bad }).orderPrefillWindow,
       'both', String(bad));
   }
 });
@@ -764,7 +812,8 @@ test('every choice has wording, or the settings screen shows a blank option', ()
 // and must not be counted twice — but the line still has to reach the message.
 
 const FREE_CFG = {
-  clients: [
+  recipes: BAKERY_CONFIG.recipes,
+    clients: [
     { id: 'cA', name: 'CLIENT A', products: [
       { id: 'p1', name: 'Buns', recipeId: 'brioche', weight: 80, kind: 'number' }] },
   ],

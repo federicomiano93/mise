@@ -61,10 +61,21 @@ export function getConfig() {
 export function initConfig(onUpdate) {
   notify = typeof onUpdate === 'function' ? onUpdate : null;
   watchCalculatorConfig(remote => {
+    const firstAnswer = !serverAnswered;
     // Set BEFORE the early return: "there is no document" is an answer, and a
     // brand-new location has to be able to save its first client.
     serverAnswered = true;
-    if (!remote) return; // no document yet — keep cache/default
+    if (!remote) {
+      // ⚠️ THE SCREEN HAS TO HEAR "THERE IS NO DOCUMENT" TOO. The empty Calculator
+      // waits on this answer to tell "you have no recipes yet" from "the server has
+      // not spoken yet" (calculatorEmptyReason), and this is the ONE branch where the
+      // answer arrives without the config changing — so without a notify here the
+      // very customer the empty state was written for would sit on "Loading…" for
+      // ever. Only on the FIRST answer: a later null means the document was deleted,
+      // and re-rendering then is the caller's business, not a fresh arrival.
+      if (firstAnswer && notify) notify(current);
+      return; // no document yet — keep cache/default
+    }
     current = normalizeConfig(remote);
     writeCache(current);
     if (notify) notify(current);

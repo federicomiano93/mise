@@ -4,14 +4,17 @@ import {
   restoreRevealed, clearRevealed, restoreLock, clearLock, getLock,
 } from './calc.js';
 import { saveDay, editTab, renderLog } from './log.js';
-import { closeRecipes, goHomeFromRecipes } from './recipes.js';
+import { openRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
 import './log-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker, closeWhoPicker } from './whatsapp.js';
-import { getConfig, initConfig } from './calculator-config-store.js';
+import { getConfig, initConfig, canSyncConfig } from './calculator-config-store.js';
 import { initLogs } from './log-store.js';
-import { renderTab, buildRecipePanel, el } from './calculator-render.js';
-import { getVisibleRecipes, getRecipeById, getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
+import { renderTab, buildRecipePanel, buildEmptyPanel, el } from './calculator-render.js';
+import {
+  getVisibleRecipes, getRecipeById, getTabProducts, isExtraDoughEnabled,
+  calculatorEmptyReason,
+} from './calculator-config.js';
 import { workDayIndex } from './log-model.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { initClientOrders } from './calculator-client-orders.js';
@@ -25,7 +28,27 @@ import { initClientOrders } from './calculator-client-orders.js';
 let lastRecipeTab = null; // remembered so the Log screen's Back returns here
 let currentTab = null;    // the active screen, for the header Back destination
 
+// The panel shown when there is no recipe to draw. Not a recipe id and not in the
+// tab bar — just the third thing `.content` can be, beside a recipe and the Log.
+const EMPTY_TAB = 'empty';
+
 function visibleIds() { return getVisibleRecipes(getConfig()).map(r => r.id); }
+
+// Where the Log's Back lands. The remembered tab is CHECKED against the recipes that
+// exist right now, never trusted.
+//
+// ⚠️ WITHOUT THAT CHECK IT LANDS ON A BLANK SCREEN, and it could already: delete the
+// recipe you were last on (or open the Log and let another phone delete it), tap Back,
+// and switchTab looks for a panel that is no longer built — every `.content` ends up
+// hidden and the scroll area is empty, with the header offering no way out but Home.
+// The empty panel makes that reachable in one more way, so the destination is now
+// resolved rather than remembered.
+function backFromLog() {
+  const ids = visibleIds();
+  if (lastRecipeTab && ids.includes(lastRecipeTab)) return lastRecipeTab;
+  if (ids.length) return ids[0];
+  return calculatorEmptyReason(getConfig(), canSyncConfig()) ? EMPTY_TAB : 'log';
+}
 
 function switchTab(name) {
   document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
@@ -290,11 +313,13 @@ function renderAll() {
     });
   }
 
-  // Panels.
+  // Panels — or, when there is not one recipe to draw, the panel that says so.
+  const emptyReason = calculatorEmptyReason(getConfig(), canSyncConfig());
   const host = document.getElementById('recipe-tabs');
   if (host) {
     host.textContent = '';
     recipes.forEach(r => host.appendChild(buildRecipePanel(r)));
+    if (emptyReason) host.appendChild(buildEmptyPanel(emptyReason, openRecipes));
   }
 
   // ⚠️ Expire BEFORE restoring: doing it after would paint yesterday's numbers and
@@ -313,10 +338,14 @@ function renderAll() {
     restoreLock(r.id);
   });
 
-  // Keep the active tab if still valid, else fall back to the first recipe.
+  // Keep the active tab if still valid, else fall back to the first recipe — or to
+  // the empty panel, which is the only thing on screen when there are no recipes.
+  // ⚠️ Falling back to 'log' there is what this release exists to stop: a customer
+  // who has just bought the app landed on the Log, with a blank tab bar above it and
+  // nothing saying why.
   const ids = recipes.map(r => r.id);
   let active = currentTab;
-  if (active !== 'log' && !ids.includes(active)) active = ids[0] || 'log';
+  if (active !== 'log' && !ids.includes(active)) active = ids[0] || (emptyReason ? EMPTY_TAB : 'log');
   switchTab(active);
 
   recipes.forEach(r => calc(r.id));
@@ -404,7 +433,7 @@ document.addEventListener('visibilitychange', () => {
 document.getElementById('header-wa-btn').addEventListener('click', shareMarketOrder);
 document.getElementById('header-back-btn').addEventListener('click', () => {
   // From the Log, Back returns to the last recipe; from a recipe it leaves to the app home.
-  if (currentTab === 'log') switchTab(lastRecipeTab || (visibleIds()[0] || 'log'));
+  if (currentTab === 'log') switchTab(backFromLog());
   else window.location.href = 'index.html';
 });
 document.getElementById('log-footer-btn').addEventListener('click', () => switchTab('log'));

@@ -342,6 +342,56 @@
 @keyframes app-fade-in { from { opacity: 0; } }
 @keyframes app-dialog-in { from { opacity: 0; transform: scale(.96); } }
 
+/* ── Empty state — app-wide ──────────────────────────────────────────────
+   A dashed outline says "nothing here yet" without looking like a card that
+   failed to load. Orders has shown "No suppliers yet" in this block since it
+   shipped; from 13 Aug 2026 the Calculator shows "No recipes yet" in it too,
+   which is why the rules MOVED here from orders.css rather than being copied.
+   Values unchanged, including the 18px radius, which is this block's own and
+   deliberately not one of the radius tokens.
+
+   ⚠️ The token names are the CANONICAL ones (--text-3), not style.css's
+   --text3 alias: this file is loaded by pages that do not load style.css, and
+   an undefined custom property is dropped in SILENCE — the whole declaration,
+   with nothing anywhere saying so. That exact mistake shipped three times in
+   two days in August 2026. */
+.empty-state {
+  text-align: center;
+  padding: 28px 20px;
+  background: var(--surface);
+  border: 1px dashed var(--warn-border);
+  border-radius: 18px;
+}
+.empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+/* ⚠️ --text-2, NOT the --text-3 this line carried in orders.css. MEASURED, not
+   judged: --text-3 on --surface is 4.49:1, and 14px text needs 4.5:1 (P18) — it
+   missed by a hundredth, which is exactly the kind of miss nobody ever catches by
+   looking. --text-2 measures 5.9:1 and is not an invented colour: it is the token
+   whose stated role ("secondary text") fits an explanatory sentence better than
+   --text-3's ("units, timestamps, fine print"). Choosing between two existing
+   tokens on a measurable axis is what the UI rule asks for; inventing a third
+   would not be. Orders' "No suppliers yet" gets the same improvement. */
+.empty-sub { font-size: 14px; color: var(--text-2); line-height: 1.5; }
+/* The one action an empty screen offers, when there is one to offer. Deliberately
+   NOT full-width: it is an invitation, not the Confirm at the end of a form. */
+.empty-action {
+  margin-top: 18px;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: var(--shadow-brand);
+  transition: transform .06s ease;
+}
+.empty-action:active { background: var(--brand-press); box-shadow: none; transform: scale(.97); }
+.empty-action:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+
 /* ── Motion kill-switch — app-wide ───────────────────────────────────────
    Near-zero durations rather than 'none' so end-states still apply and
    transitionend/animationend events still fire. */

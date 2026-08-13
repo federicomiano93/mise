@@ -184,6 +184,54 @@ export function buildRecipePanel(recipe) {
   return content;
 }
 
+// ── The Calculator with nothing in it ─────────────────────────────────────────
+// One sentence per reason (see calculatorEmptyReason). Written flat rather than
+// assembled from fragments so each one can be read as the customer reads it.
+//
+// ⚠️ NEUTRAL, NOT AN ALARM. An app that has just been bought is not broken, and a
+// warning tone here would say it is. That is also why the block reuses the app's
+// dashed `.empty-state` — the same one Orders shows for "No suppliers yet" — and
+// not the amber warning card.
+const EMPTY_COPY = {
+  loading: {
+    title: 'Loading…',
+    sub: 'Fetching the recipes saved for this venue.',
+  },
+  'no-recipes': {
+    title: 'No recipes yet',
+    sub: 'The Calculator works out how much dough to make from what your clients '
+      + 'have ordered. Add your first recipe — its ingredients and their '
+      + 'amounts — and it becomes a tab up here.',
+    action: 'Add a recipe',
+  },
+  'hidden-recipes': {
+    title: 'No recipe is shown here',
+    sub: 'You have recipes, but none of them is set to appear as a tab. Choose '
+      + 'which ones to show, up to four.',
+    action: 'Choose which to show',
+  },
+};
+
+// The panel shown INSTEAD of the recipe tabs when there are none. `onAction` opens
+// the recipe editor; it is passed in rather than imported so this module stays free
+// of the Calculator's screens (it is imported by the tests, which have no DOM).
+//
+// ⚠️ 'loading' DELIBERATELY HAS NO BUTTON. Offering "Add a recipe" while the answer
+// is still on its way invites somebody to write a recipe they may already have.
+export function buildEmptyPanel(reason, onAction) {
+  const copy = EMPTY_COPY[reason] || EMPTY_COPY.loading;
+  const block = el('div', { class: 'empty-state' }, [
+    el('p', { class: 'empty-title' }, copy.title),
+    el('p', { class: 'empty-sub' }, copy.sub),
+  ]);
+  if (copy.action) {
+    const btn = el('button', { class: 'empty-action', type: 'button', id: 'calc-empty-action' }, copy.action);
+    if (typeof onAction === 'function') btn.addEventListener('click', onAction);
+    block.appendChild(btn);
+  }
+  return el('div', { class: 'content', id: 'tab-empty' }, [block]);
+}
+
 // Render all client cards for a tab into `container`, replacing its contents.
 // The tab's products (already filtered to this dough and tagged with their owning
 // client) are grouped back into one card per client, preserving address-book order.
@@ -191,6 +239,23 @@ export function renderTab(config, tab, container) {
   if (!container) return;
   container.textContent = '';
   const products = getTabProducts(config, tab);
+  // ⚠️ The "Orders" heading is drawn by buildRecipePanel whatever happens, so with an
+  // empty address book it stood over nothing at all — a heading with a blank space
+  // under it, which reads as a screen that failed to load. A recipe made before the
+  // first client is the normal order of things, and it says so.
+  if (products.length === 0) {
+    //
+    // ⚠️ It says "no products in this tab", not "no client orders this recipe": a
+    // PAUSED product leaves the tab entirely (see getTabProducts), so the second
+    // wording would be a flat lie to somebody who paused their only one. The first
+    // is true whichever of the three causes it is — no clients, no products on this
+    // recipe, or every one of them paused — and it points at the screen that fixes
+    // all three. The words are the ones Settings already uses for the same idea.
+    container.appendChild(el('div', { class: 'cp-empty-hint' },
+      'No products in this tab yet. Add your clients, and the products they buy, '
+      + 'in Settings.'));
+    return;
+  }
   let currentCard = null;
   let currentClientId = null;
   for (const product of products) {

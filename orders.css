@@ -223,19 +223,11 @@
   border-top: 1px solid var(--error-border);
 }
 
-/* ── Empty state / seed (test scaffolding) ────────────────────────────────── */
-/* Empty state — a dashed outline says "nothing here yet" without looking like
-   a card that failed to load. Same block for "No past orders yet." and
-   "No logs yet." */
-.empty-state {
-  text-align: center;
-  padding: 28px 20px;
-  background: var(--surface);
-  border: 1px dashed var(--warn-border);
-  border-radius: 18px;
-}
-.empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
-.empty-sub { font-size: 14px; color: var(--text3); line-height: 1.5; }
+/* ── Empty state ───────────────────────────────────────────────────────────
+   MOVED to tokens.css on 13 Aug 2026, unchanged. The Calculator's empty screen
+   uses the same block, and calculator.html happening to load orders.css is not
+   a thing to build on — that implicit dependency is exactly what made the
+   .ing-row collision so hard to see. */
 
 /* ── Order view switch (By supplier / All ingredients) ─────────────────────
    A segmented control, deliberately NOT drawn like the page's .tab-bar: that one

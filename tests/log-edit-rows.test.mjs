@@ -6,9 +6,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { editRows, recipeSnapshot, buildSheet } from '../js/log-model.js';
-import { DEFAULT_CONFIG, getRecipeById } from '../js/calculator-config.js';
+import { getRecipeById } from '../js/calculator-config.js';
 
-const FOCACCIA = getRecipeById(DEFAULT_CONFIG, 'focaccia');
+// ⚠️ THE BAKERY'S DATA IS A FIXTURE NOW, NOT THE APP'S DEFAULT (13 Aug 2026).
+// These assertions run through The Italian Club Bakery's own clients, products
+// and formulas — including the ones proving the config-driven scaler is
+// byte-identical to the three hand-written scalers it replaced. Every number is
+// unchanged; only where it is kept has moved, out of js/ and into tests/, so that
+// a customer who buys the app no longer opens it holding somebody else's recipes.
+import { BAKERY_CONFIG } from './fixtures/bakery-config.mjs';
+
+const FOCACCIA = getRecipeById(BAKERY_CONFIG, 'focaccia');
 
 // A line as a log stores it.
 function saved(over = {}) {
