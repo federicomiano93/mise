@@ -6,7 +6,7 @@
 //
 // ⚠️ NO SECOND SERVICE WORKER. Firebase's usual setup registers its own worker at
 // the SITE ROOT, and this app is not at the root (it lives under
-// /mise/ on GitHub Pages). getToken() is handed the app's
+// /mise_app/ on GitHub Pages). getToken() is handed the app's
 // existing registration instead, and sw.js does the receiving.
 
 import { t } from './i18n.js';

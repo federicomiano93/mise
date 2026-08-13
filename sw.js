@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v294';
+const CACHE_NAME = 'theitalianclub-v295';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -326,7 +326,7 @@ self.addEventListener('message', e => {
 //
 // ⚠️ THIS IS HERE, IN THE APP'S OWN SERVICE WORKER, ON PURPOSE. Firebase's usual
 // setup registers a SECOND worker (firebase-messaging-sw.js) at the site ROOT —
-// and this app is not at the root, it lives under /mise/. Two
+// and this app is not at the root, it lives under /mise_app/. Two
 // workers fighting over one scope is a whole class of bug that simply cannot
 // happen if there is only ever one. getToken() is handed THIS registration
 // instead (js/push.js).

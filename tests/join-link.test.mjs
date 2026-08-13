@@ -15,7 +15,7 @@ import {
 } from '../js/join-link.js';
 import { LINK_LENGTH, DIGITS_LENGTH } from '../js/join-code.js';
 
-const HERE = 'https://example.test/mise/orders.html';
+const HERE = 'https://example.test/mise_app/orders.html';
 const TOKEN = 'aB3dEf6hIj9lMn2pQr5tUv8xYz1CdEf4';           // 32, the real shape
 const LONGER = 'aB3dEf6hIj9lMn2pQr5tUv8xYz1CdEf4gH7jKl0n'; // 40, still valid
 
@@ -27,7 +27,7 @@ test('the token is a real 32-character link token', () => {
 
 test('the link lands on the front door, not a page of its own', () => {
   const link = joinLinkFor(TOKEN, HERE);
-  assert.ok(link.startsWith('https://example.test/mise/' + JOIN_PAGE), link);
+  assert.ok(link.startsWith('https://example.test/mise_app/' + JOIN_PAGE), link);
 });
 
 // ⚠️ THE WHOLE POINT. A query string is sent to the server and lands in its logs;
