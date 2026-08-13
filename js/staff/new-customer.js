@@ -180,6 +180,35 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
       return row;
     }));
 
+  // ── Which country it sells in ──────────────────────────────────────────────
+  //
+  // ⚠️⚠️ THIS IS A LEGAL QUESTION WEARING THE CLOTHES OF A SETTING, and it is
+  // asked at creation because it can never be worked out afterwards. It decides
+  // what language this venue's allergen labels are printed in: retained Reg. (EU)
+  // 1169/2011 Art. 15 asks for food information in a language easily understood
+  // where the food is marketed.
+  //
+  // ⚠️ NOTHING IS PRE-SELECTED, exactly like the sections below and for a sharper
+  // version of the same reason. Pre-ticking a section sells part of the app by
+  // accident; pre-selecting "United Kingdom" would make every business created in
+  // a hurry print ENGLISH allergen labels — right for every venue that exists
+  // today, and silently non-compliant for the first Italian customer.
+  let country = '';
+  const countryList = el('div', { class: 'nc-sections' },
+    [['GB', 'United Kingdom', 'Labels are printed in English.'],
+      ['IT', 'Italia', 'Le etichette sono prodotte in italiano.']]
+      .map(([key, label, what]) => {
+        const radio = el('input', { type: 'radio', class: 'nc-check', name: 'nc-country' });
+        radio.addEventListener('change', () => { if (radio.checked) country = key; });
+        return el('label', { class: 'nc-section' }, [
+          radio,
+          el('span', { class: 'nc-section-text' }, [
+            el('span', { class: 'nc-section-name', text: label }),
+            el('span', { class: 'nc-section-what', text: what }),
+          ]),
+        ]);
+      }));
+
   const status = el('p', { class: 'people-note', role: 'alert' });
   const create = el('button', { type: 'button', class: 'btn-primary people-save', text: 'Create' });
 
@@ -201,6 +230,14 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
   form.append(
     hint,
     nameLabel,
+    // Before the sections on purpose: it is a fact about the business, where the
+    // sections are a fact about the sale.
+    el('p', { class: 'people-label', text: 'Which country does it sell in?' }),
+    el('p', { class: 'people-note', text:
+      'This decides the language its allergen labels are printed in, and it cannot '
+      + 'be worked out later. The law asks for a label in the language of the country '
+      + 'where the food is sold.' }),
+    countryList,
     sectionsLabel,
     sectionList,
     create,
@@ -214,6 +251,9 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     const typed = name.value.trim();
     if (!typed) return ['Give the business a name.', name];
     if (typed.length > MAX_NAME) return [`That name is longer than ${MAX_NAME} characters.`, name];
+    // ⚠️ REFUSED, NOT DEFAULTED. The server refuses it too; this one only exists
+    // so the refusal arrives before the network and says something useful.
+    if (!country) return ['Choose the country this business sells in — it decides the language of its labels.', null];
     const any = [...boxes.values()].some(box => box.checked);
     if (!any) return ['Choose at least one section — otherwise their app opens empty.', null];
     return null;
@@ -232,9 +272,12 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     boxes.forEach((box, key) => { sections[key] = box.checked; });
 
     const bought = SECTIONS.filter(([key]) => sections[key]).map(([, label]) => label);
+    // ⚠️ THE COUNTRY IS IN THE CONFIRMATION, because it is the one answer here
+    // that cannot be corrected from any screen afterwards.
+    const where = country === 'IT' ? 'Italy — labels in Italian' : 'the United Kingdom — labels in English';
     const ok = await confirmDialog({
       title: forSelf ? 'Create this business?' : 'Create this customer?',
-      message: `${typed}\n\nSections: ${bought.join(', ')}.\n\n`
+      message: `${typed}\n\nSells in: ${where}.\nSections: ${bought.join(', ')}.\n\n`
         + (forSelf
           ? 'It will be created in YOUR account, as owner.'
           : 'Whoever opens the link becomes its owner.'),
@@ -245,7 +288,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
     create.disabled = true;
     status.textContent = 'Creating…';
     try {
-      const res = await createWorkspace(typed, sections, { forSelf });
+      const res = await createWorkspace(typed, sections, { forSelf, country });
       if (forSelf) {
         made = { name: typed, locationId: res.locationId, mine: true };
         showMine();

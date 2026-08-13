@@ -106,7 +106,11 @@ test('the client passes forSelf through, and the screen can set it', () => {
     'the data layer must forward the choice, strictly');
   assert.match(SCREEN, /forSelf/,
     'the screen must be able to ask for it — otherwise the server branch is dead code');
-  assert.match(SCREEN, /createWorkspace\(typed, sections, \{ forSelf \}\)/,
+  // ⚠️ PINNED TO THE EXACT SHAPE, and updated rather than loosened when `country`
+  // joined it (13 Aug 2026). A pattern relaxed to /createWorkspace\(/ would keep
+  // passing on the day somebody drops an argument — which is the whole failure
+  // this test exists for.
+  assert.match(SCREEN, /createWorkspace\(typed, sections, \{ forSelf, country \}\)/,
     'the screen must actually pass it at the call site');
 });
 

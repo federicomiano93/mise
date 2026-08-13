@@ -17,8 +17,12 @@ import { MAX_RECIPE_DEPTH } from './recipe-cost-model.js';
 import { recipeAllergens, canLabel } from './recipe-allergen-model.js';
 import {
   normalizeAllergens, normalizeMayContain, normalizeNutrition, hasFullNutrition,
-  allergenLabel, NUTRIENT_KEYS,
+  NUTRIENT_KEYS,
 } from '../allergen-model.js';
+// ⚠️ From js/ ROOT, like allergen-model.js above it and for the same reason: what
+// language a label is printed in is decided by the venue's country, and that
+// judgement must be the same one for every screen that prints one.
+import { allergenName, labelWord } from '../market.js';
 
 function lookup(table, id) {
   if (!table || !id) return null;
@@ -204,7 +208,12 @@ export function ingredientLine(label) {
 
 // "Contains: Wheat, Milk" — the summary under the list. Empty when there are none,
 // because "Contains: nothing" is not a sentence anybody prints.
-export function containsLine(label) {
+//
+// ⚠️ THE LANGUAGE COMES FROM THE VENUE'S COUNTRY, never from a preference — see
+// js/market.js. It defaults to English so a caller that forgets prints what this
+// app has always printed, rather than nothing; the screens that matter pass it,
+// and a test pins that they do.
+export function containsLine(label, lang = 'en') {
   if (!label || !label.ok || !label.allergens.length) return '';
-  return `Contains: ${label.allergens.map(allergenLabel).join(', ')}`;
+  return `${labelWord('contains', lang)}: ${label.allergens.map(c => allergenName(c, lang)).join(', ')}`;
 }

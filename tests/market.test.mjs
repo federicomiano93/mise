@@ -181,11 +181,94 @@ test('salt is salt, and saturates say what they are of', () => {
 // Saying so on the screen is the only honest option available.
 test('the screen admits it cannot translate the ingredient names', () => {
   assert.match(ingredientNamesNote({ country: 'GB' }), /does not translate/);
-  assert.match(ingredientNamesNote({ country: 'IT' }), /non li traduce/);
+  assert.match(ingredientNamesNote({ country: 'IT' }), /does not translate/);
 });
 
-test('the note about the language is in English in both cases, because staff read it', () => {
-  // The NOTE is interface, not label: it explains the label to whoever is making
-  // it. It becomes translatable with the rest of the interface, later.
-  assert.match(labelLanguageNote({ country: 'IT' }), /^This label is produced/);
+// ⚠️ BOTH NOTES ARE INTERFACE TEXT, AND THE SCREENSHOT IS WHAT PROVED IT. The
+// second one returned the OUTPUT language at first, so the explanatory block came
+// out half English and half Italian — one paragraph, two languages, which reads
+// as a mistake because it is one. Both are addressed to the person MAKING the
+// label, never to the consumer reading it.
+test('the two notes are in the same language as each other', () => {
+  for (const country of ['GB', 'IT']) {
+    const location = { country };
+    assert.match(labelLanguageNote(location), /^This label is produced/, country);
+    assert.match(ingredientNamesNote(location), /^The ingredient names/, country);
+  }
+});
+
+// ── The two halves have to agree ────────────────────────────────────────────
+//
+// The lesson of 12 Aug 2026: a server half that is correct and that nothing calls
+// is a feature that does not exist, and every test stays green while it does not.
+// These are source checks, like tests/create-own-business.test.mjs beside them.
+
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const read = p => readFileSync(join(ROOT, ...p.split('/')), 'utf8');
+
+test('the server refuses to create a business without a country', () => {
+  const server = read('functions/onboarding.js');
+  const start = server.indexOf('export const createWorkspace');
+  const body = server.slice(start, server.indexOf('\n});', start));
+  assert.match(body, /\['GB', 'IT'\]\.includes\(country\)/,
+    'the country must be validated against the two we support');
+  assert.match(body, /throw new HttpsError\('invalid-argument'/,
+    'and a missing one must be refused, not defaulted');
+  // ⚠️ BOTH writes — a customer's business and one of your own — must store it.
+  // One of them forgetting is a business whose labels can never be produced.
+  const writes = body.match(/name, sections, country, createdAt: now, createdBy: uid/g) || [];
+  assert.equal(writes.length, 2, 'both location writes must carry the country');
+});
+
+test('the screen asks for it, and passes it through the data layer', () => {
+  const screen = read('js/staff/new-customer.js');
+  const client = read('js/staff/firebase-staff.js');
+  assert.match(screen, /nc-country/, 'the form must offer the choice');
+  assert.match(screen, /if \(!country\) return \[/, 'and refuse before the network');
+  assert.match(screen, /createWorkspace\(typed, sections, \{ forSelf, country \}\)/,
+    'and pass it at the call site');
+  assert.match(client, /country: opts\.country \|\| ''/, 'the data layer must forward it');
+});
+
+// ⚠️ NOTHING IS PRE-SELECTED, and this is the sharper version of the sections
+// rule. Pre-ticking a section sells part of the app by accident; pre-selecting
+// "United Kingdom" would make a business created in a hurry print ENGLISH
+// allergen labels — right for every venue that exists today, and silently
+// non-compliant for the first Italian customer.
+test('no country is pre-selected on the form', () => {
+  const screen = read('js/staff/new-customer.js');
+  const start = screen.indexOf("name: 'nc-country'");
+  const nearby = screen.slice(start - 400, start + 400);
+  assert.doesNotMatch(nearby, /radio\.checked = /,
+    'a pre-selected country is a label language nobody chose');
+});
+
+test('the label screen refuses when the country is unknown, and follows it when known', () => {
+  const view = read('js/catalogue/label-view.js');
+  assert.match(view, /if \(!canPrintLabel\(location\)\)/,
+    'no country, no label — never a quiet fallback to English');
+  assert.match(view, /const lang = outputLanguage\(location\)/);
+  // Every word that reaches a label goes through market.js.
+  for (const call of [/labelWord\('ingredients', lang\)/, /allergenName\(c, lang\)/,
+    /nutrientName\(n, lang\)/, /containsLine\(label, lang\)/]) {
+    assert.match(view, call, String(call));
+  }
+});
+
+// ⚠️ THE COPIED TEXT IS THE LABEL. Whatever is printed in the end comes from the
+// clipboard, so an English copy pasted onto Italian packaging is the whole defect
+// this release prevents, arriving through the one door nobody thought of.
+test('the copied text is in the same language as the label on screen', () => {
+  const view = read('js/catalogue/label-view.js');
+  const start = view.indexOf('const lines = [label.name');
+  const copy = view.slice(start, start + 700);
+  assert.match(copy, /labelWord\('ingredients', lang\)/);
+  assert.match(copy, /containsLine\(label, lang\)/);
+  assert.match(copy, /nutrientName\(n, lang\)/);
+  assert.doesNotMatch(copy, /'Ingredients: '|'Typical values|'May contain:/,
+    'no English left hard-coded in the copied label');
 });

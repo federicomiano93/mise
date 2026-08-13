@@ -30,6 +30,13 @@
 // is not a translation job. It is a new piece of work, and this file should
 // refuse rather than guess when it arrives.
 
+// ⚠️ IMPORTED FOR THE ENGLISH WORDS, WHICH STAY WHERE THEY ARE. js/allergen-model.js
+// remains the one place the fourteen are defined — their codes, their groups and
+// their English names. This file adds a second COLUMN beside that, never a second
+// list: a copy of the fourteen would be the copy that quietly drifts, and the
+// thing it would disagree about is what is in somebody's food.
+import { allergenLabel } from './allergen-model.js';
+
 export const COUNTRIES = Object.freeze(['GB', 'IT']);
 
 const COUNTRY_NAMES = Object.freeze({
@@ -160,6 +167,30 @@ export function nutrientWordIt(key) {
   return NUTRIENT_IT[key] || '';
 }
 
+// ── The one place a label word is chosen ─────────────────────────────────────
+//
+// ⚠️ THE BRANCH LIVES HERE AND NOWHERE ELSE. Every screen that prints an
+// allergen would otherwise carry its own `lang === 'it' ? … : …`, and the day a
+// third language arrives one of them is forgotten — printing an English allergen
+// on an Italian label, silently, on the one screen nobody re-read.
+//
+// ⚠️ AND THE FALLBACK IS THE ENGLISH WORD, NOT A BLANK. A test pins that every
+// one of the fourteen has an Italian name, so this cannot be reached — but if it
+// ever were, "Hazelnut" on an Italian label still tells somebody with a nut
+// allergy what is in the food. An empty name in a list of allergens is the most
+// dangerous blank this app could print, because the line still LOOKS complete.
+export function allergenName(code, lang) {
+  if (lang === 'it') return allergenWordIt(code) || allergenLabel(code);
+  return allergenLabel(code);
+}
+
+// The same, for a row of the nutrition table. `nutrient` is an entry of NUTRIENTS.
+export function nutrientName(nutrient, lang) {
+  if (!nutrient) return '';
+  if (lang === 'it') return nutrientWordIt(nutrient.key) || nutrient.label;
+  return nutrient.label;
+}
+
 // ── What the label screen has to say about itself ────────────────────────────
 
 // ⚠️ THE SCREEN DECLARES WHAT IT IS PRODUCING AND WHY, and it is not a footnote.
@@ -178,14 +209,19 @@ export function labelLanguageNote(location) {
 // not pretend to: an Italian venue has to type Italian ingredient names, or the
 // label reads "Contiene: Wheat" — half translated, which is worse than either
 // language on its own.
-export const INGREDIENT_NAMES_NOTE = Object.freeze({
-  en: 'The ingredient names are the ones you typed — the app does not translate them.',
-  it: 'I nomi degli ingredienti sono quelli che avete scritto voi: l’app non li traduce.',
-});
+//
+// ⚠️ IT IS INTERFACE TEXT, SO IT DOES NOT FOLLOW THE COUNTRY. This returned the
+// OUTPUT language at first, and the screenshot showed why that was wrong: the
+// explanatory block came out with its first line in English and its second in
+// Italian, because labelLanguageNote() beside it is interface text and this one
+// was not. Both are addressed to the person MAKING the label, never to the
+// consumer reading it — so both are in the language the staff read, which today
+// is English everywhere and becomes the interface setting when that ships.
+export const INGREDIENT_NAMES_NOTE =
+  'The ingredient names are the ones you typed — the app does not translate them.';
 
 export function ingredientNamesNote(location) {
-  const lang = outputLanguage(location);
-  return lang ? INGREDIENT_NAMES_NOTE[lang] : '';
+  return canPrintLabel(location) ? INGREDIENT_NAMES_NOTE : '';
 }
 
 // What to say INSTEAD of a label when the country is not known. It names the fix

@@ -165,6 +165,23 @@ export const createWorkspace = onCall(CALL, async (request) => {
     sections[key] = wanted[key] === true;
   }
 
+  // ⚠️⚠️ THE COUNTRY IS A LEGAL FACT, NOT A PREFERENCE, and it is asked for HERE
+  // because it can never be guessed later. It decides what language this venue's
+  // allergen labels are printed in: retained Reg. (EU) 1169/2011 Art. 15 asks for
+  // food information in a language easily understood where the food is marketed.
+  //
+  // ⚠️ REFUSED WHEN MISSING, rather than defaulted to 'GB'. Every venue that
+  // exists today is in the UK, so 'GB' would be right for all of them and
+  // silently WRONG for the first Italian customer — whose labels would print in
+  // English, look finished, and be non-compliant. js/market.js refuses to produce
+  // a label without it; this refuses to create a business without it, so that
+  // refusal is never reached by a business made through the app.
+  const country = String((request.data && request.data.country) || '').trim();
+  if (!['GB', 'IT'].includes(country)) {
+    throw new HttpsError('invalid-argument',
+      'Which country does this business sell in? It decides the language of its labels.');
+  }
+
   const locationId = mintLocationId();
   const now = Date.now();
 
@@ -192,7 +209,7 @@ export const createWorkspace = onCall(CALL, async (request) => {
     // stranded for the person who just created it, with no link to fall back on.
     await db().runTransaction(async (tx) => {
       tx.set(db().doc(`locations/${locationId}`), {
-        name, sections, createdAt: now, createdBy: uid,
+        name, sections, country, createdAt: now, createdBy: uid,
       });
       // The truth the rules read. merge:true because this account almost
       // certainly already owns something — that is what makes it "one of mine".
@@ -219,7 +236,7 @@ export const createWorkspace = onCall(CALL, async (request) => {
   const token = mintLinkToken();
 
   await db().doc(`locations/${locationId}`).set({
-    name, sections, createdAt: now, createdBy: uid,
+    name, sections, country, createdAt: now, createdBy: uid,
   });
   const expiresAt = await storeCode({
     code: token, kind: 'link', locationId, role: 'owner', createdBy: uid,
