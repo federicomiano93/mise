@@ -6,10 +6,12 @@
 // could not be redeemed from the app at all. Both halves were correct on their
 // own and every test stayed green. These tests pin the JOIN between them.
 
+import * as i18n from '../js/i18n.js';
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  JOIN_PAGE, joinLinkFor, readJoinToken, kindOfTyped, CODE_SHAPE_HINT,
+  JOIN_PAGE, joinLinkFor, readJoinToken, kindOfTyped, codeShapeHint,
 } from '../js/join-link.js';
 import { LINK_LENGTH, DIGITS_LENGTH } from '../js/join-code.js';
 
@@ -117,7 +119,21 @@ test('everything else is refused before the network', () => {
 
 // ⚠️ The screen now accepts two shapes, so a message naming only one reads as a
 // refusal of the link somebody was just sent.
-test('the hint names both ways in', () => {
-  assert.match(CODE_SHAPE_HINT, /six-digit/);
-  assert.match(CODE_SHAPE_HINT, /link/);
+//
+// ⚠️ IT IS A FUNCTION NOW, NOT A CONSTANT, so it follows the language on screen
+// instead of freezing whichever one the app started in — and the test got stronger
+// following it: EVERY language has to name both shapes. A translation that
+// mentioned only the digits would read, to somebody holding a link, as a refusal
+// of the link they were just sent.
+test('the hint names both ways in, in every language', () => {
+  const { setLanguage, currentLanguage, LANGUAGES } = i18n;
+  const before = currentLanguage();
+  try {
+    for (const lang of LANGUAGES) {
+      setLanguage(lang);
+      const hint = codeShapeHint();
+      assert.ok(/six-digit|sei cifre/.test(hint), `${lang} must name the six digits: ${hint}`);
+      assert.ok(/link/i.test(hint), `${lang} must name the link: ${hint}`);
+    }
+  } finally { setLanguage(before); }
 });

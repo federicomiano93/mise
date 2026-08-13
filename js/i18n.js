@@ -119,6 +119,88 @@ const DICTIONARIES = Object.freeze({
     // not extracted yet; when they are, this becomes a hole. Until then, changing
     // one means changing the other — the drift is real, and small.
     'people.joinsAs': 'Joins as {role} · {expires} · they open the app, tap “I have a code”, create their account and type it.',
+
+    // ── Signing in ──────────────────────────────────────────────────────────
+    // ⚠️ «Misé» IS NOT HERE. It is the product's name, not a phrase — the same
+    // reason a venue's name never passes through a dictionary either.
+    'auth.signIn.sub': 'Sign in to open your location.',
+    'auth.email': 'Email',
+    'auth.password': 'Password',
+    'auth.signIn': 'Sign in',
+    'auth.forgot': 'Forgot your password?',
+    'auth.iHaveACode': 'I have a join code',
+    'auth.installGuide': 'How to install the app',
+    'auth.enterEmail': 'Enter your email.',
+    'auth.enterPassword': 'Enter your password.',
+    'auth.signingIn': 'Signing in…',
+    'auth.typeEmailFirst': 'Type your email above first, then tap this.',
+    // Deliberately does not reveal whether the address has an account.
+    'auth.resetSent': 'If {address} has an account, a reset link is on its way.',
+    'auth.back': 'Back',
+    'auth.tryAgain': 'Try again',
+    'auth.otherAccount': 'Sign in with a different account',
+    'auth.logOut': 'Log out',
+    'auth.logOut.title': 'Log out?',
+    'auth.logOut.message': 'You will need your email and password to get back in.',
+
+    // ⚠️ FOUR FIREBASE CODES SHARE ONE SENTENCE ON PURPOSE. Saying which half was
+    // wrong tells somebody guessing at the door that an email exists. Keeping one
+    // key for the four is what keeps that true through a translation as well.
+    'auth.err.badPair': 'That email and password do not match an account.',
+    'auth.err.badEmail': 'That does not look like an email address.',
+    'auth.err.disabled': 'This account has been turned off. Ask the owner to re-enable it.',
+    'auth.err.tooMany': 'Too many attempts. Wait a minute and try again.',
+    'auth.err.offline': 'No connection. The first sign-in on a device needs internet.',
+    'auth.err.emailTaken': 'That email already has an account. Sign in with it instead.',
+    'auth.err.weakPassword': 'Pick a longer password — at least 6 characters.',
+    'auth.err.generic': 'Could not sign in. Please try again.',
+
+    // ── Joining with a code ─────────────────────────────────────────────────
+    // ⚠️ FOUR SITUATIONS, FOUR SENTENCES, NOT ONE HEDGED ONE. «Type the code you
+    // were given» is a LIE to somebody who arrived by link — their code is
+    // already in the box — and a sentence that is wrong about what is on screen
+    // teaches people to stop reading the next one.
+    'join.title.invited': 'You have been invited',
+    'join.title.new': 'Join with a code',
+    'join.title.have': 'Enter your code',
+    'join.sub.prefillNew': 'Your code is already filled in. Add your name and choose a password.',
+    'join.sub.prefill': 'Your code is already filled in. Add your name to finish.',
+    'join.sub.new': 'Create your account, then type the code you were given.',
+    'join.sub.have': 'Type the code you were given.',
+    'join.firstName': 'Your first name',
+    'join.lastName': 'Your surname',
+    'join.email': 'Your email',
+    'join.choosePassword': 'Choose a password (at least {n} characters)',
+    'join.code': 'Code',
+    'join.join': 'Join',
+    'join.signInInstead': 'Sign in with that email',
+    'join.signInAndAdd': 'Sign in, and we will add the business to your account.',
+    'join.creating': 'Creating your account…',
+    'join.checking': 'Checking…',
+    'join.checkingCode': 'Checking your code…',
+    'join.badCode': 'That code does not work. Ask for a new one.',
+    'join.shapeHint': 'Enter your six-digit code, or open the link you were sent.',
+
+    // ── Above every venue ───────────────────────────────────────────────────
+    'hub.where': 'Where would you like to go?',
+    'hub.mine': 'My businesses',
+    // ⚠️ A COUNT, NOT A TERNARY. It read `count === 1 ? … : …`, which is English's
+    // rule written into the code — a language whose plural works differently
+    // cannot be fixed by translating either half.
+    'hub.mine.sub': { one: 'The place you run', other: 'The places you run' },
+    'hub.customers': 'Customer businesses',
+    'hub.customers.sub': 'The businesses using Misé',
+    'hub.back': 'Back to Misé',
+
+    'picker.title': 'Choose location',
+    'picker.sub': 'You have access to more than one.',
+    'noAccess.title': 'No location yet',
+    'noAccess.body': 'This account is not linked to a location. If you were given a code, type it here.',
+
+    'invite.title': 'You opened an invitation',
+    'invite.message': 'Add this business to {who}?',
+    'invite.ok': 'Add it',
+    'invite.cancel': 'Not now',
   }),
   it: Object.freeze({
     'role.owner': 'Titolare',
@@ -149,6 +231,74 @@ const DICTIONARIES = Object.freeze({
     'people.confirm.staff': 'Rendere {name} dipendente?',
 
     'people.joinsAs': 'Entra come {role} · {expires} · apre l’app, tocca “I have a code”, crea il suo account e digita il codice.',
+
+    'auth.signIn.sub': 'Accedi per aprire il tuo locale.',
+    'auth.email': 'Email',
+    'auth.password': 'Password',
+    'auth.signIn': 'Accedi',
+    'auth.forgot': 'Password dimenticata?',
+    'auth.iHaveACode': 'Ho un codice di accesso',
+    'auth.installGuide': 'Come installare l’app',
+    'auth.enterEmail': 'Inserisci la tua email.',
+    'auth.enterPassword': 'Inserisci la tua password.',
+    'auth.signingIn': 'Accesso in corso…',
+    'auth.typeEmailFirst': 'Scrivi prima la tua email qui sopra, poi tocca qui.',
+    'auth.resetSent': 'Se {address} ha un account, il link per reimpostare la password sta arrivando.',
+    'auth.back': 'Indietro',
+    'auth.tryAgain': 'Riprova',
+    'auth.otherAccount': 'Accedi con un altro account',
+    'auth.logOut': 'Esci',
+    'auth.logOut.title': 'Vuoi uscire?',
+    'auth.logOut.message': 'Per rientrare ti serviranno email e password.',
+
+    // 📌 Come in inglese, una sola frase per quattro casi: dire quale metà è
+    // sbagliata rivelerebbe a chi tenta la porta che quell’email esiste.
+    'auth.err.badPair': 'Email e password non corrispondono a nessun account.',
+    'auth.err.badEmail': 'Questo non sembra un indirizzo email.',
+    'auth.err.disabled': 'Questo account è stato disattivato. Chiedi al titolare di riattivarlo.',
+    'auth.err.tooMany': 'Troppi tentativi. Aspetta un minuto e riprova.',
+    'auth.err.offline': 'Nessuna connessione. Il primo accesso su un dispositivo richiede internet.',
+    'auth.err.emailTaken': 'Questa email ha già un account. Accedi con quella.',
+    'auth.err.weakPassword': 'Scegli una password più lunga — almeno 6 caratteri.',
+    'auth.err.generic': 'Accesso non riuscito. Riprova.',
+
+    'join.title.invited': 'Sei stato invitato',
+    'join.title.new': 'Entra con un codice',
+    'join.title.have': 'Inserisci il codice',
+    'join.sub.prefillNew': 'Il codice è già inserito. Aggiungi il tuo nome e scegli una password.',
+    'join.sub.prefill': 'Il codice è già inserito. Aggiungi il tuo nome per finire.',
+    'join.sub.new': 'Crea il tuo account, poi digita il codice che ti hanno dato.',
+    'join.sub.have': 'Digita il codice che ti hanno dato.',
+    'join.firstName': 'Il tuo nome',
+    'join.lastName': 'Il tuo cognome',
+    'join.email': 'La tua email',
+    'join.choosePassword': 'Scegli una password (almeno {n} caratteri)',
+    'join.code': 'Codice',
+    'join.join': 'Entra',
+    'join.signInInstead': 'Accedi con quella email',
+    'join.signInAndAdd': 'Accedi, e aggiungiamo l’attività al tuo account.',
+    'join.creating': 'Creazione dell’account…',
+    'join.checking': 'Controllo…',
+    'join.checkingCode': 'Controllo del codice…',
+    'join.badCode': 'Questo codice non funziona. Chiedine uno nuovo.',
+    'join.shapeHint': 'Inserisci il codice di sei cifre, oppure apri il link che ti hanno mandato.',
+
+    'hub.where': 'Dove vuoi andare?',
+    'hub.mine': 'Le mie attività',
+    'hub.mine.sub': { one: 'Il locale che gestisci', other: 'I locali che gestisci' },
+    'hub.customers': 'Attività dei clienti',
+    'hub.customers.sub': 'Le attività che usano Misé',
+    'hub.back': 'Torna a Misé',
+
+    'picker.title': 'Scegli il locale',
+    'picker.sub': 'Hai accesso a più di uno.',
+    'noAccess.title': 'Nessun locale',
+    'noAccess.body': 'Questo account non è collegato a nessun locale. Se ti hanno dato un codice, digitalo qui.',
+
+    'invite.title': 'Hai aperto un invito',
+    'invite.message': 'Vuoi aggiungere questa attività a {who}?',
+    'invite.ok': 'Aggiungila',
+    'invite.cancel': 'Non ora',
   }),
 });
 
@@ -178,6 +328,28 @@ export function currentLanguage() {
 export function interfaceLanguage(location) {
   const value = location && location.language;
   return LANGUAGES.includes(value) ? value : DEFAULT_LANGUAGE;
+}
+
+// ⚠️ THE SCREENS ABOVE EVERY VENUE HAVE NO SETTING TO READ, and this is what they
+// use instead. Sign-in, "I have a join code" and the Misé home all happen before a
+// location is open — the same reason the sign-in screen says «Mise» where every
+// other screen says the venue's name. There is genuinely nothing to look up.
+//
+// The device's own language is the best signal available, and for the case this
+// exists for it is a good one: an Italian buyer opening the app for the first time
+// on an Italian phone should not be met in English.
+//
+// ⚠️ IT IS A GUESS, AND ONLY EVER APPLIES BEFORE SOMEBODY IS INSIDE. The venue's
+// setting wins the moment a location opens, even when the two disagree — a venue
+// whose staff read English stays English on an Italian phone. And neither of them
+// ever reaches a label: that follows the country (js/market.js).
+//
+// ⚠️ IT TAKES THE TAG RATHER THAN READING `navigator`, so this file stays free of
+// the DOM and every rule in it can be asserted under Node (P15). The caller passes
+// navigator.language.
+export function languageFromTag(tag) {
+  const base = String(tag || '').toLowerCase().split('-')[0];
+  return LANGUAGES.includes(base) ? base : DEFAULT_LANGUAGE;
 }
 
 // ── Looking a phrase up ──────────────────────────────────────────────────────

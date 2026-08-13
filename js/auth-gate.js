@@ -15,10 +15,11 @@
 // signed out — shows one frame of somebody's data to whoever is holding the
 // phone. The cover is in the HTML from the start and is only ever REMOVED.
 
+import { t, setLanguage, languageFromTag } from './i18n.js';
 import { onSession, signIn, signUp, sendReset, chooseLocation, signOutNow,
          enterMyBusinesses, backToHub } from './firebase.js';
 import { normalizeTyped } from './join-code.js';
-import { kindOfTyped, readJoinToken, CODE_SHAPE_HINT } from './join-link.js';
+import { kindOfTyped, readJoinToken, codeShapeHint } from './join-link.js';
 import { nameProblem, passwordProblem, MIN_PASSWORD_LENGTH } from './credentials.js';
 import { isSectionAllowedFor } from './sections.js';
 
@@ -92,20 +93,20 @@ const pageSection = document.body.dataset.section || '';
 // them get the same sentence — otherwise the message quietly degrades to the
 // generic fallback in exactly the situation people actually hit.
 const MESSAGES = {
-  'auth/invalid-credential': 'That email and password do not match an account.',
-  'auth/invalid-login-credentials': 'That email and password do not match an account.',
-  'auth/wrong-password': 'That email and password do not match an account.',
-  'auth/user-not-found': 'That email and password do not match an account.',
-  'auth/invalid-email': 'That does not look like an email address.',
-  'auth/user-disabled': 'This account has been turned off. Ask the owner to re-enable it.',
-  'auth/too-many-requests': 'Too many attempts. Wait a minute and try again.',
-  'auth/network-request-failed': 'No connection. The first sign-in on a device needs internet.',
-  'auth/missing-password': 'Enter your password.',
-  'auth/email-already-in-use': 'That email already has an account. Sign in with it instead.',
-  'auth/weak-password': 'Pick a longer password — at least 6 characters.',
+  'auth/invalid-credential': 'auth.err.badPair',
+  'auth/invalid-login-credentials': 'auth.err.badPair',
+  'auth/wrong-password': 'auth.err.badPair',
+  'auth/user-not-found': 'auth.err.badPair',
+  'auth/invalid-email': 'auth.err.badEmail',
+  'auth/user-disabled': 'auth.err.disabled',
+  'auth/too-many-requests': 'auth.err.tooMany',
+  'auth/network-request-failed': 'auth.err.offline',
+  'auth/missing-password': 'auth.enterPassword',
+  'auth/email-already-in-use': 'auth.err.emailTaken',
+  'auth/weak-password': 'auth.err.weakPassword',
 };
 const messageFor = err =>
-  MESSAGES[err && err.code] || 'Could not sign in. Please try again.';
+  t(MESSAGES[err && err.code] || 'auth.err.generic');
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -183,12 +184,12 @@ function signInScreen({ note = '' } = {}) {
   // else's business. The venue's own name appears the moment it is known, in the
   // green header (js/location-title.js).
   card.append(el('h1', 'auth-title', 'Misé'));
-  card.append(el('p', 'auth-sub', note || 'Sign in to open your location.'));
+  card.append(el('p', 'auth-sub', note || t('auth.signIn.sub')));
 
   const form = el('form', 'auth-form');
   form.noValidate = true;
 
-  const emailLabel = el('label', 'auth-label', 'Email');
+  const emailLabel = el('label', 'auth-label', t('auth.email'));
   emailLabel.htmlFor = 'auth-email';
   const email = el('input', 'auth-input');
   email.id = 'auth-email';
@@ -196,7 +197,7 @@ function signInScreen({ note = '' } = {}) {
   email.autocomplete = 'username';
   email.required = true;
 
-  const passLabel = el('label', 'auth-label', 'Password');
+  const passLabel = el('label', 'auth-label', t('auth.password'));
   passLabel.htmlFor = 'auth-password';
   const password = el('input', 'auth-input');
   password.id = 'auth-password';
@@ -204,10 +205,10 @@ function signInScreen({ note = '' } = {}) {
   password.autocomplete = 'current-password';
   password.required = true;
 
-  const submit = el('button', 'auth-btn', 'Sign in');
+  const submit = el('button', 'auth-btn', t('auth.signIn'));
   submit.type = 'submit';
 
-  const forgot = el('button', 'auth-link', 'Forgot your password?');
+  const forgot = el('button', 'auth-link', t('auth.forgot'));
   forgot.type = 'button';
 
   // role=alert so a screen reader announces a failed attempt instead of leaving
@@ -231,12 +232,12 @@ function signInScreen({ note = '' } = {}) {
   // asks for a password they do not have yet, and the guide explains installing,
   // not joining. The same mistake — a screen nobody could reach — kept the
   // install guide unseen for weeks (v1.19.0).
-  const join = el('button', 'auth-link', 'I have a join code');
+  const join = el('button', 'auth-link', t('auth.iHaveACode'));
   join.type = 'button';
   join.addEventListener('click', () => showGate(() => joinScreen({ needsAccount: true })));
   card.append(join);
 
-  const guide = el('a', 'auth-link auth-guide-link', 'How to install the app');
+  const guide = el('a', 'auth-link auth-guide-link', t('auth.installGuide'));
   guide.href = 'install-guide.html';
   card.append(guide);
 
@@ -247,10 +248,10 @@ function signInScreen({ note = '' } = {}) {
 
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!email.value.trim()) { setStatus('Enter your email.'); email.focus(); return; }
-    if (!password.value) { setStatus('Enter your password.'); password.focus(); return; }
+    if (!email.value.trim()) { setStatus(t('auth.enterEmail')); email.focus(); return; }
+    if (!password.value) { setStatus(t('auth.enterPassword')); password.focus(); return; }
     submit.disabled = true;
-    setStatus('Signing in…', 'busy');
+    setStatus(t('auth.signingIn'), 'busy');
     try {
       await signIn(email.value, password.value);
       // The session listener takes it from here (this screen gets replaced).
@@ -263,12 +264,12 @@ function signInScreen({ note = '' } = {}) {
 
   forgot.addEventListener('click', async () => {
     const address = email.value.trim();
-    if (!address) { setStatus('Type your email above first, then tap this.'); email.focus(); return; }
+    if (!address) { setStatus(t('auth.typeEmailFirst')); email.focus(); return; }
     forgot.disabled = true;
     try {
       await sendReset(address);
       // Deliberately does not reveal whether the address has an account.
-      setStatus(`If ${address} has an account, a reset link is on its way.`, 'good');
+      setStatus(t('auth.resetSent', { address }), 'good');
     } catch (err) {
       setStatus(messageFor(err));
     }
@@ -298,16 +299,12 @@ function joinScreen({ needsAccount, prefill = '' }) {
   // in the box — and a sentence that is wrong about what is on screen teaches
   // people to stop reading the next one.
   card.append(el('h1', 'auth-title',
-    prefill ? 'You have been invited'
-      : needsAccount ? 'Join with a code' : 'Enter your code'));
+    t(prefill ? 'join.title.invited'
+      : needsAccount ? 'join.title.new' : 'join.title.have')));
   card.append(el('p', 'auth-sub',
-    prefill
-      ? (needsAccount
-        ? 'Your code is already filled in. Add your name and choose a password.'
-        : 'Your code is already filled in. Add your name to finish.')
-      : (needsAccount
-        ? 'Create your account, then type the code you were given.'
-        : 'Type the code you were given.')));
+    t(prefill
+      ? (needsAccount ? 'join.sub.prefillNew' : 'join.sub.prefill')
+      : (needsAccount ? 'join.sub.new' : 'join.sub.have'))));
 
   const form = el('form', 'auth-form');
   form.noValidate = true;
@@ -316,7 +313,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
   // per LOCATION, so somebody joining a second venue needs a row there too — and
   // that row is the only place their name is ever written. Asking once, on the
   // account, would leave every later location with an anonymous entry.
-  const firstLabel = el('label', 'auth-label', 'Your first name');
+  const firstLabel = el('label', 'auth-label', t('join.firstName'));
   firstLabel.htmlFor = 'join-first';
   const firstName = el('input', 'auth-input');
   firstName.id = 'join-first';
@@ -324,7 +321,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
   firstName.autocomplete = 'given-name';
   firstName.setAttribute('autocapitalize', 'words');
 
-  const lastLabel = el('label', 'auth-label', 'Your surname');
+  const lastLabel = el('label', 'auth-label', t('join.lastName'));
   lastLabel.htmlFor = 'join-last';
   const lastName = el('input', 'auth-input');
   lastName.id = 'join-last';
@@ -336,7 +333,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
 
   let email = null, password = null;
   if (needsAccount) {
-    const emailLabel = el('label', 'auth-label', 'Your email');
+    const emailLabel = el('label', 'auth-label', t('join.email'));
     emailLabel.htmlFor = 'join-email';
     email = el('input', 'auth-input');
     email.id = 'join-email';
@@ -344,7 +341,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
     email.autocomplete = 'username';
 
     const passLabel = el('label', 'auth-label',
-      `Choose a password (at least ${MIN_PASSWORD_LENGTH} characters)`);
+      t('join.choosePassword', { n: MIN_PASSWORD_LENGTH }));
     passLabel.htmlFor = 'join-password';
     password = el('input', 'auth-input');
     password.id = 'join-password';
@@ -354,7 +351,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
     form.append(emailLabel, email, passLabel, password);
   }
 
-  const codeLabel = el('label', 'auth-label', 'Code');
+  const codeLabel = el('label', 'auth-label', t('join.code'));
   codeLabel.htmlFor = 'join-code';
   const code = el('input', 'auth-input auth-code');
   code.id = 'join-code';
@@ -372,7 +369,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
     code.inputMode = 'text';
   }
 
-  const submit = el('button', 'auth-btn', 'Join');
+  const submit = el('button', 'auth-btn', t('join.join'));
   submit.type = 'submit';
 
   const status = el('p', 'auth-status');
@@ -393,19 +390,19 @@ function joinScreen({ needsAccount, prefill = '' }) {
   // v1.19.1: a control that appears only in an error path has no element to
   // reveal when the error arrives, so it gets built on a screen that is already
   // being replaced. Hidden is safe — tokens.css forces [hidden] to stay hidden.
-  const signInInstead = el('button', 'auth-link', 'Sign in with that email');
+  const signInInstead = el('button', 'auth-link', t('join.signInInstead'));
   signInInstead.type = 'button';
   signInInstead.hidden = true;
   signInInstead.addEventListener('click', () => {
     // The invitation lives in sessionStorage, so it survives the sign-in and the
     // reload that follows it; offerInvite() picks it up on the other side.
     showGate(() => signInScreen({
-      note: 'Sign in, and we will add the business to your account.',
+      note: t('join.signInAndAdd'),
     }));
   });
   card.append(signInInstead);
 
-  const back = el('button', 'auth-link', 'Back');
+  const back = el('button', 'auth-link', t('auth.back'));
   back.type = 'button';
   back.addEventListener('click', () => {
     showGate(needsAccount ? signInScreen : () => noAccessScreen(lastSession || {}));
@@ -434,7 +431,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
     const last = nameProblem(lastName.value, 'last');
     if (last) return [last, lastName];
     if (needsAccount) {
-      if (!email.value.trim()) return ['Enter your email.', email];
+      if (!email.value.trim()) return [t('auth.enterEmail'), email];
       const pass = passwordProblem(password.value, email.value);
       if (pass) return [pass, password];
     }
@@ -444,7 +441,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
     // spends one of five attempts an hour. Until 12 Aug 2026 this line refused
     // the link outright — the token createWorkspace mints could not be redeemed
     // anywhere in the app.
-    if (!kindOfTyped(code.value)) return [CODE_SHAPE_HINT, code];
+    if (!kindOfTyped(code.value)) return [codeShapeHint(), code];
     return null;
   };
 
@@ -462,11 +459,11 @@ function joinScreen({ needsAccount, prefill = '' }) {
     const typed = normalizeTyped(code.value, kind);
 
     submit.disabled = true;
-    setStatus(needsAccount ? 'Creating your account…' : 'Checking…', 'busy');
+    setStatus(t(needsAccount ? 'join.creating' : 'join.checking'), 'busy');
     try {
       if (needsAccount) {
         await signUp(email.value, password.value);
-        setStatus('Checking your code…', 'busy');
+        setStatus(t('join.checkingCode'), 'busy');
       }
       // Loaded only now: this screen is on the critical path of every app open,
       // and the functions client is a chunk nobody needs until they are joining.
@@ -481,7 +478,7 @@ function joinScreen({ needsAccount, prefill = '' }) {
       // sign-up half arrives as a Firebase auth code.
       const fromAuth = err && typeof err.code === 'string' && err.code.startsWith('auth/');
       setStatus(fromAuth ? messageFor(err)
-        : (err && err.message) || 'That code does not work. Ask for a new one.');
+        : (err && err.message) || t('join.badCode'));
       // ⚠️ ONE refusal has a way forward, so it gets one. Every other failure here
       // is answered by trying again on this same screen; this one cannot be, because
       // the account already exists and no amount of retyping will create it.
@@ -522,7 +519,7 @@ function hubChoice(label, description, onClick) {
 function hubScreen(session) {
   const card = el('div', 'auth-card');
   card.append(el('h1', 'auth-title', 'Misé'));
-  card.append(el('p', 'auth-sub', 'Where would you like to go?'));
+  card.append(el('p', 'auth-sub', t('hub.where')));
 
   const list = el('div', 'auth-choices');
 
@@ -533,8 +530,7 @@ function hubScreen(session) {
   // Two labels a single word apart also need their sub-lines to tell them
   // apart, which is what those are for.
   const count = (session.options || []).length;
-  const mine = hubChoice('My businesses',
-    count === 1 ? 'The place you run' : 'The places you run',
+  const mine = hubChoice(t('hub.mine'), t('hub.mine.sub', { n: count }),
     () => {
       list.querySelectorAll('button').forEach(b => { b.disabled = true; });
       enterMyBusinesses().catch(err => {
@@ -548,7 +544,7 @@ function hubScreen(session) {
   // two sub-lines were doing work a name should do by itself. Federico created a
   // venue of his own from the wrong one of these two within minutes of opening
   // the app on his phone.
-  const customers = hubChoice('Customer businesses', 'The businesses using Misé', async () => {
+  const customers = hubChoice(t('hub.customers'), t('hub.customers.sub'), async () => {
     const { openBusinesses } = await import('./staff/businesses.js');
     // ⚠️ MOUNTED INSIDE THE COVER, not on the body. This screen is drawn while
     // the gate is up, and the gate marks every other child of <body> `inert` —
@@ -559,16 +555,16 @@ function hubScreen(session) {
   list.append(mine, customers);
   card.append(list);
 
-  const out = el('button', 'auth-link', 'Log out');
+  const out = el('button', 'auth-link', t('auth.logOut'));
   out.type = 'button';
   out.addEventListener('click', async () => {
     // Loaded on the tap: auth-gate.js runs on every page of the app, and the
     // dialog is a module nobody needs until they are leaving.
     const { confirmDialog } = await import('./confirm-dialog.js');
     const ok = await confirmDialog({
-      title: 'Log out?',
-      message: 'You will need your email and password to get back in.',
-      okLabel: 'Log out',
+      title: t('auth.logOut.title'),
+      message: t('auth.logOut.message'),
+      okLabel: t('auth.logOut'),
       danger: true,
     });
     if (ok) signOutNow();
@@ -581,7 +577,7 @@ function hubScreen(session) {
 // The way back up to the hub, for the screens it leads to. Only ever drawn for
 // the account that has a hub to go back to.
 function hubBackLink() {
-  const back = el('button', 'auth-link', 'Back to Misé');
+  const back = el('button', 'auth-link', t('hub.back'));
   back.type = 'button';
   back.addEventListener('click', () => backToHub());
   return back;
@@ -591,8 +587,8 @@ function chooseScreen(session) {
   const options = session.options || [];
   const names = session.optionNames || {};
   const card = el('div', 'auth-card');
-  card.append(el('h1', 'auth-title', 'Choose location'));
-  card.append(el('p', 'auth-sub', 'You have access to more than one.'));
+  card.append(el('h1', 'auth-title', t('picker.title')));
+  card.append(el('p', 'auth-sub', t('picker.sub')));
 
   const list = el('div', 'auth-choices');
   options.forEach(id => {
@@ -659,12 +655,12 @@ function messageScreen(title, body, { account = '' } = {}) {
     card.append(who);
   }
 
-  const retry = el('button', 'auth-btn', 'Try again');
+  const retry = el('button', 'auth-btn', t('auth.tryAgain'));
   retry.type = 'button';
   retry.addEventListener('click', () => location.reload());
   card.append(retry);
 
-  const other = el('button', 'auth-link', 'Sign in with a different account');
+  const other = el('button', 'auth-link', t('auth.otherAccount'));
   other.type = 'button';
   other.addEventListener('click', () => { signOutNow(); });
   card.append(other);
@@ -687,11 +683,11 @@ let lastAccount = '';
 
 function noAccessScreen(session = {}) {
   const card = messageScreen(
-    'No location yet',
-    'This account is not linked to a location. If you were given a code, type it here.',
+    t('noAccess.title'),
+    t('noAccess.body'),
     { account: lastAccount },
   );
-  const join = el('button', 'auth-link', 'I have a join code');
+  const join = el('button', 'auth-link', t('auth.iHaveACode'));
   join.type = 'button';
   join.addEventListener('click', () => showGate(() => joinScreen({ needsAccount: false })));
   // Above "Try again" and "Sign in with a different account", because for the
@@ -736,10 +732,10 @@ async function offerInvite(session) {
   // only be undone from the Firebase console.
   const who = session.user?.email || 'this account';
   const add = await confirmDialog({
-    title: 'You opened an invitation',
-    message: `Add this business to ${who}?`,
-    okLabel: 'Add it',
-    cancelLabel: 'Not now',
+    title: t('invite.title'),
+    message: t('invite.message', { who }),
+    okLabel: t('invite.ok'),
+    cancelLabel: t('invite.cancel'),
   });
 
   if (!add) { forgetInvite(); return; }
@@ -818,6 +814,21 @@ function render(session) {
       break;
   }
 }
+
+// ⚠️ THE LANGUAGE FOR THE SCREENS ABOVE EVERY VENUE, SET BEFORE THE FIRST ONE IS
+// DRAWN. Sign-in, "I have a join code", the picker and the Misé home all happen
+// before a location is open, so there is no setting to read — the same reason
+// this screen says «Misé» where every other screen says the venue's name.
+//
+// The device's own language is the best signal there is, and for the case it
+// exists for it is a good one: an Italian buyer opening the app for the first
+// time on an Italian phone should not be met in English.
+//
+// ⚠️ IT IS A GUESS AND IT LOSES. The venue's own setting wins the instant a
+// location opens, even when the two disagree — a venue whose staff read English
+// stays English on an Italian phone. And neither of them ever reaches a LABEL:
+// that follows the country the food is sold in (js/market.js).
+setLanguage(languageFromTag(navigator.language));
 
 onSession(render);
 

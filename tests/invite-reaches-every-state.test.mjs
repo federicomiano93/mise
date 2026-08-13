@@ -25,6 +25,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { _dictionaries } from '../js/i18n.js';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = readFileSync(join(ROOT, 'js', 'auth-gate.js'), 'utf8');
 
@@ -112,7 +114,16 @@ test('the offer is a dialog with a way to decline', () => {
   const fn = SOURCE.slice(SOURCE.indexOf('async function offerInvite'));
   const body = fn.slice(0, fn.indexOf('\n}\n'));
   assert.match(body, /confirmDialog/, 'it must ask, not act');
-  assert.match(body, /Not now/, 'declining must be offered in words, not only by Escape');
+  // ⚠️ THE WORDS MOVED TO THE DICTIONARY, THE RULE DID NOT — and asking every
+  // language is the stronger question. A translation that dropped the decline
+  // label would leave only Escape, which on a phone is nothing at all.
+  assert.match(body, /cancelLabel: t\('invite\.cancel'\)/,
+    'the dialog must offer a way to decline');
+  for (const lang of Object.keys(_dictionaries())) {
+    const word = _dictionaries()[lang]['invite.cancel'];
+    assert.ok(word && word.trim().length > 1,
+      `${lang} must say how to decline, in words`);
+  }
   assert.match(body, /forgetInvite\(\)/, 'declining must end it for this opening of the app');
   assert.match(body, /inviteOffered/, 'it must not ask twice in one page');
 });
