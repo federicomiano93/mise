@@ -15,7 +15,7 @@ A mobile-first Progressive Web App for hospitality venues, with four sections:
 It serves **several venues from one deployment**. Each signs in with its own account
 and sees only its own data, and each is set up with only the sections it uses.
 
-Live: https://federicomiano93.github.io/mise/
+Live: https://federicomiano93.github.io/mise_app/
 
 ## Files
 The main ones — each feature folder holds more.
@@ -115,7 +115,7 @@ the repo. First release: v1.0.0.
 
 ## Install on a device
 Open the install guide and follow the steps for your device:
-https://federicomiano93.github.io/mise/install-guide.html
+https://federicomiano93.github.io/mise_app/install-guide.html
 - iPhone/iPad: Safari → Share → "Add to Home Screen".
 - Android: Chrome → "Install app" / menu → "Add to Home screen".
 - Computer: Chrome/Edge → install icon in the address bar.
