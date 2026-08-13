@@ -34,6 +34,12 @@ import { accessValue, OWNER, MANAGER } from './sections.js';
 // permission system nobody can hold in their head fails the same way every
 // time: it becomes so tiring to work out who may do what that everybody is made
 // an owner to get the app working, and then there are no roles at all.
+// ⚠️ THE WORDS COME FROM THE DICTIONARY; THE VALUES DO NOT AND MUST NOT. Every
+// identifier in this file — 'owner', 'manager', 'staff', 'head-chef' — is stored
+// in users/{uid} and read by firestore.rules, so it is DATA. Only the words a
+// person reads are looked up. tests/i18n.test.mjs fails if the two are confused.
+import { t } from './i18n.js';
+
 export const ROLES = Object.freeze([OWNER, MANAGER, 'staff']);
 
 // ⚠️ THE DEFAULT IS THE WHOLE DESIGN, AND IT POINTS AT `staff`.
@@ -96,9 +102,9 @@ export function isOwner(userDoc, locationId) {
 // For the "who can get in" list. Plain words, because the person reading it runs
 // a bakery and is not an administrator of a system.
 export function roleLabel(role) {
-  if (role === OWNER) return 'Owner';
-  if (role === MANAGER) return 'Manager';
-  return 'Employee';
+  if (role === OWNER) return t('role.owner');
+  if (role === MANAGER) return t('role.manager');
+  return t('role.staff');
 }
 
 // ── A job title, which is NOT a fourth level of power ────────────────────────
@@ -122,7 +128,7 @@ export function roleLabel(role) {
 export const TITLES = Object.freeze(['manager', 'head-chef']);
 
 export function titleLabel(title) {
-  return title === 'head-chef' ? 'Head chef' : 'Manager';
+  return title === 'head-chef' ? t('role.headChef') : t('role.manager');
 }
 
 // What the roster row calls this person: their job title where the level has one,
@@ -142,12 +148,41 @@ export function personLabel(role, title) {
 //
 // ⚠️ Two of them grant exactly the same thing, and the screen has to say so out
 // loud — a row of four that looks like four levels is worse than no title at all.
+//
+// ⚠️ IT CARRIES A KEY, NOT A WORD, AND THAT IS NOT A STYLE CHOICE. This is a
+// frozen constant built when the file is first imported — long before anybody has
+// opened a venue, so long before the app knows what language to show. A word
+// baked in here would be the language the app STARTED in, and it would never
+// change again however many times somebody switched the setting. The screen asks
+// for the word at the moment it draws it.
 export const ROLE_CHOICES = Object.freeze([
-  { key: OWNER, role: OWNER, title: null, label: 'Owner' },
-  { key: MANAGER, role: MANAGER, title: 'manager', label: 'Manager' },
-  { key: 'head-chef', role: MANAGER, title: 'head-chef', label: 'Head chef' },
-  { key: 'staff', role: 'staff', title: null, label: 'Employee' },
+  { key: OWNER, role: OWNER, title: null, labelKey: 'role.owner' },
+  { key: MANAGER, role: MANAGER, title: 'manager', labelKey: 'role.manager' },
+  { key: 'head-chef', role: MANAGER, title: 'head-chef', labelKey: 'role.headChef' },
+  { key: 'staff', role: 'staff', title: null, labelKey: 'role.staff' },
 ]);
+
+// The word for a pill, asked for now rather than remembered from import time.
+export function choiceLabel(choice) {
+  return t(choice.labelKey);
+}
+
+// ⚠️ THE SAME WORD, IN THE FORM THAT GOES INSIDE A SENTENCE — asked for, never
+// computed. The screen used to write `label.toLowerCase()`, which is a
+// language-specific operation performed on somebody else's language. Whether a
+// word lowercases, and to what, is the translator's business; here we simply ask
+// for the form we need and let the dictionary answer.
+export function personLabelInSentence(role, title) {
+  if (role !== MANAGER) {
+    if (role === OWNER) return t('role.owner.inSentence');
+    return t('role.staff.inSentence');
+  }
+  return title === 'head-chef' ? t('role.headChef.inSentence') : t('role.manager.inSentence');
+}
+
+export function choiceLabelInSentence(choice) {
+  return t(`${choice.labelKey}.inSentence`);
+}
 
 // Which pill is lit for somebody who currently holds this role and title.
 export function choiceKey(role, title) {
