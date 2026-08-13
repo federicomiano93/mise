@@ -110,10 +110,42 @@ test('the client passes forSelf through, and the screen can set it', () => {
     'the screen must actually pass it at the call site');
 });
 
-// ⚠️ THE HINT MUST FOLLOW THE CHOICE. A fixed sentence about "a link they open"
-// becomes a lie the moment "one of mine" is picked, and a wrong explanation is
-// worse than none, because the next one is believed too.
-test('the screen explains the choice that is actually selected', () => {
-  assert.match(SCREEN, /function paintHint/, 'the explanation must be recomputed, not fixed');
-  assert.match(SCREEN, /ownerKind === 'self'/, 'and it must branch on the choice');
+// ⚠️ THERE IS NO CHOICE ON THE SCREEN ANY MORE, AND THAT IS THE FIX.
+//
+// It was two radio rows for a few hours on 13 Aug 2026, defaulting to "for a
+// customer" — and Federico, minutes after opening the app on his phone, created
+// his own bakery as a customer's and could not get into it. The intent is already
+// stated by the door somebody came through, so the screen is TOLD instead of
+// asking. A screen that asks is a screen that can be answered wrongly.
+test('the screen is told who the business is for, it does not ask', () => {
+  assert.doesNotMatch(SCREEN, /nc-owner/,
+    'the owner radio group must be gone, not hidden — dormant code gets switched back on');
+  assert.doesNotMatch(SCREEN, /'For a customer'/,
+    'the radio labels must be gone with it');
+  assert.match(SCREEN, /const forSelf = ownerKind === 'self'/,
+    'the kind is read once, from the caller');
+});
+
+// ⚠️ AND A CALLER THAT FORGETS MUST FAIL LOUDLY, never pick for itself. Neither
+// default is safe: 'customer' silently strands a business its creator cannot
+// enter — the exact defect above — and 'self' silently puts somebody else's
+// business into this account. Same choice, same reason, as js/location.js
+// throwing when no location is open.
+test('a caller that does not say who it is for gets an error, not a guess', () => {
+  assert.match(SCREEN, /if \(!OWNER_KINDS\.includes\(ownerKind\)\)/,
+    'the kind must be validated');
+  assert.match(SCREEN, /throw new Error/,
+    'and an unrecognised kind must throw rather than default');
+});
+
+// The two doors, each stating its own meaning. If either stopped passing one,
+// the screen would throw — but the point of pinning it here is that a WRONG one
+// is silent, and it is the wrong one that cost an afternoon.
+test('each entry point says which kind of business it adds', () => {
+  const gate = readFileSync(join(ROOT, 'js', 'auth-gate.js'), 'utf8');
+  const list = readFileSync(join(ROOT, 'js', 'staff', 'businesses.js'), 'utf8');
+  assert.match(gate, /openNewCustomer\(\{ host: gateHost\(\), ownerKind: 'self' \}\)/,
+    '"Choose location" lists YOUR venues, so a business added there is one of yours');
+  assert.match(list, /openNewCustomer\(\{ onClose: load, ownerKind: 'customer' \}\)/,
+    'the customer list adds customers, and its creator stays out');
 });
