@@ -63,6 +63,13 @@ export const COLLECTIONS = {
   ingredientPrices: 'ingredient-prices',
   drafts: 'drafts',
   history: 'orders-history',
+  // An order list one person prepared and sent to whoever runs the place.
+  orderRequests: 'order-requests',
+  // The roster. Orders reads exactly ONE document from it — the sender's own row,
+  // to put a name rather than a uid at the top of the list they send. It is
+  // read-only here and written by nobody (a Cloud Function owns it), which is why
+  // reaching for it does not make Orders depend on the staff feature.
+  members: 'members',
   // Shared with the Calculator, which keeps config/calculator here. Orders uses
   // config/orders. The rules match /config/{doc} generically, so this needed no
   // change to firestore.rules.
@@ -332,4 +339,117 @@ export async function watchDoc(name, id, onChange, onError) {
 // allowed the delete: the screen would be lying about what is possible.
 export function canManageHere() {
   return currentSession().canManage === true;
+}
+
+// ── Order lists sent from one person to another ──────────────────────────────
+
+// How many lists the screen ever holds. ⚠️ A BOUNDED LIVE READ, and the bound is
+// the point: this collection grows for ever (nothing in this app deletes by
+// itself), so an unbounded listener would bill for every list ever sent, on every
+// phone, every time Orders is opened — the cost problem orders-history already
+// has and this one must not inherit (P14).
+const REQUEST_LIMIT = 120;
+
+// ⚠️ ORDERED BY THE createdAt FIELD, NEVER BY DOCUMENT ID. Firestore refuses a
+// descending scan by key outright ("does not support descending key scans"), and
+// limitToLast on an ascending key order is rewritten into that same scan, so it
+// fails identically — a lesson that already cost this project a release.
+//
+// ⚠️ AND BY createdAt RATHER THAN date, which is the field the screen's window
+// uses. Several lists can share a day, so `date` alone leaves their order
+// undefined; adding a second orderBy to break the tie would need a composite
+// index and a console step. createdAt is an ISO string, so sorting it as text
+// sorts it as time, and it is fine-grained enough to be unique in practice.
+export async function watchOrderRequests(onChange, onError) {
+  await authReady;
+  return onSnapshot(
+    query(
+      collection(db, pathFor(COLLECTIONS.orderRequests)),
+      orderBy('createdAt', 'desc'),
+      limit(REQUEST_LIMIT),
+    ),
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => {
+      console.error('watchOrderRequests failed:', err);
+      onError?.(err);
+    },
+  );
+}
+
+export async function sendOrderRequest(payload) {
+  return createDoc(COLLECTIONS.orderRequests, payload);
+}
+
+// Tick ONE ingredient off, or untick it.
+//
+// ⚠️ IT SENDS ONLY THE ONE KEY, and that is what makes two managers working the
+// same list at once safe. setDoc(merge) merges a map key by key, so this cannot
+// disturb a line somebody else ticked a second ago — whereas writing the whole
+// `done` map from a snapshot this phone read moments earlier would silently put
+// their tick back. Same technique, same reason, as the draft autosave.
+//
+// ⚠️ UNTICKING WRITES `false`, IT DOES NOT REMOVE THE KEY. A merge cannot delete a
+// key by leaving it out, and a mis-tap has to be undoable — so the value carries
+// the answer and isRequestDone() asks for exactly `true`.
+export async function setOrderRequestDone(id, ingredientId, done) {
+  return saveDoc(COLLECTIONS.orderRequests, id, {
+    done: { [ingredientId]: done === true },
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+// Tick off everything still open, in ONE write — what "Finish" does.
+export async function finishOrderRequest(id, ingredientIds) {
+  const done = {};
+  (ingredientIds || []).forEach(ingredientId => { done[ingredientId] = true; });
+  return saveDoc(COLLECTIONS.orderRequests, id, {
+    done, updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function deleteOrderRequest(id) {
+  return removeDoc(COLLECTIONS.orderRequests, id);
+}
+
+// The signed-in person's own roster row, for the name that goes on a list they
+// send. One document, read once, at the moment of sending.
+//
+// ⚠️ IT MUST NEVER BLOCK THE SEND. The roster is a label and nothing decides
+// anything by it (see locations/{lid}/members), so a row that is missing, or a
+// read that fails, falls back to the address and then to a neutral word — never
+// to a raw uid, and never to refusing to send the order.
+export async function getOwnMemberRow() {
+  const { user } = currentSession();
+  if (!user?.uid) return null;
+  try {
+    return await getDocOnce(COLLECTIONS.members, user.uid);
+  } catch (err) {
+    console.warn('Could not read the roster row for the sender’s name:', err);
+    return null;
+  }
+}
+
+// The lists sent recently, read ONCE — what the Home screen's badge counts.
+//
+// ⚠️ A RANGE ON ONE FIELD, NOT THE WHOLE COLLECTION AND NOT THE 120 ABOVE. The
+// Home is opened many times a day on every phone; reading every list ever sent
+// there would bill for the whole archive each time, for ever (P14). A range on a
+// single field needs no composite index and no console setup — the same shape as
+// getHistoryForDay and as the client-order badge.
+//
+// ⚠️ THE WINDOW IS DELIBERATELY WIDER THAN THE SCREEN'S. The screen draws 15 days
+// and offers "show older"; this reaches back twice as far, so a list that has sat
+// unfinished for three weeks still lights the Home. Beyond that it stops counting
+// here while remaining visible inside Orders — a list nobody has touched in two
+// months is a conversation, not a badge.
+export async function getRecentOrderRequestsOnce(days = 30) {
+  await authReady;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const iso = cutoff.toISOString().slice(0, 10);
+  const snap = await getDocs(query(
+    collection(db, pathFor(COLLECTIONS.orderRequests)),
+    where('date', '>=', iso),
+  ));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }

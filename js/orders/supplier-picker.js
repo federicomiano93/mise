@@ -16,8 +16,12 @@ import { el } from './dom.js';
 const BACK_ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 
+// ⚠️ ONE DEFINITION, AND IT ASKS THE DICTIONARY. There were two copies of this,
+// here and in history.js, and both wrote the English plural by hand — so an
+// Italian app counted "3 items" beside every translated word around them. Real
+// plurals via Intl, like every other counted phrase in the app.
 export function itemsLabel(count) {
-  return count === 1 ? '1 item' : `${count} items`;
+  return t('orders.itemsCount', { n: count });
 }
 
 // The message-format chooser: grouped by supplier (what a supplier receives) or one
@@ -55,8 +59,14 @@ function buildFormatSwitch({ grouped, onChange }) {
   paint();
 
   return {
+    // ⚠️ IT NAMES WHATSAPP, and that is not decoration. Since this screen gained a
+    // second destination — sending the list to whoever runs the place — a chooser
+    // labelled merely "Message" sits above two buttons and appears to decide
+    // something for both. It decides nothing for the in-app one: that carries the
+    // order itself, not a sentence. (It was also the last hardcoded English word
+    // on this screen.)
     node: el('div', { class: 'preview-format' }, [
-      el('span', { class: 'preview-format-label', text: 'Message' }),
+      el('span', { class: 'preview-format-label', text: t('orders.whatsappMessage') }),
       group,
     ]),
     get grouped() { return current; },
@@ -80,6 +90,7 @@ function buildFormatSwitch({ grouped, onChange }) {
 export function buildSupplierPicker(rows, options, callbacks) {
   const {
     title, actionLabel, emptyText, danger = false, format = null, preselect = true,
+    secondaryLabel = null,
   } = options;
   const formatSwitch = format ? buildFormatSwitch(format) : null;
 
@@ -88,6 +99,14 @@ export function buildSupplierPicker(rows, options, callbacks) {
     type: 'button',
     class: danger ? 'btn-primary picker-danger' : 'btn-primary',
   }, actionLabel);
+
+  // A SECOND destination for the very same ticked suppliers. It is deliberately
+  // .btn-secondary and deliberately BELOW: WhatsApp is what everybody here does
+  // today, and a release that quietly demotes the button people reach for is a
+  // release that breaks a habit for no reason.
+  const secondBtn = secondaryLabel ? el('button', {
+    type: 'button', class: 'btn-secondary picker-second',
+  }, secondaryLabel) : null;
   const checks = [];                 // { row, input }
   let selectAllInput = null;
 
@@ -96,6 +115,10 @@ export function buildSupplierPicker(rows, options, callbacks) {
   // the children, never set by hand, so it can never disagree with what is selected.
   function sync() {
     actionBtn.disabled = !checks.some(c => c.input.checked);
+    // Both buttons act on the same selection, so both are dead when it is empty.
+    // Derived from the ticks and never set by hand, for the reason the comment
+    // below records: a button created enabled looks ready and does nothing.
+    if (secondBtn) secondBtn.disabled = actionBtn.disabled;
     if (selectAllInput) {
       selectAllInput.checked = checks.length > 0 && checks.every(c => c.input.checked);
     }
@@ -136,10 +159,23 @@ export function buildSupplierPicker(rows, options, callbacks) {
   // looking ready and do nothing when tapped.
   sync();
 
+  function selection() {
+    return checks.filter(c => c.input.checked).map(c => c.row);
+  }
+
   actionBtn.addEventListener('click', () => {
-    const selected = checks.filter(c => c.input.checked).map(c => c.row);
+    const selected = selection();
     if (!selected.length) return;
     callbacks.onConfirm(selected, { grouped: formatSwitch ? formatSwitch.grouped : true });
+  });
+
+  // ⚠️ NO `grouped` IS PASSED HERE, AND THAT IS THE POINT. The format chooser
+  // decides how a WhatsApp SENTENCE reads; this destination carries the order
+  // itself. Handing it a format would invite somebody to make it mean something.
+  secondBtn?.addEventListener('click', () => {
+    const selected = selection();
+    if (!selected.length) return;
+    callbacks.onSecondary?.(selected);
   });
 
   const overlay = el('div', { class: 'preview-overlay' }, [
@@ -154,9 +190,13 @@ export function buildSupplierPicker(rows, options, callbacks) {
     ]),
     scroll,
     // Stacked, not the footer's default row: the format chooser belongs ABOVE the
-    // green button, not beside it competing for the same width.
-    el('div', { class: 'preview-footer' + (formatSwitch ? ' preview-footer-stacked' : '') },
-      [formatSwitch?.node, actionBtn]),
+    // green button, not beside it competing for the same width. A second
+    // destination stacks for the same reason — side by side at 320px the two
+    // labels wrap, and a wrapped button is how this project once lost a release.
+    el('div', {
+      class: 'preview-footer'
+        + (formatSwitch || secondBtn ? ' preview-footer-stacked' : ''),
+    }, [formatSwitch?.node, actionBtn, secondBtn]),
   ]);
 
   return overlay;

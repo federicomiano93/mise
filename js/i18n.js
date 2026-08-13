@@ -455,6 +455,12 @@ const DICTIONARIES = Object.freeze({
     'orders.selectAllSuppliers': 'Select all suppliers',
     'orders.nothingIsBeingOrdered': 'Nothing is being ordered yet.',
 
+    // ⚠️ WAS WRITTEN BY HAND, IN ENGLISH, IN TWO COPIES (supplier-picker.js and
+    // history.js) that had already drifted into two different plurals. One
+    // definition now, and Intl decides the form.
+    'orders.itemsCount': { one: '{n} item', other: '{n} items' },
+    'orders.whatsappMessage': 'WhatsApp message',
+
     // ── An order list one person sends to another ────────────────────────────
     'orders.request.someone': 'Someone',
     'orders.request.sendToManager': 'Send to the manager',
@@ -945,6 +951,12 @@ const DICTIONARIES = Object.freeze({
 
     // ── Words written straight into the HTML (js/i18n-dom.js) ─────────────
     'ui.home': "Home",
+    // Generic words a screen needs whatever feature it belongs to. They live in
+    // `ui.` rather than in a feature namespace because four features already want
+    // them, and a fifth copy is a fifth thing to translate.
+    'ui.back': 'Back',
+    'ui.cancel': 'Cancel',
+    'ui.delete': 'Delete',
     'ui.doughScaling': "Dough scaling",
     'ui.recipesKgScaling': "Recipes & kg scaling",
     'ui.suppliersWeeklyOrder': "Suppliers & weekly order",
@@ -1509,6 +1521,9 @@ const DICTIONARIES = Object.freeze({
     'orders.selectAllSuppliers': 'Seleziona tutti i fornitori',
     'orders.nothingIsBeingOrdered': 'Non si sta ancora ordinando niente.',
 
+    'orders.itemsCount': { one: '{n} voce', other: '{n} voci' },
+    'orders.whatsappMessage': 'Messaggio WhatsApp',
+
     // ── Una lista d'ordine che una persona manda a un'altra ──────────────────
     'orders.request.someone': 'Qualcuno',
     'orders.request.sendToManager': 'Manda al manager',
@@ -1986,6 +2001,9 @@ const DICTIONARIES = Object.freeze({
 
 
     'ui.home': "Home",
+    'ui.back': 'Indietro',
+    'ui.cancel': 'Annulla',
+    'ui.delete': 'Elimina',
     'ui.doughScaling': "Calcolo impasti",
     'ui.recipesKgScaling': "Ricette e scalatura in kg",
     'ui.suppliersWeeklyOrder': "Fornitori e ordine settimanale",

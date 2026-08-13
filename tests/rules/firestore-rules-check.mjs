@@ -2234,8 +2234,20 @@ async function orderRequests() {
   // open to everybody in the location, so if the update were not pinned to `done`
   // it would be a way for anybody to rewrite an order after it was sent —
   // silently, on a screen the manager is reading numbers off.
+  // ⚠️ THE `bakery` FIELD IS SENT, BECAUSE saveDoc() ALWAYS SENDS IT. Without it
+  // this check would be testing a write the app never makes: if an unchanged key
+  // counted as affected, the rule would refuse every tick in production while
+  // this scenario stayed green. The value is identical to what is stored, which
+  // is exactly the case that has to be proved harmless.
   await expectAllowed('a manager ticks an ingredient off', () =>
-    mergeWrite(REQ, { done: { ING_A: true }, updatedAt: new Date().toISOString() }, asAccount(MAYA)));
+    mergeWrite(REQ, { bakery: 'main', done: { ING_A: true }, updatedAt: new Date().toISOString() },
+      asAccount(MAYA)));
+  await expectAllowed('and unticking a mis-tap is allowed too', () =>
+    mergeWrite(REQ, { bakery: 'main', done: { ING_A: false }, updatedAt: new Date().toISOString() },
+      asAccount(MAYA)));
+  // ⚠️ …but the stamp may not be MOVED to another location under cover of a tick.
+  await expectDenied('a list dragged into another location by a tick', () =>
+    mergeWrite(REQ, { bakery: 'trattoria-x', done: { ING_A: true } }, asAccount(MAYA)));
   await expectDenied('a quantity changed under cover of a tick', () =>
     mergeWrite(REQ, { done: { ING_A: true }, quantities: { ING_A: 99 } }, asAccount(MAYA)));
   await expectDenied('the sender’s name rewritten under cover of a tick', () =>
