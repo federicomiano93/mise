@@ -17,6 +17,7 @@
 // come leaves no trace here. Declared, accepted, and not worth asking anyone to
 // record every substitution.
 
+import { t } from '../i18n.js';
 import {
   unitOf, isWeighableUnit, ingredientGrams, linkOf, normalizeLossPct,
 } from './catalogue-model.js';
@@ -30,7 +31,7 @@ export const MAX_RECIPE_DEPTH = 4;
 // Why a row could not be costed. The order is the order they are TESTED in, and
 // each names one thing to go and do.
 export const COST_REASON_TEXT = Object.freeze({
-  'not-weighable': 'not weighed (pieces / spoons / to taste)',
+  'not-weighable': t('cat.notWeighedPiecesSpoons'),
   'no-amount': 'no amount',
   'not-linked': 'not linked to an ingredient',
   'missing-ingredient': 'linked to an ingredient that no longer exists',
@@ -166,6 +167,6 @@ function resolveIn(refId, tables, depth, branch) {
 export function partialCostText(result) {
   if (!result || !result.partial) return '';
   const n = result.unpriced.length;
-  if (!n) return 'Part of this recipe is not priced yet';
+  if (!n) return t('cat.partOfThisRecipe');
   return `${n} ${n === 1 ? 'ingredient is' : 'ingredients are'} not priced yet — this cost is partial`;
 }

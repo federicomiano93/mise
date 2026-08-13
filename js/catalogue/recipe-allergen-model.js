@@ -26,6 +26,7 @@
 // ingredientGrams — so the walk belongs where that shape is defined. The
 // alternative, a second copy of the walk, is the thing this project refuses.
 
+import { t } from '../i18n.js';
 import { unitOf, isWeighableUnit, ingredientGrams, linkOf } from './catalogue-model.js';
 import { MAX_RECIPE_DEPTH } from './recipe-cost-model.js';
 import { normalizeAllergens, normalizeMayContain, isDeclared } from '../allergen-model.js';
@@ -159,7 +160,7 @@ function resolveIn(refId, tables, depth, branch) {
 export function incompleteText(result) {
   if (!result || result.complete) return '';
   const n = result.gaps.length;
-  if (!n) return 'Nothing in this recipe is declared yet';
+  if (!n) return t('cat.nothingInThisRecipe');
   return `${n} ${n === 1 ? 'ingredient is' : 'ingredients are'} not declared — no label can be made`;
 }
 
@@ -190,7 +191,7 @@ export function blockingIngredients(recipes, tables = {}) {
     for (const id of undeclaredIdsIn(recipe, tables, 1, new Set())) {
       if (!counts.has(id)) {
         const ingredient = lookup(tables.ingredients, id);
-        counts.set(id, { id, name: (ingredient && ingredient.name) || 'Unknown ingredient', recipes: new Set() });
+        counts.set(id, { id, name: (ingredient && ingredient.name) || t('cat.unknownIngredient'), recipes: new Set() });
       }
       counts.get(id).recipes.add(recipe.id);
     }

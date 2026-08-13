@@ -16,6 +16,7 @@
 // cache) and triggers a calculator re-render. Required fields are validated on Save;
 // deleting is a small low-key icon, never competing with Save (P20).
 
+import { t } from './i18n.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   WEIGHT_MIN, WEIGHT_MAX, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
@@ -99,7 +100,7 @@ async function closeClients() {
   if (activeClient !== null) {
     const client = clients()[activeClient];
     if (freshlyAdded && isEmptyClient(client)) {
-      if (!(await confirmDialog({ message: 'Discard this new client? You have not added anything to it.', okLabel: 'Discard', danger: true }))) return;
+      if (!(await confirmDialog({ message: t('calc.discardThisNewClient'), okLabel: 'Discard', danger: true }))) return;
       clients().splice(activeClient, 1);
     }
     freshlyAdded = false;
@@ -137,10 +138,10 @@ async function saveClients() {
     showErrors = true;
     activeClient = invalid;
     renderEditor();
-    alertDialog('Please give every client and every product a name before saving.');
+    alertDialog(t('calc.pleaseGiveEveryClient'));
     return;
   }
-  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     forgetPausedQuantities();
@@ -150,7 +151,7 @@ async function saveClients() {
     activeClient = null;
     renderEditor();
   } catch (e) {
-    alertDialog('Could not save. Check your connection and try again.');
+    alertDialog(t('calc.couldNotSaveCheck'));
   }
 }
 
@@ -205,8 +206,7 @@ function renderClientList() {
   // which the screen never did because until now it was never seen empty.
   if (clients().length === 0) {
     content.appendChild(el('div', { class: 'cp-empty-hint' },
-      'No clients yet. A client is somebody you bake for: add one, then list the '
-      + 'products they order and how much each weighs.'));
+      t('calc.noClientsYet')));
   }
 
   const listWrap = el('div', { class: 'cp-client-list' });
@@ -226,7 +226,7 @@ function renderClientList() {
     });
   }
 
-  const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add client');
+  const add = el('button', { class: 'cp-add-client', type: 'button' }, t('calc.addClient'));
   add.addEventListener('click', () => {
     clients().push({ id: genId('c'), name: '', products: [] });
     markDirty();
@@ -243,7 +243,7 @@ function renderClientList() {
 
 function clientBox(client, ci) {
   const box = el('button', { class: 'drill-item drill-reorder', type: 'button', 'data-cid': client.id }, [
-    el('span', {}, client.name || 'Unnamed client'),
+    el('span', {}, client.name || t('calc.unnamedClient')),
     el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
   ]);
   box.addEventListener('click', () => {
@@ -268,30 +268,30 @@ function syncClientOrderFromDom() {
 function renderClientDetail(ci) {
   const client = clients()[ci];
   if (!Array.isArray(client.products)) client.products = [];
-  cpTitle().textContent = 'Edit client';
+  cpTitle().textContent = t('calc.editClient');
   setHomeVisible(false);
   const content = document.getElementById('cp-content');
   content.textContent = '';
 
-  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: client.name || '', placeholder: 'Client name' });
+  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: client.name || '', placeholder: t('calc.clientName') });
   if (showErrors && isBlank(client.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { client.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
-  const del = deleteIcon('Delete client', async () => {
-    if (!(await confirmDialog({ message: 'Delete this client and its products?', okLabel: 'Delete', danger: true }))) return;
+  const del = deleteIcon(t('calc.deleteClient'), async () => {
+    if (!(await confirmDialog({ message: t('calc.deleteThisClientAnd'), okLabel: 'Delete', danger: true }))) return;
     clients().splice(ci, 1);
     markDirty();
     activeClient = null;
     renderEditor();
   });
   content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'Client name'),
+    el('label', { class: 'cp-label' }, t('calc.clientName')),
     el('div', { class: 'cp-name-row' }, [nameInput, del]),
   ]));
 
   // The products this client orders, each described in full right here.
-  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Products ordered')]);
+  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, t('calc.productsOrdered'))]);
   client.products.forEach((p, pi) => field.appendChild(productCard(client, p, pi)));
-  const addProd = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add product');
+  const addProd = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.addProduct'));
   addProd.addEventListener('click', () => {
     const recipes = getRecipes(working);
     client.products.push({
@@ -373,12 +373,12 @@ async function copyLink(client, link) {
 
 function orderingLinkField(client) {
   const field = el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'Ordering link'),
+    el('label', { class: 'cp-label' }, t('calc.orderingLink')),
   ]);
 
   if (dirty) {
     field.appendChild(el('p', { class: 'cp-hint' },
-      'Save your changes first — the link shows this client the products as they are saved.'));
+      t('calc.saveYourChangesFirst')));
     return field;
   }
 
@@ -395,11 +395,11 @@ function orderingLinkField(client) {
   field.appendChild(el('p', { class: 'cp-hint' }, account
     ? `${client.name} can send orders straight into the app. Anyone with the link can order as this client, so send it to them and no one else.`
     : canManage
-      ? 'Create a link and send it to this client. They will see only their own products, and can order without a password.'
-      : 'This client cannot order through the app yet. The owner or a manager can set that up.'));
+      ? t('calc.createALinkAnd')
+      : t('calc.thisClientCannotOrder')));
 
   if (account && link) {
-    const copy = el('button', { class: 'cp-add-prod', type: 'button' }, 'Copy link');
+    const copy = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.copyLink'));
     copy.addEventListener('click', () => copyLink(client, link));
     field.appendChild(copy);
 
@@ -407,18 +407,18 @@ function orderingLinkField(client) {
       class: 'cp-add-prod cp-link-share',
       href: `https://wa.me/?text=${encodeURIComponent(shareText(client, link))}`,
       target: '_blank', rel: 'noopener',
-    }, 'Send on WhatsApp');
+    }, t('calc.sendOnWhatsapp'));
     field.appendChild(share);
   }
 
   const make = el('button', { class: 'cp-add-prod', type: 'button' },
-    account ? 'Replace with a new link' : '+ Create ordering link');
+    account ? t('calc.replaceWithANew') : t('calc.createOrderingLink'));
   make.addEventListener('click', async () => {
     // ⚠️ REPLACING IS THE DESTRUCTIVE ONE, and it is the tap most likely to be made
     // by mistake — somebody looking for "send it again" finds this first. The old
     // link stops working the moment it is replaced, so it is spelled out.
     if (account && !(await confirmDialog({
-      title: 'Replace this link?',
+      title: t('calc.replaceThisLink'),
       message: `${client.name}’s current link will stop working immediately, including on a phone that is using it right now. Use “Copy link” instead if you only want to send it again.`,
       okLabel: 'Replace',
       danger: true,
@@ -432,7 +432,7 @@ function orderingLinkField(client) {
       await copyLink(client, created.link);
     } catch (err) {
       console.error('Could not create the ordering link:', err);
-      await alertDialog('Could not create the link. Check your connection and try again.');
+      await alertDialog(t('calc.couldNotCreateThe'));
       make.disabled = false;
     }
   });
@@ -445,11 +445,11 @@ function orderingLinkField(client) {
   if (canManage) field.appendChild(make);
 
   if (account && canManage) {
-    const revoke = el('button', { class: 'cp-link-revoke', type: 'button' }, 'Turn off ordering');
+    const revoke = el('button', { class: 'cp-link-revoke', type: 'button' }, t('calc.turnOffOrdering'));
     revoke.addEventListener('click', async () => {
       if (!(await confirmDialog({
         message: `Stop ${client.name} sending orders through the app? Their link will stop working. Orders they have already sent are kept.`,
-        okLabel: 'Turn off',
+        okLabel: t('calc.turnOff'),
         danger: true,
       }))) return;
       try {
@@ -458,7 +458,7 @@ function orderingLinkField(client) {
         renderEditor();
       } catch (err) {
         console.error('Could not revoke the ordering link:', err);
-        await alertDialog('Could not turn it off. Check your connection and try again.');
+        await alertDialog(t('calc.couldNotTurnIt'));
       }
     });
     field.appendChild(revoke);
@@ -491,7 +491,7 @@ function productCard(client, product, pi) {
   const rows = [];
 
   // Name.
-  const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: product.name || '', placeholder: 'Product name' });
+  const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: product.name || '', placeholder: t('calc.productName') });
   if (showErrors && isBlank(product.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => {
     product.name = nameInput.value;
@@ -514,7 +514,7 @@ function productCard(client, product, pi) {
   // Weight.
   const weight = el('input', {
     class: 'cp-prod-weight', type: 'number', min: String(WEIGHT_MIN), max: String(WEIGHT_MAX),
-    step: '1', value: String(product.weight), inputmode: 'numeric', 'aria-label': 'Weight in grams',
+    step: '1', value: String(product.weight), inputmode: 'numeric', 'aria-label': t('calc.weightInGrams'),
   });
   weight.addEventListener('input', () => { product.weight = +weight.value || 0; markDirty(); });
   rows.push(fieldRow('Weight', weight, 'g'));
@@ -523,7 +523,7 @@ function productCard(client, product, pi) {
     // Legacy kg product: quantity entered in kilograms; no type/crate options.
     rows.push(fieldRow('Type', el('span', { class: 'cp-kg-note' }, 'kg')));
   } else {
-    const type = el('select', { class: 'cp-prod-dough', 'aria-label': 'Quantity type' });
+    const type = el('select', { class: 'cp-prod-dough', 'aria-label': t('calc.quantityType') });
     for (const k of ['number', 'dropdown']) type.appendChild(el('option', { value: k }, TYPE_LABELS[k]));
     type.value = product.kind === 'dropdown' ? 'dropdown' : 'number';
     type.addEventListener('change', () => { product.kind = type.value; markDirty(); });
@@ -539,11 +539,11 @@ function productCard(client, product, pi) {
       markDirty();
       renderEditor();
     });
-    const crateRow = [el('label', { class: 'cp-crate-label' }, [crateToggle, el('span', {}, 'Crate box')])];
+    const crateRow = [el('label', { class: 'cp-crate-label' }, [crateToggle, el('span', {}, t('calc.crateBox'))])];
     if (product.crate.show) {
       const perBoxInput = el('input', {
         class: 'cp-prod-weight', type: 'number', min: '1', max: '1000', step: '1',
-        value: String(product.crate.perBox || 20), inputmode: 'numeric', 'aria-label': 'Pieces per crate',
+        value: String(product.crate.perBox || 20), inputmode: 'numeric', 'aria-label': t('calc.piecesPerCrate'),
       });
       perBoxInput.addEventListener('input', () => { product.crate.perBox = +perBoxInput.value || 0; markDirty(); });
       crateRow.push(perBoxInput, el('span', { class: 'cp-field-suffix' }, 'pz'));
@@ -568,7 +568,7 @@ function productCard(client, product, pi) {
   // icon that never competes with Save (P20).
   const foot = [];
   if (paused) foot.push(el('span', { class: 'cp-paused-tag' }, 'Paused'));
-  foot.push(deleteIcon('Remove product', () => {
+  foot.push(deleteIcon(t('calc.removeProduct'), () => {
     client.products.splice(pi, 1);
     markDirty();
     renderEditor();
@@ -618,13 +618,13 @@ async function closeExtra() {
 }
 
 async function saveExtra() {
-  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
   try {
     await saveConfig(extraWorking);
     extraDirty = false;
     updateExtraSaveBtn();
   } catch (e) {
-    alertDialog('Could not save. Check your connection and try again.');
+    alertDialog(t('calc.couldNotSaveCheck'));
   }
 }
 
@@ -685,7 +685,7 @@ function renderDivisorTabChooser() {
   const content = document.getElementById('divisor-content');
   content.textContent = '';
   content.appendChild(el('p', { class: 'extra-help' },
-    'Pick which products each recipe’s divisor box splits into crates. Nothing is split until you tick it. Tap Save to apply.'));
+    t('calc.pickWhichProductsEach')));
   for (const recipe of getRecipes(getConfig())) {
     const box = el('button', { class: 'drill-item', type: 'button' }, [
       el('span', {}, recipe.name),
@@ -712,11 +712,11 @@ function renderDivisorTabDetail(tab) {
     return true;
   });
   if (products.length === 0) {
-    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in this tab yet.'));
+    content.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.noProductsInThis3')));
     return;
   }
   products.forEach(p => content.appendChild(divisorProductRow(tab, p)));
-  const clearBtn = el('button', { class: 'divisor-clear-btn', type: 'button' }, 'Untick all');
+  const clearBtn = el('button', { class: 'divisor-clear-btn', type: 'button' }, t('calc.untickAll'));
   clearBtn.addEventListener('click', () => clearDivisorTab(tab));
   content.appendChild(clearBtn);
   const saveBtn = el('button', { class: 'cp-save-bottom', id: 'divisor-save-btn', type: 'button' }, 'Save');
@@ -751,14 +751,14 @@ function clearDivisorTab(tab) {
 }
 
 async function saveDivisor() {
-  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
   try {
     await saveConfig(divisorWorking);
     divisorWorking = cloneConfig(getConfig());
     divisorDirty = false;
     updateDivisorSaveBtn();
   } catch (e) {
-    alertDialog('Could not save. Check your connection and try again.');
+    alertDialog(t('calc.couldNotSaveCheck'));
   }
 }
 

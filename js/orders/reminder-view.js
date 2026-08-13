@@ -9,6 +9,7 @@
 // Small on purpose: one line of chips, not a numbered list. A supplier still to
 // order is a button — tapping it opens that supplier's card.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { daySpoken, dayWhen } from './day.js';
 
@@ -26,7 +27,7 @@ export function renderTodayOrders(container, list, { onPick } = {}) {
   if (list.every(item => item.placed)) {
     container.appendChild(el('div', { class: 'today-banner all-done' }, [
       el('span', { class: 'today-check', icon: CHECK_SVG, 'aria-hidden': 'true' }),
-      el('span', { text: 'Today’s orders are all placed' }),
+      el('span', { text: t('orders.todaySOrdersAre') }),
     ]));
     return;
   }
@@ -43,7 +44,7 @@ export function renderTodayOrders(container, list, { onPick } = {}) {
     }, supplier.name)));
 
   container.appendChild(el('div', { class: 'today-banner' }, [
-    el('span', { class: 'today-label', text: 'Order today' }),
+    el('span', { class: 'today-label', text: t('orders.orderToday') }),
     el('div', { class: 'today-chips' }, chips),
   ]));
 }
@@ -82,7 +83,7 @@ export function renderPending(container, list, { onPlaced, onToday, onDiscard, n
         el('button', {
           type: 'button', class: 'pending-btn',
           onClick: () => onToday?.(supplier.id),
-        }, 'It’s today’s'),
+        }, t('orders.itSTodayS')),
         el('button', {
           type: 'button', class: 'pending-btn danger',
           onClick: () => onDiscard?.(supplier.id),

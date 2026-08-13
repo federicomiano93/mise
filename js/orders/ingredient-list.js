@@ -17,6 +17,7 @@
 //      on a 320px phone puts the Order box outside the card where it cannot be
 //      tapped. The caller passes that container; this file never makes its own.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { buildRow } from './ingredients.js';
 import { flatRows } from './ingredient-search.js';
@@ -36,7 +37,7 @@ export function mountIngredientList(container, ctx) {
 
   const search = buildSearchBox({
     value: query,
-    placeholder: 'Search an ingredient…',
+    placeholder: t('orders.searchAnIngredient'),
     // Stored immediately so a snapshot landing mid-keystroke finds the current text;
     // the repaint is the debounced half.
     onInput: text => { query = text; ctx.onQuery?.(text); },
@@ -89,15 +90,15 @@ export function mountIngredientList(container, ctx) {
     listEl.replaceChildren();
 
     if (!total) {
-      listEl.appendChild(el('p', { class: 'mgmt-empty', text: 'No ingredients yet — add them in Settings.' }));
+      listEl.appendChild(el('p', { class: 'mgmt-empty', text: t('orders.noIngredientsYetAdd') }));
       return;
     }
     if (!rows.length) {
       listEl.appendChild(el('p', {
         class: 'mgmt-empty',
         text: filtering
-          ? 'Nothing in this order matches your search.'
-          : 'No ingredient matches your search.',
+          ? t('orders.nothingInThisOrder')
+          : t('orders.noIngredientMatchesYour'),
       }));
       return;
     }

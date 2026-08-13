@@ -14,6 +14,7 @@
 // The work list comes FIRST on the screen, because until the data is in, the
 // second audience is the only one this screen can help.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { recipeAllergens, canLabel, blockingIngredients, unlinkedRowNames } from './recipe-allergen-model.js';
 import { allergenLabel } from '../allergen-model.js';
@@ -34,7 +35,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
     el('p', { class: 'alg-sheet-count', text: `${declared.length} of ${list.length} recipes fully declared` }),
     el('p', { class: 'alg-sheet-sub', text: blocked.length
       ? `${blocked.length} cannot be labelled yet.`
-      : 'Every recipe can be labelled.' }),
+      : t('cat.everyRecipeCanBe') }),
   ]));
 
   // ── The work, in the order it has to be done ────────────────────────────────
@@ -69,16 +70,16 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
 
   if (unlinked.length) {
     root.appendChild(workBox(
-      'Link these rows first',
-      'A recipe row has to point at an ingredient before anything can be known about it. Link them from the recipe’s own screen — the pencil, then the row.',
+      t('cat.linkTheseRowsFirst'),
+      t('cat.aRecipeRowHas'),
       unlinked, item => item.rows, 'row',
     ));
   }
 
   if (work.length) {
     root.appendChild(workBox(
-      unlinked.length ? 'Then declare these' : 'Declare these first',
-      'Each one is holding up this many recipes. Fill them in from Orders → Ingredients.',
+      unlinked.length ? t('cat.thenDeclareThese') : t('cat.declareTheseFirst'),
+      t('cat.eachOneIsHolding'),
       work, item => item.blocks, 'recipe',
     ));
   }
@@ -93,7 +94,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
 
   const panel = el('div', { class: 'cat-list-panel' });
   if (!ordered.length) {
-    panel.appendChild(el('p', { class: 'cat-empty', text: 'No recipes yet.' }));
+    panel.appendChild(el('p', { class: 'cat-empty', text: t('cat.noRecipesYet') }));
   }
   for (const { recipe, result } of ordered) {
     const okToLabel = canLabel(result);
@@ -104,9 +105,9 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
     // output of the driven check, not by a check.
     let line;
     if (okToLabel) {
-      line = result.allergens.length ? result.allergens.map(allergenLabel).join(', ') : 'None of the 14';
+      line = result.allergens.length ? result.allergens.map(allergenLabel).join(', ') : t('cat.noneOfThe14');
     } else if (!result.gaps.length) {
-      line = 'Nothing in it yet';
+      line = t('cat.nothingInItYet');
     } else {
       line = `Not declared — ${result.gaps.length} ${result.gaps.length === 1 ? 'ingredient' : 'ingredients'} to sort out`;
     }
@@ -117,7 +118,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
       onclick: () => onOpen(recipe),
     }, [
       el('span', { class: 'alg-sheet-row-main' }, [
-        el('span', { class: 'alg-sheet-name', text: recipe.name || '(no name)' }),
+        el('span', { class: 'alg-sheet-name', text: recipe.name || t('cat.noName') }),
         el('span', { class: 'alg-sheet-what', text: line }),
       ]),
       el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' }),
@@ -129,7 +130,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
   // one somebody would photograph and pin up, and a pinned sheet with no caveat
   // outlives every conversation about what it does not cover.
   root.appendChild(el('p', { class: 'alg-sheet-caveat', text:
-    'From the suppliers’ specifications. It does not cover what your own kitchen may add — shared benches, shared equipment, flour in the air.' }));
+    t('cat.fromTheSuppliersSpecifications') }));
 
   return { root };
 }

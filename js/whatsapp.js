@@ -12,6 +12,7 @@
 // (`wa-<entryIndex>-<productId>`). This avoids both colliding with each other and
 // colliding with the calculator's own quantity fields living in the same document.
 
+import { t } from './i18n.js';
 import { getConfig } from './calculator-config-store.js';
 import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient, getOrderPrefillWindow } from './calculator-config.js';
 import { el } from './calculator-render.js';
@@ -42,8 +43,8 @@ function inputId(entryIndex, productId) {
 // clearing the dough tabs behind the modal instead.
 async function clearAllQuantities() {
   if (!(await confirmDialog({
-    message: 'Set every quantity in this order back to 0?',
-    okLabel: 'Clear all',
+    message: t('calc.setEveryQuantityIn'),
+    okLabel: t('calc.clearAll'),
     danger: true,
   }))) return;
 
@@ -61,7 +62,7 @@ export function shareMarketOrder() {
   const lists = getWhatsappLists(config);
   const directs = getWhatsappClients(config);
   if (lists.length + directs.length === 0) {
-    alertDialog('No WhatsApp lists or clients yet. Add one in Settings → WhatsApp.');
+    alertDialog(t('calc.noWhatsappListsOr'));
     return;
   }
   // Shortcut: a single saved item opens straight into its order modal.
@@ -78,7 +79,7 @@ export function shareMarketOrder() {
 function openList(config, list) {
   const entries = resolveListClients(config, list);
   if (!entries.length) {
-    alertDialog('This list has no clients yet. Add some in Settings → WhatsApp.');
+    alertDialog(t('calc.thisListHasNo'));
     return;
   }
   selectedEntries = entries;
@@ -98,20 +99,20 @@ function openDirect(config, dc) {
 // ── "Send order" picker: saved lists first, then direct clients ───────────────
 function openSendPicker(config, lists, directs) {
   const box = document.querySelector('#list-select-box .loaf-modal-title');
-  if (box) box.textContent = 'Send order';
+  if (box) box.textContent = t('calc.sendOrder');
   const body = document.getElementById('list-select-body');
   body.textContent = '';
 
   if (lists.length) {
     body.appendChild(el('div', { class: 'send-picker-label' }, 'Lists'));
     lists.forEach(list => {
-      body.appendChild(pickerItem(list.title || 'Untitled list', () => openList(config, list)));
+      body.appendChild(pickerItem(list.title || t('calc.untitledList'), () => openList(config, list)));
     });
   }
   if (directs.length) {
     body.appendChild(el('div', { class: 'send-picker-label' }, 'Clients'));
     directs.forEach(dc => {
-      body.appendChild(pickerItem(dc.name || 'Unnamed client', () => openDirect(config, dc)));
+      body.appendChild(pickerItem(dc.name || t('calc.unnamedClient'), () => openDirect(config, dc)));
     });
   }
 
@@ -155,7 +156,7 @@ function renderOrderModal() {
   // quantities the note has just explained. It stays OUT of the footer so Cancel and
   // Send remain a plain two-way choice — a third button beside Send is one mis-tap
   // away from wiping a finished order.
-  const clearBtn = el('button', { type: 'button', class: 'order-clear-btn' }, 'Clear all');
+  const clearBtn = el('button', { type: 'button', class: 'order-clear-btn' }, t('calc.clearAll'));
   clearBtn.addEventListener('click', clearAllQuantities);
   body.appendChild(el('div', { class: 'order-prefill-bar' }, [
     el('p', { class: 'order-prefill-note' }, prefillNote(Object.keys(prefilled).length, prefillWindow)),
@@ -206,7 +207,7 @@ function typedQty(entryIndex, productId) {
 // thing is a step people stop reading.
 export function sendWithLoaves() {
   const sections = orderSections(selectedEntries, typedQty);
-  if (!sections.length) { alertDialog('No orders to share'); return; }
+  if (!sections.length) { alertDialog(t('calc.noOrdersToShare')); return; }
 
   if (sections.length === 1) { sendSections(sections, selectedEntries.length > 1); return; }
   openWhoPicker(sections);
@@ -229,12 +230,12 @@ function sendSections(sections, multi, title) {
 // compulsory update landing on top of this would throw away a typed order.
 function openWhoPicker(sections) {
   const box = document.querySelector('#send-who-box .loaf-modal-title');
-  if (box) box.textContent = 'Send to';
+  if (box) box.textContent = t('calc.sendTo');
   const body = document.getElementById('send-who-body');
   body.textContent = '';
 
-  body.appendChild(whoItem('All clients together', () => sendSections(sections, true)));
-  body.appendChild(el('div', { class: 'send-picker-label' }, 'Or one client'));
+  body.appendChild(whoItem(t('calc.allClientsTogether'), () => sendSections(sections, true)));
+  body.appendChild(el('div', { class: 'send-picker-label' }, t('calc.orOneClient')));
   sections.forEach(section => {
     body.appendChild(whoItem(section.name, () => sendSections([section], false, section.name)));
   });

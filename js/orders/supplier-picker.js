@@ -10,6 +10,7 @@
 // records, so the draft and the archive can both feed it without either of them
 // leaking into the other.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 
 const BACK_ICON =
@@ -26,10 +27,10 @@ export function itemsLabel(count) {
 // look identical: this picks a VALUE, it does not swap a panel, and announcing it as
 // tabs would tell a screen-reader user to expect content to change.
 function buildFormatSwitch({ grouped, onChange }) {
-  const group = el('div', { class: 'view-switch', role: 'radiogroup', 'aria-label': 'Message format' });
+  const group = el('div', { class: 'view-switch', role: 'radiogroup', 'aria-label': t('orders.messageFormat') });
   let current = grouped;
 
-  const buttons = [['By supplier', true], ['One list', false]].map(([label, value]) => {
+  const buttons = [[t('orders.bySupplier'), true], [t('orders.oneList'), false]].map(([label, value]) => {
     const btn = el('button', {
       type: 'button', class: 'view-switch-btn', role: 'radio',
       onClick: () => {
@@ -111,7 +112,7 @@ export function buildSupplierPicker(rows, options, callbacks) {
       sync();
     });
     scroll.appendChild(el('label', { class: 'send-select-all' }, [
-      selectAllInput, el('span', { text: 'Select all suppliers' }),
+      selectAllInput, el('span', { text: t('orders.selectAllSuppliers') }),
     ]));
 
     rows.forEach(row => {

@@ -16,6 +16,7 @@
 // dough. The snapshot is taken on Start, exactly as the Calculator freezes a
 // recipe onto a log and Orders freezes the item names onto a record.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import {
   normalizeSteps, normalizeEndNote, amountsFor, stepRows, unassignedRows,
@@ -214,7 +215,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     }
 
     if (state === 'finished') {
-      card.appendChild(el('p', { class: 'guided-due', text: overdueText(endsAt, Date.now()) || 'Time is up.' }));
+      card.appendChild(el('p', { class: 'guided-due', text: overdueText(endsAt, Date.now()) || t('cat.timeIsUp') }));
     }
 
     return card;
@@ -227,27 +228,27 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
 
     if (current.seconds > 0 && state === 'idle') {
       wrap.appendChild(el('button', { class: 'guided-go', type: 'button', onclick: startTimer }, [
-        el('span', { icon: PLAY_SVG, 'aria-hidden': 'true' }), 'Start the timer',
+        el('span', { icon: PLAY_SVG, 'aria-hidden': 'true' }), t('cat.startTheTimer'),
       ]));
       // A step can be finished without its timer — the mixer was already running,
       // or this dough needed a minute less. Guiding is not commanding.
-      wrap.appendChild(el('button', { class: 'guided-skip', type: 'button', text: 'Skip the timer', onclick: next }));
+      wrap.appendChild(el('button', { class: 'guided-skip', type: 'button', text: t('cat.skipTheTimer'), onclick: next }));
       return wrap;
     }
 
     if (state === 'running') {
       wrap.appendChild(el('button', { class: 'guided-go guided-go--wait', type: 'button', disabled: 'disabled' },
-        [el('span', { text: 'Running…' })]));
+        [el('span', { text: t('cat.running') })]));
       wrap.appendChild(el('div', { class: 'guided-adjust' }, [
-        el('button', { class: 'guided-skip', type: 'button', text: '+1 min', onclick: () => { endsAt += EXTRA_MS; save(); paint(); } }),
-        el('button', { class: 'guided-skip', type: 'button', text: 'Done early', onclick: next }),
+        el('button', { class: 'guided-skip', type: 'button', text: t('cat.1Min'), onclick: () => { endsAt += EXTRA_MS; save(); paint(); } }),
+        el('button', { class: 'guided-skip', type: 'button', text: t('cat.doneEarly'), onclick: next }),
       ]));
       return wrap;
     }
 
     wrap.appendChild(el('button', { class: 'guided-go', type: 'button', onclick: next }, [
       el('span', { icon: CHECK_SVG, 'aria-hidden': 'true' }),
-      index >= steps.length - 1 ? 'Done — finish' : 'Done',
+      index >= steps.length - 1 ? t('cat.doneFinish') : 'Done',
     ]));
     return wrap;
   }
@@ -267,7 +268,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     const card = el('div', { class: 'guided-card guided-card--end' }, [
       el('p', { class: 'guided-done' }, [
         el('span', { icon: CHECK_SVG, 'aria-hidden': 'true' }),
-        'Dough finished',
+        t('cat.doughFinished'),
       ]),
     ]);
 
@@ -276,7 +277,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
 
     if (missed.length) {
       const warn = el('div', { class: 'guided-missed' }, [
-        el('p', { class: 'guided-missed-title', text: 'Not in any step — check these went in:' }),
+        el('p', { class: 'guided-missed-title', text: t('cat.notInAnyStep') }),
       ]);
       for (const row of missed) {
         const i = snapshot.ingredients.indexOf(row);
@@ -296,7 +297,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
       card,
       el('div', { class: 'guided-actions' }, [
         el('button', { class: 'guided-go', type: 'button', onclick: () => { leave(true); } }, [
-          el('span', { icon: CHECK_SVG, 'aria-hidden': 'true' }), 'Back to the recipe',
+          el('span', { icon: CHECK_SVG, 'aria-hidden': 'true' }), t('cat.backToTheRecipe'),
         ]),
       ]),
     ]);
@@ -315,14 +316,14 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
 
     if (support.ok) {
       return el('p', { class: 'guided-note guided-note--on', text:
-        'It will also send a notification if you leave the app.' });
+        t('cat.itWillAlsoSend') });
     }
 
     if (support.reason === 'ask') {
       const wrap = el('div', { class: 'guided-note' });
       wrap.appendChild(el('button', {
         class: 'guided-skip', type: 'button',
-        text: 'Also tell me if I leave the app',
+        text: t('cat.alsoTellMeIf'),
         // ⚠️ FROM A REAL TAP, which is the only moment a browser will ask.
         onclick: async (e) => {
           e.target.disabled = true;
@@ -332,7 +333,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
         },
       }));
       wrap.appendChild(el('p', { class: 'guided-note-sub', text:
-        'Otherwise keep this screen open — the alarm cannot ring from a closed app.' }));
+        t('cat.otherwiseKeepThisScreen') }));
       return wrap;
     }
 
@@ -341,8 +342,8 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     return el('div', { class: 'guided-note' }, [
       el('p', { class: 'guided-note-sub', text: SUPPORT_TEXT[support.reason] || SUPPORT_TEXT.unsupported }),
       el('p', { text: canKeepScreenAwake()
-        ? 'Keep this screen open — the alarm cannot ring if you leave the app.'
-        : 'Keep this screen open and awake — the alarm cannot ring if you leave the app.' }),
+        ? t('cat.keepThisScreenOpen')
+        : t('cat.keepThisScreenOpen2') }),
     ]);
   }
 
@@ -390,7 +391,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
       fireAt: wanted,
       // The recipe names itself; the product name is only the last resort.
       title: snapshot.name || 'Misé',
-      body: current.text || 'Time is up.',
+      body: current.text || t('cat.timeIsUp'),
     }).then((id) => {
       // The step may have been finished, skipped or left while this was in
       // flight. Cancel what we just booked rather than leaving it to fire.
@@ -479,7 +480,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
   async function confirmLeave() {
     if (finished) return true;
     const ok = await app.confirm({
-      title: 'Leave the guided mix?',
+      title: t('cat.leaveTheGuidedMix'),
       message: `You are on ${progressText(index, steps.length).toLowerCase()}. It will be waiting where you left it.`,
       okLabel: 'Leave',
     });

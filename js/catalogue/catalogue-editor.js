@@ -6,6 +6,7 @@
 // ingredient-name autocomplete built from the other recipes. Persists per document
 // to recipes/{id} via the store (not into config).
 
+import { t } from '../i18n.js';
 import { canManageHere } from './firebase-catalogue.js';
 import { el } from './dom.js';
 import {
@@ -53,8 +54,8 @@ export function renderEditor({ recipe, allRecipes, app }) {
 
   const nameInput = el('input', {
     id: 'catRecipeName',
-    class: 'cat-name-input', type: 'text', placeholder: 'Recipe name', value: working.name,
-    'aria-label': 'Recipe name',
+    class: 'cat-name-input', type: 'text', placeholder: t('cat.recipeName'), value: working.name,
+    'aria-label': t('cat.recipeName'),
     oninput: (e) => { working.name = e.target.value; markDirty(); if (showErrors) validateUI(); },
   });
 
@@ -93,7 +94,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
     working.ingredients.forEach((ing, idx) => {
       const labelInput = el('input', {
         class: 'cat-lbl', type: 'text', placeholder: 'Ingredient', value: ing.label,
-        list: 'cat-ingredient-names', 'aria-label': 'Ingredient name',
+        list: 'cat-ingredient-names', 'aria-label': t('cat.ingredientName'),
         oninput: (e) => { ing.label = e.target.value; markDirty(); updateTotal(); if (showErrors) validateUI(); },
       });
       const gramsInput = el('input', {
@@ -176,15 +177,15 @@ export function renderEditor({ recipe, allRecipes, app }) {
   // seeing it beside the row is what catches a link to the wrong article.
   function linkText(ing) {
     const link = linkOf(ing);
-    if (!link) return '+ Link to an ingredient';
+    if (!link) return t('cat.linkToAnIngredient');
 
     if (link.kind === 'recipe') {
       const sub = app.allRecipes().find(r => r.id === link.refId);
-      return sub ? `→ ${sub.name}  ·  recipe` : '→ a recipe that no longer exists';
+      return sub ? `→ ${sub.name}  ·  recipe` : t('cat.aRecipeThatNo');
     }
 
     const ingredient = app.ingredients()[link.refId];
-    if (!ingredient) return '→ an ingredient that no longer exists';
+    if (!ingredient) return t('cat.anIngredientThatNo');
     const rate = pricePerKg(ingredient);
     const supplier = (app.suppliers()[ingredient.supplierId] || {}).name || '';
     return ['→ ' + (ingredient.name || 'Ingredient'), supplier,
@@ -226,20 +227,20 @@ export function renderEditor({ recipe, allRecipes, app }) {
       validateUI();
       if (problem === 'name') nameInput.focus();
       app.toast(
-        problem === 'name' ? 'Please enter a recipe name.'
-          : problem === 'weight' ? 'Enter an amount for at least one ingredient.'
-            : 'Add at least one ingredient with a name.',
+        problem === 'name' ? t('cat.pleaseEnterARecipe')
+          : problem === 'weight' ? t('cat.enterAnAmountFor')
+            : t('cat.addAtLeastOne'),
       );
       return;
     }
     busy = true;
-    const ok = await app.confirm({ title: 'Save recipe?', message: 'Save these changes?', okLabel: 'Save' });
+    const ok = await app.confirm({ title: t('cat.saveRecipe'), message: t('cat.saveTheseChanges'), okLabel: 'Save' });
     if (!ok) { busy = false; return; }
     dirty = false;
     // Local-first: the store updates the list instantly and syncs in the background;
     // a rejected write is rolled back and surfaced by the store (no freeze here).
     app.saveRecipe(clean);
-    app.toast(recipe ? 'Recipe saved.' : 'Recipe added.');
+    app.toast(recipe ? t('cat.recipeSaved') : t('cat.recipeAdded'));
     app.showList();
   }
 
@@ -256,7 +257,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
   // Discard protection: Back with unsaved edits asks first.
   app.setLeaveGuard(async () => {
     if (!dirty) return true;
-    return app.confirm({ title: 'Discard changes?', message: 'You have unsaved changes. Discard them?', okLabel: 'Discard', danger: true });
+    return app.confirm({ title: t('cat.discardChanges'), message: t('cat.youHaveUnsavedChanges'), okLabel: 'Discard', danger: true });
   });
 
   // How much weight this recipe loses on the way to being finished — evaporation in
@@ -268,15 +269,15 @@ export function renderEditor({ recipe, allRecipes, app }) {
     id: 'catRecipeLoss', class: 'cat-loss-input', type: 'number',
     min: '0', max: String(MAX_LOSS_PCT), step: 'any', inputmode: 'decimal',
     placeholder: '0', value: working.lossPct || '',
-    'aria-label': 'Weight lost while cooking, as a percentage',
+    'aria-label': t('cat.weightLostWhileCooking'),
     oninput: (e) => { working.lossPct = normalizeLossPct(e.target.value); markDirty(); },
   });
 
   const lossField = el('div', { class: 'cat-loss-field' }, [
-    el('label', { class: 'cat-loss-label', for: 'catRecipeLoss', text: 'Weight lost while cooking' }),
+    el('label', { class: 'cat-loss-label', for: 'catRecipeLoss', text: t('cat.weightLostWhileCooking2') }),
     el('div', { class: 'cat-loss-row' }, [lossInput, el('span', { class: 'cat-loss-unit', text: '%' })]),
     el('p', { class: 'cat-loss-note', text:
-      'Leave at 0 if nothing is lost. It only affects the cost per kilo, never the amounts.' }),
+      t('cat.leaveAt0If') }),
   ]);
 
   const addRowBtn = el('button', {
@@ -297,7 +298,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
 
   return el('div', { class: 'cat-view cat-editor' }, [
     datalist,
-    el('label', { for: 'catRecipeName', text: 'Recipe name' }),
+    el('label', { for: 'catRecipeName', text: t('cat.recipeName') }),
     nameInput,
     el('div', { class: 'cat-ing-head' }, [
       el('label', { class: 'cat-ing-head-label', text: 'Ingredients' }),

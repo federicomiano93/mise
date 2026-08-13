@@ -9,6 +9,7 @@
 // on, so an order left unmarked overnight is filed under the day it was written,
 // not under today.
 
+import { t } from '../i18n.js';
 import {
   watchCollection, watchDoc, saveDoc, createDoc, removeDoc,
   saveIngredientWithPrice, getPriceHistory, COLLECTIONS,
@@ -403,8 +404,8 @@ function renderFlatList(container) {
 function renderEmptyState(container) {
   container.textContent = '';
   container.appendChild(el('div', { class: 'empty-state' }, [
-    el('p', { class: 'empty-title', text: 'No suppliers yet' }),
-    el('p', { class: 'empty-sub', text: 'Add your suppliers and ingredients from the settings panel (gear icon, top right).' }),
+    el('p', { class: 'empty-title', text: t('orders.noSuppliersYet2') }),
+    el('p', { class: 'empty-sub', text: t('orders.addYourSuppliersAnd') }),
   ]));
 }
 
@@ -526,7 +527,7 @@ function sendMessageFor(rows, { grouped = GROUPED_BY_DEFAULT } = {}) {
     rows.map(r => ({ supplierName: r.name, items: r.items })),
     { grouped, locationName: currentSession().name });
   if (!text) {
-    setStatus('Nothing to send — that order has no items.', 'warn', 4000);
+    setStatus(t('orders.nothingToSendThat'), 'warn', 4000);
     return;
   }
   window.open(whatsappUrl(text), '_blank');
@@ -544,8 +545,8 @@ function openSendDayScreen(date, records) {
   const rows = records.map(recordToRow).filter(r => r.items.length);
   const overlay = buildSupplierPicker(rows, {
     title: `Send ${dayLabel(date).toLowerCase()}`,
-    actionLabel: 'Send on WhatsApp',
-    emptyText: 'Nothing to send for that day.',
+    actionLabel: t('orders.sendOnWhatsapp'),
+    emptyText: t('orders.nothingToSendFor'),
     format: messageFormatOption(),
     preselect: false,           // same reason as the draft send
   }, {
@@ -563,20 +564,20 @@ function openHistoryEditor(record) {
       try {
         await saveHistoryRecord(id, next);
         overlay.remove();
-        setStatus('Order updated ✓', 'ok', 4000);
+        setStatus(t('orders.orderUpdated'), 'ok', 4000);
       } catch (err) {
         console.error('Updating the order failed:', err);
-        setStatus('Could not update the order — check your network and try again.', 'error');
+        setStatus(t('orders.couldNotUpdateThe'), 'error');
       }
     },
     onDelete: async id => {
       try {
         await deleteHistoryRecord(id);
         overlay.remove();
-        setStatus('Order deleted', 'warn', 4000);
+        setStatus(t('orders.orderDeleted'), 'warn', 4000);
       } catch (err) {
         console.error('Deleting the order failed:', err);
-        setStatus('Could not delete the order — check your network and try again.', 'error');
+        setStatus(t('orders.couldNotDeleteThe'), 'error');
       }
     },
   });
@@ -610,9 +611,9 @@ function listNames(names) {
 // unrecorded. Only the suppliers that were actually ticked and sent are offered.
 function offerToRecordSent(supplierIds) {
   return recordSuppliers(supplierIds, {
-    title: 'Order sent',
-    okLabel: 'Mark as placed',
-    cancelLabel: 'Not yet',
+    title: t('orders.orderSent'),
+    okLabel: t('orders.markAsPlaced'),
+    cancelLabel: t('orders.notYet'),
   });
 }
 
@@ -629,7 +630,7 @@ async function recordSuppliers(supplierIds, { title, okLabel, cancelLabel = 'Can
   // or the ingredients were deactivated. Say so: returning in silence looks exactly
   // like the app ignoring the tap, which is what it used to do here.
   if (!suppliers.length) {
-    setStatus('Nothing left to record — those rows are already placed or empty.', 'warn', 5000);
+    setStatus(t('orders.nothingLeftToRecord'), 'warn', 5000);
     return;
   }
 
@@ -663,7 +664,7 @@ async function recordSuppliers(supplierIds, { title, okLabel, cancelLabel = 'Can
   if (failed.length) {
     setStatus(
       `${listNames(failed)} — NOT recorded, the rows are still there. ` +
-      (saved.length ? `${listNames(saved)} saved.` : 'Try again.'),
+      (saved.length ? `${listNames(saved)} saved.` : t('orders.tryAgain')),
       'error',
     );
     return;
@@ -695,17 +696,17 @@ function suppliersWithItems() {
 // exist so a half-typed Thursday order can be left out of a Monday run.
 function openPlaceAllScreen() {
   const overlay = buildSupplierPicker(suppliersWithItems(), {
-    title: 'Order placed',
-    actionLabel: 'Order placed',
-    emptyText: 'No quantities typed yet. Add them first.',
+    title: t('orders.orderPlaced'),
+    actionLabel: t('orders.orderPlaced'),
+    emptyText: t('orders.noQuantitiesTypedYet'),
   }, {
     onBack: () => overlay.remove(),
     onConfirm: rows => {
       overlay.remove();
       recordSuppliers(rows.map(r => r.id), {
-        title: 'Record these orders',
-        okLabel: 'Order placed',
-        cancelLabel: 'Not yet',
+        title: t('orders.recordTheseOrders'),
+        okLabel: t('orders.orderPlaced'),
+        cancelLabel: t('orders.notYet'),
       });
     },
   });
@@ -761,13 +762,13 @@ async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {})
   if (placing.has(supplierId)) return false;
 
   if (!supplierHasItems(supplierId, ingredients, state.entries)) {
-    setStatus('Nothing to record for this supplier — add quantities first.', 'warn', 4000);
+    setStatus(t('orders.nothingToRecordFor'), 'warn', 4000);
     return false;
   }
   // Firestore has no offline persistence here, so the write would simply never
   // resolve and the tap would hang. Say so instead.
   if (!navigator.onLine) {
-    setStatus('You’re offline — reconnect to record this order.', 'error', 6000);
+    setStatus(t('orders.youReOfflineReconnect'), 'error', 6000);
     return false;
   }
 
@@ -788,7 +789,7 @@ async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {})
     });
   } catch (err) {
     console.error('Archiving order failed:', err);
-    setStatus('Could not save the order — check your network and try again.', 'error');
+    setStatus(t('orders.couldNotSaveThe'), 'error');
     placing.delete(supplierId);
     refreshAllSuppliers();          // restore the button to whatever the rows say
     return false;
@@ -855,7 +856,7 @@ function confirmClear(supplierIds) {
     : `${names.length} suppliers`;
 
   return confirmDialog({
-    title: 'Clear quantities',
+    title: t('orders.clearQuantities'),
     message: `Clear everything typed for ${who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.`,
     okLabel: 'Clear',
     danger: true,
@@ -870,7 +871,7 @@ async function clearQuantitiesFor(supplierIds) {
 
   // No offline persistence: the write would never resolve and the tap would hang.
   if (!navigator.onLine) {
-    setStatus('You’re offline — reconnect to clear these quantities.', 'error', 6000);
+    setStatus(t('orders.youReOfflineReconnect2'), 'error', 6000);
     return false;
   }
   if (!await confirmClear(ids)) return false;
@@ -892,7 +893,7 @@ async function clearQuantitiesFor(supplierIds) {
   try {
     await clearQuantities(ids, ingredients);
     setStatus(ids.length === 1
-      ? 'Quantities cleared ✓'
+      ? t('orders.quantitiesCleared')
       : `Quantities cleared for ${ids.length} suppliers ✓`, 'ok', 4000);
     return true;
   } catch (err) {
@@ -900,7 +901,7 @@ async function clearQuantitiesFor(supplierIds) {
     // The screen is already clear but the database is not, and no snapshot will
     // correct that (nothing changed remotely). Say so plainly rather than leaving
     // the two quietly disagreeing.
-    setStatus('Could not clear them — reload the page to see what is really saved.', 'error');
+    setStatus(t('orders.couldNotClearThem'), 'error');
     return false;
   }
 }
@@ -909,9 +910,9 @@ async function clearQuantitiesFor(supplierIds) {
 // than blind. Nothing is ticked to start with: this throws work away.
 function openClearScreen() {
   const overlay = buildSupplierPicker(suppliersWithItems(), {
-    title: 'Clear quantities',
+    title: t('orders.clearQuantities'),
     actionLabel: 'Clear',
-    emptyText: 'Nothing typed yet.',
+    emptyText: t('orders.nothingTypedYet'),
     danger: true,
     preselect: false,
   }, {
@@ -954,7 +955,7 @@ function confirmPlacement(supplier, date) {
   return confirmDialog({
     title: already ? `Add to ${supplier.name}’s order` : `${supplier.name} — order placed`,
     message: odd.length ? `${unusualWarning(odd)}\n\n${base}` : base,
-    okLabel: already ? 'Add to it' : 'Order placed',
+    okLabel: already ? t('orders.addToIt') : t('orders.orderPlaced'),
     // Recording is what turns the rows into an order, and this is the last screen
     // before it. A red button on a quantity worth a second look is the difference
     // between catching an extra digit and phoning a supplier to unpick it.
@@ -983,8 +984,8 @@ function unusualRowsFor(supplierId) {
 function unusualWarning(rows) {
   const lines = rows.map(r => `• ${r.name}: ${r.qty} (usually about ${r.usual})`);
   const head = rows.length === 1
-    ? 'This quantity is much higher than usual:'
-    : 'These quantities are much higher than usual:';
+    ? t('orders.thisQuantityIsMuch')
+    : t('orders.theseQuantitiesAreMuch');
   return `${head}\n${lines.join('\n')}\n\nCheck it is not an extra digit.`;
 }
 
@@ -1064,7 +1065,7 @@ async function keepAsToday(supplierId) {
   } catch (err) {
     console.error('Restamping the draft failed:', err);
     if (previous) state.days[supplierId] = previous; else delete state.days[supplierId];
-    setStatus('Could not update the order’s day — check your network and try again.', 'error');
+    setStatus(t('orders.couldNotUpdateThe2'), 'error');
   }
 }
 
@@ -1089,7 +1090,7 @@ async function discardPending(supplierId) {
     setStatus(`${supplier.name} — order discarded`, 'warn', 4000);
   } catch (err) {
     console.error('Discarding the order failed:', err);
-    setStatus('Could not discard the order — check your network and try again.', 'error');
+    setStatus(t('orders.couldNotDiscardThe'), 'error');
   }
 }
 
@@ -1164,7 +1165,7 @@ function setupTabs() {
 
 // The one wording for a failed draft autosave, named because it is both SET and
 // CLEARED from different places and the two must match exactly.
-const DRAFT_SAVE_ERROR = 'Could not save the order — check your network. Keep this page open.';
+const DRAFT_SAVE_ERROR = t('orders.couldNotSaveThe2');
 
 let statusTimer = null;
 // Set the status line. With autoHideMs, the line hides itself after that delay,

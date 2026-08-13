@@ -26,6 +26,7 @@
 // linger. Products show by UNIQUE NAME only (the message uses only the name; a
 // representative product id is stored). Names resolve live from the address book.
 
+import { t } from './i18n.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   cloneConfig, getClients, getClientById, getProductById, getAllProducts,
@@ -109,7 +110,7 @@ export function openWhatsapp() {
 // copy); leaving a detail to the top prompts to discard unsaved edits; from the top
 // it exits the overlay (nothing is pending there — the top re-reads the saved config).
 async function backWhatsapp() {
-  const discardOk = () => confirmDialog({ message: 'Discard unsaved changes?', okLabel: 'Discard', danger: true });
+  const discardOk = () => confirmDialog({ message: t('calc.discardUnsavedChanges'), okLabel: 'Discard', danger: true });
   if (activeDirect !== null) {
     if (addingProduct) { addingProduct = false; renderEditor(); return; }
     if (dirty && !(await discardOk())) return;
@@ -167,17 +168,17 @@ async function saveDetail() {
   if (activeDirect !== null) {
     if (isBlank(directClients()[activeDirect].name)) {
       showErrors = true; renderEditor();
-      alertDialog('Please name this client before saving.');
+      alertDialog(t('calc.pleaseNameThisClient'));
       return;
     }
   } else if (activeList !== null) {
     if (isBlank(lists()[activeList].title)) {
       showErrors = true; renderEditor();
-      alertDialog('Please name this list before saving.');
+      alertDialog(t('calc.pleaseNameThisList'));
       return;
     }
   }
-  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -189,7 +190,7 @@ async function saveDetail() {
     addingProduct = false;
     renderEditor();
   } catch (e) {
-    alertDialog('Could not save. Check your connection and try again.');
+    alertDialog(t('calc.couldNotSaveCheck'));
   }
 }
 
@@ -199,7 +200,7 @@ async function saveDetail() {
 function renderTopScreen() {
   working = cloneConfig(getConfig());
   dirty = false;
-  waTitle().textContent = 'WhatsApp lists';
+  waTitle().textContent = t('calc.whatsappLists');
   setHomeVisible(true);
   const content = document.getElementById('wa-content');
   content.textContent = '';
@@ -209,13 +210,13 @@ function renderTopScreen() {
   content.appendChild(el('div', { class: 'send-picker-label' }, 'Lists'));
   lists().forEach((list, li) => {
     content.appendChild(topRow(
-      list.title || 'Untitled list',
+      list.title || t('calc.untitledList'),
       () => { activeList = li; activeEntry = null; renderEditor(); },
-      'Delete list',
+      t('calc.deleteList'),
       () => deleteList(li),
     ));
   });
-  const addList = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add list');
+  const addList = el('button', { class: 'cp-add-client', type: 'button' }, t('calc.addList'));
   addList.addEventListener('click', () => {
     lists().push({ id: genId('wl'), title: '', clients: [] });
     markDirty();
@@ -228,13 +229,13 @@ function renderTopScreen() {
   content.appendChild(el('div', { class: 'send-picker-label' }, 'Clients'));
   directClients().forEach((dc, di) => {
     content.appendChild(topRow(
-      dc.name || 'Unnamed client',
+      dc.name || t('calc.unnamedClient'),
       () => { activeDirect = di; renderEditor(); },
-      'Delete client',
+      t('calc.deleteClient'),
       () => deleteDirect(di),
     ));
   });
-  const addClient = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add client');
+  const addClient = el('button', { class: 'cp-add-client', type: 'button' }, t('calc.addClient'));
   addClient.addEventListener('click', () => {
     directClients().push({ id: genId('wc'), name: '', products: [] });
     markDirty();
@@ -260,7 +261,7 @@ function renderTopScreen() {
 // setting the app is actually using. What is owed instead is the truth: the change
 // works on this phone, and has not reached the others yet.
 function buildPrefillWindowField() {
-  const sel = el('select', { class: 'extra-unit-select', 'aria-label': 'Fill the order from' });
+  const sel = el('select', { class: 'extra-unit-select', 'aria-label': t('calc.fillTheOrderFrom') });
   ORDER_PREFILL_WINDOWS.forEach(w => sel.appendChild(el('option', { value: w }, ORDER_PREFILL_LABELS[w])));
   sel.value = getOrderPrefillWindow(getConfig());
 
@@ -275,20 +276,17 @@ function buildPrefillWindowField() {
     // 'no-server-answer' has already explained itself inside saveConfig; saying it
     // twice would be noise.
     if (result && result.synced === false && result.reason === 'write-failed') {
-      await alertDialog('Saved on this phone, but not sent to the other phones yet — '
-        + 'check your connection.');
+      await alertDialog(t('calc.savedNotSent'));
     }
   });
 
-  const row = el('label', { class: 'extra-toggle-row' }, [el('span', {}, 'Fill the order from')]);
+  const row = el('label', { class: 'extra-toggle-row' }, [el('span', {}, t('calc.fillTheOrderFrom'))]);
   row.appendChild(sel);
 
   return el('div', {}, [
     row,
     el('p', { class: 'notif-note' },
-      'Which days of saved logs the order form offers quantities from. Most days an '
-      + 'order is made over two days — some products the day before, some the same '
-      + 'morning — so “Yesterday and today” is the usual choice.'),
+      t('calc.prefillWindow.help')),
   ]);
 }
 
@@ -305,13 +303,13 @@ function topRow(label, onOpen, delLabel, onDelete) {
 // Delete a saved list / direct client straight from the top screen, persisting at
 // once (there is no Save here). Always confirmed.
 async function deleteList(li) {
-  if (!(await confirmDialog({ message: 'Delete this list?', okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThisList'), okLabel: 'Delete', danger: true }))) return;
   lists().splice(li, 1);
   saveConfig(working);
   renderEditor();
 }
 async function deleteDirect(di) {
-  if (!(await confirmDialog({ message: 'Delete this client?', okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThisClient'), okLabel: 'Delete', danger: true }))) return;
   directClients().splice(di, 1);
   saveConfig(working);
   renderEditor();
@@ -321,28 +319,28 @@ async function deleteDirect(di) {
 function renderListDetail() {
   const list = lists()[activeList];
   if (!Array.isArray(list.clients)) list.clients = [];
-  waTitle().textContent = 'Edit list';
+  waTitle().textContent = t('calc.editList');
   setHomeVisible(false);
   const content = document.getElementById('wa-content');
   content.textContent = '';
 
-  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: list.title || '', placeholder: 'List name' });
+  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: list.title || '', placeholder: t('calc.listName') });
   if (showErrors && isBlank(list.title)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { list.title = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
   content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'List name'),
+    el('label', { class: 'cp-label' }, t('calc.listName')),
     nameInput,
   ]));
 
-  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Clients in this list')]);
+  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, t('calc.clientsInThisList'))]);
   if (list.clients.length === 0) {
-    field.appendChild(el('div', { class: 'cp-empty-hint' }, 'Add a client, then add the products to send for it.'));
+    field.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.addAClientThen')));
   } else {
     list.clients.forEach((entry, ei) => field.appendChild(entryCard(list, entry, ei)));
   }
   content.appendChild(field);
 
-  const addClient = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add client');
+  const addClient = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.addClient'));
   addClient.addEventListener('click', () => { choosingClient = true; renderEditor(); });
   content.appendChild(addClient);
 
@@ -353,9 +351,9 @@ function renderListDetail() {
 // chosen products (names only), a tap target to edit them, and a small remove icon.
 function entryCard(list, entry, ei) {
   const client = getClientById(getConfig(), entry.clientId);
-  const name = client ? (client.name || 'Unnamed client') : 'Unknown client';
+  const name = client ? (client.name || t('calc.unnamedClient')) : t('calc.unknownClient');
   const names = targetLineNames(entry);
-  const summary = names.length ? names.join(', ') : 'Nothing to send yet — tap to add';
+  const summary = names.length ? names.join(', ') : t('calc.nothingToSendYet');
 
   const open = el('button', { class: 'drill-item wa-entry-open', type: 'button' }, [
     el('span', { class: 'wa-entry-text' }, [
@@ -366,8 +364,8 @@ function entryCard(list, entry, ei) {
   ]);
   open.addEventListener('click', () => { activeEntry = ei; addingProduct = false; renderEditor(); });
 
-  const del = deleteIcon('Remove client from list', async () => {
-    if (!(await confirmDialog({ message: 'Remove this client from the list?', okLabel: 'Remove', danger: true }))) return;
+  const del = deleteIcon(t('calc.removeClientFromList'), async () => {
+    if (!(await confirmDialog({ message: t('calc.removeThisClientFrom'), okLabel: 'Remove', danger: true }))) return;
     list.clients.splice(ei, 1);
     markDirty();
     renderEditor();
@@ -379,7 +377,7 @@ function entryCard(list, entry, ei) {
 // ── Level 1b: choose which address-book client to add to the list ──────────────
 function renderClientChooser() {
   const list = lists()[activeList];
-  waTitle().textContent = 'Add client';
+  waTitle().textContent = t('calc.addClient2');
   setHomeVisible(false);
   const content = document.getElementById('wa-content');
   content.textContent = '';
@@ -389,18 +387,18 @@ function renderClientChooser() {
   const available = getClients(getConfig()).filter(c => !already.has(c.id));
 
   if (getClients(getConfig()).length === 0) {
-    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No clients yet. Add them in Settings → Clients first.'));
+    content.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.noClientsYetAdd')));
     return;
   }
   if (available.length === 0) {
-    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'All clients are already in this list.'));
+    content.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.allClientsAreAlready')));
     return;
   }
 
-  content.appendChild(el('p', { class: 'extra-help' }, 'Pick a client to add. Next you add the products to send for it.'));
+  content.appendChild(el('p', { class: 'extra-help' }, t('calc.pickAClientTo')));
   available.forEach(client => {
     const box = el('button', { class: 'drill-item', type: 'button' }, [
-      el('span', {}, client.name || 'Unnamed client'),
+      el('span', {}, client.name || t('calc.unnamedClient')),
       el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
     ]);
     box.addEventListener('click', () => {
@@ -418,10 +416,10 @@ function renderClientChooser() {
 // The products field is shared; the screen above it differs (a list entry has no
 // editable name — it comes from the address book; a direct client has a name field).
 function productsField(target) {
-  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Products to send')]);
+  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, t('calc.productsToSend'))]);
   const ids = Array.isArray(target.products) ? target.products : [];
   if (ids.length === 0) {
-    field.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products yet. Add products from the address book.'));
+    field.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.noProductsYetAdd')));
   } else {
     ids.forEach(id => {
       const product = getProductById(getConfig(), id);
@@ -433,7 +431,7 @@ function productsField(target) {
 }
 
 function addProductButton() {
-  const btn = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add product');
+  const btn = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.addProduct'));
   btn.addEventListener('click', () => { addingProduct = true; renderEditor(); });
   return btn;
 }
@@ -454,25 +452,23 @@ function freeLinesField(target) {
   if (!Array.isArray(target.extras)) target.extras = [];
 
   const field = el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'Added by hand'),
+    el('label', { class: 'cp-label' }, t('calc.addedByHand')),
     el('p', { class: 'extra-help' },
-      'For things this client buys that you do not calculate here — bread cut from '
-      + 'another client’s batch, for example. They appear in the message and never '
-      + 'in a dough total, and the order form always leaves them empty for you to fill in.'),
+      t('calc.byHand.help')),
   ]);
 
   target.extras.forEach((line, i) => {
     const input = el('input', {
       class: 'cp-client-name', type: 'text', value: line.name || '',
-      placeholder: 'e.g. Loaves of bread',
-      'aria-label': 'Extra line ' + (i + 1),
+      placeholder: t('calc.eGLoavesOf'),
+      'aria-label': t('calc.extraLine') + (i + 1),
     });
     // ⚠️ The id is NOT recomputed as the name is typed. It keys the quantity box in
     // the order modal, so changing it mid-edit would move somebody's typed number to
     // a different row. A blank line is dropped on save, which is where ids settle.
     input.addEventListener('input', () => { line.name = input.value; markDirty(); });
 
-    const del = deleteIcon('Remove line', () => {
+    const del = deleteIcon(t('calc.removeLine'), () => {
       target.extras.splice(i, 1);
       markDirty();
       renderEditor();
@@ -501,16 +497,16 @@ function renderEntryDetail() {
 function renderDirectDetail() {
   const dc = directClients()[activeDirect];
   if (!Array.isArray(dc.products)) dc.products = [];
-  waTitle().textContent = 'Edit client';
+  waTitle().textContent = t('calc.editClient');
   setHomeVisible(false);
   const content = document.getElementById('wa-content');
   content.textContent = '';
 
-  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: dc.name || '', placeholder: 'Client name' });
+  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: dc.name || '', placeholder: t('calc.clientName') });
   if (showErrors && isBlank(dc.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { dc.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
   content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'Client name'),
+    el('label', { class: 'cp-label' }, t('calc.clientName')),
     nameInput,
   ]));
 
@@ -523,7 +519,7 @@ function renderDirectDetail() {
 // One added-product row: the product name and a small remove icon. Removing a single
 // product is low-friction (no confirm), matching the Clients editor's product cards.
 function productRow(target, id, name) {
-  const del = deleteIcon('Remove product', () => {
+  const del = deleteIcon(t('calc.removeProduct'), () => {
     const i = target.products.indexOf(id);
     if (i !== -1) target.products.splice(i, 1);
     markDirty();
@@ -566,7 +562,7 @@ function targetClient(target) {
 function renderProductPicker() {
   const target = currentTarget();
   const client = targetClient(target);
-  waTitle().textContent = 'Add to the message';
+  waTitle().textContent = t('calc.addToTheMessage');
   setHomeVisible(false);
   const content = document.getElementById('wa-content');
   content.textContent = '';
@@ -588,23 +584,22 @@ function renderProductPicker() {
 
   if (own.length) {
     content.appendChild(el('div', { class: 'send-picker-label' },
-      client ? `${client.name}’s products` : 'Its products'));
+      client ? `${client.name}’s products` : t('calc.itsProducts')));
     own.forEach(p => content.appendChild(pickRow(p.name, () => addProduct(p))));
   }
 
   if (others.length) {
     content.appendChild(el('div', { class: 'send-picker-label' },
-      own.length ? 'Other products' : 'Products'));
+      own.length ? t('calc.otherProducts') : 'Products'));
     content.appendChild(el('p', { class: 'extra-help' },
-      'Products of other clients. Adding one here only puts it in this message — it '
-      + 'does not change the address book.'));
+      t('calc.otherProducts.help')));
     others.forEach(p => content.appendChild(pickRow(p.name, () => addProduct(p))));
   }
 
   if (!own.length && !others.length) {
     content.appendChild(el('div', { class: 'cp-empty-hint' },
-      rows.length ? 'Everything in the address book is already added.'
-        : 'No products in the address book yet.'));
+      rows.length ? t('calc.everythingInTheAddress')
+        : t('calc.noProductsInThe')));
   }
 
   content.appendChild(byHandField(target, added));
@@ -630,8 +625,8 @@ function pickRow(label, onPick) {
 function byHandField(target, added) {
   const input = el('input', {
     class: 'cp-client-name', type: 'text',
-    placeholder: 'e.g. Loaves of bread',
-    'aria-label': 'Add a line by hand',
+    placeholder: t('calc.eGLoavesOf'),
+    'aria-label': t('calc.addALineBy'),
   });
   const warning = el('p', { class: 'extra-help cp-empty-hint' });
   warning.hidden = true;
@@ -655,14 +650,13 @@ function byHandField(target, added) {
   };
 
   input.addEventListener('input', () => { warning.hidden = true; });
-  const btn = el('button', { class: 'cp-add-prod', type: 'button' }, 'Add this line');
+  const btn = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.addThisLine'));
   btn.addEventListener('click', add);
 
   return el('div', { class: 'cp-field' }, [
-    el('div', { class: 'send-picker-label' }, 'Not in the address book?'),
+    el('div', { class: 'send-picker-label' }, t('calc.notInTheAddress')),
     el('p', { class: 'extra-help' },
-      'Type it here. It goes in the message only — never into a dough calculation — '
-      + 'and the order form leaves it empty for you to fill in.'),
+      t('calc.typeItHere.help')),
     input,
     warning,
     btn,

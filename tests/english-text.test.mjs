@@ -18,6 +18,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { _dictionaries } from '../js/i18n.js';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative } from 'node:path';
 
@@ -201,7 +202,17 @@ test('the nutrition column heading is capitalised, the inline mention is not', (
       'inside the table the unit follows the numbers and stays lower case');
   }
 
-  const form = readFileSync(join(ROOT, 'js', 'orders', 'management.js'), 'utf8');
-  assert.match(form, /text: 'Per 100 g'/,
-    'heading its own column, the same phrase is capitalised');
+  // ⚠️ THE HEADING MOVED INTO THE DICTIONARY TOO, so the question is asked of the
+  // dictionary in every language — the third time this one phrase has changed
+  // address. Both forms exist, both keep their case, and neither is derived from
+  // the other by a .toLowerCase() nobody would notice failing in Italian.
+  const dicts = _dictionaries();
+  for (const lang of Object.keys(dicts)) {
+    const heading = dicts[lang]['orders.per100G'];
+    assert.ok(heading, `${lang} has no nutrition column heading`);
+    assert.equal(heading, heading.charAt(0).toUpperCase() + heading.slice(1),
+      `in ${lang} the column heading is capitalised`);
+    assert.equal(dicts[lang].per100g, undefined,
+      'the inline form belongs to js/market.js — a label word, decided by the country');
+  }
 });

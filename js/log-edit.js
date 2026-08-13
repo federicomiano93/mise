@@ -11,6 +11,7 @@
 // can RESTORE it — restoring appends a copy on top as the new current version, so
 // the history is never truncated.
 
+import { t } from './i18n.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
 import { getConfig } from './calculator-config-store.js';
@@ -79,15 +80,15 @@ function render() {
   c.textContent = '';
   c.appendChild(el('div', { class: 'logedit-dough' }, working.dough + ' log'));
 
-  const by = el('input', { class: 'cp-client-name', type: 'text', value: working.calculatedBy, placeholder: 'Name (optional)' });
+  const by = el('input', { class: 'cp-client-name', type: 'text', value: working.calculatedBy, placeholder: t('calc.nameOptional') });
   by.addEventListener('input', () => { working.calculatedBy = by.value; markDirty(); });
-  c.appendChild(el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Calculated by'), by]));
+  c.appendChild(el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, t('calc.calculatedBy2')), by]));
 
-  c.appendChild(el('div', { class: 'cp-label' }, 'Products — quantities only'));
+  c.appendChild(el('div', { class: 'cp-label' }, t('calc.productsQuantitiesOnly')));
   let lastClient = null;
   let card = null;
   if (!working.items.length) {
-    c.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in this category.'));
+    c.appendChild(el('div', { class: 'cp-empty-hint' }, t('calc.noProductsInThis')));
   }
   for (const it of working.items) {
     if (it.clientName !== lastClient || card === null) {
@@ -103,13 +104,13 @@ function render() {
 
 // ── Save (append a new version) ───────────────────────────────────────────────
 function saveBottom() {
-  const b = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save changes');
+  const b = el('button', { class: 'cp-save-bottom', type: 'button' }, t('calc.saveChanges'));
   b.addEventListener('click', save);
   return b;
 }
 
 async function save() {
-  if (!(await confirmDialog({ message: 'Save these changes as a new version?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChangesAs'), okLabel: 'Save' }))) return;
   const tab = working.tab;
 
   const items = working.items.map(it => ({
@@ -123,7 +124,7 @@ async function save() {
   working.occasional.forEach((o, oi) => {
     const prods = (o.products || []).filter(p => (p.name || '').trim() !== '' && num(p.qty) > 0);
     if (!(o.name || '').trim() && !prods.length) return; // drop fully empty
-    const name = (o.name || '').trim() || 'Occasional client';
+    const name = (o.name || '').trim() || t('calc.occasionalClient');
     occClean.push({ name, products: prods.map(p => ({ name: p.name.trim(), qty: num(p.qty), weightG: num(p.weightG), unit: p.unit === 'kg' ? 'kg' : 'pz', productId: p.productId || '' })) });
     prods.forEach((p, pi) => occLines.push({
       id: 'occ-' + oi + '-' + pi, name: p.name.trim(), clientName: name,
@@ -172,7 +173,7 @@ export function openLogHistory(logId) {
 function closeHistory() { document.getElementById('loghistory-overlay').classList.remove('visible'); }
 
 function kindLabel(v, i, last) {
-  if (v.kind === 'restore') return 'Restored from v' + ((num(v.restoredFrom) || 0) + 1);
+  if (v.kind === 'restore') return t('calc.restoredFromV') + ((num(v.restoredFrom) || 0) + 1);
   if (i === 0) return 'Created';
   return 'Edited';
 }
@@ -181,8 +182,8 @@ function renderHistoryList() {
   const log = getLogById(historyLogId);
   const c = document.getElementById('loghistory-content');
   c.textContent = '';
-  if (!log) { c.appendChild(el('p', { class: 'log-empty' }, 'Log not found.')); return; }
-  c.appendChild(el('div', { class: 'logedit-dough' }, log.dough + ' — edit history'));
+  if (!log) { c.appendChild(el('p', { class: 'log-empty' }, t('calc.logNotFound'))); return; }
+  c.appendChild(el('div', { class: 'logedit-dough' }, log.dough + t('calc.editHistory')));
   const vs = log.versions || [];
   for (let i = vs.length - 1; i >= 0; i--) {
     const v = vs[i];
@@ -190,7 +191,7 @@ function renderHistoryList() {
     const at = v.at || {};
     const box = el('button', { class: 'drill-item', type: 'button' }, [
       el('div', { class: 'loghist-info' }, [
-        el('span', { class: 'loghist-kind' }, 'v' + (i + 1) + ' · ' + kindLabel(v, i) + (last ? ' · current' : '')),
+        el('span', { class: 'loghist-kind' }, 'v' + (i + 1) + ' · ' + kindLabel(v, i) + (last ? t('calc.current') : '')),
         el('span', { class: 'loghist-meta' }, (at.date ? at.date + ' — ' + at.time : '') + (v.calculatedBy ? ' · ' + v.calculatedBy : '')),
       ]),
       el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
@@ -208,14 +209,14 @@ function openHistoryVersion(i) {
   if (!v) return;
   const c = document.getElementById('loghistory-content');
   c.textContent = '';
-  const back = el('button', { class: 'loghist-tolist', type: 'button' }, [icon('chevronLeft', 16), ' All versions']);
+  const back = el('button', { class: 'loghist-tolist', type: 'button' }, [icon('chevronLeft', 16), t('calc.allVersions')]);
   back.addEventListener('click', renderHistoryList);
   c.appendChild(back);
   c.appendChild(renderVersion(v, log));
   if (i !== vs.length - 1) {
-    const restore = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Restore this version');
+    const restore = el('button', { class: 'cp-save-bottom', type: 'button' }, t('calc.restoreThisVersion'));
     restore.addEventListener('click', async () => {
-      if (!(await confirmDialog({ message: 'Restore this version? It is added on top as the new current version — the history is kept.', okLabel: 'Restore' }))) return;
+      if (!(await confirmDialog({ message: t('calc.restoreThisVersionIt'), okLabel: 'Restore' }))) return;
       restoreAndSave(historyLogId, i, { calculatedBy: v.calculatedBy || '', at: logTimestamp() });
       renderHistoryList();
     });

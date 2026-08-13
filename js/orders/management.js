@@ -21,6 +21,7 @@
 //            setSupplierActive(id,bool), setIngredientActive(id,bool),
 //            deleteSupplier(id), deleteIngredient(id) }
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { canManageHere } from './firebase-orders.js';
 import { renderNotificationSettings } from './notifications.js';
@@ -101,7 +102,7 @@ export function buildManagement(data, actions) {
   // Everything that is a setting rather than a list: how the order screen looks, then
   // the alerts.
   function renderGeneral() {
-    content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Order screen' }));
+    content.appendChild(el('h3', { class: 'mgmt-section-title', text: t('orders.orderScreen') }));
     content.appendChild(buildStockToggle());
     content.appendChild(buildHistoryDaysField());
 
@@ -125,16 +126,16 @@ export function buildManagement(data, actions) {
         await actions.saveOrdersConfig({ showStock: wanted });
       } catch (err) {
         cb.checked = !wanted;          // put the box back to what is actually stored
-        await reportFailure('save', 'Show stock', err);
+        await reportFailure('save', t('orders.showStock'), err);
       } finally {
         cb.disabled = false;
       }
     });
 
     return el('div', { class: 'mgmt-field' }, [
-      el('label', { class: 'mgmt-toggle' }, [cb, el('span', { text: 'Show the Stock box on order rows' })]),
+      el('label', { class: 'mgmt-toggle' }, [cb, el('span', { text: t('orders.showTheStockBox') })]),
       el('p', { class: 'notif-note', text:
-        'Turn this off if you do not count what is left before ordering. Suggested quantities keep working: with no stock entered they become your usual order amount.' }),
+        t('orders.turnThisOffIf') }),
     ]);
   }
 
@@ -169,7 +170,7 @@ export function buildManagement(data, actions) {
         await actions.saveOrdersConfig({ historyDays: wanted });
       } catch (err) {
         input.value = String(stored);   // put the box back to what is actually stored
-        await reportFailure('save', 'Days of history', err);
+        await reportFailure('save', t('orders.daysOfHistory'), err);
       } finally {
         input.disabled = false;
       }
@@ -177,10 +178,10 @@ export function buildManagement(data, actions) {
 
     return el('div', { class: 'mgmt-field' }, [
       el('label', { class: 'mgmt-field-label', for: 'history-days-input',
-        text: 'Days of past orders shown in History' }),
+        text: t('orders.daysOfPastOrders') }),
       el('div', { class: 'mgmt-days-row' }, [input, el('span', { text: 'days' })]),
       el('p', { class: 'notif-note', text:
-        'Older orders are never deleted — they stay one tap away under “Show older orders”, and suggested quantities keep learning from all of them.' }),
+        t('orders.olderOrdersAreNever') }),
     ]);
   }
 
@@ -218,11 +219,11 @@ export function buildManagement(data, actions) {
   function renderSupplierList() {
     renderSearchableList({
       items: () => data.suppliers(),
-      addLabel: '+ Add supplier',
-      placeholder: 'Search a supplier…',
+      addLabel: t('orders.addSupplier'),
+      placeholder: t('orders.searchASupplier'),
       onAdd: () => { view = { type: 'supplierForm', item: null }; render(); },
-      emptyText: 'No suppliers yet.',
-      noMatchText: 'No supplier matches your search.',
+      emptyText: t('orders.noSuppliersYet'),
+      noMatchText: t('orders.noSupplierMatchesYour'),
       rowFor: (s) => {
         const meta = [s.category, (s.deliveryDays || []).join(', ')].filter(Boolean).join(' · ');
         return mgmtRow(s.name, meta, s.active !== false,
@@ -238,17 +239,17 @@ export function buildManagement(data, actions) {
     data.suppliers().forEach(s => { supById[s.id] = s.name; });
     renderSearchableList({
       items: () => data.ingredients(),
-      addLabel: '+ Add ingredient',
-      placeholder: 'Search an ingredient…',
+      addLabel: t('orders.addIngredient'),
+      placeholder: t('orders.searchAnIngredient'),
       onAdd: () => { view = { type: 'ingredientForm', item: null }; render(); },
-      emptyText: 'No ingredients yet.',
-      noMatchText: 'No ingredient matches your search.',
+      emptyText: t('orders.noIngredientsYet'),
+      noMatchText: t('orders.noIngredientMatchesYour'),
       rowFor: (i) => {
         // The price is on the row, and "No price" is said out loud when there is
         // none — that is what turns this list into the list of what is still to be
         // filled in. Every ingredient starts without one and nothing migrates them.
-        const meta = [supById[i.supplierId] || 'No supplier', i.brand, i.weight,
-                      formatPricePerUnit(i) || 'No price'].filter(Boolean).join(' · ');
+        const meta = [supById[i.supplierId] || t('orders.noSupplier'), i.brand, i.weight,
+                      formatPricePerUnit(i) || t('orders.noPrice')].filter(Boolean).join(' · ');
         return mgmtRow(i.name, meta, i.active !== false,
           () => { view = { type: 'ingredientForm', item: i }; render(); },
           () => actions.setIngredientActive(i.id, i.active === false),
@@ -268,7 +269,7 @@ export function buildManagement(data, actions) {
     console.error(`${action} failed:`, err);
     await alertDialog(
       `Could not ${action} “${name}”. Check your network and try again.`,
-      { title: 'Not saved' },
+      { title: t('orders.notSaved') },
     );
   }
 
@@ -368,18 +369,18 @@ export function buildManagement(data, actions) {
     } }, 'Save');
 
     return el('div', { class: 'mgmt-form' }, [
-      el('h2', { class: 'mgmt-form-title', text: item ? 'Edit supplier' : 'New supplier' }),
+      el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editSupplier') : t('orders.newSupplier') }),
       field('Name', name),
       field('Category', category),
       el('div', { class: 'mgmt-field' }, [
-        el('span', { class: 'mgmt-field-label', text: 'Delivery days — when they deliver' }),
+        el('span', { class: 'mgmt-field-label', text: t('orders.deliveryDaysWhenThey') }),
         el('div', { class: 'day-checks' }, deliveryChecks),
       ]),
       el('div', { class: 'mgmt-field' }, [
-        el('span', { class: 'mgmt-field-label', text: 'Order days — when you place the order' }),
+        el('span', { class: 'mgmt-field-label', text: t('orders.orderDaysWhenYou') }),
         el('div', { class: 'day-checks' }, orderChecks),
       ]),
-      field('Phone (WhatsApp, digits only)', phone),
+      field(t('orders.phoneWhatsappDigitsOnly'), phone),
       field('Email', email),
       formActions(save),
     ]);
@@ -400,9 +401,9 @@ export function buildManagement(data, actions) {
   // it just makes every recipe using that ingredient cost twenty-five times too
   // much, on a screen where the answer is a percentage nobody can eyeball.
   const RATE_HINT = Object.freeze({
-    kg: 'The price of ONE KILO, not of the pack — a 25 kg sack at £180 is 7.20.',
-    l: 'The price of ONE LITRE, not of the container — a 5 l tin at £30 is 6.00.',
-    pcs: 'The price of ONE PIECE, not of the box — a box of 100 at £3.50 is 0.035.',
+    kg: t('orders.thePriceOfOne'),
+    l: t('orders.thePriceOfOne2'),
+    pcs: t('orders.thePriceOfOne3'),
   });
 
   // ── The price block inside the ingredient form ──────────────────────────────
@@ -414,7 +415,7 @@ export function buildManagement(data, actions) {
   // Returns { node, read() } so the form above can stay readable.
   function priceBlock(item) {
     const unitSelect = el('select', { class: 'mgmt-input' });
-    unitSelect.appendChild(el('option', { value: '', text: '— No price —' }));
+    unitSelect.appendChild(el('option', { value: '', text: t('orders.noPrice2') }));
     PRICE_UNITS.forEach(u => {
       const opt = el('option', { value: u, text: PRICE_UNIT_LABELS[u] });
       if (item?.priceUnit === u) opt.selected = true;
@@ -444,10 +445,10 @@ export function buildManagement(data, actions) {
     const summary = el('p', { class: 'mgmt-price-summary' }, [summaryMain, summaryNote]);
 
     const pieceField = el('label', { class: 'mgmt-field' }, [
-      el('span', { class: 'mgmt-field-label', text: 'Weight of one piece (kg)' }),
+      el('span', { class: 'mgmt-field-label', text: t('orders.weightOfOnePiece') }),
       pieceWeight,
       el('p', { class: 'notif-note', text:
-        'Needed only to use this in a recipe written in grams — one egg is about 0.055, a vanilla pod about 0.0035.' }),
+        t('orders.neededOnlyToUse') }),
     ]);
 
     function read() {
@@ -496,7 +497,7 @@ export function buildManagement(data, actions) {
 
     const node = el('div', {}, [
       el('h3', { class: 'mgmt-section-title', text: 'Price' }),
-      field('How it is bought', unitSelect),
+      field(t('orders.howItIsBought'), unitSelect),
       el('label', { class: 'mgmt-field' }, [rateLabel, rate, rateHint]),
       pieceField,
       summary,
@@ -513,13 +514,13 @@ export function buildManagement(data, actions) {
     const list = el('div', { class: 'mgmt-price-history' });
     const button = el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
       button.disabled = true;
-      button.textContent = 'Loading…';
+      button.textContent = t('orders.loading');
       try {
         const entries = await actions.priceHistory(item.id);
         list.replaceChildren();
         button.remove();
         if (!entries.length) {
-          list.appendChild(el('p', { class: 'mgmt-empty', text: 'No price recorded yet.' }));
+          list.appendChild(el('p', { class: 'mgmt-empty', text: t('orders.noPriceRecordedYet') }));
           return;
         }
         entries.forEach(entry => {
@@ -530,10 +531,10 @@ export function buildManagement(data, actions) {
         });
       } catch (err) {
         button.disabled = false;
-        button.textContent = 'Price history';
+        button.textContent = t('orders.priceHistory');
         await reportFailure('load the price history for', item.name, err);
       }
-    } }, 'Price history');
+    } }, t('orders.priceHistory'));
 
     return el('div', { class: 'mgmt-field' }, [button, list]);
   }
@@ -573,7 +574,7 @@ export function buildManagement(data, actions) {
 
     // The two groups the law makes us name individually get their own heading, so
     // 26 boxes read as a structured list rather than a wall of ticks.
-    const GROUP_TITLE = { gluten: 'Cereals containing gluten', nuts: 'Nuts' };
+    const GROUP_TITLE = { gluten: t('orders.cerealsContainingGluten'), nuts: 'Nuts' };
     const sections = [];
     for (const group of ALLERGEN_GROUPS) {
       const codes = ALLERGENS.filter(a => a.group === group).map(a => a.code);
@@ -583,7 +584,7 @@ export function buildManagement(data, actions) {
       }
     }
     const singles = ALLERGENS.filter(a => ALLERGENS.filter(x => x.group === a.group).length === 1);
-    sections.push(el('p', { class: 'alg-group', text: 'The rest' }));
+    sections.push(el('p', { class: 'alg-group', text: t('orders.theRest') }));
     singles.forEach(a => sections.push(tickRow(a.code)));
 
     const checked = el('input', { type: 'checkbox' });
@@ -628,8 +629,8 @@ export function buildManagement(data, actions) {
       const state = allergenState(draft);
       const missing = missingNutrients({ nutrition: draft.nutrition });
       const nutritionNote = missing.length === NUTRIENTS.length
-        ? 'No nutrition yet.'
-        : (missing.length ? `Nutrition: ${missing.length} of ${NUTRIENTS.length} still empty.` : 'Nutrition complete.');
+        ? t('orders.noNutritionYet')
+        : (missing.length ? `Nutrition: ${missing.length} of ${NUTRIENTS.length} still empty.` : t('orders.nutritionComplete'));
 
       if (state === 'unknown') {
         status.textContent = `Not checked yet — this ingredient blocks any label it is used in. ${nutritionNote}`;
@@ -653,13 +654,13 @@ export function buildManagement(data, actions) {
     refresh();
 
     const root = el('div', { class: 'mgmt-field alg-block' }, [
-      el('span', { class: 'mgmt-field-label', text: 'Allergens and nutrition' }),
+      el('span', { class: 'mgmt-field-label', text: t('orders.allergensAndNutrition') }),
       status,
       el('p', { class: 'notif-note', text:
-        'Copy this from the supplier’s specification, not from memory. “Traces” is what the supplier declares — it cannot know about your own kitchen.' }),
+        t('orders.copyThisFromThe') }),
       el('div', { class: 'alg-list' }, sections),
-      el('label', { class: 'day-check alg-checked' }, [checked, el('span', { text: 'I have checked the supplier’s specification' })]),
-      el('p', { class: 'mgmt-field-label alg-nut-title', text: 'Per 100 g' }),
+      el('label', { class: 'day-check alg-checked' }, [checked, el('span', { text: t('orders.iHaveCheckedThe') })]),
+      el('p', { class: 'mgmt-field-label alg-nut-title', text: t('orders.per100G') }),
       nutritionGrid,
     ]);
 
@@ -668,12 +669,12 @@ export function buildManagement(data, actions) {
 
   function ingredientForm(item) {
     const name = el('input', { type: 'text', class: 'mgmt-input', value: item?.name || '' });
-    const brand = el('input', { type: 'text', class: 'mgmt-input', value: item?.brand || '', placeholder: 'e.g. Galbani' });
+    const brand = el('input', { type: 'text', class: 'mgmt-input', value: item?.brand || '', placeholder: t('orders.eGGalbani') });
     const weight = el('input', { type: 'text', class: 'mgmt-input', value: item?.weight || '', placeholder: 'e.g. 2.27kg' });
     const category = el('input', { type: 'text', class: 'mgmt-input', value: item?.category || '' });
     // "unit" is now the ORDER unit (how you count the order: casse, box), shown
     // next to the quantity — not a unit of measure. Same field, new meaning.
-    const unit = el('input', { type: 'text', class: 'mgmt-input', value: item?.unit || '', placeholder: 'e.g. casse, box' });
+    const unit = el('input', { type: 'text', class: 'mgmt-input', value: item?.unit || '', placeholder: t('orders.eGCasseBox') });
 
     // "No supplier" is a real answer, not a missing one: the supermarket, the cash
     // & carry, the shop down the road. It is FIRST and it is the default for a new
@@ -684,7 +685,7 @@ export function buildManagement(data, actions) {
     // matches nothing, so no <option> is selected and the browser falls back to the
     // first one, which is precisely where that ingredient now belongs.
     const supplierSelect = el('select', { class: 'mgmt-input' });
-    supplierSelect.appendChild(el('option', { value: NO_SUPPLIER_ID, text: '— No supplier —' }));
+    supplierSelect.appendChild(el('option', { value: NO_SUPPLIER_ID, text: t('orders.noSupplier2') }));
     data.suppliers().slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
       const opt = el('option', { value: s.id, text: s.name });
       if (item?.supplierId === s.id) opt.selected = true;
@@ -744,13 +745,13 @@ export function buildManagement(data, actions) {
     } }, 'Save');
 
     return el('div', { class: 'mgmt-form' }, [
-      el('h2', { class: 'mgmt-form-title', text: item ? 'Edit ingredient' : 'New ingredient' }),
+      el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editIngredient') : t('orders.newIngredient') }),
       field('Name', name),
       field('Supplier', supplierSelect),
       field('Brand', brand),
       field('Weight', weight),
       field('Category', category),
-      field('Order unit', unit),
+      field(t('orders.orderUnit'), unit),
       ...(price ? [price.node] : []),
       allergens.root,
       formActions(save),

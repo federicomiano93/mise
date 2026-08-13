@@ -13,6 +13,7 @@
 // ingredient list; one deleted since then falls back to its id rather than
 // disappearing from its own order.
 
+import { t } from '../i18n.js';
 import { el, groupBy } from './dom.js';
 import { dayLabel } from './day.js';
 import {
@@ -50,7 +51,7 @@ function indexById(items) {
 // not, and calling that "No supplier" too would hide a real problem.
 function supplierHeading(supplierId, supById) {
   if (supById[supplierId]?.name) return supById[supplierId].name;
-  return isNoSupplier(supplierId) ? 'No supplier' : 'Unknown supplier';
+  return isNoSupplier(supplierId) ? t('orders.noSupplier') : t('orders.unknownSupplier');
 }
 
 // callbacks: { onEdit(record), onSend(record), onSendDay(date, records) }
@@ -62,7 +63,7 @@ export function renderHistory(container, history, suppliers, ingredients, callba
   const days = groupHistoryByDay(history);
 
   if (!days.length) {
-    container.appendChild(el('p', { class: 'history-empty', text: 'No past orders yet.' }));
+    container.appendChild(el('p', { class: 'history-empty', text: t('orders.noPastOrdersYet') }));
     return;
   }
 
@@ -134,7 +135,7 @@ function dayHeader(date, records, callbacks) {
       onClick: () => callbacks.onSendDay(date, records),
     }, [
       el('span', { class: 'history-send-icon', icon: WA_SVG, 'aria-hidden': 'true' }),
-      'Send all',
+      t('orders.sendAll'),
     ]),
   ]);
 }
@@ -149,7 +150,7 @@ function cardActions(record, callbacks) {
       onClick: () => callbacks.onSend(record),
     }, [
       el('span', { class: 'history-edit-icon', icon: WA_SVG, 'aria-hidden': 'true' }),
-      'Send on WhatsApp',
+      t('orders.sendOnWhatsapp'),
     ]));
   }
   actions.push(el('button', {
@@ -158,7 +159,7 @@ function cardActions(record, callbacks) {
     onClick: () => callbacks.onEdit?.(record),
   }, [
     el('span', { class: 'history-edit-icon', icon: PENCIL_SVG, 'aria-hidden': 'true' }),
-    'Edit order',
+    t('orders.editOrder'),
   ]));
   return actions;
 }
@@ -184,13 +185,13 @@ function buildOrderCard(record, ingById, callbacks) {
   const rows = itemRows(record.quantities, ingById, record.names);
 
   const body = el('div', { class: 'history-body' }, [
-    ...(rows.length ? rows : [el('p', { class: 'history-empty', text: 'No items recorded.' })]),
+    ...(rows.length ? rows : [el('p', { class: 'history-empty', text: t('orders.noItemsRecorded') })]),
     ...cardActions(record, callbacks),
   ]);
   body.hidden = true;
 
   return el('div', { class: 'supplier-card' }, [
-    collapsibleHead(record.supplierName || 'Unknown supplier', itemsLabel(count), body),
+    collapsibleHead(record.supplierName || t('orders.unknownSupplier'), itemsLabel(count), body),
     body,
   ]);
 }
@@ -221,14 +222,14 @@ function buildLegacyCard(record, supById, ingById, callbacks) {
       ])));
   });
   if (!body.childElementCount) {
-    body.appendChild(el('p', { class: 'history-empty', text: 'No items recorded.' }));
+    body.appendChild(el('p', { class: 'history-empty', text: t('orders.noItemsRecorded') }));
   }
   cardActions(record, callbacks).forEach(btn => body.appendChild(btn));
   body.hidden = true;
 
   const count = Object.keys(quantities).length;
   return el('div', { class: 'supplier-card' }, [
-    collapsibleHead('Whole week — all suppliers', itemsLabel(count), body),
+    collapsibleHead(t('orders.wholeWeekAllSuppliers'), itemsLabel(count), body),
     body,
   ]);
 }

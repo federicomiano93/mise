@@ -14,6 +14,7 @@
 // has to tap it. Deleting a record from the Firebase console still works too;
 // that is a human decision as well.
 
+import { t } from '../i18n.js';
 import {
   normalizeLogs, sortLogs, buildLog, isLogVisible,
 } from './pastries-log-model.js';
@@ -146,7 +147,7 @@ export async function removeLog(id) {
     return true;
   } catch (err) {
     console.warn('Pastry record did not delete:', err);
-    if (onError) onError('Couldn’t remove that record — check your connection.');
+    if (onError) onError(t('past.couldnTRemoveThat'));
     return false;
   }
 }

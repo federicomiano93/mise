@@ -11,6 +11,7 @@
 // button at the bottom, never competing with Save (P20) — and it is the one
 // action in the Orders feature that destroys data for good, so it is spelt out.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { dayLabel, dayPhrase, spellDay } from './day.js';
@@ -86,13 +87,13 @@ export function buildHistoryEditor(record, ingredients, actions) {
   // Setting a quantity to 0 removes that item from the order — the plain way to
   // fix "I recorded something I never ordered", without a second delete control.
   const hint = el('p', { class: 'hist-edit-hint', text:
-    'Set a quantity to 0 to remove that item from the order.' });
+    t('orders.setAQuantityTo') });
 
   const deleteBtn = el('button', {
     type: 'button', class: 'hist-edit-delete', onClick: remove,
   }, [
     el('span', { class: 'hist-edit-delete-icon', icon: TRASH_ICON, 'aria-hidden': 'true' }),
-    'Delete this order',
+    t('orders.deleteThisOrder'),
   ]);
 
   const saveBtn = el('button', {
@@ -105,13 +106,13 @@ export function buildHistoryEditor(record, ingredients, actions) {
         type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back',
         icon: BACK_ICON, onClick: () => actions.onClose(),
       }),
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Edit order' })]),
+      el('div', { class: 'orders-header-title' }, [el('h1', { text: t('orders.editOrder') })]),
       saveBtn,
     ]),
     el('div', { class: 'mgmt-content' }, [
       el('p', { class: 'hist-edit-what', text:
         `${recordTitle(record)} · ${dayLabel(recordDate(record))}` }),
-      rows.length ? list : el('p', { class: 'history-empty', text: 'No items recorded.' }),
+      rows.length ? list : el('p', { class: 'history-empty', text: t('orders.noItemsRecorded') }),
       rows.length ? hint : null,
       deleteBtn,
     ]),
@@ -137,14 +138,14 @@ export function buildHistoryEditor(record, ingredients, actions) {
     // empty record, point at the action that actually means "this never happened".
     if (!Object.keys(nextQuantities).length) {
       await alertDialog(
-        'This order would have no items left. Use “Delete this order” if it should not be there at all.',
-        { title: 'Nothing left to save' },
+        t('orders.thisOrderWouldHave'),
+        { title: t('orders.nothingLeftToSave') },
       );
       return;
     }
 
     const ok = await confirmDialog({
-      title: 'Save changes',
+      title: t('orders.saveChanges'),
       message: `Update ${recordTitle(record)}’s order ${dayPhrase(recordDate(record))}?`,
       okLabel: 'Save',
     });
@@ -168,7 +169,7 @@ export function buildHistoryEditor(record, ingredients, actions) {
 
   async function remove() {
     const ok = await confirmDialog({
-      title: 'Delete this order',
+      title: t('orders.deleteThisOrder'),
       message: `Delete ${recordTitle(record)}’s order ${dayPhrase(recordDate(record))}?\n\nIt is removed from History for good and cannot be recovered. The suggested order quantities learn from these records, so they will change.`,
       okLabel: 'Delete',
       danger: true,

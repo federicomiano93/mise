@@ -16,6 +16,7 @@
 // price, because the VAT is never the business's money. Getting this backwards
 // makes every margin look better than it is, by exactly the VAT rate.
 
+import { t } from '../i18n.js';
 import { pricePerKg as ingredientPricePerKg, roundTo, positiveNumber } from '../price-model.js';
 import { costRecipe } from '../catalogue/recipe-cost-model.js';
 
@@ -42,13 +43,13 @@ export const AMBER_MULTIPLIER = 1.1;
 // Why a product cannot be costed. Each names one thing to go and fill in; the
 // order is the order a person would fill them in.
 export const BLOCKER_TEXT = Object.freeze({
-  'no-components': 'Add at least one recipe to this product',
-  'no-selling-mode': 'Choose whether this is sold by the piece or by weight',
-  'no-pieces': 'Say how many pieces come out of one batch',
-  'no-vat': 'Choose the VAT rate',
-  'no-price': 'Enter the selling price',
-  'no-recipe-cost': 'The recipes in this product are not priced yet',
-  'no-weight': 'The recipes in this product have no weight yet',
+  'no-components': t('fc.addAtLeastOne'),
+  'no-selling-mode': t('fc.chooseWhetherThisIs'),
+  'no-pieces': t('fc.sayHowManyPieces'),
+  'no-vat': t('fc.chooseTheVatRate'),
+  'no-price': t('fc.enterTheSellingPrice'),
+  'no-recipe-cost': t('fc.theRecipesInThis'),
+  'no-weight': t('fc.theRecipesInThis2'),
 });
 
 // A number that may legitimately be zero — a VAT rate, and nothing else here.

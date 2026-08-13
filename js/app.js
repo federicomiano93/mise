@@ -1,4 +1,5 @@
 import './firebase.js';
+import { t } from './i18n.js';
 import {
   calc, copyRecipe, shareRecipeWA, buildDivisorBox,
   restoreRevealed, clearRevealed, restoreLock, clearLock, getLock,
@@ -211,7 +212,7 @@ function paintClearedNote(recipeId) {
   if (!clearedTabs.has(recipeId)) return;
   const panel = document.getElementById('tab-' + recipeId);
   if (!panel || panel.querySelector('.tab-cleared-note')) return;
-  const note = el('div', { class: 'tab-cleared-note' }, 'Fields cleared — this is a new day.');
+  const note = el('div', { class: 'tab-cleared-note' }, t('calc.fieldsClearedThisIs'));
   panel.insertBefore(note, panel.firstChild);
   setTimeout(() => { clearedTabs.delete(recipeId); note.remove(); }, 12000);
 }
@@ -394,7 +395,7 @@ function clearTabState(recipeId) {
 }
 
 async function resetTab(recipeId) {
-  if (!(await confirmDialog({ message: 'Reset all fields?', okLabel: 'Reset', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.resetAllFields'), okLabel: 'Reset', danger: true }))) return;
   clearTabState(recipeId);
 }
 

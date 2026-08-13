@@ -16,13 +16,15 @@
 // non-empty supplierId string and the "YYYY-MM-DD_<anything>" id pattern. No rules
 // change, no rules deploy.
 
+import { t } from '../i18n.js';
+
 export const NO_SUPPLIER_ID = 'no-supplier';
 
 // Frozen: it is handed to the same code that handles real suppliers, and a single
 // shared object that anything could quietly mutate would be a very confusing bug.
 export const NO_SUPPLIER = Object.freeze({
   id: NO_SUPPLIER_ID,
-  name: 'No supplier',
+  name: t('orders.noSupplier'),
   category: '',
   deliveryDays: Object.freeze([]),
   // No order days on purpose: these things are bought when you happen to pass the

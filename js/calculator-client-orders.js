@@ -13,6 +13,7 @@
 //   2. a field that already holds a different number, before it is overwritten;
 //   3. a tab that has been confirmed, whose fields are locked and will not move.
 
+import { t } from './i18n.js';
 import { el } from './calculator-render.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { getConfig } from './calculator-config-store.js';
@@ -149,7 +150,7 @@ export function closeScreen() {
 // now the door.
 function viewSwitch() {
   const row = el('div', { class: 'co-views' });
-  [['upcoming', 'Still coming'], ['history', 'History']].forEach(([name, label]) => {
+  [['upcoming', t('calc.stillComing')], ['history', 'History']].forEach(([name, label]) => {
     const btn = el('button', {
       class: `co-view${view === name ? ' co-view--on' : ''}`,
       type: 'button',
@@ -182,8 +183,7 @@ function renderUpcoming(content) {
     // have already been. Only the first is about today's work, and a screen that
     // cannot tell you which is leaving you to guess whether something was lost.
     content.appendChild(el('p', { class: 'co-none' },
-      'Nothing for today or the days ahead. Orders a client has already been delivered '
-      + 'are under History.'));
+      t('calc.clientOrders.empty')));
     return;
   }
   sortOrders(orders).forEach(order => content.appendChild(orderCard(order)));
@@ -210,7 +210,7 @@ async function loadHistory() {
 
 function renderHistory(content) {
   if (pastState === 'loading') {
-    content.appendChild(el('p', { class: 'co-none' }, 'Loading…'));
+    content.appendChild(el('p', { class: 'co-none' }, t('calc.loading')));
     return;
   }
   if (pastState === 'failed') {
@@ -218,7 +218,7 @@ function renderHistory(content) {
     // failed read look identical, and one means "nothing was ordered" while the other
     // means "ask again in a minute".
     content.appendChild(el('p', { class: 'co-none' },
-      'Could not load the past orders. Check your connection and try again.'));
+      t('calc.couldNotLoadThe')));
     return;
   }
 
@@ -272,12 +272,12 @@ function historyCard(order) {
   // Whether it was ever used is a fact worth keeping: an order that arrived and was
   // never put in is exactly the thing somebody looks a past day up to check.
   card.appendChild(el('p', { class: 'co-card-arrived' },
-    isApplied(order) ? 'Went into the calculator' : 'Never put into the calculator'));
+    isApplied(order) ? t('calc.wentIntoTheCalculator') : t('calc.neverPutIntoThe')));
 
   const list = el('div', { class: 'co-card-lines' });
   if (!rows.length) {
     list.appendChild(el('p', { class: 'co-card-empty' },
-      'The client sent this day empty — they asked for nothing.'));
+      t('calc.theClientSentThis')));
   }
   // ⚠️ NO `co-line--missing` HERE, and it is deliberate — that class strikes the line
   // through. On an order still to be used it is a warning worth shouting: the product
@@ -296,7 +296,7 @@ function historyCard(order) {
 
   if (order.note) {
     card.appendChild(el('p', { class: 'co-card-note' }, [
-      el('span', { class: 'co-card-note-label' }, 'Note: '),
+      el('span', { class: 'co-card-note-label' }, t('calc.note')),
       order.note,
     ]));
   }
@@ -339,13 +339,13 @@ function orderCard(order) {
   // amount. Somebody who used this order twenty minutes ago has no other way to know.
   if (changed) {
     card.appendChild(el('p', { class: 'co-card-alert' },
-      'This client changed their order AFTER you put it in the calculator. The numbers below are the new ones.'));
+      t('calc.thisClientChangedTheir')));
   }
 
   const list = el('div', { class: 'co-card-lines' });
   if (!rows.length) {
     list.appendChild(el('p', { class: 'co-card-empty' },
-      'Nothing this day — the client sent an empty order.'));
+      t('calc.nothingThisDayThe')));
   }
   rows.forEach(row => {
     list.appendChild(el('div', { class: `co-line${row.missing ? ' co-line--missing' : ''}` }, [
@@ -359,12 +359,12 @@ function orderCard(order) {
   // it. Said here rather than discovered as a line that quietly did not arrive.
   if (rows.some(r => r.missing)) {
     card.appendChild(el('p', { class: 'co-card-note co-card-note--warn' },
-      'A line above is for a product this client no longer has, so it cannot go into the calculator. Add it back, or handle it yourself.'));
+      t('calc.aLineAboveIs')));
   }
 
   if (order.note) {
     card.appendChild(el('p', { class: 'co-card-note' }, [
-      el('span', { class: 'co-card-note-label' }, 'Note: '),
+      el('span', { class: 'co-card-note-label' }, t('calc.note')),
       order.note,
     ]));
   }
@@ -375,7 +375,7 @@ function orderCard(order) {
   // the owner may already have acted on this morning, reads as a button he has
   // finished with.
   const apply = el('button', { class: 'co-apply', type: 'button' },
-    changed ? 'Put the NEW order in' : (used ? 'Put in the calculator again' : 'Put in the calculator'));
+    changed ? t('calc.putTheNewOrder') : (used ? t('calc.putInTheCalculator') : t('calc.putInTheCalculator2')));
   apply.addEventListener('click', () => applyOrder(order, apply));
   card.appendChild(apply);
 
@@ -397,7 +397,7 @@ async function applyOrder(order, button) {
   const targets = fields.inspect(patch);
 
   if (!targets.length) {
-    await alertDialog('None of this client’s products are on a calculator tab at the moment, so there is nothing to fill in.');
+    await alertDialog(t('calc.noneOfThisClient'));
     return;
   }
 
@@ -416,7 +416,7 @@ async function applyOrder(order, button) {
   const clashes = targets.filter(t => !t.locked && t.current > 0 && t.current !== t.next);
   const parts = [];
   if (clashes.length) {
-    parts.push('These already have a different number typed in:');
+    parts.push(t('calc.theseAlreadyHaveA'));
     parts.push(clashes.map(t => `  ${t.productName}: ${t.current} → ${t.next}`).join('\n'));
   }
   if (locked.length) {
@@ -428,9 +428,9 @@ async function applyOrder(order, button) {
     : `Put ${client.name}’s order in the calculator?`;
 
   if (!(await confirmDialog({
-    title: clashes.length ? 'This will replace what is typed' : undefined,
+    title: clashes.length ? t('calc.thisWillReplaceWhat') : undefined,
     message,
-    okLabel: 'Put it in',
+    okLabel: t('calc.putItIn'),
     danger: clashes.length > 0,
   }))) return;
 
@@ -445,8 +445,7 @@ async function applyOrder(order, button) {
   } catch (err) {
     console.error('Could not record that the order was used:', err);
     await alertDialog(
-      'The numbers are in the calculator, but the app could not record that you used this order. '
-      + 'It will keep showing as new, and it will NOT warn you if the client changes it. Check your connection.');
+      t('calc.clientOrders.notRecorded'));
   }
   button.disabled = false;
 
@@ -472,34 +471,32 @@ function renderCutoffSettings() {
   content.textContent = '';
 
   content.appendChild(el('p', { class: 'cp-hint' },
-    'An order for a day can be sent, and changed, until this time on the day before. '
-    + 'Clients see this time on their own screen.'));
+    t('calc.cutoff.help')));
 
   const input = el('input', {
     class: 'co-cutoff', id: 'co-cutoff', type: 'time', value: cutoff,
   });
 
   content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label', for: 'co-cutoff' }, 'Orders close at'),
+    el('label', { class: 'cp-label', for: 'co-cutoff' }, t('calc.ordersCloseAt')),
     input,
     // ⚠️ SAID OUT LOUD, because it is the one consequence nobody guesses: with a
     // deadline set, TODAY can never be ordered for — its own door shut yesterday.
     el('p', { class: 'cp-hint' },
-      'Leave it empty for no deadline. With a deadline, clients can order for tomorrow '
-      + 'onwards but never for the current day, because its deadline has already passed.'),
+      t('calc.cutoff.empty')),
   ]));
 
   const save = el('button', { class: 'cp-add-prod', type: 'button' }, 'Save');
   save.addEventListener('click', async () => {
     const wanted = normalizeCutoff(input.value);
     if (input.value && !CUTOFF_PATTERN.test(input.value)) {
-      await alertDialog('That is not a time. Use the clock, or leave it empty for no deadline.');
+      await alertDialog(t('calc.thatIsNotA'));
       return;
     }
     if (!(await confirmDialog({
       message: wanted
         ? `Close orders at ${wanted} the day before? Every client sees this straight away.`
-        : 'Remove the deadline? Clients will be able to order for any day, including today.',
+        : t('calc.removeTheDeadlineClients'),
       okLabel: 'Save',
     }))) return;
     save.disabled = true;
@@ -508,7 +505,7 @@ function renderCutoffSettings() {
       closeCutoffSettings();
     } catch (err) {
       console.error('Could not save the ordering deadline:', err);
-      await alertDialog('Not saved. Check your connection and try again.');
+      await alertDialog(t('calc.notSavedCheckYour'));
     }
     save.disabled = false;
   });

@@ -3,6 +3,8 @@
 // Everything happens on a WORKING COPY (P20): nothing touches the stored day
 // until Save is tapped and confirmed, and leaving with unsaved work asks first.
 
+import { weekdayLabel } from './pastries-model.js';
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import {
   cleanItems, findInvalidItems, cleanNote,
@@ -17,10 +19,10 @@ const PLUS_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" wi
 function problemMessage(problem, name) {
   if (problem === 'duplicate') return `${name} is on this list twice.`;
   if (problem === 'no-qty') return `How many ${name}?`;
-  if (problem === 'too-long') return 'That name is too long.';
+  if (problem === 'too-long') return t('past.thatNameIsToo');
   if (problem === 'qty-too-big') return `${MAX_QTY} is the most this can hold.`;
-  if (problem === 'too-many') return 'That is more pastries than one day can hold.';
-  return 'That cannot be saved yet.';
+  if (problem === 'too-many') return t('past.thatIsMorePastries');
+  return t('past.thatCannotBeSaved');
 }
 
 export function renderEditor({ day, items, note, allDays, app }) {
@@ -75,7 +77,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
         maxlength: String(MAX_NAME_LENGTH),
         list: 'pas-name-options',
         autocomplete: 'off',
-        'aria-label': 'Pastry name',
+        'aria-label': t('past.pastryName'),
         oninput: (e) => { row.name = e.target.value; markDirty(); updateCount(); if (showErrors) validate(); },
       });
 
@@ -115,8 +117,8 @@ export function renderEditor({ day, items, note, allDays, app }) {
     if (hasContent) {
       busy = true;
       const ok = await app.confirm({
-        title: 'Remove this pastry?',
-        message: `Remove ${row.name.trim() || 'this row'} from ${day}?`,
+        title: t('past.removeThisPastry'),
+        message: t('past.removeRowFrom', { name: row.name.trim() || t('past.thisRow'), day: weekdayLabel(day) }),
         okLabel: 'Remove',
         danger: true,
       });
@@ -166,25 +168,25 @@ export function renderEditor({ day, items, note, allDays, app }) {
     busy = true;
     const clean = cleanItems(working);
     const ok = await app.confirm({
-      title: `Save ${day}?`,
+      title: t('past.saveDay', { day: weekdayLabel(day) }),
       message: clean.length
-        ? `Save these ${clean.length === 1 ? 'pastry' : `${clean.length} pastries`} for ${day}?`
-        : `${day} will have nothing to prove. Save that?`,
+        ? t('past.saveThese', { n: clean.length, day: weekdayLabel(day) })
+        : t('past.saveEmpty', { day: weekdayLabel(day) }),
       okLabel: 'Save',
     });
     if (!ok) { busy = false; return; }
 
     dirty = false;
     app.saveDay(day, clean, cleanNote(workingNote));
-    app.toast(`${day} saved.`);
+    app.toast(t('past.daySaved', { day: weekdayLabel(day) }));
     app.showDay(day);
   }
 
   app.setLeaveGuard(async () => {
     if (!dirty) return true;
     return app.confirm({
-      title: 'Discard changes?',
-      message: `You have unsaved changes to ${day}. Discard them?`,
+      title: t('past.discardChanges'),
+      message: t('past.unsavedFor', { day: weekdayLabel(day) }),
       okLabel: 'Discard',
       danger: true,
     });
@@ -204,7 +206,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
       const last = rowsContainer.lastElementChild;
       if (last) { try { last.querySelector('.pas-name').focus(); } catch (e) { /* best-effort */ } }
     },
-  }, [el('span', { icon: PLUS_SVG, 'aria-hidden': 'true' }), 'Add pastry']);
+  }, [el('span', { icon: PLUS_SVG, 'aria-hidden': 'true' }), t('past.addPastry')]);
 
   // ⚠️ THE APP'S FIRST <textarea>, and el() feeds it with `text:` — which sets
   // textContent, and for a textarea that IS its value. `value:` would call
@@ -215,8 +217,8 @@ export function renderEditor({ day, items, note, allDays, app }) {
     id: 'pas-note-input',
     rows: '4',
     maxlength: String(MAX_NOTE_LENGTH),
-    placeholder: 'Anything worth remembering about this day…',
-    'aria-label': `Note for ${day}`,
+    placeholder: t('past.anythingWorthRememberingAbout'),
+    'aria-label': t('past.noteFor', { day: weekdayLabel(day) }),
     text: workingNote,
     oninput: (e) => { workingNote = e.target.value; markDirty(); },
   });
@@ -224,7 +226,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
   return el('div', { class: 'pas-view' }, [
     datalist,
     el('div', { class: 'pas-editor-head' }, [
-      el('span', { class: 'pas-editor-label', text: `To prove for ${day}` }),
+      el('span', { class: 'pas-editor-label', text: t('past.toProveFor', { day: weekdayLabel(day) }) }),
       countEl,
     ]),
     rowsContainer,
@@ -233,7 +235,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
       el('label', {
         class: 'pas-editor-label',
         for: 'pas-note-input',
-        text: `Note — stays on ${day} until you change it`,
+        text: t('past.noteStays', { day: weekdayLabel(day) }),
       }),
       noteInput,
     ]),

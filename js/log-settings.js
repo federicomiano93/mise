@@ -7,6 +7,7 @@
 // with unsaved changes asks to discard (P20). local-first via saveConfig, which
 // re-renders and best-effort syncs to Firestore.
 
+import { t } from './i18n.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   cloneConfig, getRecipes, isLogVisible, getLogRetentionForDough,
@@ -38,10 +39,10 @@ function render() {
   const c = document.getElementById('logsettings-content');
   c.textContent = '';
   c.appendChild(el('p', { class: 'extra-help' },
-    'For each recipe: choose whether its logs appear in the Log list and how long they stay. ' +
-    'Logs are always kept in the database — this only controls the in-app list.'));
+    t('calc.forEachRecipeChoose') +
+    t('calc.logsAreAlwaysKept')));
   getRecipes(getConfig()).forEach(r => c.appendChild(recipeCard(r)));
-  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save changes');
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, t('calc.saveChanges'));
   save.addEventListener('click', saveAll);
   c.appendChild(save);
 }
@@ -52,17 +53,17 @@ function recipeCard(recipe) {
   card.appendChild(el('div', { class: 'card-title' }, recipe.name));
 
   const names = getTabProducts(getConfig(), recipe.id).map(p => p.name);
-  card.appendChild(el('div', { class: 'logset-products' }, names.length ? names.join(', ') : 'No products'));
+  card.appendChild(el('div', { class: 'logset-products' }, names.length ? names.join(', ') : t('calc.noProducts')));
 
-  const visRow = el('label', { class: 'extra-toggle-row' }, [el('span', {}, 'Keep logs visible')]);
+  const visRow = el('label', { class: 'extra-toggle-row' }, [el('span', {}, t('calc.keepLogsVisible'))]);
   const cb = el('input', { type: 'checkbox' });
   cb.checked = working.visibility[recipe.id];
   cb.addEventListener('change', () => { working.visibility[recipe.id] = cb.checked; dirty = true; });
   visRow.appendChild(cb);
   card.appendChild(visRow);
 
-  const durRow = el('label', { class: 'extra-toggle-row' }, [el('span', {}, 'Keep visible for')]);
-  const sel = el('select', { class: 'extra-unit-select', 'aria-label': 'Log duration for ' + recipe.name });
+  const durRow = el('label', { class: 'extra-toggle-row' }, [el('span', {}, t('calc.keepVisibleFor'))]);
+  const sel = el('select', { class: 'extra-unit-select', 'aria-label': t('calc.logDurationFor') + recipe.name });
   LOG_RETENTION_OPTIONS.forEach(h => sel.appendChild(el('option', { value: String(h) }, h + ' hours')));
   sel.value = String(working.retention[recipe.id]);
   sel.addEventListener('change', () => { working.retention[recipe.id] = Number(sel.value); dirty = true; });
@@ -73,7 +74,7 @@ function recipeCard(recipe) {
 }
 
 async function saveAll() {
-  if (!(await confirmDialog({ message: 'Save these log settings?', okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseLogSettings'), okLabel: 'Save' }))) return;
   const cfg = cloneConfig(getConfig());
   cfg.logVisibility = { ...working.visibility };
   cfg.logRetentionByDough = { ...working.retention };

@@ -10,6 +10,7 @@
 // the supplier screen, the flat list and the History editor, so a fix to how a
 // quantity behaves cannot land in one of them and not the others.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { buildIngredientList } from './ingredients.js';
 
@@ -59,7 +60,7 @@ export function buildSupplierDetail(supplier, ctx) {
       onClick: () => hooks.onPlaced(supplier.id),
     }, [
       el('span', { class: 'supplier-place-icon', icon: CHECK_SVG, 'aria-hidden': 'true' }),
-      'Order placed',
+      t('orders.orderPlaced'),
     ]);
     placeBtn.disabled = filled === 0;
     body.appendChild(placeBtn);
@@ -80,7 +81,7 @@ export function buildSupplierDetail(supplier, ctx) {
         class: 'supplier-clear-btn',
         id: `clear-btn-${supplier.id}`,
         onClick: () => hooks.onClear(supplier.id),
-      }, 'Clear quantities');
+      }, t('orders.clearQuantities'));
       clearBtn.hidden = filled === 0;
       body.appendChild(clearBtn);
     }

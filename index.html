@@ -103,7 +103,7 @@
          (js/location-title.js). The text here is only what a browser shows
          before the app runs, behind the sign-in cover. -->
     <h1 data-location-title>Misé</h1>
-    <p>Home</p>
+    <p data-i18n="ui.home">Home</p>
   </div>
   <!-- The "?" — js/help-button.js fills this. The page says WHERE it goes, because
        every header in this app is built differently and a module that guessed would
@@ -126,8 +126,8 @@
           <path d="M8 7h8M8 11h2M11 11h2M14 11h2M8 15h2M11 15h2M14 15v2"/>
         </svg>
       </span>
-      <span class="home-card-title">Calculator</span>
-      <span class="home-card-sub">Dough scaling</span>
+      <span class="home-card-title" data-i18n="section.calculator">Calculator</span>
+      <span class="home-card-sub" data-i18n="ui.doughScaling">Dough scaling</span>
     </a>
 
     <a class="home-card" href="catalogue.html" data-section="catalogue">
@@ -138,8 +138,8 @@
           <path d="M9 7.5h7M9 11h5"/>
         </svg>
       </span>
-      <span class="home-card-title">Recipe catalogue</span>
-      <span class="home-card-sub">Recipes &amp; kg scaling</span>
+      <span class="home-card-title" data-i18n="section.catalogue">Recipe catalogue</span>
+      <span class="home-card-sub" data-i18n="ui.recipesKgScaling">Recipes &amp; kg scaling</span>
     </a>
 
     <a class="home-card" href="orders.html" data-section="orders">
@@ -150,8 +150,8 @@
           <path d="M9 11h6M9 15h6"/>
         </svg>
       </span>
-      <span class="home-card-title">Orders</span>
-      <span class="home-card-sub">Suppliers &amp; weekly order</span>
+      <span class="home-card-title" data-i18n="section.orders">Orders</span>
+      <span class="home-card-sub" data-i18n="ui.suppliersWeeklyOrder">Suppliers &amp; weekly order</span>
     </a>
 
     <a class="home-card" href="pastries.html" data-section="pastries">
@@ -162,8 +162,8 @@
           <path d="M12.5 16a3.25 3.25 0 0 1 6.5 0"/>
         </svg>
       </span>
-      <span class="home-card-title">Pastries</span>
-      <span class="home-card-sub">To prove for tomorrow</span>
+      <span class="home-card-title" data-i18n="section.pastries">Pastries</span>
+      <span class="home-card-sub" data-i18n="ui.toProveForTomorrow">To prove for tomorrow</span>
     </a>
 
     <a class="home-card" href="foodcost.html" data-section="foodcost">
@@ -175,8 +175,8 @@
           <path d="M3 20h18"/>
         </svg>
       </span>
-      <span class="home-card-title">Food cost</span>
-      <span class="home-card-sub">Products &amp; margins</span>
+      <span class="home-card-title" data-i18n="section.foodcost">Food cost</span>
+      <span class="home-card-sub" data-i18n="ui.productsMargins">Products &amp; margins</span>
     </a>
 
   </nav>
@@ -188,6 +188,7 @@
   <div id="session-logout-host"></div>
 </div>
 
+<script type="module" src="js/i18n-dom.js"></script>
 <script type="module" src="js/auth-gate.js"></script>
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/orders/boot.js"></script>

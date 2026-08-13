@@ -7,6 +7,7 @@
 // LOCAL-FIRST: memory + cache + UI update immediately, the Firestore write is
 // best-effort, and a REJECTED write is rolled back and surfaced.
 
+import { t } from '../i18n.js';
 import { normalizeProduct, normalizeProducts } from './foodcost-model.js';
 import {
   watchProducts, watchRecipes, watchIngredients,
@@ -155,6 +156,6 @@ export function deleteProduct(id) {
   removeProduct(id).catch(err => {
     console.warn('Product delete did not sync to Firestore:', err);
     if (prev) upsertLocal(prev);
-    if (onSyncError) onSyncError('Couldn’t delete the product — check your connection.');
+    if (onSyncError) onSyncError(t('fc.couldnTDeleteThe'));
   });
 }

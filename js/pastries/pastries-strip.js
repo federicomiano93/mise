@@ -6,7 +6,7 @@
 // there would be nothing focused for them to move from — and would flicker.
 
 import { el } from './dom.js';
-import { WEEKDAYS, WEEKDAY_SHORT } from './pastries-model.js';
+import { WEEKDAYS, weekdayLabel, weekdayShortLabel } from './pastries-model.js';
 
 // Render the strip into `host`. `openingDay` is the day the screen opened on
 // (tomorrow); it keeps a marker so it stays findable after browsing away.
@@ -32,7 +32,7 @@ export function renderStrip({ host, active, openingDay, counts, onPick }) {
       onclick: () => onPick(day),
       onkeydown: (e) => handleKey(e, i),
     }, [
-      el('span', { text: WEEKDAY_SHORT[i], 'aria-hidden': 'true' }),
+      el('span', { text: weekdayShortLabel(day), 'aria-hidden': 'true' }),
       day === openingDay ? el('span', { class: 'pas-chip-dot', 'aria-hidden': 'true' }) : null,
     ]);
     chips.set(day, chip);

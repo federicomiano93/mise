@@ -16,6 +16,8 @@
 // bakery approximation). Pieces / spoons / pinch / to-taste are NOT weighable, so
 // they scale in proportion but stay out of the weight total (and can't be imported
 // into the grams-only Calculator). Legacy rows with no unit are treated as grams.
+import { t } from '../i18n.js';
+
 export const CATALOGUE_UNITS = ['g', 'kg', 'mg', 'ml', 'cl', 'dl', 'l', 'pcs', 'tsp', 'tbsp', 'pinch', 'to taste'];
 export const DEFAULT_UNIT = 'g';
 
@@ -316,8 +318,8 @@ export function batchWarning(targetGrams, baseGrams) {
   const tooBig = base > 0 && target / base > MAX_SANE_MULTIPLE;
   if (!tooHeavy && !tooBig) return null;
 
-  const parts = ['That is ' + formatWeight(target) + ' of dough'];
-  if (base > 0) parts.push('— ' + trim(target / base) + '× the recipe as written (' + formatWeight(base) + ')');
+  const parts = [t('cat.thatIs') + formatWeight(target) + ' of dough'];
+  if (base > 0) parts.push('— ' + trim(target / base) + t('cat.theRecipeAsWritten') + formatWeight(base) + ')');
   return parts.join(' ') + '. Check the amount before calculating.';
 }
 

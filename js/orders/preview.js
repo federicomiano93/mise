@@ -13,6 +13,7 @@
 // Sending is the moment the order actually leaves, so it is the moment to ask —
 // forgetting to record it afterwards was the whole problem.
 
+import { t } from '../i18n.js';
 import { buildSupplierPicker } from './supplier-picker.js';
 import { buildOrderMessage, whatsappUrl } from './order-text.js';
 import { currentSession } from '../firebase.js';
@@ -32,9 +33,9 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
   })).filter(row => row.items.length);
 
   return buildSupplierPicker(rows, {
-    title: 'Send order',
-    actionLabel: 'Send on WhatsApp',
-    emptyText: 'No items in this order yet. Add quantities first.',
+    title: t('orders.sendOrder'),
+    actionLabel: t('orders.sendOnWhatsapp'),
+    emptyText: t('orders.noItemsInThis'),
     format,
     // A message goes to one chat: who it is for is a decision, not a default.
     preselect: false,

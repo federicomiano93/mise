@@ -11,6 +11,7 @@
 // long as this stayed open. Nothing here can be lost by closing it, so nothing here
 // may hold an update back.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { linkOptions } from './catalogue-model.js';
 import { pricePerKg, formatRate } from '../price-model.js';
@@ -28,7 +29,7 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
 
     const search = el('input', {
       class: 'cat-pick-search', type: 'search', placeholder: 'Search an ingredient…',
-      'aria-label': 'Search an ingredient',
+      'aria-label': t('cat.searchAnIngredient'),
       oninput: e => { query = e.target.value; paint(); },
     });
 
@@ -61,7 +62,7 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
           // and the row should not look like it will produce a cost.
           const rate = pricePerKg(opt.ingredient);
           const meta = [opt.weight, opt.supplierName,
-            rate === null ? 'No price yet' : `${formatRate(rate)} / kg`]
+            rate === null ? t('cat.noPriceYet') : `${formatRate(rate)} / kg`]
             .filter(Boolean).join('  ·  ');
           list.appendChild(row(opt.name, meta,
             () => close({ kind: 'ingredient', refId: opt.id, name: opt.name })));
@@ -78,8 +79,8 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
 
       if (!options.ingredients.length && !options.recipes.length) {
         list.appendChild(el('p', { class: 'cat-pick-empty', text: query
-          ? 'Nothing matches your search.'
-          : 'No ingredients yet — add them in Orders, under Settings.' }));
+          ? t('cat.nothingMatchesYourSearch')
+          : t('cat.noIngredientsYetAdd') }));
       }
     }
 
@@ -87,7 +88,7 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
       el('header', { class: 'cat-header cat-pick-header' }, [
         el('button', { class: 'cat-icon-btn', type: 'button', 'aria-label': 'Back',
           icon: BACK_ICON, onclick: () => close(undefined) }),
-        el('div', { class: 'cat-pick-title' }, [el('h1', { text: 'Link to' })]),
+        el('div', { class: 'cat-pick-title' }, [el('h1', { text: t('cat.linkTo') })]),
         el('span', { class: 'cat-pick-spacer' }),
       ]),
       el('div', { class: 'cat-pick-body' }, [
@@ -96,7 +97,7 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
         // button that does nothing, and it sits exactly where the first result will
         // appear a moment later.
         hasLink
-          ? el('button', { class: 'cat-pick-unlink', type: 'button', text: 'Remove the link',
+          ? el('button', { class: 'cat-pick-unlink', type: 'button', text: t('cat.removeTheLink'),
             onclick: () => close(null) })
           : null,
         list,

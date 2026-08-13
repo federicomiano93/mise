@@ -4,6 +4,7 @@
 // imports firebaseConfig indirectly (via the data layer) and the pure Calculator
 // data model only inside import-to-calculator.js — never from js/orders/.
 
+import { t } from '../i18n.js';
 import {
   initCatalogue, getRecipes, getUsage, bumpUsage, saveRecipe, deleteRecipe, setSyncErrorHandler,
   getIngredients, getSuppliers, getRecipesById,
@@ -77,7 +78,7 @@ function showList() {
   view = 'list';
   activeDetail = null;
   leaveGuard = null;
-  setHeader({ title: 'Recipes', sub: 'Recipe catalogue', back: false, add: true });
+  setHeader({ title: 'Recipes', sub: t('cat.recipeCatalogue'), back: false, add: true });
   activeList = renderList({
     recipes: getRecipes(),
     usageMap: getUsage(),
@@ -126,7 +127,7 @@ function showAllergenSheet() {
   activeList = null;
   activeDetail = null;
   leaveGuard = null;
-  setHeader({ title: 'Allergens', sub: 'Recipe catalogue', back: true, add: false });
+  setHeader({ title: 'Allergens', sub: t('cat.recipeCatalogue'), back: true, add: false });
   swap(renderAllergenSheet({
     recipes: getRecipes(),
     ingredients: getIngredients(),
@@ -153,8 +154,8 @@ function openEditor(recipe) {
   activeList = null;
   activeDetail = null;
   setHeader({
-    title: recipe ? 'Edit recipe' : 'New recipe',
-    sub: 'Recipe catalogue', back: true, add: false,
+    title: recipe ? t('cat.editRecipe') : t('cat.newRecipe'),
+    sub: t('cat.recipeCatalogue'), back: true, add: false,
   });
   swap(renderEditor({ recipe, allRecipes: getRecipes(), app }));
 }
@@ -165,7 +166,7 @@ function openGuidedEditor(recipe) {
   activeList = null;
   activeDetail = null;
   currentRecipe = recipe;
-  setHeader({ title: 'Mixing steps', sub: recipe.name || 'Recipe', back: true, add: false });
+  setHeader({ title: t('cat.mixingSteps'), sub: recipe.name || 'Recipe', back: true, add: false });
   swap(renderGuidedEditor({ recipe, app }));
 }
 
@@ -180,7 +181,7 @@ function openRun(recipe, targetGrams, resume) {
   activeList = null;
   activeDetail = null;
   currentRecipe = recipe;
-  setHeader({ title: recipe.name || 'Recipe', sub: 'Guided mixing', back: true, add: false, edit: false });
+  setHeader({ title: recipe.name || 'Recipe', sub: t('cat.guidedMixing'), back: true, add: false, edit: false });
   activeRun = renderRun({ recipe, targetGrams, app, resume });
   leaveGuard = activeRun.confirmLeave;
   swap(activeRun.root);
@@ -197,9 +198,9 @@ async function offerResume() {
   const recipe = getRecipes().find(r => r.id === saved.recipeId);
   const total = normalizeSteps(saved.snapshot.steps).length;
   const ok = await confirmDialog({
-    title: 'Carry on mixing?',
+    title: t('cat.carryOnMixing'),
     message: `You were part-way through “${saved.snapshot.name || recipe.name}” — ${progressText(saved.stepIndex, total).toLowerCase()}.`,
-    okLabel: 'Carry on', cancelLabel: 'Not now',
+    okLabel: t('cat.carryOn'), cancelLabel: t('cat.notNow'),
   });
   // "Not now" KEEPS the session: it answers where to go next, never whether the
   // dough exists. The recipe's own screen still offers to resume it.
@@ -244,7 +245,7 @@ const app = {
     // A session that has aged out (or belongs to another recipe) is not silently
     // swapped for a fresh run: the button said "resume", and starting from step
     // one instead would look identical and be a different dough.
-    else { clearSession(); toast('That mix is no longer available — start it again.'); openDetail(recipe); }
+    else { clearSession(); toast(t('cat.thatMixIsNo')); openDetail(recipe); }
   },
   // The saved run, but only if it is this recipe's — so a recipe screen never
   // offers to resume somebody else's dough.
@@ -275,13 +276,13 @@ const app = {
 
     const base = `Delete “${recipe.name || 'this recipe'}”? This cannot be undone.`;
     const message = linked
-      ? base + ' It was imported into the Calculator — that copy will stay; remove it separately in the Calculator if you want it gone.'
+      ? base + t('cat.itWasImportedInto')
       : base;
 
-    const ok = await confirmDialog({ title: 'Delete recipe?', message, okLabel: 'Delete', danger: true });
+    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: 'Delete', danger: true });
     if (!ok) return false;
     deleteRecipe(recipe.id);
-    toast('Recipe deleted.');
+    toast(t('cat.recipeDeleted'));
     showList();
     return true;
   },
@@ -297,7 +298,7 @@ const app = {
       ? `\n\nNote: ${skipped.join(', ')} use a unit the Calculator can’t scale (it works in grams only) and won’t be imported.`
       : '';
     const ok = await confirmDialog({
-      title: 'Import into Calculator?',
+      title: t('cat.importIntoCalculator2'),
       message: `Copy “${recipe.name}” into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
       okLabel: 'Import',
     });
@@ -310,7 +311,7 @@ const app = {
         : `“${recipe.name}” added to the Calculator.`);
     } catch (err) {
       console.error('Import into Calculator failed:', err);
-      toast('Import failed — check your connection and try again.');
+      toast(t('cat.importFailedCheckYour'));
     }
   },
 };
@@ -343,7 +344,7 @@ initCatalogue(
       activeDetail.refreshCost(latest);
     }
   },
-  () => toast('Live sync interrupted — recipes may be out of date.'),
+  () => toast(t('cat.liveSyncInterruptedRecipes')),
 );
 
 showList();

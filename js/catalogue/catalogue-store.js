@@ -11,6 +11,7 @@
 // "Most used first" is driven by a LOCAL open-count map (per device, free, no
 // extra Firestore writes) — see the usage helpers below.
 
+import { t } from '../i18n.js';
 import {
   normalizeCatalogueRecipe, normalizeCatalogueRecipes, isScaledEntryFresh, normalizeLossPct,
 } from './catalogue-model.js';
@@ -250,7 +251,7 @@ export function deleteRecipe(id) {
   removeRecipeDoc(id).catch(err => {
     console.warn('Recipe delete did not sync to Firestore:', err);
     if (prev) upsertLocal(prev);
-    if (onSyncError) onSyncError('Couldn’t delete the recipe — check your connection.');
+    if (onSyncError) onSyncError(t('cat.couldnTDeleteThe'));
   });
 }
 

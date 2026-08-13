@@ -11,6 +11,7 @@
 // pointing at nothing. The labels, amounts and units are copied through untouched;
 // only the ids are added.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { unitOf } from './catalogue-model.js';
 import {
@@ -59,17 +60,17 @@ export function renderGuidedEditor({ recipe, app }) {
     missedBox.replaceChildren();
     if (!steps.length) {
       missedBox.appendChild(el('p', { class: 'guided-edit-hint', text:
-        'Add the first step. Each one can carry ingredients, a timer, and a mixer speed.' }));
+        t('cat.addTheFirstStep') }));
       return;
     }
     if (!missed.length) {
-      missedBox.appendChild(el('p', { class: 'guided-edit-ok', text: 'Every ingredient is in a step.' }));
+      missedBox.appendChild(el('p', { class: 'guided-edit-ok', text: t('cat.everyIngredientIsIn') }));
       return;
     }
     missedBox.appendChild(el('p', { class: 'guided-edit-warn', text:
       `Not in any step yet: ${missed.map(r => r.label).join(', ')}` }));
     missedBox.appendChild(el('p', { class: 'guided-edit-hint', text:
-      'Whoever follows this will not be told to add them. It is fine if that is on purpose.' }));
+      t('cat.whoeverFollowsThisWill') }));
   }
 
   // ── One step ────────────────────────────────────────────────────────────────
@@ -77,7 +78,7 @@ export function renderGuidedEditor({ recipe, app }) {
   function stepCard(step, i) {
     const textInput = el('input', {
       class: 'guided-edit-text', type: 'text', maxlength: String(MAX_STEP_TEXT),
-      value: step.text, placeholder: 'What to do — e.g. Add the flour and the water',
+      value: step.text, placeholder: t('cat.whatToDoE'),
       'aria-label': `Step ${i + 1} instruction`,
       oninput: (e) => { step.text = e.target.value; markDirty(); },
     });
@@ -150,7 +151,7 @@ export function renderGuidedEditor({ recipe, app }) {
       ]),
       textInput,
       picks.childNodes.length ? el('div', { class: 'guided-edit-field' }, [
-        el('span', { class: 'guided-edit-lbl', text: 'Ingredients to add' }), picks,
+        el('span', { class: 'guided-edit-lbl', text: t('cat.ingredientsToAdd') }), picks,
       ]) : null,
       el('div', { class: 'guided-edit-field' }, [
         el('span', { class: 'guided-edit-lbl', text: 'Timer' }),
@@ -160,7 +161,7 @@ export function renderGuidedEditor({ recipe, app }) {
         ]),
       ]),
       el('div', { class: 'guided-edit-field' }, [
-        el('span', { class: 'guided-edit-lbl', text: 'Mixer speed' }), speed,
+        el('span', { class: 'guided-edit-lbl', text: t('cat.mixerSpeed') }), speed,
       ]),
     ]);
   }
@@ -181,7 +182,7 @@ export function renderGuidedEditor({ recipe, app }) {
     if (busy) return;
     busy = true;
     const ok = await app.confirm({
-      title: 'Remove this step?', message: `Step ${i + 1} will be removed from the procedure.`,
+      title: t('cat.removeThisStep'), message: `Step ${i + 1} will be removed from the procedure.`,
       okLabel: 'Remove', danger: true,
     });
     busy = false;
@@ -211,7 +212,7 @@ export function renderGuidedEditor({ recipe, app }) {
     paintMissed();
     summary.textContent = steps.length
       ? `${steps.length} step${steps.length === 1 ? '' : 's'} · ${formatDuration(steps.reduce((s, x) => s + x.seconds, 0))} of timers`
-      : 'No steps yet';
+      : t('cat.noStepsYet');
   }
 
   const summary = el('p', { class: 'guided-edit-summary' });
@@ -226,17 +227,17 @@ export function renderGuidedEditor({ recipe, app }) {
   // that runs off the side of a single-line box is one nobody proof-reads.
   const endNoteInput = el('textarea', {
     class: 'guided-edit-endnote', rows: '2', maxlength: String(MAX_END_NOTE),
-    placeholder: 'e.g. Final dough temperature 24-26 degrees',
-    'aria-label': 'Closing message, shown when the dough is finished',
+    placeholder: t('cat.eGFinalDough'),
+    'aria-label': t('cat.closingMessageShownWhen'),
     oninput: (e) => { endNote = e.target.value; markDirty(); },
   });
   endNoteInput.value = endNote;
 
   const endNoteBlock = el('div', { class: 'guided-edit-end' }, [
-    el('p', { class: 'guided-edit-summary', text: 'When the dough is finished' }),
+    el('p', { class: 'guided-edit-summary', text: t('cat.whenTheDoughIs') }),
     endNoteInput,
     el('p', { class: 'guided-edit-hint', text:
-      'Shown on its own at the end of the mix. Leave it empty for no message.' }),
+      t('cat.shownOnItsOwn') }),
   ]);
 
   async function onSave() {
@@ -244,7 +245,7 @@ export function renderGuidedEditor({ recipe, app }) {
     busy = true;
     const clean = normalizeSteps(steps);
     const ok = await app.confirm({
-      title: 'Save the procedure?',
+      title: t('cat.saveTheProcedure'),
       message: clean.length
         ? `Save ${clean.length} step${clean.length === 1 ? '' : 's'} for “${recipe.name}”?`
         : `“${recipe.name}” will have no guided procedure.`,
@@ -257,7 +258,7 @@ export function renderGuidedEditor({ recipe, app }) {
     // is dropped.
     const saved = { ...recipe, ingredients, steps: clean, endNote: normalizeEndNote(endNote) };
     app.saveRecipe(saved);
-    app.toast('Procedure saved.');
+    app.toast(t('cat.procedureSaved'));
     app.openDetail(saved);
     busy = false;
   }
@@ -265,8 +266,8 @@ export function renderGuidedEditor({ recipe, app }) {
   app.setLeaveGuard(async () => {
     if (!dirty) return true;
     return app.confirm({
-      title: 'Discard changes?',
-      message: 'The steps you have written have not been saved.',
+      title: t('cat.discardChanges'),
+      message: t('cat.theStepsYouHave'),
       okLabel: 'Discard', danger: true,
     });
   });
@@ -276,7 +277,7 @@ export function renderGuidedEditor({ recipe, app }) {
   return el('div', { class: 'cat-view guided-edit' }, [
     el('div', { class: 'guided-edit-top' }, [summary, missedBox]),
     list,
-    el('button', { class: 'cat-add-row', type: 'button', text: '+ Add step', onclick: add }),
+    el('button', { class: 'cat-add-row', type: 'button', text: t('cat.addStep'), onclick: add }),
     endNoteBlock,
     el('div', { class: 'cat-editor-actions' }, [
       el('button', { class: 'cat-save-btn', type: 'button', text: 'Save', onclick: onSave }),

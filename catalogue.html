@@ -83,8 +83,8 @@
     </button>
   </span>
   <div class="cat-header-title">
-    <h1 id="catTitle">Recipes</h1>
-    <p id="catSub">Recipe catalogue</p>
+    <h1 id="catTitle" data-i18n="ui.recipes">Recipes</h1>
+    <p id="catSub" data-i18n="section.catalogue">Recipe catalogue</p>
   </div>
   <span class="cat-header-slot" data-help="catalogue">
     <button class="cat-icon-btn" id="catAdd" aria-label="New recipe">
@@ -103,6 +103,7 @@
 
 <div class="cat-toast" id="catToast"></div>
 
+<script type="module" src="js/i18n-dom.js"></script>
 <script type="module" src="js/auth-gate.js"></script>
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>

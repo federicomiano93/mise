@@ -3,6 +3,7 @@
 // Firestore listener can update the cards without rebuilding (and losing) the
 // search box.
 
+import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { sortByUsage, filterByName } from './catalogue-model.js';
 
@@ -19,8 +20,8 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
 
   const input = el('input', {
     type: 'search',
-    placeholder: 'Search a recipe…',
-    'aria-label': 'Search a recipe by name',
+    placeholder: t('cat.searchARecipe'),
+    'aria-label': t('cat.searchARecipeBy'),
     autocomplete: 'off',
     value: query,
     oninput: (e) => {
@@ -44,8 +45,8 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
       listContainer.appendChild(el('div', {
         class: 'cat-empty',
         text: currentRecipes.length
-          ? 'No recipe matches your search.'
-          : 'No recipes yet. Tap + to add one.',
+          ? t('cat.noRecipeMatchesYour')
+          : t('cat.noRecipesYetTap'),
       }));
       return;
     }
@@ -55,7 +56,7 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
         type: 'button',
         onclick: () => onOpen(recipe),
       }, [
-        el('span', { class: 'name', text: recipe.name || '(no name)' }),
+        el('span', { class: 'name', text: recipe.name || t('cat.noName') }),
         el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' }),
       ]));
     }
@@ -68,7 +69,7 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
   // there is exactly the change that has cost this project a release before.
   const sheetBtn = el('button', {
     class: 'cat-alg-sheet-btn', type: 'button', onclick: () => onAllergenSheet(),
-  }, ['Allergen sheet', el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]);
+  }, [t('cat.allergenSheet'), el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]);
   const root = el('div', { class: 'cat-view' }, [search, sheetBtn, listPanel]);
 
   return {
