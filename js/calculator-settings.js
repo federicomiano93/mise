@@ -197,6 +197,18 @@ function renderClientList() {
   if (clientSortable) { clientSortable.destroy(); clientSortable = null; }
   content.textContent = '';
 
+  // ⚠️ AN EMPTY ADDRESS BOOK IS NOW THE STATE EVERY NEW CUSTOMER STARTS IN (13 Aug
+  // 2026), and it was found by LOOKING at the rendered screen rather than measuring
+  // it: with no clients, "+ Add client" and "Save" sit directly on top of each other
+  // as two identical full-width green buttons, and the eye cannot tell which is the
+  // one to press. One line above them settles it — and says what a client is FOR,
+  // which the screen never did because until now it was never seen empty.
+  if (clients().length === 0) {
+    content.appendChild(el('div', { class: 'cp-empty-hint' },
+      'No clients yet. A client is somebody you bake for: add one, then list the '
+      + 'products they order and how much each weighs.'));
+  }
+
   const listWrap = el('div', { class: 'cp-client-list' });
   clients().forEach((client, ci) => listWrap.appendChild(clientBox(client, ci)));
   content.appendChild(listWrap);
