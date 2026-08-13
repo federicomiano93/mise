@@ -236,6 +236,33 @@ export function getIngredients(config) {
   return (config && Array.isArray(config.ingredients)) ? config.ingredients : [];
 }
 
+// ── Why the Calculator has nothing to show ────────────────────────────────────
+// Since the default config was emptied (13 Aug 2026) a brand-new customer opens a
+// Calculator with no tabs at all. Before this, the screen simply fell through to
+// the Log: a blank tab bar, no explanation and no way to start — which reads as a
+// broken app rather than a new one.
+//
+// Returns null when there IS something to draw, otherwise which sentence to say:
+//   'loading'        → nothing yet, and the server has not answered
+//   'no-recipes'     → answered: this venue has no recipes at all
+//   'hidden-recipes' → answered: recipes exist, but none is set to show as a tab
+//
+// ⚠️ 'loading' IS THE POINT OF THE serverAnswered ARGUMENT, and leaving it out
+// would make the screen lie. A phone with no cached copy — a new device, or any
+// device that has just entered a location, since clearLocalData() wipes the cache
+// on the way in — starts on the empty DEFAULT_CONFIG while Firestore is still
+// being asked. Saying "you have no recipes" there tells a customer with a full
+// address book that their work is gone, for as long as the network takes.
+//
+// ⚠️ AND 'hidden-recipes' IS NOT THE SAME SENTENCE AS 'no-recipes'. Sending
+// somebody to "add your first recipe" when they have ten, all hidden, sets them
+// creating a duplicate of something they already own.
+export function calculatorEmptyReason(config, serverAnswered) {
+  if (getVisibleRecipes(config).length > 0) return null;
+  if (!serverAnswered) return 'loading';
+  return getRecipes(config).length > 0 ? 'hidden-recipes' : 'no-recipes';
+}
+
 // Whether a recipe's calculator tab shows a leavening knob: only logics that order
 // or sum ('orders'/'both'), and only when the recipe designates a leavening with the
 // "show the knob" flag on. A 'total' recipe never shows it (pure pro-rata).
