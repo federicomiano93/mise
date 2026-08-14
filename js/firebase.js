@@ -779,3 +779,60 @@ export function saveCalculatorConfig(config) {
     }))
     .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }
+
+// ── The Calculator reading a recipe out of the Catalogue ─────────────────────
+//
+// Federico, 14 Aug 2026: the Calculator has no recipes of its own any more, it
+// takes them from the Recipe Catalogue.
+//
+// ⚠️⚠️ IT READS THE LINKED RECIPES ONE BY ONE, NEVER THE COLLECTION, and that is
+// the whole reason this lives here instead of reusing the Catalogue's own
+// listener. watchRecipes() in js/catalogue/ subscribes to EVERYTHING — right for
+// a screen that lists 500 recipes, ruinous for a Calculator that needs three: it
+// would turn every app open from 3 reads into 500+, on every phone, for ever
+// (P14). The same mistake was made and corrected on the Home's order badge (v207).
+//
+// ⚠️ AND IT IS THE CALCULATOR'S OWN READ, not an import from the Catalogue's data
+// layer. Features must not reach into each other's Firestore code; only a PURE
+// model may be shared, which is the precedent Food Cost already set with
+// recipe-cost-model.js.
+//
+// onChange receives { id, ...data } for one recipe, or null when it cannot be
+// read. ⚠️ NULL IS A REAL ANSWER and must reach the caller: a linked recipe that
+// has been deleted has to make the tab REFUSE, not quietly keep the last copy.
+export function watchCatalogueRecipe(id, onChange) {
+  let stop = () => {};
+  authReady.then(() => {
+    stop = onSnapshot(
+      doc(db, pathFor('recipes'), id),
+      snap => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+      err => {
+        console.error(`Linked recipe ${id} could not be read:`, err);
+        onChange(null);
+      },
+    );
+  }).catch(err => {
+    console.error('Linked recipe listener never started (no location open):', err);
+    onChange(null);
+  });
+  return () => stop();
+}
+
+// Write a Catalogue recipe back with a stable id on every ingredient row.
+//
+// ⚠️ IT IS CALLED WHEN A RECIPE IS LINKED, AND THAT MOMENT IS THE POINT. The
+// Calculator finds the leavening by the row's OWN id — never by its name, because
+// the real Sourdough calls it "Starter" here and "Sourdough starter" there — and
+// the twelve recipes in the Catalogue today carry no ids at all (they predate the
+// guided-mixing work that mints them on save). Linking without this would fall
+// straight back to matching by name, which is the defect being designed out.
+//
+// withRowIds is idempotent: rows that already have a unique id come back
+// byte-identical, so this can never disturb a recipe that has been saved since.
+export function stampRecipeRowIds(id, ingredients) {
+  return authReady.then(() => setDoc(
+    doc(db, pathFor('recipes'), id),
+    { ingredients },
+    { merge: true },
+  ));
+}

@@ -9,6 +9,7 @@ import { openRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
 import './log-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker, closeWhoPicker } from './whatsapp.js';
+import { syncLinkedRecipes } from './calculator-catalogue-link.js';
 import { getConfig, initConfig, canSyncConfig } from './calculator-config-store.js';
 import { initLogs } from './log-store.js';
 import { renderTab, buildRecipePanel, buildEmptyPanel, el } from './calculator-render.js';
@@ -456,7 +457,11 @@ initLogs(renderLog);
 // Start the Firestore sync (re-renders on every remote change), then paint NOW from
 // the synchronous cache/default so the tabs appear instantly and work offline — the
 // dynamic tabs must not wait on the network (P17, local-first).
-initConfig(renderAll);
+// ⚠️ THE LINKED CATALOGUE RECIPES ARE KEPT FRESH ALONGSIDE THE CONFIG, and the
+// tabs are repainted when one arrives — a recipe corrected in the Catalogue has to
+// reach the Calculator without a reload, which is the entire point of linking
+// instead of copying.
+initConfig(config => { syncLinkedRecipes(config, renderAll); renderAll(); });
 renderAll();
 
 // The orders clients have sent in themselves. It is given the two functions that touch
