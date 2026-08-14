@@ -29,7 +29,7 @@ import {
 import { buildSendScreen } from './preview.js';
 import { buildSupplierPicker } from './supplier-picker.js';
 import { renderHistory as renderHistoryView } from './history.js';
-import { renderDeliveries, renderReorderBanner } from './deliveries-view.js';
+import { renderDeliveries, renderReorderBanner, renderOwedBanner } from './deliveries-view.js';
 import { buildHistoryEditor } from './history-edit.js';
 import { buildManagement, isAdmin } from './management.js';
 import { computeSuggestion, unusualQuantities } from './suggestions.js';
@@ -516,6 +516,10 @@ function renderIncoming() {
     suppliersById,
     ingredientsById,
     today: todayISO(),
+    // ⚠️ ONE ANSWER FOR BOTH HALVES. The week window and the debt read the same
+    // setting: if only one honoured it they would quietly disagree about which week an
+    // order is in, and an order could be in neither.
+    weekStartsOn: ordersConfig.weekStartsOn,
     onConfirm: async (order, missingIds) => {
       const missing = {};
       missingIds.forEach(id => { missing[id] = true; });
@@ -537,6 +541,7 @@ function renderIncoming() {
   };
 
   renderDeliveries(document.getElementById('deliveries-list'), ctx);
+  renderOwedBanner(document.getElementById('orders-owed'), ctx);
   renderReorderBanner(document.getElementById('orders-reorder'), ctx);
 }
 

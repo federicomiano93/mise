@@ -14,7 +14,7 @@ import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { spellDay, dayLabel } from './day.js';
 import { recordedName, wholeNumber } from './archive.js';
 import {
-  pendingDeliveries, shortfall, stillToReorder, applyReorder,
+  pendingDeliveries, shortfall, stillToReorder, applyReorder, unansweredBefore,
 } from './deliveries.js';
 
 const CHEVRON =
@@ -28,7 +28,8 @@ export function renderDeliveries(host, ctx) {
   if (!host) return;
   host.textContent = '';
 
-  const groups = pendingDeliveries(ctx.history, ctx.suppliersById, ctx.today);
+  const groups = pendingDeliveries(ctx.history, ctx.suppliersById, ctx.today,
+    { weekStartsOn: ctx.weekStartsOn });
   const total = groups.late.length + groups.dueToday.length + groups.coming.length;
 
   if (!total) {
@@ -101,12 +102,21 @@ async function openArrival(entry, ctx) {
     cancelLabel: t('orders.deliveries.somethingMissing'),
   });
 
-  if (answer) return confirm(entry, [], ctx);
+  if (answer) { await confirm(entry, [], ctx); return true; }
   return openMissingPicker(entry, ctx);
 }
 
 // The rows of one order, every one considered arrived until told otherwise.
+//
+// ⚠️ IT RESOLVES WHEN THE SCREEN CLOSES — true if it was saved, false if somebody backed
+// out. It used to return immediately, which was harmless while one order was answered at
+// a time; the debt answers SEVERAL IN SEQUENCE, and without the wait every dialog would
+// open at once, one behind the other, and the taps would land on the wrong order.
 function openMissingPicker(entry, ctx) {
+  return new Promise(resolve => openMissingPickerScreen(entry, ctx, resolve));
+}
+
+function openMissingPickerScreen(entry, ctx, done) {
   const { order } = entry;
   const ids = Object.keys(order.quantities || {}).sort((a, b) =>
     label(a, order, ctx).localeCompare(label(b, order, ctx)));
@@ -133,7 +143,7 @@ function openMissingPicker(entry, ctx) {
       el('button', {
         class: 'orders-icon-btn', type: 'button', 'aria-label': t('ui.back'),
         icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
-        onclick: () => overlay.remove(),
+        onclick: () => { overlay.remove(); done(false); },
       }),
       el('h1', { text: t('orders.deliveries.whatArrived') }),
     ]),
@@ -146,6 +156,7 @@ function openMissingPicker(entry, ctx) {
         onclick: async () => {
           overlay.remove();
           await confirm(entry, [...missing], ctx);
+          done(true);
         },
       }),
     ]),
@@ -218,5 +229,47 @@ async function openReorder(items, ctx) {
   // saying nothing would look exactly like the button having failed.
   if (skipped.length) {
     await alertDialog(t('orders.reorder.someSkipped', { n: String(skipped.length) }));
+  }
+}
+
+// ── ⚠️ THE DEBT: what left the week without an answer ────────────────────────
+//
+// ⚠️⚠️ THIS BANNER NEVER GOES QUIET BY ITSELF, and that is the entire difference
+// between it and the "still to re-order" one above. That one switches off because the
+// work got done; this one switches off only because somebody ANSWERED. It is the half
+// that makes a strict week window safe: without it an order that never arrived would
+// vanish, unanswered, on the day the week turned — which is exactly the control
+// Federico said he must not lose.
+//
+// ⚠️ AND IT IS A BANNER, NOT A MODAL THAT BLOCKS THE APP. The compulsory update (v211)
+// already taught this project that a dialog nobody can dismiss strands somebody in the
+// middle of service, and had to grow an escape hatch after two attempts. An order that
+// did not turn up is not a kitchen emergency; remembering it for ever is.
+export function renderOwedBanner(host, ctx) {
+  if (!host) return;
+  host.textContent = '';
+  const owed = unansweredBefore(ctx.history, ctx.today, { weekStartsOn: ctx.weekStartsOn });
+  host.hidden = !owed.length;
+  if (!owed.length) return;
+
+  host.appendChild(el('button', {
+    class: 'today-banner owed-banner', type: 'button',
+    text: t('orders.deliveries.owed', { n: owed.length }),
+    onclick: () => openOwed(owed, ctx),
+  }));
+}
+
+// One at a time, oldest first — the same two answers as a delivery in the week, because
+// it IS the same question, only later.
+async function openOwed(owed, ctx) {
+  for (const order of owed) {
+    const supplier = ctx.suppliersById?.[order.supplierId] || null;
+    // ⚠️ AWAITED IN SEQUENCE, not fired in a loop: two dialogs racing each other would
+    // put one behind the other and answer the wrong order.
+    // eslint-disable-next-line no-await-in-loop
+    const answered = await openArrival({ order, supplier, expected: '' }, ctx);
+    // ⚠️ Somebody who backs out keeps the rest of the debt — it is not "all or nothing",
+    // and abandoning halfway must not mark the remainder as dealt with.
+    if (answered === false) return;
   }
 }
