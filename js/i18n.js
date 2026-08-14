@@ -395,6 +395,23 @@ const DICTIONARIES = Object.freeze({
     'co.send': 'Send',
     'co.clientAndDay': '{client} — {day}.',
 
+    // ── The Leavening box, and the choices that explain themselves ───────────
+    'calc.leavening': 'Leavening',
+    'calc.leaveningNone': 'Nothing rises in this recipe',
+    'calc.unnamedIngredient': 'Unnamed ingredient',
+    'calc.leaveningHint': 'Which ingredient makes the dough rise. Only this one is scaled by the percentage below.',
+    'calc.leaveningStartAt': 'Start at',
+    // ⚠️ The two hints below are not decoration: they are what makes keeping this
+    // field honest instead of confusing. With the knob on it is a STARTING point
+    // shared by every phone; with it off it is the only number there is.
+    'calc.leaveningPctHintKnob': 'The percentage every phone starts from. Each phone can then move its own knob without changing this.',
+    'calc.leaveningPctHintFixed': 'The percentage this recipe always uses. With the knob hidden, this is the only place it can be set.',
+    'calc.leaveningKnobHint': 'Lets whoever is mixing raise or lower the percentage on the day, on their own phone.',
+    'calc.howItCalculates': 'How it calculates',
+    'calc.logicHint.orders': 'The amount of dough is decided by what the clients ordered.',
+    'calc.logicHint.total': 'You type how many kilos of dough to make.',
+    'calc.logicHint.both': 'What the clients ordered, plus an extra amount you type.',
+
     // ── Orders ──────────────────────────────────────────────────────────────
     // ⚠️ THE WHATSAPP MESSAGE A SUPPLIER RECEIVES IS NOT HERE.
     // js/orders/order-text.js is pinned character for character by its own test,
@@ -1507,6 +1524,19 @@ const DICTIONARIES = Object.freeze({
     'co.sendOrderFor': 'Mandare questo ordine {day}?',
     'co.send': 'Manda',
     'co.clientAndDay': '{client} — {day}.',
+
+    'calc.leavening': 'Lievito',
+    'calc.leaveningNone': 'In questa ricetta non lievita niente',
+    'calc.unnamedIngredient': 'Ingrediente senza nome',
+    'calc.leaveningHint': 'Quale ingrediente fa lievitare l’impasto. Solo questo viene scalato dalla percentuale qui sotto.',
+    'calc.leaveningStartAt': 'Parti da',
+    'calc.leaveningPctHintKnob': 'La percentuale da cui parte ogni telefono. Poi ognuno può muovere la propria manopola senza cambiare questa.',
+    'calc.leaveningPctHintFixed': 'La percentuale che questa ricetta usa sempre. Con la manopola nascosta, questo è l’unico posto dove si può impostare.',
+    'calc.leaveningKnobHint': 'Permette a chi impasta di alzare o abbassare la percentuale sul momento, sul proprio telefono.',
+    'calc.howItCalculates': 'Come calcola',
+    'calc.logicHint.orders': 'La quantità d’impasto la decidono gli ordini dei clienti.',
+    'calc.logicHint.total': 'Scrivi tu quanti chili d’impasto fare.',
+    'calc.logicHint.both': 'Gli ordini dei clienti, più una quantità in più scritta a mano.',
 
     'orders.deletedIngredient': 'Ingrediente eliminato',
     'orders.setAQuantityTo': 'Metti una quantità a 0 per togliere quella voce dall’ordine.',
