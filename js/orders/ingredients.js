@@ -152,14 +152,14 @@ export function buildRow(ing, supplier, suggest, entries, hooks, { meta = '' } =
     meta ? el('div', { class: 'ing-supplier', text: meta }) : null,
     el('div', { class: 'ing-fields' }, [
       el('label', { class: 'field order-field' }, [
-        el('span', { class: 'field-label', text: 'Order' }),
+        el('span', { class: 'field-label', text: t('orders.field.order') }),
         el('div', { class: 'ing-order-input' }, [
           qtyInput,
           ing.unit ? el('span', { class: 'ing-order-unit', text: ing.unit }) : null,
         ]),
       ]),
       el('label', { class: 'field stock-field' }, [
-        el('span', { class: 'field-label', text: 'Stock' }),
+        el('span', { class: 'field-label', text: t('orders.field.stock') }),
         stockInput,
       ]),
     ]),

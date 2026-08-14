@@ -63,9 +63,9 @@ export function buildManagement(data, actions) {
   // longest label wants 81px and has 78). So the settings that are not a list live
   // together under "General" instead of getting a tab each.
   const tabBar = el('nav', { class: 'tab-bar' }, [
-    tabButton('Suppliers', 'suppliers'),
-    tabButton('Ingredients', 'ingredients'),
-    tabButton('General', 'general'),
+    tabButton(t('orders.tab.suppliers'), 'suppliers'),
+    tabButton(t('orders.tab.ingredients'), 'ingredients'),
+    tabButton(t('orders.tab.general'), 'general'),
   ]);
 
   // The header button is a context-aware Back arrow (matches the app's drill-in
@@ -73,7 +73,7 @@ export function buildManagement(data, actions) {
   const overlay = el('div', { class: 'mgmt-overlay' }, [
     el('header', { class: 'orders-header' }, [
       el('button', { type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back', icon: BACK_ICON, onClick: handleBack }),
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Management' })]),
+      el('div', { class: 'orders-header-title' }, [el('h1', { text: t('ui.settings') })]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
     tabBar,
@@ -107,21 +107,32 @@ export function buildManagement(data, actions) {
 
   // Everything that is a setting rather than a list: how the order screen looks, then
   // the alerts.
+  // ⚠️ FOUR SECTIONS, EACH ANSWERING A DIFFERENT QUESTION (Federico, 14 Aug 2026:
+  // «dividi in sezioni le impostazioni per renderle più chiare»). It was a flat list
+  // with two headings, and the send routes had been dropped under «the order screen» —
+  // where they do not belong: how an order LEAVES is not how the screen LOOKS.
+  //
+  // ⚠️ TWO OF THE FOUR ARE FOR WHOEVER RUNS THE PLACE, and the database says the same:
+  // config/orders is write-gated on canManage(). Hiding them is COURTESY — an employee
+  // who reached the screen anyway would simply have the write refused, which is the
+  // shape every guard in this app has (v269: hiding is not the feature).
   function renderGeneral() {
-    content.appendChild(el('h3', { class: 'mgmt-section-title', text: t('orders.orderScreen') }));
-    content.appendChild(buildStockToggle());
-    content.appendChild(buildHistoryDaysField());
-    // ⚠️ ONLY FOR WHOEVER RUNS THE PLACE, and the database says the same thing:
-    // config/orders is write-gated on canManage(). Hiding it here is COURTESY -
-    // an employee who reached it anyway would simply have the write refused, which
-    // is the shape every guard in this app has (v269: hiding is not the feature).
-    if (canManageHere()) content.appendChild(buildWeekStart());
-    if (canManageHere()) content.appendChild(buildSendRoutes());
+    const boss = canManageHere();
 
-    content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Alerts' }));
+    section('orders.section.orderScreen', [buildStockToggle(), buildHistoryDaysField()]);
+    if (boss) section('orders.weekStart.title', [buildWeekStart()]);
+    if (boss) section('orders.section.howSent', [buildSendRoutes()]);
+
     const box = el('div', { class: 'mgmt-notif' });
-    content.appendChild(box);
+    section('orders.section.alerts', [box]);
     renderNotificationSettings(box);
+  }
+
+  // One heading and its fields, so a section cannot end up with a title and nothing
+  // under it — or fields under somebody else's title.
+  function section(titleKey, fields) {
+    content.appendChild(el('h3', { class: 'mgmt-section-title', text: t(titleKey) }));
+    fields.filter(Boolean).forEach(f => content.appendChild(f));
   }
 
   // Show or hide the Stock box on every order row, for EVERY phone (it is stored in
@@ -189,8 +200,9 @@ export function buildManagement(data, actions) {
       }
     });
 
+    // ⚠️ NO TITLE OF ITS OWN — the section above owns it. Two headings for one block is
+    // how a "section" quietly becomes a flat list again.
     return el('div', { class: 'mgmt-field' }, [
-      el('h3', { class: 'mgmt-section-title', text: t('orders.weekStart.title') }),
       el('p', { class: 'send-setting-hint', text: t('orders.weekStart.hint') }),
       sel,
     ]);
@@ -220,7 +232,6 @@ export function buildManagement(data, actions) {
       // simply have had no styling, silently, which is the same family of defect
       // as the undefined custom properties that left three screens flush to the
       // edge of the phone. Checked before shipping, not after.
-      el('h3', { class: 'mgmt-section-title', text: t('orders.send.settingsTitle') }),
       el('p', { class: 'send-setting-hint', text: t('orders.send.settingsHint') }),
     ]);
 
@@ -301,7 +312,7 @@ export function buildManagement(data, actions) {
     return el('div', { class: 'mgmt-field' }, [
       el('label', { class: 'mgmt-field-label', for: 'history-days-input',
         text: t('orders.daysOfPastOrders') }),
-      el('div', { class: 'mgmt-days-row' }, [input, el('span', { text: 'days' })]),
+      el('div', { class: 'mgmt-days-row' }, [input, el('span', { text: t('orders.days') })]),
       el('p', { class: 'notif-note', text:
         t('orders.olderOrdersAreNever') }),
     ]);
@@ -618,7 +629,7 @@ export function buildManagement(data, actions) {
     refresh();
 
     const node = el('div', {}, [
-      el('h3', { class: 'mgmt-section-title', text: 'Price' }),
+      el('h3', { class: 'mgmt-section-title', text: t('orders.section.price') }),
       field(t('orders.howItIsBought'), unitSelect),
       el('label', { class: 'mgmt-field' }, [rateLabel, rate, rateHint]),
       pieceField,
