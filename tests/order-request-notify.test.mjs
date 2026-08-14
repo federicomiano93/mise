@@ -73,5 +73,23 @@ test('every reason for sending nothing is written down', () => {
 
 test('the tap lands on Orders, and the words follow the venue’s language', () => {
   assert.match(src, /targetPage\('orderRequest'\)/);
-  assert.match(src, /orderRequestNotification\(request, await languageOf\(lid\)\)/);
+  assert.match(src, /orderRequestNotification\(request, venue\.lang, venue\.name\)/);
+});
+
+// ⚠️ THE NOTIFICATION HAS TO NAME THE VENUE, and a manager running two places is the
+// whole reason: "Marco · 6 lines" does not say WHICH kitchen is waiting. Federico asked
+// for it after using the app on his own two.
+test('⚠️ the alert says which venue it came from', () => {
+  assert.match(src, /const venue = await venueOf\(lid\)/);
+});
+
+// ⚠️ AND IT COSTS ONE READ, NOT TWO. The language and the name live on the same
+// document; asking twice would double the reads on every order list sent, for a fact
+// already in hand (P14). A test, because the cheap mistake here is invisible.
+test('⚠️ the venue is read ONCE, not once per fact', () => {
+  const body = src.slice(src.indexOf('async function venueOf'), src.indexOf('async function venueOf') + 700);
+  const reads = (body.match(/\.doc\(`locations\//g) || []).length;
+  assert.equal(reads, 1, 'venueOf must read locations/{lid} exactly once');
+  assert.doesNotMatch(src, /async function languageOf/,
+    'languageOf is gone — two helpers reading the same document is how they drift');
 });

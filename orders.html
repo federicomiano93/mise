@@ -183,6 +183,15 @@
     </div>
   </div>
 
+  <!-- ⚠️ THE ORDER LISTS GET A BOX OF THEIR OWN, ABOVE THE ROW (Federico, 14 Aug 2026).
+       It is the only thing down here that carries WORK SOMEBODY ELSE IS WAITING ON, and
+       a button identical to Settings said the opposite. White while there is nothing,
+       and coloured the moment a list arrives — the colour IS the signal, and unlike the
+       banner at the top it does not go quiet when the alarm does.
+       ⚠️ Shown only to whoever runs the place: canManage() already means owner, manager
+       AND head chef, because a head chef holds the manager role. Nothing new to teach. -->
+  <div class="requests-card-host" id="requests-card-host" hidden></div>
+
   <!-- Settings footer (mirrors the Calculator's bottom bar for a consistent app) -->
   <div class="recipe-footer">
     <!-- ⚠️ THE PERMANENT WAY IN to the order lists somebody sent. The banner at
@@ -190,7 +199,7 @@
          the tap that finishes the last list would remove the only door to the
          lists — which is exactly the defect v1.31.1 had to hotfix for the client
          orders. Two footer buttons where there was one: measured at 320px. -->
-    <button class="recipe-footer-btn" id="requests-footer-btn" type="button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg><span data-i18n="orders.request.open">Order lists</span></button>
+
     <!-- ⚠️ THREE FOOTER BUTTONS WHERE THERE WERE TWO. This bar has already cost this
          project once: a tab that wrapped by 3px shipped a broken release. Measured at
          320/375/390px before merging — see the PR. -->

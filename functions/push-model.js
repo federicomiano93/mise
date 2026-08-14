@@ -182,11 +182,22 @@ export function orderNotification(order, lang) {
 
 // Somebody prepared an order and sent it to whoever runs the place. The SENDER's
 // name is the useful part on a lock screen: it says who is waiting.
-export function orderRequestNotification(request, lang) {
+export function orderRequestNotification(request, lang, venue) {
   const who = text(request && request.fromName, MAX_TITLE);
+  const place = text(venue, MAX_TITLE);
   const lines = Object.keys((request && request.quantities) || {}).length;
+  // ⚠️ THE VENUE HAS TO BE IN THE TITLE, and this is not decoration: a manager can run
+  // more than one place — the app is sold on that — so "Marco · 6 lines" does not say
+  // WHICH kitchen is waiting. Federico asked for it after using it on his own two.
+  //
+  // ⚠️ THE VENUE IS OPTIONAL AND THE SENTENCE STILL READS WITHOUT IT. A notification is
+  // built on a server from data written by a phone; the day one of them arrives without
+  // a name, the alert must still say something a person can act on rather than "undefined".
+  const title = who
+    ? (place ? `${say('newList', lang)} — ${who} · ${place}` : `${say('newList', lang)} — ${who}`)
+    : (place ? `${say('newListPlain', lang)} · ${place}` : say('newListPlain', lang));
   return {
-    title: who ? `${say('newList', lang)} — ${who}` : say('newListPlain', lang),
+    title,
     body: lines
       ? `${lines} ${say(lines === 1 ? 'lineToOrder' : 'linesToOrder', lang)}`
       : say('openOrders', lang),

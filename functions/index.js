@@ -184,13 +184,20 @@ export const notifyClientOrder = onDocumentCreated(
 // written while nobody is looking at the page that knows the language, so the
 // server has to look it up. A failed read falls back to English rather than to
 // silence — see say() in push-model.js.
-async function languageOf(lid) {
+// ⚠️ ONE READ, TWO ANSWERS. The language and the venue's NAME live on the same
+// document, and a notification needs both — asking twice would double the reads on
+// every order list sent, for a fact already in hand (P14).
+async function venueOf(lid) {
   try {
     const snap = await getFirestore().doc(`locations/${lid}`).get();
-    return (snap.exists && snap.data().language) || 'en';
+    const data = snap.exists ? snap.data() : {};
+    return { lang: data.language || 'en', name: data.name || '' };
   } catch (err) {
-    logger.warn('Could not read the venue language; falling back to English', { lid });
-    return 'en';
+    // ⚠️ A FAILED READ STILL SENDS. The alert matters more than the language it is in
+    // or the name it carries; a silent phone would be a worse answer than an English
+    // one, and the sentence is written to read without either.
+    logger.warn('Could not read the venue; sending in English with no venue name', { lid });
+    return { lang: 'en', name: '' };
   }
 }
 
@@ -254,6 +261,14 @@ async function managersAmong(tokens, lid, senderUid) {
   return tokens.filter(d => {
     const uid = d.data().uid;
     if (!uid || uid === senderUid) return false;
+    // ⚠️ "DO NOT BUZZ ME ABOUT ORDER LISTS", asked by THIS PHONE about itself. Somebody
+    // may want the alert on the phone in their pocket and not on the tablet in the
+    // kitchen, so it is a property of the token and not of the person.
+    //
+    // ⚠️ ONLY AN EXPLICIT `true` SILENCES. A missing field, a string, a half-written
+    // document — none of those is somebody asking for quiet, and reading them as one
+    // would silence a phone nobody meant to silence.
+    if (d.data().muteOrderRequests === true) return false;
     const access = roleByUid.get(uid);
     // Exactly what runsThePlace() asks in the rules: a string, and one of the two.
     return access === 'owner' || access === 'manager';
@@ -278,7 +293,8 @@ export const notifyOrderRequest = onDocumentCreated(
       return;
     }
 
-    const message = orderRequestNotification(request, await languageOf(lid));
+    const venue = await venueOf(lid);
+    const message = orderRequestNotification(request, venue.lang, venue.name);
     const tag = notificationTag('orderRequest', event.params.id);
     const results = await Promise.all(targets.map(d => sendTo(d.id, message, {
       tag, url: targetPage('orderRequest'), path: d.ref.path,

@@ -1619,9 +1619,23 @@ service cloud.firestore {
         allow read: if member(lid);
         allow create, update: if member(lid)
           && stampedFor(lid)
-          && request.resource.data.keys().hasOnly(['bakery', 'uid', 'updatedAt'])
+          && request.resource.data.keys().hasOnly(['bakery', 'uid', 'updatedAt', 'muteOrderRequests'])
           && request.resource.data.uid == request.auth.uid
-          && request.resource.data.updatedAt is number;
+          && request.resource.data.updatedAt is number
+          // ⚠️ "DO NOT BUZZ ME ABOUT ORDER LISTS." A preference of THIS PHONE, which is
+          // why it lives on the phone's own token document rather than on the person:
+          // somebody may want the alert on the phone in their pocket and not on the
+          // tablet in the kitchen. It is also the document the server already reads to
+          // decide who to send to, so it costs no extra read.
+          //
+          // ⚠️ SILENCING THE BUZZ NEVER SILENCES THE WORK. The coloured card and the
+          // banner stay whatever this says — somebody coming back must not find an app
+          // that looks empty. Same rule as the holiday switch.
+          //
+          // ⚠️ OPTIONAL IN BOTH DIRECTIONS, like every field here: rules reach every
+          // phone the instant they deploy while code arrives one device at a time.
+          && (!('muteOrderRequests' in request.resource.data)
+              || request.resource.data.muteOrderRequests is bool);
         allow delete: if member(lid) && resource.data.uid == request.auth.uid;
       }
 
