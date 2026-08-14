@@ -856,3 +856,42 @@ export function saveCalculatorConfig(config) {
 //      collection (e.g. fcm-tokens/{token} with bakery:"main") + a matching rule.
 //   4. Server (Cloud Functions, Blaze plan) on a schedule: send the order-due,
 //      bank-holiday and delivery-conflict messages to the stored tokens.
+
+// ── The Calculator reading a recipe out of the Catalogue ─────────────────────
+//
+// ⚠️ IT READS THE LINKED RECIPES ONE BY ONE, NEVER THE COLLECTION. The Catalogue
+// is built for 500+ recipes and the Calculator needs three; a listener on the
+// collection would turn every app open from 3 reads into 500+, on every phone,
+// for ever (P14) — the mistake made and corrected on the Home's order badge.
+//
+// ⚠️ null IS A REAL ANSWER and must reach the caller: a linked recipe that has
+// been deleted must make the tab REFUSE, not quietly keep using the last copy.
+export function watchCatalogueRecipe(id, onChange) {
+  let stop = () => {};
+  authReady.then(() => {
+    stop = onSnapshot(
+      doc(db, pathFor('recipes'), id),
+      snap => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+      err => { console.error(`Linked recipe ${id} could not be read:`, err); onChange(null); },
+    );
+  }).catch(err => {
+    console.error('Linked recipe listener never started (no location open):', err);
+    onChange(null);
+  });
+  return () => stop();
+}
+
+// Write a Catalogue recipe back with a stable id on every ingredient row, at the
+// moment it is linked.
+//
+// ⚠️ WITHOUT IT THE LEAVENING FALLS BACK TO MATCHING BY NAME, which is the defect
+// being designed out: a recipe's leavening can be called one thing in the
+// Calculator and another in the Catalogue. withRowIds is idempotent, so a recipe
+// already carrying ids comes back byte-identical.
+export function stampRecipeRowIds(id, ingredients) {
+  return authReady.then(() => setDoc(
+    doc(db, pathFor('recipes'), id),
+    { ingredients },
+    { merge: true },
+  ));
+}
