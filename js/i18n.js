@@ -585,7 +585,10 @@ const DICTIONARIES = Object.freeze({
     'orders.deliveries.unknownSupplier': 'Deleted supplier',
     'orders.deliveries.expectedOn': 'Expected {day}',
     'orders.deliveries.noExpectedDay': 'No delivery days set for this supplier',
-    'orders.deliveries.orderedOn': 'Ordered {day} · {n} items',
+    // ⚠️ A PLURAL ENTRY. Written as one string it printed "1 items" on the very
+    // first screenshot — measuring never sees this, looking does.
+    'orders.deliveries.orderedOn': { one: 'Ordered {day} · {n} item',
+                                     other: 'Ordered {day} · {n} items' },
     'orders.deliveries.arrivedTitle': 'Has it arrived from {supplier}?',
     'orders.deliveries.arrivedMessage': 'The order placed on {day}.',
     'orders.deliveries.allArrivedBtn': 'Everything arrived',
@@ -1755,7 +1758,8 @@ const DICTIONARIES = Object.freeze({
     'orders.deliveries.unknownSupplier': 'Fornitore eliminato',
     'orders.deliveries.expectedOn': 'Previsto {day}',
     'orders.deliveries.noExpectedDay': 'Nessun giorno di consegna impostato per questo fornitore',
-    'orders.deliveries.orderedOn': 'Ordinato {day} · {n} articoli',
+    'orders.deliveries.orderedOn': { one: 'Ordinato {day} · {n} articolo',
+                                     other: 'Ordinato {day} · {n} articoli' },
     'orders.deliveries.arrivedTitle': 'È arrivato da {supplier}?',
     'orders.deliveries.arrivedMessage': 'L’ordine effettuato il {day}.',
     'orders.deliveries.allArrivedBtn': 'È arrivato tutto',

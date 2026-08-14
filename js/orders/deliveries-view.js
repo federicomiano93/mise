@@ -74,10 +74,9 @@ function deliveryRow({ order, supplier, expected }, tone, ctx) {
       el('span', { class: 'delivery-meta', text: when }),
       el('span', {
         class: 'delivery-meta',
-        text: t('orders.deliveries.orderedOn', {
-          day: spellDay(order.date),
-          n: String(count),
-        }),
+        // ⚠️ `n` AS A NUMBER, not a string: Intl.PluralRules picks the form from
+        // it, and '1' is not 1.
+        text: t('orders.deliveries.orderedOn', { day: spellDay(order.date), n: count }),
       }),
     ]),
     el('span', { class: 'delivery-chevron', icon: CHEVRON }),
