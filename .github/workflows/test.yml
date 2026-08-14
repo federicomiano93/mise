@@ -94,14 +94,31 @@ jobs:
         with:
           node-version: '20'
 
-      # ⚠️ THE TRUST IS PINNED TO THIS REPOSITORY, on Google's side, by an
-      # attribute condition on the provider:
-      #     assertion.repository == 'federicomiano93/the_italian_club_app'
-      # Without that one line ANY repository on GitHub could ask for, and get, a
-      # credential to this project. It is the whole security model of this job and
-      # it does not live in this file — check it with:
+      # ⚠️ THE TRUST IS PINNED TO THIS REPOSITORY, on Google's side, in TWO
+      # PLACES. Both must name it or the exchange fails:
+      #   1. the provider's attribute condition —
+      #        assertion.repository == 'federicomiano93/mise_app'
+      #   2. the service account's own IAM policy, which is what lets that
+      #      repository impersonate it —
+      #        …/attribute.repository/federicomiano93/mise_app
+      # Without them ANY repository on GitHub could ask for, and get, a credential
+      # to this project. It is the whole security model of this job and it does
+      # not live in this file — read both with:
       #   gcloud iam workload-identity-pools providers describe github-provider \
       #     --location=global --workload-identity-pool=github-pool
+      #   gcloud iam service-accounts get-iam-policy \
+      #     github-deploy@bakery-app-ebf90.iam.gserviceaccount.com
+      #
+      # ⚠️ RENAMING THE REPOSITORY BREAKS THIS JOB, and this comment used to name
+      # only place 1. On 13 Aug 2026 the_italian_club_app became mise_app, place 1
+      # was repointed, and the deploy went on failing — the error names neither
+      # place, so the second was found only by looking for it. Every push to main
+      # failed for hours while `test` and `rules` stayed green, so the failure
+      # e-mail said "Tests" and the tests were never the problem.
+      #
+      # ⚠️ EACH MUST NAME EXACTLY ONE REPOSITORY. Adding the new name beside the
+      # old one is the tempting way to make a rename painless, and it leaves the
+      # abandoned repository able to deploy to this project for ever.
       - name: Sign in to Google (no key)
         id: auth
         uses: google-github-actions/auth@v2
