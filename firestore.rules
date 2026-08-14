@@ -918,8 +918,30 @@ service cloud.firestore {
         allow read: if member(lid)
           && sectionOn(lid, doc == 'orders' ? 'orders' : 'calculator');
 
-        allow create, update: if member(lid)
-          && sectionOn(lid, doc == 'orders' ? 'orders' : 'calculator')
+        // ⚠️⚠️ WHO MAY WRITE DEPENDS ON WHICH DOCUMENT IT IS, AND THAT TERNARY IS
+        // LOAD-BEARING. `config/orders` decides how the venue works — which roads
+        // an order may leave by, whether stock is shown — so it belongs to the
+        // owner and the manager. `config/calculator` is the address book, the
+        // recipes and the products, which the people doing the work edit all day.
+        // Tightening the WHOLE block would stop an employee saving the Calculator,
+        // and the failure would arrive as a permission error with nothing on screen
+        // explaining it. The ternary already used for `sectionOn` one line down is
+        // the same distinction; this simply applies it to the writer as well.
+        //
+        // ⚠️ READING STAYS OPEN TO EVERY MEMBER. An employee has to know which
+        // roads they have, or the send screen could not draw itself.
+        // ⚠️⚠️ THE SECTION CHECK IS INSIDE EACH BRANCH, NOT SHARED, AND THAT IS
+        // NOT TIDINESS — IT IS THE READ BUDGET. canManage() already contains
+        // canUse(), which is member() + sectionOn(); leaving the outer sectionOn()
+        // in place made this rule ask for the same documents twice and pushed it
+        // past Firestore's ceiling of ten document reads per evaluation. It did
+        // not fail cleanly either: the checks came back with an EVALUATION ERROR,
+        // which is a refusal nobody can explain rather than a decision. This
+        // ruleset has been at that ceiling before, and one extra get() has
+        // produced exactly this before.
+        allow create, update: if (doc == 'orders'
+              ? canManage(lid, 'orders')
+              : (member(lid) && sectionOn(lid, 'calculator')))
           && stampedFor(lid)
           && request.resource.data.keys().hasOnly([
                'bakery', 'configRev',
@@ -931,6 +953,8 @@ service cloud.firestore {
                'orderPrefillWindow',
                // Orders
                'showStock', 'historyDays',
+               // Which roads an order may leave by, and which is offered first.
+               'sendRoutes', 'preferredRoute',
                // Retired, still writable by an un-updated phone (see above)
                'products', 'groups', 'focaccia', 'brioche', 'sourdough', 'market'
              ])
@@ -958,6 +982,25 @@ service cloud.firestore {
               || request.resource.data.showStock is bool)
           && (!('historyDays' in request.resource.data)
               || request.resource.data.historyDays is number)
+          // Which roads an order may leave by. A map of four booleans, and a
+          // preferred one.
+          //
+          // ⚠️ OPTIONAL IN BOTH DIRECTIONS, as every field here has to be: rules
+          // reach every phone the instant they deploy while code arrives one device
+          // at a time. Required, a phone still on the previous version could not
+          // save Settings at all.
+          //
+          // ⚠️ THE SIZE CAP IS 8, NOT 4. The four names are checked by the app, and
+          // the rules deliberately do not hard-code them — a fifth road would then
+          // need a rules deploy before the code that offers it, which is the wrong
+          // way round for something that cannot do any harm. The cap is there so the
+          // map cannot be used as free storage.
+          && (!('sendRoutes' in request.resource.data)
+              || (request.resource.data.sendRoutes is map
+                  && request.resource.data.sendRoutes.size() <= 8))
+          && (!('preferredRoute' in request.resource.data)
+              || (request.resource.data.preferredRoute is string
+                  && request.resource.data.preferredRoute.size() <= 32))
           // Which days the WhatsApp order form fills itself from. A closed set: this
           // value decides which quantities are offered for a message sent to a real
           // client, so an unrecognised one must not reach the database in the first

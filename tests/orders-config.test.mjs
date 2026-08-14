@@ -35,9 +35,25 @@ test('a corrupt value leaves the screen alone rather than emptying it', () => {
   });
 });
 
+// ⚠️ THE LIST IS PINNED ON PURPOSE, and it caught the send-routes work the moment
+// it landed. Every key here is something a screen reads, so adding one is a decision
+// and not a side effect - `sendSettings` was added deliberately, and anything that
+// appears without a line in this test has arrived by accident.
 test('it returns only the keys the screen uses, whatever else the document carries', () => {
   const out = normalizeOrdersConfig({ bakery: 'main', showStock: false, somethingElse: 42 });
-  assert.deepEqual(Object.keys(out), ['showStock', 'historyDays']);
+  assert.deepEqual(Object.keys(out), ['showStock', 'historyDays', 'sendSettings']);
+});
+
+// ⚠️ AND IT IS ALWAYS USABLE, whatever the document says. An order that cannot leave
+// the app at all is the one failure this whole feature must not be able to produce,
+// so a missing, empty or corrupt config still comes back with a road open.
+test('a config with no send settings still leaves a road open', () => {
+  [undefined, null, {}, { sendRoutes: null }, { sendRoutes: 'x' }].forEach(doc => {
+    const s = normalizeOrdersConfig(doc);
+    const open = Object.values(s.sendSettings.routes).filter(Boolean);
+    assert.ok(open.length > 0, `${JSON.stringify(doc)} left no way to send`);
+    assert.ok(s.sendSettings.preferred, 'and one of them is offered first');
+  });
 });
 
 // ── How many days of past orders History shows ───────────────────────────────

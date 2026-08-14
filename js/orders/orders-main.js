@@ -13,7 +13,7 @@ import { t } from '../i18n.js';
 import {
   watchCollection, watchDoc, saveDoc, createDoc, removeDoc,
   saveIngredientWithPrice, getPriceHistory, COLLECTIONS,
-  watchIngredientPrices,
+  watchIngredientPrices, canManageHere,
 } from './firebase-orders.js';
 import { withPrices } from '../price-model.js';
 import { currentSession } from '../firebase.js';
@@ -658,6 +658,14 @@ function showAlerts() {
 // ── Send order (WhatsApp selection screen) ────────────────────────────────────
 function openSendScreen() {
   const overlay = buildSendScreen(orderSupplierList(), ingredientsBySupplier(), state.entries, {
+    // ⚠️ THE ROLE COMES FROM THE SESSION, NOT FROM THE SETTINGS. A manager or owner
+    // keeps all four roads whatever the switches say: if the switches applied to
+    // everybody, closing WhatsApp to hold an employee back would disarm the very
+    // person who then has to reach the supplier, and the order could never leave
+    // the building. The database enforces who may CHANGE the switches; this only
+    // decides what to draw.
+    sendSettings: ordersConfig.sendSettings,
+    canManage: canManageHere(),
     onBack: () => overlay.remove(),
     onSent: supplierIds => {
       overlay.remove();

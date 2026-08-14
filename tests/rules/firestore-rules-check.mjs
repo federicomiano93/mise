@@ -950,9 +950,24 @@ async function isolation() {
   await expectDenied('…and the calculator configuration',
     () => mergeWrite('locations/trattoria-x/config/calculator',
       { bakery: 'trattoria-x', clients: [] }, asAccount(BOB)));
-  await expectAllowed('…while its own Orders settings still save',
+  // ⚠️ SEEDED FIRST: reading a document that does not exist comes back "not found"
+  // whoever asks, so it would prove nothing about permission.
+  await seedDoc('locations/trattoria-x/config/orders',
+    { bakery: 'trattoria-x', showStock: true });
+
+  // ⚠️ THIS CHECK USED TO EXPECT ALLOW, AND THE CHANGE IS THE POINT. Since the
+  // send-routes work, config/orders is a decision about how the venue works and
+  // belongs to whoever runs it. BOB is a plain employee, so he is refused.
+  //
+  // ⚠️ AND IT RECORDS A REAL CONSEQUENCE: trattoria-x has exactly one member and
+  // he is an employee, so NOBODY there can change the Orders settings. That is
+  // the rule working, not a bug - but a venue whose memberships are all plain
+  // `true` has nobody who can. Production was checked: every venue has an owner.
+  await expectDenied('…and its Orders settings, which belong to whoever runs the place',
     () => mergeWrite('locations/trattoria-x/config/orders',
       { bakery: 'trattoria-x', showStock: false }, asAccount(BOB)));
+  await expectAllowed('…while an employee can still READ them, or no send screen could draw',
+    readAs(BOB, 'locations/trattoria-x/config/orders'));
   await expectAllowed('a location with every section keeps its recipes',
     readAs(ALICE, 'locations/main/recipes/R1'));
 }
@@ -1922,6 +1937,41 @@ async function roles() {
   // do, which is what proved the roles introduced nothing. Keep it.
   await expectDenied('CONTROL: an untouched delete rule refuses a stranger',
     () => deleteWrite(`${L}/orders-history/2026-08-11_S1`, asAccount(BOB)));
+
+  // ── ⚠️ WHO DECIDES HOW THE VENUE SENDS ITS ORDERS ────────────────────────
+  //
+  // The NEGATIVE ones are written first, and the third is the one that matters
+  // most: config/{doc} is ONE rule covering config/orders AND config/calculator,
+  // so tightening it is one careless edit away from stopping every employee from
+  // saving the address book, the recipes and the products. That failure would
+  // arrive as a permission error with nothing on screen explaining it.
+  // ⚠️ SEEDED FIRST. Reading a document that does not exist proves nothing about
+  // permission - it comes back "not found" whoever asks.
+  await seedDoc(`${L}/config/orders`, { ...stamp, showStock: true });
+
+  await expectDenied('staff cannot change how orders may be sent',
+    () => mergeWrite(`${L}/config/orders`,
+      { ...stamp, sendRoutes: { manager: true, whatsapp: false, whatsappSupplier: false, email: false } },
+      asAccount(SAM)));
+  await expectDenied('staff cannot change any Orders setting at all',
+    () => mergeWrite(`${L}/config/orders`, { ...stamp, showStock: false }, asAccount(SAM)));
+
+  // ⚠️ THE PROOF THE TIGHTENING DID NOT INVADE THE CALCULATOR.
+  await expectAllowed('staff CAN still save the Calculator config',
+    () => mergeWrite(`${L}/config/calculator`, { ...stamp, extraDough: 5 }, asAccount(SAM)));
+  // ⚠️ AND THAT THEY CAN STILL READ THEIR OWN ROADS — an employee who cannot read
+  // this could not draw the send screen at all.
+  await expectAllowed('staff CAN read how orders may be sent',
+    readAs(SAM, `${L}/config/orders`));
+
+  await expectAllowed('a manager decides how orders may be sent',
+    () => mergeWrite(`${L}/config/orders`,
+      { ...stamp, sendRoutes: { manager: true, whatsapp: true, whatsappSupplier: false, email: false },
+        preferredRoute: 'manager' }, asAccount(MAYA)));
+  await expectDenied('sendRoutes sent as a list instead of a map',
+    () => mergeWrite(`${L}/config/orders`, { ...stamp, sendRoutes: ['manager'] }, asAccount(MAYA)));
+  await expectDenied('a preferred road sent as a number',
+    () => mergeWrite(`${L}/config/orders`, { ...stamp, preferredRoute: 3 }, asAccount(MAYA)));
 
   // ── Staff may not take away what everybody else's work rests on ──
   await expectDenied('staff cannot delete a supplier',

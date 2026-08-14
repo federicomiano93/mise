@@ -1619,3 +1619,45 @@ a.home-reminder {
     min-width: 0;    /* the actual cure: let the item shrink below its content */
   }
 }
+
+/* ── "How should this order go?" ─────────────────────────────────────────────
+   Reuses .app-dialog, so it inherits the focus trap, Escape and the screen-reader
+   naming rather than growing a second dialog nobody maintains. */
+.send-routes { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 8px; }
+.send-route {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  /* ⚠️ 56px, WELL PAST THE 44px FLOOR. Four targets stacked in a dialog on a
+     320px phone, and a mis-tap here does not cost a keystroke: it sends a real
+     order down a road nobody chose. */
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.send-route:active { background: var(--accent-light); }
+.send-route-icon { display: flex; align-items: center; color: var(--accent); flex-shrink: 0; }
+.send-route-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.send-route-name { font-size: 15px; font-weight: 600; }
+/* The sentence that says what a road actually costs: one message per supplier,
+   and who cannot be reached. It has to be readable, so it is not --text-4 (which
+   measures 3.6:1 and is an open accessibility item). */
+.send-route-note { font-size: 12px; color: var(--text3); }
+
+/* ── Settings: which roads an employee may take ──────────────────────────────*/
+.send-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.send-setting-row .mgmt-check { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--brand); }
+.send-setting-name { flex: 1; min-width: 0; font-size: 14px; }
+.send-setting-hint { font-size: 12px; color: var(--text3); margin: 4px 0 10px; }
