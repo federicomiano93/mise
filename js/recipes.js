@@ -21,6 +21,10 @@ import {
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
+import { isLinked } from './calculator-recipe-source.js';
+import { effectiveRecipe } from './calculator-catalogue-link.js';
+import { withRowIds } from './catalogue/guided-model.js';
+import { getCatalogueRecipesOnce, stampRecipeRowIds } from './firebase.js';
 
 // recipeTotal is re-exported so any importer keeps its path unchanged.
 export { recipeTotal };
@@ -108,6 +112,10 @@ function findInvalid() {
   const rs = recipes();
   for (let i = 0; i < rs.length; i++) {
     if (isBlank(rs[i].name)) return i;
+    // ⚠️ A LINKED RECIPE KEEPS ITS INGREDIENTS IN THE CATALOGUE. Demanding them
+    // here would refuse to save every tab the moment it was linked — the guard
+    // would fire on the very change it is meant to allow.
+    if (isLinked(rs[i])) continue;
     const ings = rs[i].ingredients || [];
     if (ings.length === 0 || ings.some(g => isBlank(g.label))) return i;
   }
@@ -257,16 +265,41 @@ function renderRecipeDetail(ri) {
   content.appendChild(logicField);
 
   // Ingredients.
-  const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Ingredients')]);
+  // Where this recipe's ingredients come from: its own list, or the Catalogue.
+  content.appendChild(sourceBox(r));
+
   const showLeaveningPicker = (r.logic === 'orders' || r.logic === 'both');
-  r.ingredients.forEach((ing, gi) => ingField.appendChild(ingredientRow(r, ing, gi, listId, showLeaveningPicker)));
-  const addIng = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.addIngredient'));
-  addIng.addEventListener('click', () => {
-    r.ingredients.push({ key: '', label: '', grams: 0 });
-    markDirty();
-    renderEditor();
-  });
-  ingField.appendChild(addIng);
+  const linked = isLinked(r);
+  const resolved = effectiveRecipe(r);
+
+  const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Ingredients')]);
+
+  if (linked) {
+    // ⚠️ READ-ONLY, AND THAT IS THE POINT (Federico, 14 Aug 2026): the recipe is
+    // edited in the Catalogue and nowhere else. Two screens that can both change
+    // the same amounts is exactly the disagreement this whole change removes.
+    if (resolved.problem) {
+      ingField.appendChild(el('p', { class: 'cp-hint cp-source-problem' },
+        problemText(resolved)));
+    } else {
+      resolved.ingredients.forEach(ing => {
+        ingField.appendChild(el('div', { class: 'cp-prod-card cp-readonly-row' }, [
+          el('span', { class: 'cp-readonly-name' }, ing.label),
+          el('span', { class: 'cp-readonly-grams' }, String(ing.grams) + ' g'),
+        ]));
+      });
+      ingField.appendChild(el('div', { class: 'cp-hint' }, t('calc.editedInCatalogue')));
+    }
+  } else {
+    r.ingredients.forEach((ing, gi) => ingField.appendChild(ingredientRow(r, ing, gi, listId, showLeaveningPicker)));
+    const addIng = el('button', { class: 'cp-add-prod', type: 'button' }, t('calc.addIngredient'));
+    addIng.addEventListener('click', () => {
+      r.ingredients.push({ key: '', label: '', grams: 0 });
+      markDirty();
+      renderEditor();
+    });
+    ingField.appendChild(addIng);
+  }
   content.appendChild(ingField);
 
   // ── Leavening: ONE bounded box ──────────────────────────────────────────────
@@ -372,6 +405,11 @@ function ingredientRow(recipe, ing, gi, listId, showLeaveningPicker) {
 // What the plan was right about is the duplication of EFFORT, and that is fixed
 // by saying plainly which number is which.
 function leaveningBox(recipe) {
+  // ⚠️ WHEN LINKED, THE ROWS COME FROM THE CATALOGUE and the choice is stored as
+  // leaveningRid — the row's own id. Offering the tab's own leftover list here
+  // would let somebody pick an ingredient the dough no longer contains.
+  const src = effectiveRecipe(recipe);
+  const linkedRows = isLinked(recipe) ? src.ingredients : null;
   const rows = [el('label', { class: 'cp-label' }, t('calc.leavening'))];
 
   // ⚠️ THE EMPTY OPTION IS FIRST AND IS A REAL ANSWER. A recipe may legitimately
@@ -379,19 +417,19 @@ function leaveningBox(recipe) {
   // wrong choice would be to pick a different wrong one.
   const select = el('select', { class: 'cp-prod-dough', 'aria-label': t('calc.leavening') });
   select.appendChild(el('option', { value: '' }, t('calc.leaveningNone')));
-  recipe.ingredients.forEach((ing, i) => {
+  (linkedRows || recipe.ingredients).forEach((ing, i) => {
     // An ingredient with no key cannot be pointed at yet; it gets one the moment
     // it is chosen, exactly as the old tick did.
     const value = ing.key || `#${i}`;
     const option = el('option', { value }, ing.label || t('calc.unnamedIngredient'));
     select.appendChild(option);
   });
-  select.value = recipe.leaveningKey || '';
+  select.value = (linkedRows ? recipe.leaveningRid : recipe.leaveningKey) || '';
 
   select.addEventListener('change', () => {
     const picked = select.value;
     if (!picked) {
-      recipe.leaveningKey = null;
+      if (linkedRows) recipe.leaveningRid = null; else recipe.leaveningKey = null;
     } else {
       const index = picked.startsWith('#') ? Number(picked.slice(1)) : -1;
       const ing = index >= 0 ? recipe.ingredients[index]
@@ -401,7 +439,7 @@ function leaveningBox(recipe) {
           ing.key = (ing.label || 'ing').toLowerCase().replace(/[^a-z0-9]+/g, '-')
             + '-' + recipe.ingredients.indexOf(ing);
         }
-        recipe.leaveningKey = ing.key;
+        if (linkedRows) recipe.leaveningRid = ing.key; else recipe.leaveningKey = ing.key;
         if (!recipe.leaveningDefaultPct) recipe.leaveningDefaultPct = 1;
         if (recipe.baselinePct == null) recipe.baselinePct = recipe.leaveningDefaultPct;
       }
@@ -463,4 +501,92 @@ function syncLeaveningOption(ing, index) {
   const value = ing.key || `#${index}`;
   const option = [...select.options].find(o => o.value === value);
   if (option) option.textContent = ing.label || t('calc.unnamedIngredient');
+}
+
+// ── Where a tab's ingredients come from ──────────────────────────────────────
+//
+// Federico, 14 Aug 2026: «calculator non ha più ricette proprie ma le prende da
+// recipe catalogue». One recipe, in one place, edited in one screen.
+//
+// ⚠️ THE LIST OF CATALOGUE RECIPES IS READ WHEN THIS SCREEN IS OPENED, ONCE. Rare
+// and deliberate — never on the app's boot path, where it would be the v207 cost
+// mistake again.
+let catalogueList = null;
+
+function sourceBox(recipe) {
+  const rows = [el('label', { class: 'cp-label' }, t('calc.recipeSource'))];
+  const linked = isLinked(recipe);
+
+  const select = el('select', { class: 'cp-prod-dough', 'aria-label': t('calc.recipeSource') });
+  select.appendChild(el('option', { value: '' }, t('calc.sourceOwn')));
+  (catalogueList || []).forEach(c => {
+    select.appendChild(el('option', { value: c.id }, c.name || t('calc.unnamedRecipe')));
+  });
+  select.value = linked ? String(recipe.catalogueId) : '';
+
+  select.addEventListener('change', () => link(recipe, select.value));
+  rows.push(select);
+  rows.push(el('div', { class: 'cp-hint' }, linked
+    ? t('calc.sourceLinkedHint')
+    : t('calc.sourceOwnHint')));
+
+  // The names arrive after the first paint; repaint once they do.
+  if (catalogueList === null) {
+    catalogueList = [];
+    getCatalogueRecipesOnce()
+      .then(list => { catalogueList = list; renderEditor(); })
+      .catch(err => console.warn('The Catalogue could not be listed:', err));
+  }
+
+  return el('div', { class: 'cp-field' }, rows);
+}
+
+// ⚠️ LINKING STAMPS A STABLE id ON EVERY CATALOGUE ROW FIRST, and that order is
+// the whole reason this is not a one-line assignment. The twelve recipes in the
+// Catalogue carry no row ids — they predate the guided-mixing work that mints
+// them on save — and the Calculator finds the leavening BY that id. Without this
+// step the leavening would fall straight back to matching by NAME, which is the
+// defect being designed out: the real Sourdough calls it "Starter" in one place
+// and "Sourdough starter" in the other.
+//
+// withRowIds is idempotent, so a recipe already carrying ids is untouched.
+async function link(recipe, catalogueId) {
+  if (!catalogueId) {
+    // ⚠️ UNLINKING LEAVES THE TAB WITH NOTHING RATHER THAN A STALE COPY. Its own
+    // ingredient list was left behind when it was linked; silently resurrecting
+    // it would bring back exactly the copy this change removed.
+    delete recipe.catalogueId;
+    delete recipe.leaveningRid;
+    markDirty();
+    renderEditor();
+    return;
+  }
+
+  const source = (catalogueList || []).find(c => c.id === catalogueId);
+  if (!source) return;
+
+  try {
+    const stamped = withRowIds(Array.isArray(source.ingredients) ? source.ingredients : []);
+    await stampRecipeRowIds(catalogueId, stamped);
+    source.ingredients = stamped;
+  } catch (err) {
+    console.error('Could not give the Catalogue rows stable ids:', err);
+    alertDialog(t('calc.sourceLinkFailed'));
+    return;
+  }
+
+  recipe.catalogueId = catalogueId;
+  // The leavening has to be chosen again: it now points at a row in a different
+  // recipe, and guessing by name is the thing being avoided.
+  delete recipe.leaveningRid;
+  markDirty();
+  renderEditor();
+}
+
+function problemText(resolved) {
+  if (resolved.problem === 'unweighable') {
+    return t('calc.sourceUnweighable', { row: resolved.problemRow });
+  }
+  if (resolved.problem === 'empty') return t('calc.sourceEmpty');
+  return t('calc.sourceMissing');
 }

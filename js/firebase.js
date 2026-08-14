@@ -836,3 +836,16 @@ export function stampRecipeRowIds(id, ingredients) {
     { merge: true },
   ));
 }
+
+// The Catalogue's recipes, for the picker that links one to a Calculator tab.
+//
+// ⚠️ READ ONCE, WHEN THE PICKER IS OPENED — never on app boot, and never as a
+// listener. This is the one place the Calculator needs the whole list, and it is
+// a rare, deliberate act inside a settings screen; the tabs themselves read only
+// the two or three recipes they are linked to (see watchCatalogueRecipe). Putting
+// this on the boot path would be the v207 cost mistake all over again.
+export function getCatalogueRecipesOnce() {
+  return authReady
+    .then(() => getDocs(collection(db, pathFor('recipes'))))
+    .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })));
+}

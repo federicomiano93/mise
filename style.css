@@ -1832,3 +1832,34 @@ body[data-section="calculator"] #settings-footer-btn { grid-column: 1 / -1; }
 /* The row that IS the leavening says so, quietly, where the ingredients are —
    visible without being editable in a second place. */
 .cp-is-leavening { color: var(--accent); font-weight: 600; }
+
+/* ── Where a tab's ingredients come from ─────────────────────────────────────
+   A linked recipe is READ-ONLY here: it is edited in the Catalogue and nowhere
+   else, so two screens can never disagree about the same amounts. */
+.cp-readonly-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 12px 14px;
+}
+.cp-readonly-name { font-size: 15px; color: var(--text); }
+.cp-readonly-grams {
+  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+/* A recipe that cannot be used says why, in the warning colour — never in the
+   danger red, which in this app means something was destroyed. */
+.cp-source-problem {
+  padding: var(--space-3);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  color: var(--warn);
+  font-size: 13px;
+  line-height: 1.5;
+}
