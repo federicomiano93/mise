@@ -29,6 +29,11 @@ import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
 import { buildSearchBox } from './search-box.js';
 import { ROUTES, validateRoutes, toStored } from './send-routes.js';
+// ⚠️ ALIASED ON PURPOSE. This file already has a WEEKDAYS, and it starts on MONDAY
+// (it lists a supplier's delivery days). The week-start list is Sunday-first, matching
+// JS getDay() and day.js. Two lists with one name and different orders is a defect
+// waiting to be written; the syntax check caught the collision before it could be.
+import { WEEKDAYS as WEEK_START_DAYS, isValidWeekStart } from './work-week.js';
 import {
   CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
   pricePatch, priceChanged, priceRecord, pricePerKg,
@@ -110,6 +115,7 @@ export function buildManagement(data, actions) {
     // config/orders is write-gated on canManage(). Hiding it here is COURTESY -
     // an employee who reached it anyway would simply have the write refused, which
     // is the shape every guard in this app has (v269: hiding is not the feature).
+    if (canManageHere()) content.appendChild(buildWeekStart());
     if (canManageHere()) content.appendChild(buildSendRoutes());
 
     content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Alerts' }));
@@ -142,6 +148,51 @@ export function buildManagement(data, actions) {
       el('label', { class: 'mgmt-toggle' }, [cb, el('span', { text: t('orders.showTheStockBox') })]),
       el('p', { class: 'notif-note', text:
         t('orders.turnThisOffIf') }),
+    ]);
+  }
+
+  // Which day the working week starts on.
+  //
+  // ⚠️ IT DECIDES WHAT «THIS WEEK» MEANS ON INCOMING, so it is a decision about how the
+  // venue works, not a preference of one phone — which is why it lives in Firestore and
+  // why the database gates the write on canManage(). Hiding the control is courtesy.
+  //
+  // ⚠️ A <select>, not a row of seven buttons: seven targets on a 320px phone is how a
+  // bar wraps, and this project has already lost a release to exactly that.
+  function buildWeekStart() {
+    const current = data.ordersConfig().weekStartsOn;
+    const sel = el('select', { class: 'mgmt-input' });
+    // ⚠️ THE SHORT NAMES, which the dictionary already carries in both languages and
+    // which Orders already uses for a supplier's delivery days. Inventing a long form
+    // would mean 14 new entries saying what 7 existing ones already say, and two sets
+    // of weekday words is how one of them ends up half-translated.
+    WEEK_START_DAYS.forEach((day, i) => {
+      const opt = el('option', { value: day, text: t(`day.weekdayShort.${i}`) });
+      if (day === current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    sel.addEventListener('change', async () => {
+      const wanted = sel.value;
+      // ⚠️ Checked before the network, with the same list the model uses: a value the
+      // app does not recognise would be silently read back as Sunday, so the screen
+      // would show one thing and the list would do another.
+      if (!isValidWeekStart(wanted)) { sel.value = current; return; }
+      sel.disabled = true;
+      try {
+        await actions.saveOrdersConfig({ weekStartsOn: wanted });
+      } catch (err) {
+        sel.value = current;          // back to what is actually stored
+        await reportFailure('save', t('orders.weekStart.title'), err);
+      } finally {
+        sel.disabled = false;
+      }
+    });
+
+    return el('div', { class: 'mgmt-field' }, [
+      el('h3', { class: 'mgmt-section-title', text: t('orders.weekStart.title') }),
+      el('p', { class: 'send-setting-hint', text: t('orders.weekStart.hint') }),
+      sel,
     ]);
   }
 
