@@ -222,15 +222,39 @@ function renderRecipeDetail(ri) {
     el('div', { class: 'cp-name-row' }, [nameInput, deleteIcon(t('calc.deleteRecipe'), () => deleteRecipe(ri))]),
   ]));
 
-  // Calc logic.
-  const logic = el('select', { class: 'cp-prod-dough', 'aria-label': t('calc.calcLogic') });
-  for (const l of LOGICS) logic.appendChild(el('option', { value: l }, LOGIC_LABELS[l]));
-  logic.value = LOGICS.includes(r.logic) ? r.logic : 'orders';
-  logic.addEventListener('change', () => { r.logic = logic.value; markDirty(); renderEditor(); });
-  content.appendChild(el('div', { class: 'cp-field' }, [
+  // ── How it calculates: three rows, each explaining itself ───────────────────
+  //
+  // ⚠️ A DROPDOWN CAN ONLY EXPLAIN THE OPTION ALREADY CHOSEN, and the question
+  // here is what the DIFFERENCE is. Opened side by side, the three answers can be
+  // compared BEFORE deciding rather than after.
+  //
+  // ⚠️ AND A TOOLTIP WAS NEVER AN OPTION: hovering needs a mouse, and an open
+  // dropdown on a phone is drawn by the operating system, so the app cannot put a
+  // word inside it. That would be an explanation invisible exactly where the app
+  // is used — the v236 lesson, "Chromium is not the phone".
+  const logicField = el('div', { class: 'cp-field' }, [
     el('label', { class: 'cp-label' }, t('calc.howItCalculates')),
-    logic,
-  ]));
+  ]);
+  const current = LOGICS.includes(r.logic) ? r.logic : 'orders';
+  LOGICS.forEach(l => {
+    const chosen = l === current;
+    const row = el('button', {
+      type: 'button',
+      class: 'cp-choice' + (chosen ? ' cp-choice--on' : ''),
+      'aria-pressed': String(chosen),
+    }, [
+      el('span', { class: 'cp-choice-name' }, LOGIC_LABELS[l]),
+      el('span', { class: 'cp-choice-why' }, t(`calc.logicHint.${l}`)),
+    ]);
+    row.addEventListener('click', () => {
+      if (r.logic === l) return;
+      r.logic = l;
+      markDirty();
+      renderEditor();
+    });
+    logicField.appendChild(row);
+  });
+  content.appendChild(logicField);
 
   // Ingredients.
   const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Ingredients')]);
@@ -245,22 +269,15 @@ function renderRecipeDetail(ri) {
   ingField.appendChild(addIng);
   content.appendChild(ingField);
 
-  // Leavening default % + show-knob (only when a leavening is designated and the
-  // logic uses orders/both).
-  if (showLeaveningPicker && r.leaveningKey) {
-    const pct = el('input', {
-      class: 'cp-prod-weight', type: 'number', min: '0', max: '100', step: '0.05',
-      value: String(r.leaveningDefaultPct || 0), inputmode: 'decimal',
-    });
-    pct.addEventListener('input', () => { r.leaveningDefaultPct = +pct.value || 0; markDirty(); });
-    const showCb = el('input', { type: 'checkbox' });
-    showCb.checked = r.showLeavening !== false;
-    showCb.addEventListener('change', () => { r.showLeavening = showCb.checked; markDirty(); });
-    content.appendChild(el('div', { class: 'cp-field' }, [
-      el('label', { class: 'cp-label' }, 'Leavening'),
-      el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Default'), pct, el('span', { class: 'cp-unit' }, '%')]),
-      el('label', { class: 'cp-crate-label' }, [showCb, el('span', {}, t('calc.showTheAdjustKnob'))]),
-    ]));
+  // ── Leavening: ONE bounded box ──────────────────────────────────────────────
+  //
+  // ⚠️ IT USED TO BE A TICK ON EVERY INGREDIENT ROW. Choosing which ingredient is
+  // the yeast meant scanning N checkboxes — NINE of them on the real focaccia —
+  // and the box below only appeared AFTER one was ticked, so the setting was
+  // split across two places a screen apart. A dropdown is one control, in one
+  // place, that also says what the current answer IS without hunting for a tick.
+  if (showLeaveningPicker) {
+    content.appendChild(leaveningBox(r));
   }
 
   // Show as a calculator tab (≤4).
@@ -288,7 +305,22 @@ function renderRecipeDetail(ri) {
 function ingredientRow(recipe, ing, gi, listId, showLeaveningPicker) {
   const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: ing.label || '', placeholder: 'Ingredient', list: listId });
   if (showErrors && isBlank(ing.label)) nameInput.classList.add('cp-invalid');
-  nameInput.addEventListener('input', () => { ing.label = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
+  // ⚠️ THE LEAVENING DROPDOWN HAS TO FOLLOW THIS FIELD AS IT IS TYPED, and the old
+  // tick did not need to because it sat ON this row. Moving the picker into its
+  // own box put the ingredient's NAME and the list of names in two places, and the
+  // list is only built when the editor re-renders — which typing deliberately does
+  // NOT do, or the field would lose focus after every keystroke. Without this, you
+  // name an ingredient and the dropdown still offers "Unnamed ingredient".
+  //
+  // Found by looking at the screenshot: the driver picked the yeast by name and
+  // got "Nothing rises in this recipe", because the name it searched for was not
+  // in the list yet.
+  nameInput.addEventListener('input', () => {
+    ing.label = nameInput.value;
+    nameInput.classList.remove('cp-invalid');
+    syncLeaveningOption(ing, gi);
+    markDirty();
+  });
 
   const grams = el('input', {
     class: 'cp-prod-weight', type: 'number', min: '0', step: '0.1',
@@ -308,25 +340,127 @@ function ingredientRow(recipe, ing, gi, listId, showLeaveningPicker) {
     el('div', { class: 'cp-prod-card-row' }, [grams, el('span', { class: 'cp-unit' }, 'g')]),
   ];
 
-  // Designate this ingredient as the leavening (yeast/starter) for orders/both logics.
-  if (showLeaveningPicker) {
-    const cb = el('input', { type: 'checkbox' });
-    cb.checked = !!(recipe.leaveningKey && recipe.leaveningKey === ing.key && ing.key);
-    cb.addEventListener('change', () => {
-      // Ensure this ingredient has a stable key to reference.
-      if (!ing.key) ing.key = (ing.label || 'ing').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + gi;
-      if (cb.checked) {
-        recipe.leaveningKey = ing.key;
-        if (!recipe.leaveningDefaultPct) recipe.leaveningDefaultPct = 1;
-        if (recipe.baselinePct == null) recipe.baselinePct = recipe.leaveningDefaultPct;
-      } else if (recipe.leaveningKey === ing.key) {
-        recipe.leaveningKey = null;
-      }
-      markDirty();
-      renderEditor();
-    });
-    rows.push(el('label', { class: 'cp-crate-label' }, [cb, el('span', {}, t('calc.thisIsTheLeavening'))]));
+  // ⚠️ THE "this is the leavening" TICK IS GONE FROM HERE, and that is the point
+  // of this change. It was one checkbox on EVERY row — nine on the real focaccia —
+  // to answer a question with exactly one answer. It now lives once, as a
+  // dropdown, in the Leavening box below the ingredient list (see leaveningBox).
+  //
+  // A row that IS the leavening says so quietly, so the answer is still visible
+  // where the ingredients are, without being editable in two places.
+  if (showLeaveningPicker && ing.key && recipe.leaveningKey === ing.key) {
+    rows.push(el('div', { class: 'cp-hint cp-is-leavening' }, t('calc.thisIsTheLeavening')));
   }
 
   return el('div', { class: 'cp-prod-card' }, rows);
+}
+
+// ── The Leavening box ────────────────────────────────────────────────────────
+//
+// One bounded block holding the three things that belong together: WHICH
+// ingredient is the leavening, what percentage a phone starts from, and whether
+// the tab shows the knob at all.
+//
+// ⚠️⚠️ THE PERCENTAGE STAYS, AND THAT IS A DELIBERATE DEPARTURE FROM THE PLAN,
+// which said to remove it as a duplicate of the knob in the tab. It is NOT a
+// duplicate: the knob is saved per PHONE (localStorage `param-<recipeId>`, added
+// in v233), while this number lives in Firestore and is the value EVERY phone
+// starts from — a new device, or one that has had its data cleared, has nothing
+// else to read. Remove it and the shared starting point can never be corrected
+// again: the real Sourdough would sit at 18% for ever on every new phone, with
+// no screen anywhere able to change it.
+//
+// What the plan was right about is the duplication of EFFORT, and that is fixed
+// by saying plainly which number is which.
+function leaveningBox(recipe) {
+  const rows = [el('label', { class: 'cp-label' }, t('calc.leavening'))];
+
+  // ⚠️ THE EMPTY OPTION IS FIRST AND IS A REAL ANSWER. A recipe may legitimately
+  // have no leavening (nothing rises), and without it the only way back from a
+  // wrong choice would be to pick a different wrong one.
+  const select = el('select', { class: 'cp-prod-dough', 'aria-label': t('calc.leavening') });
+  select.appendChild(el('option', { value: '' }, t('calc.leaveningNone')));
+  recipe.ingredients.forEach((ing, i) => {
+    // An ingredient with no key cannot be pointed at yet; it gets one the moment
+    // it is chosen, exactly as the old tick did.
+    const value = ing.key || `#${i}`;
+    const option = el('option', { value }, ing.label || t('calc.unnamedIngredient'));
+    select.appendChild(option);
+  });
+  select.value = recipe.leaveningKey || '';
+
+  select.addEventListener('change', () => {
+    const picked = select.value;
+    if (!picked) {
+      recipe.leaveningKey = null;
+    } else {
+      const index = picked.startsWith('#') ? Number(picked.slice(1)) : -1;
+      const ing = index >= 0 ? recipe.ingredients[index]
+        : recipe.ingredients.find(i => i.key === picked);
+      if (ing) {
+        if (!ing.key) {
+          ing.key = (ing.label || 'ing').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+            + '-' + recipe.ingredients.indexOf(ing);
+        }
+        recipe.leaveningKey = ing.key;
+        if (!recipe.leaveningDefaultPct) recipe.leaveningDefaultPct = 1;
+        if (recipe.baselinePct == null) recipe.baselinePct = recipe.leaveningDefaultPct;
+      }
+    }
+    markDirty();
+    renderEditor();
+  });
+
+  rows.push(select);
+  // ⚠️ A LINE THAT EXPLAINS, NOT A TOOLTIP. Hovering needs a mouse, and the open
+  // dropdown is drawn by the phone's own operating system — the app cannot put a
+  // word inside it. .cp-hint is the app's existing explanation line.
+  rows.push(el('div', { class: 'cp-hint' }, t('calc.leaveningHint')));
+
+  // The rest of the box only means anything once something IS the leavening.
+  if (recipe.leaveningKey) {
+    const pct = el('input', {
+      class: 'cp-prod-weight', type: 'number', min: '0', max: '100', step: '0.05',
+      value: String(recipe.leaveningDefaultPct || 0), inputmode: 'decimal',
+    });
+    pct.addEventListener('input', () => {
+      recipe.leaveningDefaultPct = +pct.value || 0;
+      markDirty();
+    });
+
+    const showCb = el('input', { type: 'checkbox' });
+    showCb.checked = recipe.showLeavening !== false;
+    showCb.addEventListener('change', () => {
+      recipe.showLeavening = showCb.checked;
+      markDirty();
+      renderEditor();
+    });
+
+    rows.push(el('div', { class: 'cp-prod-card-row' }, [
+      el('span', { class: 'cp-unit' }, t('calc.leaveningStartAt')), pct,
+      el('span', { class: 'cp-unit' }, '%'),
+    ]));
+    // ⚠️ THE HINT CHANGES WITH THE ANSWER. With the knob on, this number is where
+    // every phone STARTS; with it off, it is the only number there is. Saying so
+    // is what makes keeping the field honest rather than confusing.
+    rows.push(el('div', { class: 'cp-hint' }, recipe.showLeavening !== false
+      ? t('calc.leaveningPctHintKnob')
+      : t('calc.leaveningPctHintFixed')));
+
+    rows.push(el('label', { class: 'cp-crate-label' },
+      [showCb, el('span', {}, t('calc.showTheAdjustKnob'))]));
+    rows.push(el('div', { class: 'cp-hint' }, t('calc.leaveningKnobHint')));
+  }
+
+  return el('div', { class: 'cp-field cp-leavening' }, rows);
+}
+
+// Keep one option's words in step with the row being typed into, WITHOUT
+// re-rendering — a re-render here would take the focus out of the field after
+// every keystroke. The option is found by the same value leaveningBox() gave it.
+function syncLeaveningOption(ing, index) {
+  const select = document.querySelector('.cp-leavening select');
+  if (!select) return;
+  const value = ing.key || `#${index}`;
+  const option = [...select.options].find(o => o.value === value);
+  if (option) option.textContent = ing.label || t('calc.unnamedIngredient');
 }

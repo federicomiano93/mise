@@ -1787,3 +1787,48 @@ body[data-section="calculator"] #settings-footer-btn { grid-column: 1 / -1; }
   padding: 4px 0 12px; font-family: 'Manrope', sans-serif;
   display: inline-flex; align-items: center; gap: 4px;
 }
+
+/* ── "How it calculates": three rows, each explaining itself ─────────────────
+   A dropdown can only explain the option already chosen, and the question here is
+   what the DIFFERENCE is. Side by side the three answers are compared BEFORE the
+   choice, not after. A tooltip was never an option: hovering needs a mouse, and an
+   open dropdown on a phone is drawn by the OS, so the app cannot reach inside it. */
+.cp-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'Manrope', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 60ms ease;
+}
+.cp-choice:active { transform: scale(.98); }
+.cp-choice--on { border-color: var(--accent); background: var(--accent-light); }
+.cp-choice-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.cp-choice--on .cp-choice-name { color: var(--accent); }
+/* ⚠️ --text2, not --text3: this line is the whole point of the row, and --text3
+   measures 4.20:1 against this background — under the 4.5:1 normal text needs. */
+.cp-choice-why { font-size: 13px; line-height: 1.45; color: var(--text2); }
+
+/* ── The Leavening box ──────────────────────────────────────────────────────
+   One bounded block holding the three things that belong together: which
+   ingredient rises, the percentage a phone starts from, and whether the tab shows
+   the knob. It replaces a tick on EVERY ingredient row — nine on the real
+   focaccia — to answer a question with exactly one answer. */
+.cp-leavening {
+  padding: 12px 14px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.cp-leavening .cp-prod-card-row { margin-top: 8px; }
+.cp-leavening .cp-crate-label { margin-top: 10px; }
+/* The row that IS the leavening says so, quietly, where the ingredients are —
+   visible without being editable in a second place. */
+.cp-is-leavening { color: var(--accent); font-weight: 600; }
