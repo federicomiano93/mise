@@ -576,6 +576,10 @@ const DICTIONARIES = Object.freeze({
     'orders.request.title': 'Order lists',
     'orders.request.open': 'Order lists',
     'orders.deliveries.tab': 'Incoming',
+    'orders.deliveries.owed': { one: '1 order from before this week — did it arrive?',
+                                other: '{n} orders from before this week — did they arrive?' },
+    'orders.weekStart.title': 'The working week',
+    'orders.weekStart.hint': 'Which day the week starts on. It decides what “this week” means on Incoming.',
     // ── How an order leaves the app ─────────────────────────────────────────
     'orders.send.button': 'Send',
     'orders.send.howTitle': 'How should this order go?',
@@ -1767,6 +1771,10 @@ const DICTIONARIES = Object.freeze({
     'orders.request.title': 'Liste d’ordine',
     'orders.request.open': 'Liste d’ordine',
     'orders.deliveries.tab': 'In arrivo',
+    'orders.deliveries.owed': { one: '1 ordine di prima di questa settimana — è arrivato?',
+                                other: '{n} ordini di prima di questa settimana — sono arrivati?' },
+    'orders.weekStart.title': 'La settimana lavorativa',
+    'orders.weekStart.hint': 'Da che giorno inizia la settimana. Decide cosa vuol dire «questa settimana» in In arrivo.',
     // ── Come esce un ordine dall'app ────────────────────────────────────────
     'orders.send.button': 'Invia',
     'orders.send.howTitle': 'Come mandiamo quest’ordine?',

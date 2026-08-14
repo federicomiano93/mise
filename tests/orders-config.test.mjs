@@ -41,12 +41,21 @@ test('a corrupt value leaves the screen alone rather than emptying it', () => {
 // appears without a line in this test has arrived by accident.
 test('it returns only the keys the screen uses, whatever else the document carries', () => {
   const out = normalizeOrdersConfig({ bakery: 'main', showStock: false, somethingElse: 42 });
-  assert.deepEqual(Object.keys(out), ['showStock', 'historyDays', 'sendSettings']);
+  assert.deepEqual(Object.keys(out), ['showStock', 'historyDays', 'sendSettings', 'weekStartsOn']);
 });
 
 // ⚠️ AND IT IS ALWAYS USABLE, whatever the document says. An order that cannot leave
 // the app at all is the one failure this whole feature must not be able to produce,
 // so a missing, empty or corrupt config still comes back with a road open.
+// ⚠️ AND THE WEEK IS ALWAYS USABLE TOO. An unreadable setting must not empty Incoming:
+// a screen showing nothing looks exactly like the feature working.
+test('a config with no week setting still has a week', () => {
+  [undefined, null, {}, { weekStartsOn: '' }, { weekStartsOn: ['Monday'] }].forEach(doc => {
+    assert.equal(normalizeOrdersConfig(doc).weekStartsOn, 'Sunday', JSON.stringify(doc));
+  });
+  assert.equal(normalizeOrdersConfig({ weekStartsOn: 'Monday' }).weekStartsOn, 'Monday');
+});
+
 test('a config with no send settings still leaves a road open', () => {
   [undefined, null, {}, { sendRoutes: null }, { sendRoutes: 'x' }].forEach(doc => {
     const s = normalizeOrdersConfig(doc);

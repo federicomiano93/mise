@@ -1661,3 +1661,17 @@ a.home-reminder {
 .send-setting-row .mgmt-check { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--brand); }
 .send-setting-name { flex: 1; min-width: 0; font-size: 14px; }
 .send-setting-hint { font-size: 12px; color: var(--text3); margin: 4px 0 10px; }
+
+/* ⚠️ IL DEBITO: il cartello che non tace mai da solo.
+   The re-order banner beside it switches off because the work got done; this one
+   switches off only because somebody ANSWERED. Painted in the app's own attention
+   colour — burnt orange, NOT green and NOT the danger red: it is a debt to settle,
+   not an alarm, and not a mistake. */
+.owed-banner {
+  width: 100%;
+  text-align: left;
+  background: var(--crust-bg);
+  border-color: var(--crust);
+  color: var(--crust-ink);
+  font-weight: 600;
+}
