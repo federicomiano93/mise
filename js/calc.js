@@ -16,6 +16,10 @@ import {
   isCrateEnabled, getCratePerBox, crateCount,
   getRecipeById, recipeSpec, showsLeaveningKnob,
 } from './calculator-config.js';
+// ⚠️ Where a tab's ingredients really come from. A screen reading
+// recipe.ingredients directly would see the tab's own leftover copy.
+import { effectiveRecipe } from './calculator-catalogue-link.js';
+import { canCalculate } from './calculator-recipe-source.js';
 import { getConfig } from './calculator-config-store.js';
 import { el } from './calculator-render.js';
 import { scaleRecipe } from './calculator-dough-math.js';
@@ -226,13 +230,29 @@ export function calc(id) {
     return;
   }
 
+  // ⚠️ THE INGREDIENTS COME THROUGH effectiveRecipe(), NEVER STRAIGHT OFF THE TAB.
+  // Once a tab is linked, recipe.ingredients is only its own leftover copy —
+  // exactly the stale data this change exists to stop using.
+  const source = effectiveRecipe(recipe);
+
+  // ⚠️ AND A RECIPE THAT CANNOT BE READ REFUSES RATHER THAN BAKING NOTHING. An
+  // empty ingredient list scales perfectly happily into a dough of zero, which is
+  // the July defect — data moved before the code could read it — wearing a
+  // different hat.
+  if (!canCalculate(source)) {
+    renderIngredients(id + '-ingredients', []);
+    lastRecipe[id] = null;
+    applyTabState(id);
+    return;
+  }
+
   const pct = leaveningPctFor(recipe);
-  const spec = recipeSpec(recipe);
+  const spec = recipeSpec(source);
   if (recipe.logic === 'total') spec.leaveningKey = null; // pure pro-rata, no leavening adjust
   const scaled = scaleRecipe(spec, target, pct);
-  const rows = recipe.ingredients.map((ing, i) => ({ name: ing.label, grams: scaled[i] || 0 }));
+  const rows = source.ingredients.map((ing, i) => ({ name: ing.label, grams: scaled[i] || 0 }));
   renderIngredients(id + '-ingredients', rows);
-  lastRecipe[id] = { rows, totalG: Math.round(target), name: recipe.name };
+  lastRecipe[id] = { rows, totalG: Math.round(target), name: source.name || recipe.name };
 
   const disp = document.getElementById(id + '-param-display');
   if (disp) disp.textContent = pct;
