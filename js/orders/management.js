@@ -107,21 +107,32 @@ export function buildManagement(data, actions) {
 
   // Everything that is a setting rather than a list: how the order screen looks, then
   // the alerts.
+  // ⚠️ FOUR SECTIONS, EACH ANSWERING A DIFFERENT QUESTION (Federico, 14 Aug 2026:
+  // «dividi in sezioni le impostazioni per renderle più chiare»). It was a flat list
+  // with two headings, and the send routes had been dropped under «the order screen» —
+  // where they do not belong: how an order LEAVES is not how the screen LOOKS.
+  //
+  // ⚠️ TWO OF THE FOUR ARE FOR WHOEVER RUNS THE PLACE, and the database says the same:
+  // config/orders is write-gated on canManage(). Hiding them is COURTESY — an employee
+  // who reached the screen anyway would simply have the write refused, which is the
+  // shape every guard in this app has (v269: hiding is not the feature).
   function renderGeneral() {
-    content.appendChild(el('h3', { class: 'mgmt-section-title', text: t('orders.orderScreen') }));
-    content.appendChild(buildStockToggle());
-    content.appendChild(buildHistoryDaysField());
-    // ⚠️ ONLY FOR WHOEVER RUNS THE PLACE, and the database says the same thing:
-    // config/orders is write-gated on canManage(). Hiding it here is COURTESY -
-    // an employee who reached it anyway would simply have the write refused, which
-    // is the shape every guard in this app has (v269: hiding is not the feature).
-    if (canManageHere()) content.appendChild(buildWeekStart());
-    if (canManageHere()) content.appendChild(buildSendRoutes());
+    const boss = canManageHere();
 
-    content.appendChild(el('h3', { class: 'mgmt-section-title', text: t('orders.section.alerts') }));
+    section('orders.section.orderScreen', [buildStockToggle(), buildHistoryDaysField()]);
+    if (boss) section('orders.weekStart.title', [buildWeekStart()]);
+    if (boss) section('orders.section.howSent', [buildSendRoutes()]);
+
     const box = el('div', { class: 'mgmt-notif' });
-    content.appendChild(box);
+    section('orders.section.alerts', [box]);
     renderNotificationSettings(box);
+  }
+
+  // One heading and its fields, so a section cannot end up with a title and nothing
+  // under it — or fields under somebody else's title.
+  function section(titleKey, fields) {
+    content.appendChild(el('h3', { class: 'mgmt-section-title', text: t(titleKey) }));
+    fields.filter(Boolean).forEach(f => content.appendChild(f));
   }
 
   // Show or hide the Stock box on every order row, for EVERY phone (it is stored in
@@ -189,8 +200,9 @@ export function buildManagement(data, actions) {
       }
     });
 
+    // ⚠️ NO TITLE OF ITS OWN — the section above owns it. Two headings for one block is
+    // how a "section" quietly becomes a flat list again.
     return el('div', { class: 'mgmt-field' }, [
-      el('h3', { class: 'mgmt-section-title', text: t('orders.weekStart.title') }),
       el('p', { class: 'send-setting-hint', text: t('orders.weekStart.hint') }),
       sel,
     ]);
