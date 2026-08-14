@@ -1704,3 +1704,47 @@ a.home-reminder {
    put a lone box against the edge under a centred name. `body.hide-stock` already
    exists and is applied before first paint, so nothing flashes. */
 body.hide-stock .ingredient-list .ing-fields { justify-content: center; }
+
+/* ── The order lists: a box of its own, above the bottom row ─────────────────
+   Federico, 14 Aug 2026: bigger, white normally, coloured when a list arrives, and
+   NOT green.
+
+   ⚠️ It is the only thing down here that carries work SOMEBODY ELSE IS WAITING ON, and
+   a button identical to Settings said the opposite. The colour is what makes it
+   findable without reading it — and unlike the banner at the top, which is an alarm and
+   correctly goes quiet, this is the DOOR and never disappears. That was the v1.31.1
+   defect: the tap that finished the job removed the only entrance.
+
+   ⚠️ Burnt orange, from tokens.css. NOT green, because he asked — and not a colour
+   invented here, because the shared system decides those and a screen that forks its
+   own is how two parts of one app stop looking like one app. */
+.requests-card-host { padding: 0 16px 8px; }
+.requests-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.requests-card-icon { display: flex; align-items: center; color: var(--text3); flex-shrink: 0; }
+.requests-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.requests-card-name { font-size: 15px; font-weight: 600; }
+.requests-card-sub { font-size: 12px; color: var(--text3); }
+
+/* ⚠️ THE WHOLE CARD CHANGES, not a dot in a corner. A badge is something you have to
+   already be looking at; a coloured surface is something you notice while looking at
+   something else, which is the whole job of this control. */
+.requests-card--waiting {
+  background: var(--crust-bg);
+  border-color: var(--crust);
+  color: var(--crust-ink);
+}
+.requests-card--waiting .requests-card-icon,
+.requests-card--waiting .requests-card-sub { color: var(--crust-ink); }
+.requests-card--waiting .requests-card-sub { font-weight: 600; }

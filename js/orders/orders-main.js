@@ -905,6 +905,44 @@ function renderRequestBanner() {
   ]));
 }
 
+// The permanent way in, above the bottom row.
+//
+// ⚠️ ONLY FOR WHOEVER RUNS THE PLACE (Federico, 14 Aug 2026). canManage() ALREADY means
+// owner, manager AND head chef — a head chef holds the `manager` role, so there is no
+// fourth level to invent and nothing for the three places that read a membership value
+// to learn. Inventing one is how somebody gets locked out rather than demoted (v268).
+//
+// ⚠️ AND IT HIDES THE DOOR, NOT THE ROOM. The rules still let anybody in the venue READ
+// the lists, and that is right: it is an EMPLOYEE who sends them, and whoever sent one
+// has every reason to check it again. Saying so plainly beats pretending this is a lock.
+//
+// ⚠️ WHITE UNTIL SOMETHING ARRIVES, THEN COLOURED. Unlike the banner at the top — which
+// is an alarm and correctly goes quiet once nothing needs attention — this is the door,
+// and the colour is what makes it findable without reading it. The v1.31.1 defect was
+// the tap that finished the job removing the only entrance.
+function renderRequestCard() {
+  const host = document.getElementById('requests-card-host');
+  if (!host) return;
+  host.textContent = '';
+  host.hidden = !canManageHere();
+  if (host.hidden) return;
+
+  const waiting = waitingRequests(state.requests).length;
+  host.appendChild(el('button', {
+    type: 'button',
+    class: `requests-card${waiting ? ' requests-card--waiting' : ''}`,
+    onClick: openRequestList,
+  }, [
+    el('span', { class: 'requests-card-icon', 'aria-hidden': 'true',
+      icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4"/></svg>' }),
+    el('span', { class: 'requests-card-text' }, [
+      el('span', { class: 'requests-card-name', text: t('orders.request.open') }),
+      el('span', { class: 'requests-card-sub',
+        text: waiting ? t('orders.request.waiting', { n: waiting }) : t('orders.request.none') }),
+    ]),
+  ]));
+}
+
 // "A", "A and B", "A, B and C".
 function listNames(names) {
   if (names.length <= 1) return names[0] || '';
@@ -1626,6 +1664,7 @@ async function init() {
   watchOrderRequests(list => {
     state.requests = list;
     renderRequestBanner();
+    renderRequestCard();
     // ⚠️ renderRequestList, NOT openRequestList: the latter resets the "show
     // older" choice, so a snapshot arriving while somebody was looking at the
     // older lists would fold them away under their thumb.

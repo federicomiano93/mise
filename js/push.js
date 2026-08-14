@@ -29,6 +29,9 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = () => getFirestore(app);
 
 const TOKENS = 'fcm-tokens';
+// What the switch DRAWS on the next open, mirrored so it needs no read to paint. The
+// server's copy is the one that decides.
+const MUTE_KEY = 'push-mute-order-requests';
 const TIMERS = 'push-timers';
 const TOKEN_KEY = 'push-token';
 
@@ -179,4 +182,33 @@ export async function cancelAlarm(id) {
     // actually protects against a phantom buzz; this is the fast path.
     console.warn('Could not cancel a scheduled notification:', err);
   }
+}
+
+// "Do not buzz this phone about order lists."
+//
+// ⚠️ A PROPERTY OF THE TOKEN, WHICH IS TO SAY OF THIS PHONE — not of the person.
+// Somebody may want the alert in their pocket and not on the tablet in the kitchen, and
+// it is the document the server already reads to decide who to send to, so it costs no
+// extra read (P14).
+//
+// ⚠️ AND SILENCING THE BUZZ NEVER SILENCES THE WORK. The coloured card and the banner
+// in the app stay exactly as they are; somebody coming back must not find an app that
+// looks empty. Same rule the holiday switch is built on.
+export async function muteOrderRequests(mute) {
+  const token = storedToken();
+  if (!token) return false;
+  await setDoc(doc(db(), pathFor(TOKENS), token), { muteOrderRequests: mute === true }, { merge: true });
+  return true;
+}
+
+export function orderRequestsMuted() {
+  try { return localStorage.getItem(MUTE_KEY) === '1'; } catch { return false; }
+}
+
+export function rememberMute(mute) {
+  // ⚠️ MIRRORED LOCALLY so the switch shows the right position on the next open without
+  // waiting for a read. The SERVER's copy is the one that decides; this is only what the
+  // screen draws, which is why a failed read here answers "not muted" — the safe
+  // direction is a phone that rings.
+  try { localStorage.setItem(MUTE_KEY, mute ? '1' : '0'); } catch { /* private mode */ }
 }

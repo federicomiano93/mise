@@ -1988,6 +1988,19 @@ async function roles() {
   await expectAllowed('a manager sets which day the week starts on',
     () => mergeWrite(`${L}/config/orders`, { ...stamp, weekStartsOn: 'Monday' }, asAccount(MAYA)));
 
+  // ── "Do not buzz me about order lists" ───────────────────────────────────
+  //
+  // ⚠️ Negatives first. A preference of one PHONE, on the phone's own token document.
+  await expectDenied('a mute flag sent as a string',
+    () => mergeWrite(`${L}/fcm-tokens/TOK1`,
+      { ...stamp, uid: MAYA.uid, updatedAt: 1, muteOrderRequests: 'yes' }, asAccount(MAYA)));
+  await expectAllowed('a phone silences order-list alerts for itself',
+    () => mergeWrite(`${L}/fcm-tokens/TOK1`,
+      { ...stamp, uid: MAYA.uid, updatedAt: 1, muteOrderRequests: true }, asAccount(MAYA)));
+  await expectAllowed('a phone that has not updated yet writes no flag at all',
+    () => mergeWrite(`${L}/fcm-tokens/TOK1`,
+      { ...stamp, uid: MAYA.uid, updatedAt: 1 }, asAccount(MAYA)));
+
   // ── Staff may not take away what everybody else's work rests on ──
   await expectDenied('staff cannot delete a supplier',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(SAM)));

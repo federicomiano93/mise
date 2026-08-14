@@ -34,6 +34,11 @@ import { ROUTES, validateRoutes, toStored } from './send-routes.js';
 // JS getDay() and day.js. Two lists with one name and different orders is a defect
 // waiting to be written; the syntax check caught the collision before it could be.
 import { WEEKDAYS as WEEK_START_DAYS, isValidWeekStart } from './work-week.js';
+// ⚠️ THE SWITCH LIVES HERE, NOT IN notifications.js. That file is importable under
+// Node and has its own test suite BECAUSE it touches no Firebase; importing push.js
+// into it pulled the SDK in from an https: URL and broke the whole suite at load.
+// A screen that already talks to Firestore is the right home for a control that does.
+import { muteOrderRequests, orderRequestsMuted, rememberMute } from '../push.js';
 import {
   CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
   pricePatch, priceChanged, priceRecord, pricePerKg,
@@ -124,7 +129,7 @@ export function buildManagement(data, actions) {
     if (boss) section('orders.section.howSent', [buildSendRoutes()]);
 
     const box = el('div', { class: 'mgmt-notif' });
-    section('orders.section.alerts', [box]);
+    section('orders.section.alerts', [box, buildMuteOrderRequests()]);
     renderNotificationSettings(box);
   }
 
@@ -159,6 +164,39 @@ export function buildManagement(data, actions) {
       el('label', { class: 'mgmt-toggle' }, [cb, el('span', { text: t('orders.showTheStockBox') })]),
       el('p', { class: 'notif-note', text:
         t('orders.turnThisOffIf') }),
+    ]);
+  }
+
+  // "Do not buzz this phone about order lists."
+  //
+  // ⚠️ ONE SWITCH, for the one alert somebody asked to be able to turn off. Not a switch
+  // per kind: five switches nobody asked for is five more things to get wrong.
+  //
+  // ⚠️ IT SILENCES THE BUZZ, NEVER THE WORK, and the note under it says so — somebody
+  // who turns this off and later finds an app that looks empty has been misled by their
+  // own setting. Same rule the holiday switch is built on.
+  //
+  // ⚠️ A PROPERTY OF THIS PHONE, not of the person: somebody may want the alert in their
+  // pocket and not on the tablet in the kitchen.
+  function buildMuteOrderRequests() {
+    const cb = el('input', { type: 'checkbox' });
+    cb.checked = orderRequestsMuted();
+    cb.addEventListener('change', async () => {
+      const wanted = cb.checked;
+      cb.disabled = true;
+      try {
+        await muteOrderRequests(wanted);
+        rememberMute(wanted);
+      } catch (err) {
+        cb.checked = !wanted;      // back to what is actually stored
+        await reportFailure('save', t('orders.mute.orderRequests'), err);
+      } finally {
+        cb.disabled = false;
+      }
+    });
+    return el('div', { class: 'mgmt-field' }, [
+      el('label', { class: 'mgmt-toggle' }, [cb, el('span', { text: t('orders.mute.orderRequests') })]),
+      el('p', { class: 'notif-note', text: t('orders.mute.stillShown') }),
     ]);
   }
 
