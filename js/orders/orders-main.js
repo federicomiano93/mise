@@ -256,6 +256,14 @@ function render() {
   if (!container) return;
   if (!state.loaded.suppliers || !state.loaded.ingredients) return;
 
+  // ⚠️ THE RE-ORDER BANNER READS THE DRAFT, so it has to be redrawn here as well
+  // as when history lands. The first driven run caught it: putting a missing
+  // ingredient back filled the row correctly and the banner stayed up, still asking
+  // for something already done — and a reminder that survives the action it asked
+  // for is one people learn to ignore. A keystroke does NOT reach render(), so this
+  // costs nothing per character typed.
+  renderIncoming();
+
   const suppliers = orderSupplierList();
   const hasSomething = suppliers.length > 0;
   setViewSwitchVisible(hasSomething);
@@ -524,7 +532,7 @@ function renderIncoming() {
       });
       await saveDraftNow(state.entries, state.days);
       syncInputsFromState();
-      render();
+      render();   // redraws the banner too — see the note at the top of render()
     },
   };
 
@@ -1619,6 +1627,13 @@ async function init() {
     state.loaded.suppliers = true;
     render();
     renderHistory();
+    // ⚠️ REDRAWN HERE TOO, AND THE FIRST DRIVEN RUN IS WHY. Incoming was painted
+    // only when history arrived; suppliers land in a SEPARATE snapshot, so on a
+    // cold open every order read "no delivery days set for this supplier" — for
+    // suppliers that had them — and stayed wrong until something else forced a
+    // repaint. Two live collections feed one screen, so both must redraw it. Same
+    // shape as the recipe cost that computed once and said "no cost yet" (v247).
+    renderIncoming();
     showAlerts();
     renderReminders();
     checkPendingOnce();

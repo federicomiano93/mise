@@ -1593,3 +1593,29 @@ a.home-reminder {
   color: var(--warn);
   font-weight: 600;
 }
+
+/* ── The bottom bar at three buttons, on the narrowest phones ────────────────
+   Measured, not guessed: at 320px the three buttons ran 2px past the right edge
+   and their labels had already wrapped to two lines. The cause is the flex
+   default `min-width: auto` — a flex item refuses to shrink below its own
+   content, so "Order lists" beside a 20px icon set a floor the row could not
+   meet. This bar has already cost this project a release, to a tab that wrapped
+   by 3px.
+
+   Stacking the icon ABOVE the label is the fix rather than a squeeze: it gives
+   the words the button's whole width, so nothing wraps and nothing overflows.
+
+   ⚠️ SCOPED TO THE ORDERS PAGE ON PURPOSE. calculator.html loads orders.css too,
+   and its own footer has two buttons with room to spare — an unscoped rule here
+   would restyle a screen this change has no business touching. Same trap as the
+   .ing-row collision that cost v181. */
+@media (max-width: 360px) {
+  body[data-section="orders"] .recipe-footer { gap: 6px; padding-left: 10px; padding-right: 10px; }
+  body[data-section="orders"] .recipe-footer-btn {
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 4px;
+    font-size: 12px;
+    min-width: 0;    /* the actual cure: let the item shrink below its content */
+  }
+}
