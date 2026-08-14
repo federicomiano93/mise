@@ -19,6 +19,7 @@
 
 import { recordDate, isLegacyRecord, wholeNumber } from './archive.js';
 import { parseISODate, toISODate, addDays, isBefore, weekdayOf } from './day.js';
+import { inCurrentWeek, beforeCurrentWeek, DEFAULT_WEEK_START } from './work-week.js';
 
 // How far ahead "coming" reaches. Beyond this an order is still pending, it is
 // simply not shown as imminent.
@@ -86,7 +87,8 @@ export function expectedDeliveryOn(order, supplier) {
 //
 // ⚠️ AN ORDER WITH NO EXPECTED DATE IS NEVER "late" — we do not know that it is. It
 // sits at the end of `coming`, visible, waiting for somebody to confirm it.
-export function pendingDeliveries(orders, suppliersById, today, { aheadDays = AHEAD_DAYS } = {}) {
+export function pendingDeliveries(orders, suppliersById, today,
+                                  { aheadDays = AHEAD_DAYS, weekStartsOn = DEFAULT_WEEK_START } = {}) {
   const out = { late: [], dueToday: [], coming: [] };
   if (!today) return out;
 
@@ -96,6 +98,17 @@ export function pendingDeliveries(orders, suppliersById, today, { aheadDays = AH
     // The pre-v179 weekly records merged every supplier into one document, so they
     // cannot name a delivery. They stay readable in History and are not deliveries.
     if (!order || isLegacyRecord(order) || isDelivered(order)) return;
+
+    // ⚠️⚠️ THIS WINDOW IS THE FEATURE, NOT A TIDY-UP (Federico, 14 Aug 2026). Without
+    // it his real venue opens this screen on 34 orders, the oldest from 11 July, every
+    // one of them marked late — because the delivery fields did not exist when they
+    // were recorded, so they all read "never arrived". None of that is work anybody is
+    // waiting on.
+    //
+    // ⚠️ AND WHAT FALLS OUTSIDE IS NOT DROPPED: beforeCurrentWeek() feeds
+    // unansweredBefore() below, which is what puts it in front of somebody instead.
+    // The week does not expire in silence.
+    if (!inCurrentWeek(recordDate(order), today, weekStartsOn)) return;
 
     const supplier = suppliersById?.[order.supplierId] || null;
     const expected = expectedDeliveryOn(order, supplier);
@@ -189,4 +202,24 @@ export function applyReorder(items, draftEntries) {
   });
 
   return { applied, skipped };
+}
+
+// Everything ordered before this week that nobody has answered for.
+//
+// ⚠️⚠️ THIS IS THE OTHER HALF OF THE WINDOW, AND WITHOUT IT THE WINDOW IS A LEAK.
+// Federico asked for both «only the current week» and «an obligation to tick, because
+// otherwise you lose the control the app gives you» — and taken literally those
+// contradict: a strict window makes an order that never arrived vanish on the day the
+// week turns, unanswered, which is precisely the control he does not want to lose.
+//
+// So the list is the week and THIS is the debt. An order leaves the app's attention
+// when somebody has said what happened to it, never because a date passed.
+export function unansweredBefore(orders, today, { weekStartsOn = DEFAULT_WEEK_START } = {}) {
+  if (!today) return [];
+  return (orders || [])
+    .filter(o => o && !isLegacyRecord(o) && !isDelivered(o)
+      && beforeCurrentWeek(recordDate(o), today, weekStartsOn))
+    // Oldest first: the one that has been waiting longest is the one to settle first,
+    // and it is also the one nobody can still remember.
+    .sort((a, b) => String(recordDate(a)).localeCompare(String(recordDate(b))));
 }

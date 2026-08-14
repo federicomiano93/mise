@@ -1973,6 +1973,21 @@ async function roles() {
   await expectDenied('a preferred road sent as a number',
     () => mergeWrite(`${L}/config/orders`, { ...stamp, preferredRoute: 3 }, asAccount(MAYA)));
 
+  // ── Which day the working week starts on ─────────────────────────────────
+  //
+  // ⚠️ Negatives first, and the LIST one is deliberate: `String(['Monday'])` is
+  // 'Monday', so a list holding a valid day nearly became a decision in the app
+  // itself. The rules refuse the shape as well, because a phone can be running old
+  // code while the rules are always current.
+  await expectDenied('staff cannot change which day the week starts on',
+    () => mergeWrite(`${L}/config/orders`, { ...stamp, weekStartsOn: 'Monday' }, asAccount(SAM)));
+  await expectDenied('a week start sent as a list',
+    () => mergeWrite(`${L}/config/orders`, { ...stamp, weekStartsOn: ['Monday'] }, asAccount(MAYA)));
+  await expectDenied('a week start sent as a number',
+    () => mergeWrite(`${L}/config/orders`, { ...stamp, weekStartsOn: 2 }, asAccount(MAYA)));
+  await expectAllowed('a manager sets which day the week starts on',
+    () => mergeWrite(`${L}/config/orders`, { ...stamp, weekStartsOn: 'Monday' }, asAccount(MAYA)));
+
   // ── Staff may not take away what everybody else's work rests on ──
   await expectDenied('staff cannot delete a supplier',
     () => deleteWrite(`${L}/suppliers/S1`, asAccount(SAM)));

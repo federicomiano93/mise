@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AHEAD_DAYS, isDelivered, shortfall, expectedDeliveryOn,
-  pendingDeliveries, stillToReorder, applyReorder,
+  pendingDeliveries, stillToReorder, applyReorder, unansweredBefore,
 } from '../js/orders/deliveries.js';
 
 // 2026-08-14 is a Friday.
@@ -31,17 +31,55 @@ const ids = list => list.map(e => e.order.date + '/' + e.order.supplierId);
 
 // ── ⚠️ NOTHING THAT NEVER ARRIVED MAY DISAPPEAR ──────────────────────────────
 
-// ⚠️ THE ONE THAT DEFINES THE FEATURE. An order expected three weeks ago and never
-// confirmed must still be on screen, and first. Every window-based design loses it.
-test('⚠️ an order weeks overdue is still listed, and listed FIRST', () => {
-  const ancient = order({ date: '2026-07-06' });          // expected 2026-07-09
-  const soon = order({ date: '2026-08-13' });             // expected 2026-08-17
+// ⚠️⚠️ THIS TEST USED TO ASSERT THE OPPOSITE, AND THE CHANGE IS THE POINT. It said an
+// order three weeks overdue must still be in the list; since 14 Aug the list is the
+// CURRENT WEEK, because in the real venue that rule put 34 stale orders on screen, all
+// marked late. What replaced it is not "the old one is gone" but "the old one MOVED" —
+// out of the daily list and into the debt, which is the half that keeps the promise.
+test('⚠️ an order from weeks ago LEAVES the list — and lands in the debt, not in nothing', () => {
+  const ancient = order({ date: '2026-07-06' });
+  const soon = order({ date: '2026-08-13' });             // Thursday of this week
   const out = pendingDeliveries([soon, ancient], SUPPLIERS, TODAY);
 
-  assert.equal(out.late.length, 1, 'the ancient order must be late, not gone');
-  assert.equal(out.late[0].order.date, '2026-07-06');
-  assert.equal(out.late[0].expected, '2026-07-09');
+  assert.equal(out.late.length, 0, 'no longer cluttering the daily list');
   assert.deepEqual(ids(out.coming), ['2026-08-13/weekly']);
+
+  assert.deepEqual(unansweredBefore([soon, ancient], TODAY).map(o => o.date), ['2026-07-06'],
+    'and it is owed an answer — the week does not expire in silence');
+});
+
+// ⚠️ THE HALF THAT KEEPS THE PROMISE. A strict week window on its own makes an order
+// that never arrived vanish, unanswered, on the day the week turns — exactly the
+// control Federico said he must not lose.
+test('⚠️ the debt is oldest first, and a confirmed order is never in it', () => {
+  const old1 = order({ date: '2026-07-06' });
+  const old2 = order({ date: '2026-07-20' });
+  const done = order({ date: '2026-07-13', deliveredAt: '2026-07-15' });
+  assert.deepEqual(unansweredBefore([old2, done, old1], TODAY).map(o => o.date),
+    ['2026-07-06', '2026-07-20']);
+});
+
+test('this week is never in the debt, and neither is a legacy weekly record', () => {
+  const thisWeek = order({ date: '2026-08-13' });
+  const legacy = { weekStart: '2026-07-06', quantities: { flour: 5 } };
+  assert.deepEqual(unansweredBefore([thisWeek, legacy], TODAY), []);
+  assert.deepEqual(unansweredBefore(null, TODAY), []);
+  assert.deepEqual(unansweredBefore([thisWeek], ''), []);
+});
+
+// ⚠️ The setting moves BOTH halves at once, or one would quietly disagree with the
+// other about which week an order is in.
+test('⚠️ a Monday start moves the window and the debt together', () => {
+  const sunday = order({ date: '2026-08-09' });   // this week only if weeks start Sunday
+  const asSunday = pendingDeliveries([sunday], SUPPLIERS, TODAY, { weekStartsOn: 'Sunday' });
+  const asMonday = pendingDeliveries([sunday], SUPPLIERS, TODAY, { weekStartsOn: 'Monday' });
+  const count = o => o.late.length + o.dueToday.length + o.coming.length;
+
+  assert.equal(count(asSunday), 1);
+  assert.equal(count(asMonday), 0);
+  assert.deepEqual(unansweredBefore([sunday], TODAY, { weekStartsOn: 'Monday' }).map(o => o.date),
+    ['2026-08-09'], 'what left the list is owed an answer, never dropped');
+  assert.deepEqual(unansweredBefore([sunday], TODAY, { weekStartsOn: 'Sunday' }), []);
 });
 
 // ⚠️ AN UNREADABLE STAMP MEANS "NOT DELIVERED", never "delivered". A corrupt value

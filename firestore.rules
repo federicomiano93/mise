@@ -955,6 +955,8 @@ service cloud.firestore {
                'showStock', 'historyDays',
                // Which roads an order may leave by, and which is offered first.
                'sendRoutes', 'preferredRoute',
+               // Which day the working week starts on.
+               'weekStartsOn',
                // Retired, still writable by an un-updated phone (see above)
                'products', 'groups', 'focaccia', 'brioche', 'sourdough', 'market'
              ])
@@ -1001,6 +1003,19 @@ service cloud.firestore {
           && (!('preferredRoute' in request.resource.data)
               || (request.resource.data.preferredRoute is string
                   && request.resource.data.preferredRoute.size() <= 32))
+          // Which day the working week starts on — it decides what "this week" means
+          // on the Incoming screen.
+          //
+          // ⚠️ A STRING, CHECKED AS ONE. The app already refuses anything that is not
+          // a plain string (a LIST holding 'Monday' stringifies to 'Monday', which is
+          // how a list nearly became a decision), and the rules refuse it too: two
+          // guards for one fact, because the app can be old on a phone while the rules
+          // are always current.
+          //
+          // ⚠️ OPTIONAL IN BOTH DIRECTIONS, like every field here.
+          && (!('weekStartsOn' in request.resource.data)
+              || (request.resource.data.weekStartsOn is string
+                  && request.resource.data.weekStartsOn.size() <= 16))
           // Which days the WhatsApp order form fills itself from. A closed set: this
           // value decides which quantities are offered for a message sent to a real
           // client, so an unrecognised one must not reach the database in the first
