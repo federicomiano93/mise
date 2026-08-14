@@ -71,14 +71,14 @@ export function buildHistoryEditor(record, ingredients, actions) {
       ]),
       el('div', { class: 'ing-fields' }, [
         el('label', { class: 'field order-field' }, [
-          el('span', { class: 'field-label', text: 'Order' }),
+          el('span', { class: 'field-label', text: t('orders.field.order') }),
           el('div', { class: 'ing-order-input' }, [
             qtyInput,
             row.unit ? el('span', { class: 'ing-order-unit', text: row.unit }) : null,
           ]),
         ]),
         el('label', { class: 'field stock-field' }, [
-          el('span', { class: 'field-label', text: 'Stock' }), stockInput,
+          el('span', { class: 'field-label', text: t('orders.field.stock') }), stockInput,
         ]),
       ]),
     ]);

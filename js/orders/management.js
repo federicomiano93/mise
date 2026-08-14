@@ -73,7 +73,7 @@ export function buildManagement(data, actions) {
   const overlay = el('div', { class: 'mgmt-overlay' }, [
     el('header', { class: 'orders-header' }, [
       el('button', { type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back', icon: BACK_ICON, onClick: handleBack }),
-      el('div', { class: 'orders-header-title' }, [el('h1', { text: 'Management' })]),
+      el('div', { class: 'orders-header-title' }, [el('h1', { text: t('ui.settings') })]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),
     tabBar,
@@ -118,7 +118,7 @@ export function buildManagement(data, actions) {
     if (canManageHere()) content.appendChild(buildWeekStart());
     if (canManageHere()) content.appendChild(buildSendRoutes());
 
-    content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Alerts' }));
+    content.appendChild(el('h3', { class: 'mgmt-section-title', text: t('orders.section.alerts') }));
     const box = el('div', { class: 'mgmt-notif' });
     content.appendChild(box);
     renderNotificationSettings(box);
@@ -618,7 +618,7 @@ export function buildManagement(data, actions) {
     refresh();
 
     const node = el('div', {}, [
-      el('h3', { class: 'mgmt-section-title', text: 'Price' }),
+      el('h3', { class: 'mgmt-section-title', text: t('orders.section.price') }),
       field(t('orders.howItIsBought'), unitSelect),
       el('label', { class: 'mgmt-field' }, [rateLabel, rate, rateHint]),
       pieceField,
