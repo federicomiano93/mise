@@ -575,6 +575,7 @@ const DICTIONARIES = Object.freeze({
     'orders.request.sendFailed': 'The list was NOT sent — it is still here. Check the connection and try again.',
     'orders.request.title': 'Order lists',
     'orders.request.open': 'Order lists',
+    'orders.deliveries.tab': 'Incoming',
     'orders.request.waiting': {
       one: '{n} order list to place',
       other: '{n} order lists to place',
@@ -1719,6 +1720,7 @@ const DICTIONARIES = Object.freeze({
     'orders.request.sendFailed': 'La lista NON è stata mandata — è ancora qui. Controlla la connessione e riprova.',
     'orders.request.title': 'Liste d’ordine',
     'orders.request.open': 'Liste d’ordine',
+    'orders.deliveries.tab': 'In arrivo',
     'orders.request.waiting': {
       one: '{n} lista d’ordine da fare',
       other: '{n} liste d’ordine da fare',
