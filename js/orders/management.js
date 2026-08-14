@@ -28,6 +28,7 @@ import { renderNotificationSettings } from './notifications.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
 import { buildSearchBox } from './search-box.js';
+import { ROUTES, validateRoutes, toStored } from './send-routes.js';
 import {
   CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
   pricePatch, priceChanged, priceRecord, pricePerKg,
@@ -105,6 +106,11 @@ export function buildManagement(data, actions) {
     content.appendChild(el('h3', { class: 'mgmt-section-title', text: t('orders.orderScreen') }));
     content.appendChild(buildStockToggle());
     content.appendChild(buildHistoryDaysField());
+    // ⚠️ ONLY FOR WHOEVER RUNS THE PLACE, and the database says the same thing:
+    // config/orders is write-gated on canManage(). Hiding it here is COURTESY -
+    // an employee who reached it anyway would simply have the write refused, which
+    // is the shape every guard in this app has (v269: hiding is not the feature).
+    if (canManageHere()) content.appendChild(buildSendRoutes());
 
     content.appendChild(el('h3', { class: 'mgmt-section-title', text: 'Alerts' }));
     const box = el('div', { class: 'mgmt-notif' });
@@ -137,6 +143,71 @@ export function buildManagement(data, actions) {
       el('p', { class: 'notif-note', text:
         t('orders.turnThisOffIf') }),
     ]);
+  }
+
+  // Which roads an employee may send an order by.
+  //
+  // ⚠️ THE SWITCHES SAY WHAT AN EMPLOYEE MAY USE. Whoever runs the place keeps all
+  // four whatever they say - if they applied to everybody, closing WhatsApp to hold
+  // an employee back would disarm the very person who then has to reach the
+  // supplier, and the order could never leave the building. The hint under the
+  // title says so, because a switch whose scope is invisible is a switch that gets
+  // set wrongly.
+  //
+  // ⚠️ AND IT IS A SIGNPOST, NOT A LOCK. WhatsApp and email live outside this app,
+  // so nothing here can stop a person opening WhatsApp themselves. What it does is
+  // take the road out of the app, so nobody takes it by habit - and the message is
+  // BUILT here, so going round it means retyping thirty ingredients.
+  function buildSendRoutes() {
+    const current = data.ordersConfig().sendSettings;
+    const routes = { ...current.routes };
+    let preferred = current.preferred;
+
+    const box = el('div', { class: 'mgmt-field' }, [
+      // ⚠️ .mgmt-section-title, NOT a new class. The first draft invented
+      // .mgmt-subtitle, which is defined in NO stylesheet — the heading would
+      // simply have had no styling, silently, which is the same family of defect
+      // as the undefined custom properties that left three screens flush to the
+      // edge of the phone. Checked before shipping, not after.
+      el('h3', { class: 'mgmt-section-title', text: t('orders.send.settingsTitle') }),
+      el('p', { class: 'send-setting-hint', text: t('orders.send.settingsHint') }),
+    ]);
+
+    ROUTES.forEach(route => {
+      const cb = el('input', { type: 'checkbox', class: 'mgmt-check' });
+      cb.checked = routes[route] === true;
+      cb.addEventListener('change', async () => {
+        const wanted = { ...routes, [route]: cb.checked };
+        const verdict = validateRoutes(wanted, preferred);
+        // ⚠️ THE LAST ROAD CANNOT BE CLOSED, and the refusal is SAID. Left silent it
+        // would read as a switch that mysteriously will not stay off.
+        if (!verdict.ok) {
+          cb.checked = true;
+          await alertDialog(t('orders.send.mustKeepOne'));
+          return;
+        }
+        cb.disabled = true;
+        try {
+          await actions.saveOrdersConfig(toStored(verdict.routes, verdict.preferred));
+          Object.assign(routes, verdict.routes);
+          preferred = verdict.preferred;
+        } catch (err) {
+          cb.checked = !cb.checked;      // back to what is actually stored
+          await reportFailure('save', t('orders.send.settingsTitle'), err);
+        } finally {
+          cb.disabled = false;
+        }
+      });
+      box.appendChild(el('label', { class: 'send-setting-row' }, [
+        cb,
+        el('span', { class: 'send-setting-name', text: t(`orders.send.route.${route}`) }),
+      ]));
+    });
+
+    // ⚠️ SAID PLAINLY, because believing an email has gone when it is sitting in a
+    // drafts folder is the worst outcome this road has.
+    box.appendChild(el('p', { class: 'send-setting-hint', text: t('orders.send.emailOpensApp') }));
+    return box;
   }
 
   // How far back the History tab reaches before asking. The app is mostly used by
