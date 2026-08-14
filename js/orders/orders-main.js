@@ -47,11 +47,12 @@ import { mountIngredientList } from './ingredient-list.js';
 import { orderSummary } from './ingredient-search.js';
 import {
   watchOrderRequests, sendOrderRequest, setOrderRequestDone, finishOrderRequest,
-  deleteOrderRequest, getOwnMemberRow,
+  deleteOrderRequest, getOwnMemberRow, getRosterOnce, getAwayDaysOnce,
 } from './firebase-orders.js';
 import {
   buildOrderRequest, senderName, waitingRequests, remainingIds, isRequestDone,
 } from './order-request-model.js';
+import { awayUids, nobodyWillBeTold, awayNames } from '../away-model.js';
 import {
   buildRequestListScreen, buildRequestScreen, confirmFinish, confirmDeleteRequest,
   resetRequestWindow,
@@ -637,10 +638,21 @@ async function sendListToManagers(supplierIds) {
     return;
   }
 
+  const { user } = currentSession();
+
+  // ⚠️⚠️ THE WARNING THAT MAKES THE HOLIDAY SWITCH SAFE. If everybody who runs
+  // the place is away, this list reaches NOBODY — and the sender, who used to
+  // know their order had gone because they sent it themselves, would be told
+  // "sent" and nothing else. Asked BEFORE the write, so it is a decision rather
+  // than a discovery a week later.
+  //
+  // ⚠️ It never BLOCKS the send: the list still belongs in the app, where the
+  // banner and the badge keep showing it. It only refuses to be silent about it.
+  if (!await confirmIfNobodyIsListening(user?.uid)) return;
+
   setStatus(t('orders.request.sending'), null);
   // The sender's own name, so the list arrives from a person rather than a uid.
   // It must never be able to stop the send — see getOwnMemberRow.
-  const { user } = currentSession();
   const member = await getOwnMemberRow();
   const payload = buildOrderRequest({
     suppliers,
@@ -665,6 +677,43 @@ async function sendListToManagers(supplierIds) {
     console.error('Sending the order list failed:', err);
     setStatus(t('orders.request.sendFailed'), 'error');
   }
+}
+
+// Would anybody actually hear this list? Returns true to go ahead.
+//
+// ⚠️ EVERY FAILURE HERE MEANS "GO AHEAD SILENTLY". An unreadable roster, a
+// refused read, a venue that has never filled one in — none of them is evidence
+// that nobody is listening, and a warning that fires on no evidence is one people
+// learn to tap through, taking the real one with it.
+async function confirmIfNobodyIsListening(senderUid) {
+  let roster = [];
+  let away = new Set();
+  try {
+    const [people, holidays] = await Promise.all([getRosterOnce(), getAwayDaysOnce()]);
+    roster = people;
+    away = awayUids(holidays.map(h => ({ ...h, uid: h.uid || h.id })));
+  } catch (err) {
+    console.warn('Could not check who is listening; sending anyway:', err);
+    return true;
+  }
+
+  if (!nobodyWillBeTold(roster, away, senderUid)) return true;
+
+  // The model hands back '' for somebody with no name at all (it has no
+  // dictionary — see away-model.js); the word belongs here.
+  const names = awayNames(roster, away, senderUid)
+    .map(n => n || t('orders.request.someone'));
+  return confirmDialog({
+    title: t('away.nobodyTitle'),
+    // ⚠️ `n` IS THE COUNT, so the verb agrees. "Federico, Giulia is away" was on
+    // the screen — two people and a singular verb — and no measurement would ever
+    // have reported it. Intl decides the form; nothing here counts.
+    message: names.length
+      ? t('away.nobodyMessage', { names: names.join(', '), n: names.length })
+      : t('away.nobodyMessagePlain'),
+    okLabel: t('away.sendAnyway'),
+    cancelLabel: t('ui.cancel'),
+  });
 }
 
 // ── The lists somebody sent ───────────────────────────────────────────────────

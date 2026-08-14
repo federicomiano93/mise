@@ -70,6 +70,8 @@ export const COLLECTIONS = {
   // read-only here and written by nobody (a Cloud Function owns it), which is why
   // reaching for it does not make Orders depend on the staff feature.
   members: 'members',
+  // Who has said 'do not buzz my phone, I am on holiday'.
+  away: 'away',
   // Shared with the Calculator, which keeps config/calculator here. Orders uses
   // config/orders. The rules match /config/{doc} generically, so this needed no
   // change to firestore.rules.
@@ -452,4 +454,47 @@ export async function getRecentOrderRequestsOnce(days = 30) {
     where('date', '>=', iso),
   ));
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ── "I am on holiday" ────────────────────────────────────────────────────────
+//
+// One document per person, in `away`. It lives in the Orders data layer because
+// Orders is what it silences and what has to warn about it — and because putting
+// it anywhere else would mean a second file that knows how to reach Firestore.
+
+export async function watchAwayDays(onChange, onError) {
+  await authReady;
+  return onSnapshot(
+    collection(db, pathFor(COLLECTIONS.away)),
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => {
+      // ⚠️ A FAILED READ MEANS "NOBODY IS AWAY", which is what the empty list
+      // below produces: phones ring. The recoverable direction — see the model.
+      console.warn('Could not read who is away; treating everybody as available:', err);
+      onChange([]);
+      onError?.(err);
+    },
+  );
+}
+
+export async function getAwayDaysOnce() {
+  await authReady;
+  const snap = await getDocs(collection(db, pathFor(COLLECTIONS.away)));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// The roster, so a screen can put NAMES on who will be told.
+//
+// ⚠️ A LABEL, NEVER A DECISION. users/{uid} — the document the rules and the
+// server actually read — is readable only by its own owner, so no phone can know
+// for certain who runs the place. This is what the app can see, and it is used
+// only to say something helpful before a list is sent.
+export async function getRosterOnce() {
+  await authReady;
+  const snap = await getDocs(collection(db, pathFor(COLLECTIONS.members)));
+  return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+}
+
+export async function saveAwayDay(uid, doc) {
+  return saveDoc(COLLECTIONS.away, uid, doc);
 }

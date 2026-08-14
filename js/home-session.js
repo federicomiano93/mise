@@ -118,6 +118,20 @@ function renderSessionActions(session) {
   // how an administrator reaches it. Putting it back here would restore the
   // three-scopes-in-one-list problem Federico spotted on his own phone.
 
+  // ⚠️ IT SITS BESIDE LOG OUT BECAUSE IT IS A FACT ABOUT THE PERSON, not about
+  // the venue — the same reason Log out is here and not in the green header. It
+  // is added asynchronously (it has to read the person's own holiday first), so
+  // it appends itself when it arrives rather than holding the strip up.
+  //
+  // ⚠️ AND IT IS OFFERED TO EVERYBODY, not only to managers. An employee's phone
+  // rings too — for a client's order — and being told "you may not go on holiday"
+  // by an app is absurd. Who it SILENCES is decided by who would have been
+  // notified, which is the server's job.
+  import('./away-screen.js')
+    .then(({ buildAwayButton }) => buildAwayButton())
+    .then(btn => { if (btn && logoutHost.isConnected) logoutHost.prepend(btn); })
+    .catch(err => console.warn('The holiday button is not available:', err));
+
   logoutHost.append(button(t('auth.logOut'), 'session-logout', async () => {
     const ok = await confirmDialog({
       title: t('auth.logOut.title'),
@@ -150,9 +164,19 @@ function renderUpArrow(session) {
   }
 }
 
+let currentSessionForStrip = null;
+
 onSession(session => {
   if (session.status !== 'ready') return;
+  currentSessionForStrip = session;
   filterCards(session.location, session.role);
   renderUpArrow(session);
   renderSessionActions(session);
+});
+
+// ⚠️ THE BUTTON IS REBUILT, NOT PATCHED, when the holiday changes. Its words are
+// derived from the stored date, so editing the label by hand is how a screen ends
+// up saying "On holiday until Friday" about a holiday that was just cancelled.
+window.addEventListener('away-changed', () => {
+  if (currentSessionForStrip) renderSessionActions(currentSessionForStrip);
 });

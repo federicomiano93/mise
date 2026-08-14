@@ -146,6 +146,41 @@ test('the server and the app share ONE push model, byte for byte', () => {
   );
 });
 
+// ⚠️ THE THIRD COPY, AND IT DECIDES WHETHER A PHONE RINGS AT ALL. The app reads
+// away-model.js to warn the sender that nobody is listening; the server reads it
+// to decide who to skip. If the two ever disagree, the screen says "Marco will be
+// told" while the server quietly tells nobody — and, as with push-model, no
+// amount of driving the app can reveal it, because nothing on a phone ever loads
+// the server's copy.
+//
+// ⚠️ It is why that file has NO IMPORTS: a copy that must be edited to run on the
+// server is a copy that drifts, which is the danger this test exists to prevent.
+test('the server and the app share ONE holiday model, byte for byte', () => {
+  const reference = read('js/away-model.js');
+  const copy = read('functions/away-model.js');
+  const diff = firstDifference(reference, copy);
+  assert.equal(
+    diff,
+    null,
+    diff &&
+      `functions/away-model.js has drifted from js/away-model.js at line ${diff.line}.\n` +
+        `  js/away-model.js:        ${diff.expected}\n` +
+        `  functions/away-model.js: ${diff.actual}\n` +
+        'Copy the file across. The app warns the sender that nobody is listening ' +
+        'and the server decides who to skip — if they disagree, a screen promises ' +
+        'somebody will be told and no phone ever rings.',
+  );
+});
+
+test('the holiday model has no imports, so the copy can BE a copy', () => {
+  const source = read('js/away-model.js');
+  const imports = source.split('\n').filter(l => /^import\s/.test(l.trim()));
+  assert.deepEqual(imports, [],
+    'away-model.js imported something — a deploy uploads only functions/, so ' +
+    '../js would resolve locally and be missing in the cloud. Move whatever needs ' +
+    'the dictionary out to the screen instead.');
+});
+
 // ---------------------------------------------------------------------------
 // 2. dom.js — five copies, already different on purpose
 // ---------------------------------------------------------------------------
