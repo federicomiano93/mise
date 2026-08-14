@@ -10,9 +10,10 @@
 // `suggest(ingredientId, stock)` returns the suggestion engine result.
 
 import { t } from '../i18n.js';
-import { el, groupBy } from './dom.js';
+import { el } from './dom.js';
 import { isUnusualQuantity } from './suggestions.js';
 import { wholeNumber } from './archive.js';
+import { groupByCategory } from './ingredient-category.js';
 
 // How many of a supplier's ingredients already have a quantity entered — used to
 // paint the progress bar correctly on first render (before any typing), so a
@@ -56,15 +57,19 @@ export function buildIngredientList(supplier, ingredients, suggest, entries, hoo
 
   const body = el('div', { class: 'ingredient-list' }, [progress]);
 
-  const byCategory = groupBy(ingredients, 'category');
-  Object.keys(byCategory).sort().forEach(category => {
-    // "Other" is the default, no-information category — its header adds only noise,
-    // so show a category heading only for real categories.
-    if (category && category !== 'Other') {
-      body.appendChild(el('div', { class: 'ing-category' }, category));
-    }
-    byCategory[category]
-      .sort((a, b) => a.name.localeCompare(b.name))
+  // ⚠️ THE GROUPING IS NOT DONE HERE. It used to be, with a bare
+  // `Object.keys(groupBy(...)).sort()`, and it produced a heading reading
+  // "undefined" for a row whose category field was absent, filed 'Other' bare
+  // under whatever heading happened to precede it, and split one category in two
+  // when a value carried a trailing space. ingredient-category.js is now the ONE
+  // answer, shared with the read-only supplier-items screen — two screens
+  // disagreeing about which heading a row belongs under is how somebody orders
+  // the wrong thing.
+  groupByCategory(ingredients).forEach(({ category, items }) => {
+    if (category) body.appendChild(el('div', { class: 'ing-category' }, category));
+    items
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
       .forEach(ing => body.appendChild(buildRow(ing, supplier, suggest, entries, hooks)));
   });
 
