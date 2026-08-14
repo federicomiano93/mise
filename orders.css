@@ -1675,3 +1675,32 @@ a.home-reminder {
   color: var(--crust-ink);
   font-weight: 600;
 }
+
+/* ── The supplier's order rows, made calmer (Federico, 14 Aug 2026) ──────────
+   «vorrei che il nome dell'ingrediente sia centrale e forse in grassetto, la scritta
+   order mettila sotto la casella della quantità, quando non visualizzo lo stock forse
+   la casella la metti centrale… rendilo visibilmente più pulito»
+
+   ⚠️⚠️ EVERY RULE HERE IS SCOPED TO .ingredient-list, AND NOT ONE TOUCHES `.ing-name`
+   ON ITS OWN. That class is also used by the Calculator's recipe sheet, the Log, the
+   recipe detail and the GUIDED MIXING CARD — the one read in a hurry at the mixer — and
+   calculator.html loads this stylesheet too. A bare `.ing-name { text-align: center }`
+   would have re-centred four screens nobody asked to change. It is the same collision
+   that cost this project a release (v181), and the note above the scoping block in this
+   file says in as many words that a new container is not covered unless it is listed.
+
+   The History editor (.hist-edit-list) is deliberately NOT included: correcting a past
+   record is a different job from typing a new order, and it keeps the layout it has. */
+.ingredient-list .ing-top { justify-content: center; }
+.ingredient-list .ing-name { font-weight: 700; text-align: center; }
+
+/* The label goes UNDER the box. column-reverse rather than reordering the markup: the
+   DOM stays label-then-input, so a screen reader still hears the pair in the right
+   order, while a sighted person sees the number first and the word beneath it. */
+.ingredient-list .field { flex-direction: column-reverse; }
+
+/* ⚠️ WITH THE STOCK BOX HIDDEN THE ORDER BOX CENTRES ITSELF. Until now `space-between`
+   simply left it on the left — there is even a comment in this file saying so — which
+   put a lone box against the edge under a centred name. `body.hide-stock` already
+   exists and is applied before first paint, so nothing flashes. */
+body.hide-stock .ingredient-list .ing-fields { justify-content: center; }
