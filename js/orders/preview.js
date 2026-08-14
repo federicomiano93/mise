@@ -15,7 +15,7 @@
 
 import { t } from '../i18n.js';
 import { buildSupplierPicker } from './supplier-picker.js';
-import { buildOrderMessage, whatsappUrl } from './order-text.js';
+import { chooseAndSend } from './send-chooser.js';
 import { currentSession } from '../firebase.js';
 
 // suppliers: array; ingredientsBySupplier: { supplierId: [ingredient] };
@@ -34,26 +34,31 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
 
   return buildSupplierPicker(rows, {
     title: t('orders.sendOrder'),
-    actionLabel: t('orders.sendOnWhatsapp'),
+    // ⚠️ "Send", not "Send on WhatsApp". The button no longer names one road: it
+    // asks which of the open ones to take, and goes straight there when only one
+    // is open — a question with a single answer is a tap wasted on every order.
+    actionLabel: t('orders.send.button'),
     emptyText: t('orders.noItemsInThis'),
     format,
     // A message goes to one chat: who it is for is a decision, not a default.
     preselect: false,
-    // ⚠️ THE SECOND DESTINATION, AND IT IS OFFERED TO EVERYBODY — a manager too.
-    // Writing the list now and ordering it later is a legitimate way to work, and
-    // a button that appears or disappears by role is one more rule to get wrong
-    // for no gain. The database allows any member to send one.
-    secondaryLabel: callbacks.onSendToManager ? t('orders.request.sendToManager') : null,
+    // ⚠️ THE SECOND BUTTON IS GONE, and "to the manager" did not go with it — it
+    // became one of the four roads in the chooser. A footer that grew a button per
+    // destination would be four buttons wide by now, and the two that address a
+    // supplier directly need a sentence under them anyway.
   }, {
     onBack: () => callbacks.onBack(),
-    onSecondary: selected => callbacks.onSendToManager?.(selected.map(r => r.id)),
-    onConfirm: (selected, { grouped }) => {
-      const text = buildOrderMessage(
-        selected.map(r => ({ supplierName: r.name, items: r.items })),
-        { grouped, locationName: currentSession().name });
-      if (!text) return;            // nothing orderable — never open an empty chat
-      window.open(whatsappUrl(text), '_blank');
-      callbacks.onSent?.(selected.map(r => r.id));
-    },
+    onConfirm: (selected, { grouped }) => chooseAndSend({
+      rows: selected,
+      settings: callbacks.sendSettings,
+      canManage: callbacks.canManage === true,
+      // ⚠️ ONLY THE PICKED SUPPLIERS, matched by ID. The chooser has to know which
+      // of them can actually be reached, and by name they could not be told apart.
+      suppliers: selected.map(r => suppliers.find(s => s.id === r.id)).filter(Boolean),
+      locationName: currentSession().name,
+      grouped,
+      onSendToManager: callbacks.onSendToManager,
+      onSent: callbacks.onSent,
+    }),
   });
 }

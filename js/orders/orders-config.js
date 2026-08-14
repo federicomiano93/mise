@@ -1,13 +1,22 @@
 // orders-config.js — the Orders screen's own settings. PURE: no DOM, no Firestore, so
 // the reading of a stored document can be asserted in a test (P15).
 //
+import { normalizeSendRoutes } from './send-routes.js';
+
 // This is the first setting Orders has ever had. It lives in Firestore at
 // config/orders so it applies to every phone in the bakery — "we do not track stock
 // here" is a decision about how the place works, not a preference of one device.
 //
-// ⚠️ It needs NO rules change: `match /config/{doc}` already allows any authenticated
-// write carrying bakery == 'main', and saveDoc() stamps that field itself. Confirmed
-// against firestore.rules before choosing this home over a new collection.
+// ⚠️⚠️ THIS COMMENT USED TO SAY "it needs NO rules change", AND THAT STOPPED BEING
+// TRUE. `match /config/{doc}` validates a CLOSED KEY LIST, so adding a setting here
+// without naming it in firestore.rules makes the database refuse EVERY save of this
+// document - the whole thing, not just the new field. It was true the day showStock
+// was written and has quietly misled ever since; anybody following it would have
+// shipped a Settings screen that could not save.
+//
+// ⚠️ AND SINCE THE SEND-ROUTES WORK, WRITING config/orders NEEDS canManage(). It
+// decides how the venue works, so it belongs to the owner and the manager. READING
+// stays open to every member - an employee has to know which roads they have.
 
 // How many days of past orders the History tab shows before asking. The app is used
 // mostly by kitchen staff, who need this week's orders, not July's — but NOTHING is
@@ -27,6 +36,9 @@ export function normalizeOrdersConfig(doc) {
   return {
     showStock: doc?.showStock !== false,
     historyDays: historyDaysOf(doc?.historyDays),
+    // Which roads an order may leave by. The deciding lives in send-routes.js;
+    // this only carries it, so both screens read one answer.
+    sendSettings: normalizeSendRoutes(doc),
   };
 }
 
