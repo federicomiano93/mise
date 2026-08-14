@@ -705,8 +705,11 @@ async function confirmIfNobodyIsListening(senderUid) {
     .map(n => n || t('orders.request.someone'));
   return confirmDialog({
     title: t('away.nobodyTitle'),
+    // ⚠️ `n` IS THE COUNT, so the verb agrees. "Federico, Giulia is away" was on
+    // the screen — two people and a singular verb — and no measurement would ever
+    // have reported it. Intl decides the form; nothing here counts.
     message: names.length
-      ? t('away.nobodyMessage', { names: names.join(', ') })
+      ? t('away.nobodyMessage', { names: names.join(', '), n: names.length })
       : t('away.nobodyMessagePlain'),
     okLabel: t('away.sendAnyway'),
     cancelLabel: t('ui.cancel'),

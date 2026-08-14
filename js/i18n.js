@@ -428,7 +428,12 @@ const DICTIONARIES = Object.freeze({
     'away.saveFailed': 'Not saved — check the connection and try again.',
     // ⚠️ THE WARNING THAT MAKES THE WHOLE FEATURE SAFE.
     'away.nobodyTitle': 'Nobody will be told',
-    'away.nobodyMessage': '{names} is away, so no phone will ring for this list. It still appears in Orders and on the Home, and waits there.',
+    // ⚠️ A REAL PLURAL. 'Federico, Giulia is away' was on the screen — two people
+    // and a singular verb. Intl decides the form; the code never counts.
+    'away.nobodyMessage': {
+      one: '{names} is away, so no phone will ring for this list. It still appears in Orders and on the Home, and waits there.',
+      other: '{names} are away, so no phone will ring for this list. It still appears in Orders and on the Home, and waits there.',
+    },
     'away.nobodyMessagePlain': 'Everybody who runs this place is away, so no phone will ring for this list. It still appears in Orders and on the Home, and waits there.',
     'away.sendAnyway': 'Send anyway',
     // ── Orders ──────────────────────────────────────────────────────────────
@@ -1568,7 +1573,10 @@ const DICTIONARIES = Object.freeze({
     'away.badDate': 'Quella data non si può usare. Scegli un giorno da oggi in avanti, entro un anno.',
     'away.saveFailed': 'Non salvato — controlla la connessione e riprova.',
     'away.nobodyTitle': 'Non verrà avvisato nessuno',
-    'away.nobodyMessage': '{names} è in ferie, quindi per questa lista non suonerà nessun telefono. Resta comunque in Ordini e sulla Home, e ti aspetta lì.',
+    'away.nobodyMessage': {
+      one: '{names} è in ferie, quindi per questa lista non suonerà nessun telefono. Resta comunque in Ordini e sulla Home, e ti aspetta lì.',
+      other: '{names} sono in ferie, quindi per questa lista non suonerà nessun telefono. Resta comunque in Ordini e sulla Home, e ti aspetta lì.',
+    },
     'away.nobodyMessagePlain': 'Chi gestisce il locale è in ferie, quindi per questa lista non suonerà nessun telefono. Resta comunque in Ordini e sulla Home, e ti aspetta lì.',
     'away.sendAnyway': 'Manda lo stesso',
     'orders.deletedIngredient': 'Ingrediente eliminato',
