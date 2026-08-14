@@ -1520,3 +1520,76 @@ a.home-reminder {
   flex: 1;
   min-height: 0;
 }
+
+/* ── Incoming: what has been ordered and has not arrived ─────────────────────
+   Every value below is taken from tokens.css. Nothing here invents a colour or a
+   radius: the shared design system decides those, and a screen that forks its own
+   is how two parts of one app stop looking like one app. */
+.delivery-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+.delivery-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.delivery-name { font-weight: 600; font-size: 15px; }
+.delivery-meta { font-size: 12px; color: var(--text3); }
+.delivery-chevron { display: flex; align-items: center; color: var(--text3); flex-shrink: 0; }
+
+/* ⚠️ A 3px EDGE, NOT A TINT. This project has already shipped a marker that measured
+   1px because two rules tied on specificity, and a signal nobody can see is not a
+   signal. Late is the one row on this screen that must be found at a glance. */
+.delivery-row--late { border-left: 3px solid var(--danger); }
+.delivery-row--late .delivery-meta { color: var(--danger); font-weight: 600; }
+.delivery-row--due { border-left: 3px solid var(--accent); }
+
+/* ── "What arrived?" ─────────────────────────────────────────────────────────
+   ⚠️ NOT .preview-overlay: that class is in BUSY_SELECTORS and would postpone a
+   compulsory update. This screen holds nothing that a reload would lose until Save
+   is pressed, and pressing Save is what closes it. */
+.missing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+.missing-overlay .scroll-area { flex: 1; min-height: 0; padding: 12px; }
+.missing-hint { font-size: 13px; color: var(--text3); margin: 0 0 12px; }
+
+/* ⚠️ 44px, NOT THE 31px A BARE CHECKBOX GIVES, and the whole row is the target.
+   A mis-tap here does not cost a keystroke: it says something arrived that never
+   did, and that ingredient then never reaches the re-order list. */
+.missing-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.missing-check { width: 22px; height: 22px; flex-shrink: 0; accent-color: var(--brand); }
+.missing-name { flex: 1; min-width: 0; font-size: 15px; }
+.missing-qty { font-variant-numeric: tabular-nums; color: var(--text3); font-size: 14px; }
+.missing-save { width: 100%; margin-top: 16px; }
+
+/* The re-order reminder reuses .today-banner; this only makes it a full-width
+   button and gives it the warning tint, so it is not mistaken for the ordering
+   reminders sitting directly beneath it. */
+.reorder-banner {
+  width: 100%;
+  text-align: left;
+  background: var(--warn-bg);
+  border-color: var(--warn-border);
+  color: var(--warn);
+  font-weight: 600;
+}

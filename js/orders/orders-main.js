@@ -24,10 +24,12 @@ import { buildSupplierItems } from './supplier-items.js';
 import {
   scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
   clearQuantities, saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
+  confirmDelivery,
 } from './draft.js';
 import { buildSendScreen } from './preview.js';
 import { buildSupplierPicker } from './supplier-picker.js';
 import { renderHistory as renderHistoryView } from './history.js';
+import { renderDeliveries, renderReorderBanner } from './deliveries-view.js';
 import { buildHistoryEditor } from './history-edit.js';
 import { buildManagement, isAdmin } from './management.js';
 import { computeSuggestion, unusualQuantities } from './suggestions.js';
@@ -486,7 +488,48 @@ function setOrderFilter(active) {
 function applyHistory(list) {
   state.history = list;
   renderHistory();
+  renderIncoming();
   render(); // refresh order-tab suggestions now that history is available
+}
+
+// ── Rendering: what has been ordered and has not arrived ─────────────────────
+//
+// ⚠️ REDRAWN FROM THE HISTORY SNAPSHOT, never from a local flag. Two phones in one
+// kitchen confirm deliveries independently, and the screen that shows what is still
+// coming is exactly the screen that must not disagree with the other person's tap.
+function renderIncoming() {
+  const suppliersById = {};
+  (state.suppliers || []).forEach(s => { suppliersById[s.id] = s; });
+  const ingredientsById = indexById(orderIngredients());
+
+  const ctx = {
+    history: state.history,
+    entries: state.entries,
+    suppliersById,
+    ingredientsById,
+    today: todayISO(),
+    onConfirm: async (order, missingIds) => {
+      const missing = {};
+      missingIds.forEach(id => { missing[id] = true; });
+      await confirmDelivery(order.id || historyDocId(order.date, order.supplierId), {
+        deliveredAt: new Date().toISOString(),
+        missing,
+      });
+    },
+    // ⚠️ GOES THROUGH THE SAME AUTOSAVE EVERY KEYSTROKE USES. A second way to write
+    // the draft is a second thing that can disagree with the first about what is in it.
+    onReorder: async (applied) => {
+      applied.forEach(({ id, qty }) => {
+        state.entries[id] = { ...(state.entries[id] || { stock: 0 }), qty };
+      });
+      await saveDraftNow(state.entries, state.days);
+      syncInputsFromState();
+      render();
+    },
+  };
+
+  renderDeliveries(document.getElementById('deliveries-list'), ctx);
+  renderReorderBanner(document.getElementById('orders-reorder'), ctx);
 }
 
 function renderHistory() {
