@@ -1390,9 +1390,11 @@ function openManagement() {
 
 // ── Tabs / status ─────────────────────────────────────────────────────────────
 function setupTabs() {
+  // ⚠️ HISTORY IS NO LONGER A TAB. It opens from the bottom bar as a full-screen
+  // screen of its own, so the tab bar holds only the two things looked at daily.
   const tabs = [
     { btn: 'tab-order-btn', panel: 'tab-order' },
-    { btn: 'tab-history-btn', panel: 'tab-history' },
+    { btn: 'tab-deliveries-btn', panel: 'tab-deliveries' },
   ];
   tabs.forEach(({ btn, panel }) => {
     const button = document.getElementById(btn);
@@ -1498,6 +1500,21 @@ async function init() {
   // feature, whereas a button that comes and goes teaches nothing and cannot be
   // found on purpose.
   document.getElementById('requests-footer-btn')?.addEventListener('click', openRequestList);
+
+  // History, now a screen of its own rather than a tab.
+  //
+  // ⚠️ SHOWN AND HIDDEN WITH THE `hidden` ATTRIBUTE, which tokens.css forces to
+  // `display: none !important`. Without that !important a class on this element
+  // would beat the attribute and the screen would be painted while every script
+  // believed it was gone — the exact defect that shipped an empty green bar in
+  // v190, and the reason the app-wide rule exists.
+  const historyOverlay = document.getElementById('history-overlay');
+  document.getElementById('history-footer-btn')?.addEventListener('click', () => {
+    if (historyOverlay) historyOverlay.hidden = false;
+  });
+  document.getElementById('history-back-btn')?.addEventListener('click', () => {
+    if (historyOverlay) historyOverlay.hidden = true;
+  });
 
   setupOfflineIndicator();
 

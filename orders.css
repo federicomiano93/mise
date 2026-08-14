@@ -1489,3 +1489,34 @@ a.home-reminder {
 }
 .req-banner:active { transform: scale(.97); }
 .req-banner-chevron { margin-left: auto; flex-shrink: 0; display: flex; }
+
+/* ── History, now a screen of its own ────────────────────────────────────────
+   Opened from the bottom bar rather than the tab bar (14 Aug 2026): it is a
+   reference, consulted rarely, and it was taking half the tab bar every day.
+
+   ⚠️ NOT .preview-overlay ON PURPOSE — that class is in BUSY_SELECTORS
+   (js/update-gate.js) and would postpone a COMPULSORY update for as long as this
+   stayed open. Nothing is lost by a reload here, so nothing here may hold an
+   update back. The record editor inside it uses .hist-edit-list, which IS in
+   that list and should be.
+
+   ⚠️ Below the update banner (9999) and the dialog (10000), and above the
+   ordinary page. Written explicitly rather than left to document order: this
+   project lost a 3px marker to two rules tying on specificity, where the winner
+   was nobody's decision. */
+.history-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* A column flex child that must SCROLL rather than be squashed. Without
+   min-height:0 a flex child refuses to shrink below its content and the scroll
+   never engages — the same trap as the v185 iOS scroll fix. */
+.history-overlay .scroll-area {
+  flex: 1;
+  min-height: 0;
+}
