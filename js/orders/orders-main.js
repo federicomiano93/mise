@@ -24,10 +24,12 @@ import { buildSupplierItems } from './supplier-items.js';
 import {
   scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
   clearQuantities, saveHistoryRecord, deleteHistoryRecord, setDraftSaveReporter,
+  confirmDelivery,
 } from './draft.js';
 import { buildSendScreen } from './preview.js';
 import { buildSupplierPicker } from './supplier-picker.js';
 import { renderHistory as renderHistoryView } from './history.js';
+import { renderDeliveries, renderReorderBanner } from './deliveries-view.js';
 import { buildHistoryEditor } from './history-edit.js';
 import { buildManagement, isAdmin } from './management.js';
 import { computeSuggestion, unusualQuantities } from './suggestions.js';
@@ -253,6 +255,14 @@ function render() {
   const container = document.getElementById('suppliers-list');
   if (!container) return;
   if (!state.loaded.suppliers || !state.loaded.ingredients) return;
+
+  // ⚠️ THE RE-ORDER BANNER READS THE DRAFT, so it has to be redrawn here as well
+  // as when history lands. The first driven run caught it: putting a missing
+  // ingredient back filled the row correctly and the banner stayed up, still asking
+  // for something already done — and a reminder that survives the action it asked
+  // for is one people learn to ignore. A keystroke does NOT reach render(), so this
+  // costs nothing per character typed.
+  renderIncoming();
 
   const suppliers = orderSupplierList();
   const hasSomething = suppliers.length > 0;
@@ -486,7 +496,48 @@ function setOrderFilter(active) {
 function applyHistory(list) {
   state.history = list;
   renderHistory();
+  renderIncoming();
   render(); // refresh order-tab suggestions now that history is available
+}
+
+// ── Rendering: what has been ordered and has not arrived ─────────────────────
+//
+// ⚠️ REDRAWN FROM THE HISTORY SNAPSHOT, never from a local flag. Two phones in one
+// kitchen confirm deliveries independently, and the screen that shows what is still
+// coming is exactly the screen that must not disagree with the other person's tap.
+function renderIncoming() {
+  const suppliersById = {};
+  (state.suppliers || []).forEach(s => { suppliersById[s.id] = s; });
+  const ingredientsById = indexById(orderIngredients());
+
+  const ctx = {
+    history: state.history,
+    entries: state.entries,
+    suppliersById,
+    ingredientsById,
+    today: todayISO(),
+    onConfirm: async (order, missingIds) => {
+      const missing = {};
+      missingIds.forEach(id => { missing[id] = true; });
+      await confirmDelivery(order.id || historyDocId(order.date, order.supplierId), {
+        deliveredAt: new Date().toISOString(),
+        missing,
+      });
+    },
+    // ⚠️ GOES THROUGH THE SAME AUTOSAVE EVERY KEYSTROKE USES. A second way to write
+    // the draft is a second thing that can disagree with the first about what is in it.
+    onReorder: async (applied) => {
+      applied.forEach(({ id, qty }) => {
+        state.entries[id] = { ...(state.entries[id] || { stock: 0 }), qty };
+      });
+      await saveDraftNow(state.entries, state.days);
+      syncInputsFromState();
+      render();   // redraws the banner too — see the note at the top of render()
+    },
+  };
+
+  renderDeliveries(document.getElementById('deliveries-list'), ctx);
+  renderReorderBanner(document.getElementById('orders-reorder'), ctx);
 }
 
 function renderHistory() {
@@ -1390,9 +1441,11 @@ function openManagement() {
 
 // ── Tabs / status ─────────────────────────────────────────────────────────────
 function setupTabs() {
+  // ⚠️ HISTORY IS NO LONGER A TAB. It opens from the bottom bar as a full-screen
+  // screen of its own, so the tab bar holds only the two things looked at daily.
   const tabs = [
     { btn: 'tab-order-btn', panel: 'tab-order' },
-    { btn: 'tab-history-btn', panel: 'tab-history' },
+    { btn: 'tab-deliveries-btn', panel: 'tab-deliveries' },
   ];
   tabs.forEach(({ btn, panel }) => {
     const button = document.getElementById(btn);
@@ -1499,6 +1552,21 @@ async function init() {
   // found on purpose.
   document.getElementById('requests-footer-btn')?.addEventListener('click', openRequestList);
 
+  // History, now a screen of its own rather than a tab.
+  //
+  // ⚠️ SHOWN AND HIDDEN WITH THE `hidden` ATTRIBUTE, which tokens.css forces to
+  // `display: none !important`. Without that !important a class on this element
+  // would beat the attribute and the screen would be painted while every script
+  // believed it was gone — the exact defect that shipped an empty green bar in
+  // v190, and the reason the app-wide rule exists.
+  const historyOverlay = document.getElementById('history-overlay');
+  document.getElementById('history-footer-btn')?.addEventListener('click', () => {
+    if (historyOverlay) historyOverlay.hidden = false;
+  });
+  document.getElementById('history-back-btn')?.addEventListener('click', () => {
+    if (historyOverlay) historyOverlay.hidden = true;
+  });
+
   setupOfflineIndicator();
 
   // No "connecting/connected" status: the data watchers below each await auth
@@ -1559,6 +1627,13 @@ async function init() {
     state.loaded.suppliers = true;
     render();
     renderHistory();
+    // ⚠️ REDRAWN HERE TOO, AND THE FIRST DRIVEN RUN IS WHY. Incoming was painted
+    // only when history arrived; suppliers land in a SEPARATE snapshot, so on a
+    // cold open every order read "no delivery days set for this supplier" — for
+    // suppliers that had them — and stayed wrong until something else forced a
+    // repaint. Two live collections feed one screen, so both must redraw it. Same
+    // shape as the recipe cost that computed once and said "no cost yet" (v247).
+    renderIncoming();
     showAlerts();
     renderReminders();
     checkPendingOnce();

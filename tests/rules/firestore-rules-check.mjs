@@ -638,6 +638,47 @@ async function history() {
   await expectDenied('names sent as a list instead of a map',
     () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
       { ...modern, names: ['Bacon'] }));
+
+  // ── deliveredAt / missing: the delivery half of an order's life ────────────
+  //
+  // ⚠️ THE NEGATIVE ONES ARE WRITTEN FIRST, because a check that only ever sends
+  // well-formed data stays green with the whole validation deleted.
+  //
+  // Both are OPTIONAL IN BOTH DIRECTIONS, for the same reason as `names`: rules
+  // reach every phone the instant they deploy while code arrives per device, so a
+  // phone on either version has to be able to record an order for the whole rollout.
+  await expectDenied('a delivery stamp sent as a number',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, deliveredAt: 20260814 }));
+  // ⚠️ THE LIST CASE IS THE ONE THAT NEEDS `is string`, AND ONLY MUTATION TESTING
+  // FOUND THAT OUT. Deleting `deliveredAt is string` left every check green: a
+  // NUMBER has no .size(), so the length check below was already refusing it by
+  // type error. A LIST does have .size() — so without the type check, an order
+  // could arrive carrying a list where a timestamp belongs, and every screen that
+  // reads it would be reading something it cannot understand.
+  await expectDenied('a delivery stamp sent as a list',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, deliveredAt: ['2026-08-14'] }));
+  await expectDenied('missing sent as a list instead of a map',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, missing: ['ING_MODERN'] }));
+  await expectDenied('a delivery stamp longer than any timestamp',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, deliveredAt: 'x'.repeat(65) }));
+
+  await expectAllowed('confirming an order arrived',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, deliveredAt: '2026-07-25T09:00:00.000Z' }));
+  await expectAllowed('recording that one ingredient never came',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, deliveredAt: '2026-07-25T09:00:00.000Z', missing: { ING_MODERN: true } }));
+  // ⚠️ An empty stamp is a REAL value — "we looked and it has not arrived" — and it
+  // is how a confirmation is taken back after a mis-tap.
+  await expectAllowed('un-confirming a delivery by clearing the stamp',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
+      { ...modern, deliveredAt: '' }));
+  await expectAllowed('an order from a phone that has not updated yet (no delivery fields)',
+    () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN', modern));
   await expectDenied('names sent as a string',
     () => wholeWrite('locations/main/orders-history/2026-07-24_SUP_MODERN',
       { ...modern, names: 'Bacon' }));
