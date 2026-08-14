@@ -142,12 +142,30 @@ function gateHost() {
 // visible, unreachable, and in the way of signing in. js/whats-new-boot.js waits
 // for a location to be open for exactly this reason. Anything else that wants to
 // interrupt must do the same.
-// The "New version available" banner is the ONE exception. It sits above the
-// cover by design (z-index 9999 vs 9000) and all it does is reload the page —
-// and a phone stuck on one of these screens is exactly the phone that most needs
-// to be able to take a new version. Switching it off with everything else turned
-// the cover into a trap: visible update, untappable.
-const ALWAYS_REACHABLE = ['sw-update-host', 'auth-gate'];
+// The update surfaces are the exception. They sit above the cover by design
+// (9999 and 10001 vs 9000) and all they do is reload the page — and a phone stuck
+// on one of these screens is exactly the phone that most needs to be able to take
+// a new version. Switching them off with everything else turns the cover into a
+// trap: visible update, untappable.
+//
+// ⚠️⚠️ BOTH IDS MUST BE HERE, AND FOR A LONG TIME ONLY THE BANNER WAS. The modal
+// (`sw-update-gate`) REPLACES the banner — showGate() removes `sw-update-host` on
+// the way in — so exempting only the banner meant the one reachable control was
+// swapped for an unreachable one. Reported from a phone as "it goes back to the
+// update screen but the button will not click, I have to close the app
+// completely". Measured on the rendered page: the button was visible, enabled,
+// pointer-events auto, at z-index 10001, fully on screen — and carrying `inert`,
+// so the tap went to the sign-in form underneath.
+//
+// ⚠️ IT WAS INTERMITTENT, WHICH IS WHY IT SURVIVED SO LONG. setBehindInert() walks
+// the body's children at the moment it runs, so whether the modal is caught
+// depends on whether the cover goes up before or after it appears — a race, and
+// "sometimes the update sticks" is exactly what a race looks like from a kitchen.
+//
+// ⚠️ ANYTHING ELSE ADDED HERE MUST BE ABLE TO SIT IN FRONT OF THE SIGN-IN FORM.
+// These two earn it because their only action is to reload; a screen that shows
+// or asks for anything does NOT (see js/whats-new-boot.js, which waits instead).
+const ALWAYS_REACHABLE = ['sw-update-host', 'sw-update-gate', 'auth-gate'];
 
 function setBehindInert(inert) {
   Array.from(document.body.children).forEach(child => {
