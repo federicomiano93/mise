@@ -380,12 +380,18 @@ export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, 
 // A day, named relative to now. Beyond ±1 the log is normally already out of the
 // retention window, but a clock change or a long-lived tab can still surface one —
 // name it plainly instead of showing a wrong "Today".
-function dayName(diff) {
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff === -1) return 'Yesterday';
-  if (diff > 1) return 'In ' + diff + ' days';
-  return -diff + ' days ago';
+// ⚠️ TWO FORMS OF EVERY DAY WORD, and the second one is not decoration. The badge
+// can read "Yesterday for today": the first word starts a label and the second
+// sits inside a phrase. This used to be one form plus .toLowerCase() — a
+// language-specific operation performed on somebody else's language. Whether a
+// word loses its capital, and to what, belongs to the translator.
+function dayName(diff, inSentence = false) {
+  const suffix = inSentence ? '.inSentence' : '';
+  if (diff === 0) return t(`day.today${suffix}`);
+  if (diff === 1) return t(`day.tomorrow${suffix}`);
+  if (diff === -1) return t(`day.yesterday${suffix}`);
+  if (diff > 1) return t(`day.inNDays${suffix}`, { n: diff });
+  return t(`day.nDaysAgo${suffix}`, { n: -diff });
 }
 
 function toneFor(diff) {
