@@ -27,8 +27,13 @@ export function alertDialog(message, opts = {}) {
   return open({ message, ...opts, alertOnly: true }).then(() => undefined);
 }
 
+// ⚠️ `node` LETS A DIALOG CARRY A FIELD, and it exists so a screen needing one
+// does not build a SECOND dialog beside this one. The project's rule is ONE
+// styled dialog and never the browser's — but a screen that needed an input had
+// no way to honour that until now. It is appended AFTER the message, so the
+// message still names the dialog for a screen reader.
 function open({ title = '', message = '', okLabel = 'OK', cancelLabel = 'Cancel',
-                danger = false, alertOnly = false }) {
+                danger = false, alertOnly = false, node = null }) {
   if (isOpen) return Promise.resolve(false);
   isOpen = true;
   const prevFocus = document.activeElement;
@@ -57,6 +62,7 @@ function open({ title = '', message = '', okLabel = 'OK', cancelLabel = 'Cancel'
   if (cancel) actions.appendChild(cancel);
   actions.appendChild(ok);
   box.appendChild(msg);
+  if (node) box.appendChild(node);
   box.appendChild(actions);
   backdrop.appendChild(box);
 

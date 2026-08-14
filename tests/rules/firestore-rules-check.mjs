@@ -2279,10 +2279,64 @@ async function orderRequests() {
     () => deleteWrite(REQ, asAccount(MAYA)));
 }
 
+// ── "I am on holiday" ────────────────────────────────────────────────────────
+//
+// ⚠️ THE REFUSAL THAT MATTERS IS FIRST: nobody may silence somebody else's phone.
+// Without that guard, any employee could switch off the manager's notifications
+// and nothing on any screen would show it — the exact opposite of the feature.
+async function awayDays() {
+  await wipe();
+  await seedAccess();
+  const L = 'locations/main';
+  const mine = { bakery: 'main', uid: SAM.uid, until: '2026-08-20', updatedAt: Date.now() };
+
+  await expectDenied('silencing somebody ELSE’s phone',
+    () => wholeWrite(`${L}/away/${MAYA.uid}`, { ...mine, uid: MAYA.uid }, asAccount(SAM)));
+  await expectDenied('…not even by writing your own uid into their document',
+    () => wholeWrite(`${L}/away/${MAYA.uid}`, mine, asAccount(SAM)));
+  await expectDenied('a document whose uid is not the person writing it',
+    () => wholeWrite(`${L}/away/${SAM.uid}`, { ...mine, uid: MAYA.uid }, asAccount(SAM)));
+
+  // ⚠️ A DATE, NOT A BOOLEAN. A switch with no end is one flicked in August and
+  // found in November, having missed three months of orders.
+  await expectDenied('a holiday with no end date',
+    () => wholeWrite(`${L}/away/${SAM.uid}`, { ...mine, until: true }, asAccount(SAM)));
+  await expectDenied('a date written the British way',
+    () => wholeWrite(`${L}/away/${SAM.uid}`, { ...mine, until: '20/08/2026' }, asAccount(SAM)));
+  await expectDenied('a stray field nobody validated',
+    () => wholeWrite(`${L}/away/${SAM.uid}`, { ...mine, reason: 'beach' }, asAccount(SAM)));
+  await expectDenied('a holiday stamped for another location',
+    () => wholeWrite(`${L}/away/${SAM.uid}`, { ...mine, bakery: 'trattoria-x' }, asAccount(SAM)));
+  await expectDenied('somebody with no access at all setting one',
+    () => wholeWrite(`${L}/away/${NOBODY.uid}`, { ...mine, uid: NOBODY.uid }, asAccount(NOBODY)));
+  await expectDenied('a client ordering account setting one',
+    () => wholeWrite(`${L}/away/${CLIENT_A.uid}`, { ...mine, uid: CLIENT_A.uid }, asAccount(CLIENT_A)));
+
+  await expectAllowed('anybody may say THEY are away',
+    () => wholeWrite(`${L}/away/${SAM.uid}`, mine, asAccount(SAM)));
+  // ⚠️ "I am back" is an empty string rather than a delete: a delete that fails
+  // leaves somebody silenced with nothing on record to explain why.
+  await expectAllowed('…and may say they are back',
+    () => wholeWrite(`${L}/away/${SAM.uid}`, { ...mine, until: '' }, asAccount(SAM)));
+
+  // ⚠️ READABLE INSIDE THE VENUE, ON PURPOSE: the send screen has to be able to
+  // say "nobody will be told, they are all away" BEFORE the list goes.
+  await expectAllowed('a colleague can see who is away, so the warning can exist',
+    () => fetch(`${FS}/${L}/away/${SAM.uid}`, { headers: asAccount(MAYA) }));
+  await expectDenied('another venue cannot see who is away here',
+    () => fetch(`${FS}/${L}/away/${SAM.uid}`, { headers: asAccount(BOB) }));
+  await expectDenied('a client ordering account cannot see who is away',
+    () => fetch(`${FS}/${L}/away/${SAM.uid}`, { headers: asAccount(CLIENT_A) }));
+
+  await expectDenied('deleting somebody else’s holiday',
+    () => deleteWrite(`${L}/away/${SAM.uid}`, asAccount(MAYA)));
+  await expectAllowed('deleting your own', () => deleteWrite(`${L}/away/${SAM.uid}`, asAccount(SAM)));
+}
+
 for (const scenario of [suppliers, ingredients, ingredientPrices, drafts, history, neighbours,
                         locationTree, isolation, configAndLogs, pastries, pastryLogs,
-                        products, clientOrders, orderRequests, pushNotifications, roles,
-                        onboardingCollections]) {
+                        products, clientOrders, orderRequests, awayDays, pushNotifications,
+                        roles, onboardingCollections]) {
   await scenario();
 }
 

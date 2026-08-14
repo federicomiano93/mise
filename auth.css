@@ -206,3 +206,36 @@
 .session-logout:hover { color: var(--text-2); }
 .session-logout:focus-visible { outline: 3px solid var(--accent-2); outline-offset: 2px; }
 .session-logout + .session-logout { margin-top: 0; }
+
+/* ── "I am on holiday" ──────────────────────────────────────────────────────
+   It sits in the Home's quiet bottom strip beside Log out, because it is a fact
+   about the PERSON rather than about the venue. */
+.session-logout.session-away {
+  color: var(--warn);
+  font-weight: 700;
+}
+/* The date field inside the shared dialog. The picker itself is the platform's
+   own (P19) — a hand-rolled calendar is one of the things this project's rules
+   name as fragile to build by hand, and the phone's own knows the language and
+   which day a week starts on. */
+.away-form { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.away-what { font-size: 13px; line-height: 1.5; color: var(--text2); }
+.away-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.away-date {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Manrope', sans-serif;
+  font-size: 16px;
+}

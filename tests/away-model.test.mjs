@@ -137,9 +137,13 @@ test('the warning can name who is away', () => {
   assert.deepEqual(awayNames(roster, new Set(), 'u-staff'), []);
 });
 
+// ⚠️ IT NEVER RETURNS THE uid, and it returns '' rather than a word: this file
+// has no imports so it can be copied byte-for-byte onto the server, so the word
+// for "somebody" belongs to the screen. The property that matters is the same
+// either way — a raw uid must never reach a person's eyes.
 test('a person with no name is never printed as a raw uid', () => {
   assert.equal(personName({ uid: 'Fdx92kQ1nT', email: 'a@b.test' }), 'a@b.test');
-  const fallback = personName({ uid: 'Fdx92kQ1nT' });
-  assert.notEqual(fallback, 'Fdx92kQ1nT');
-  assert.ok(fallback.length > 0);
+  assert.equal(personName({ uid: 'Fdx92kQ1nT' }), '',
+    'the model hands the screen nothing rather than a uid');
+  assert.equal(personName(null), '');
 });

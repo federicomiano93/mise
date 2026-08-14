@@ -31,6 +31,7 @@ import {
   timerNotification, orderNotification, orderRequestNotification,
   notificationTag, targetPage,
 } from './push-model.js';
+import { isAway } from './away-model.js';
 
 initializeApp();
 
@@ -154,11 +155,22 @@ export const notifyClientOrder = onDocumentCreated(
       return;
     }
 
+    // ⚠️ A HOLIDAY SILENCES THIS ONE TOO. A client order goes to every phone in
+    // the venue, so without this the one thing somebody on holiday would still be
+    // buzzed about is the busiest one. The ORDER is untouched: it sits in the app
+    // with its banner and its badge, exactly as before.
+    const onHoliday = await awaySet(lid);
+    const targets = tokens.docs.filter(d => !onHoliday.has(d.data().uid));
+    if (!targets.length) {
+      logger.info('An order arrived, but everybody with notifications on is away', { lid });
+      return;
+    }
+
     const message = orderNotification(order);
     const tag = notificationTag('order', event.params.id);
     // Sent one at a time so a single dead registration is dropped by itself
     // rather than failing the batch for every phone that is fine.
-    const results = await Promise.all(tokens.docs.map(d => sendTo(d.id, message, {
+    const results = await Promise.all(targets.map(d => sendTo(d.id, message, {
       tag, url: targetPage('order'), path: d.ref.path,
     })));
     logger.info('Order notification', { lid, sent: results.filter(Boolean).length, of: results.length });
@@ -182,6 +194,31 @@ async function languageOf(lid) {
   }
 }
 
+// Who has said "do not buzz my phone, I am on holiday", right now.
+//
+// ⚠️ A FAILED READ MEANS NOBODY IS AWAY — phones ring. One unnecessary
+// notification is recoverable; a list that reaches nobody because a read failed
+// is not. The same direction the model takes, for the same reason.
+//
+// ⚠️ AND IT ENDS BY ITSELF: isAway() compares the stored date with today, so a
+// holiday that has passed silences nothing and nothing has to run at midnight to
+// make that true.
+async function awaySet(lid) {
+  try {
+    const snap = await getFirestore().collection(`locations/${lid}/away`).get();
+    const now = Date.now();
+    const out = new Set();
+    snap.docs.forEach(d => {
+      const doc = { ...d.data(), uid: d.data().uid || d.id };
+      if (isAway(doc, now)) out.add(doc.uid);
+    });
+    return out;
+  } catch (err) {
+    logger.warn('Could not read who is away; everybody will be notified', { lid });
+    return new Set();
+  }
+}
+
 // ⚠️ ONLY THE PEOPLE IT WAS ADDRESSED TO. Every other notification in this app
 // goes to every phone in the location; this one must not. A list is prepared FOR
 // whoever runs the place, and buzzing the whole kitchen for it is how a team
@@ -196,9 +233,11 @@ async function languageOf(lid) {
 async function managersAmong(tokens, lid, senderUid) {
   const db = getFirestore();
   const roleByUid = new Map();
+  const away = await awaySet(lid);
 
   const uids = [...new Set(tokens.map(d => d.data().uid).filter(Boolean))];
   await Promise.all(uids.map(async uid => {
+    if (away.has(uid)) { roleByUid.set(uid, undefined); return; }
     try {
       const snap = await db.doc(`users/${uid}`).get();
       const access = snap.exists ? (snap.data().locations || {})[lid] : undefined;

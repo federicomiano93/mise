@@ -412,6 +412,25 @@ const DICTIONARIES = Object.freeze({
     'calc.logicHint.total': 'You type how many kilos of dough to make.',
     'calc.logicHint.both': 'What the clients ordered, plus an extra amount you type.',
 
+    // ── 'I am on holiday' ────────────────────────────────────────────────────
+    'away.title': 'I am on holiday',
+    'away.untilLabel': 'Away until, and including',
+    'away.set': 'Set',
+    'away.onUntil': 'On holiday until {day}',
+    // ⚠️ IT SAYS WHAT BEING AWAY DOES AND WHAT IT DOES NOT. Without this line
+    // somebody reasonably assumes the work is being handled by somebody else —
+    // the one belief this feature must never create.
+    'away.whatItDoes': 'Your phone stops ringing. The order lists still arrive and are still waiting for you when you come back — nothing is passed to anybody else.',
+    'away.backTitle': 'Back already?',
+    'away.backMessage': 'Your holiday runs to {day}. Ending it now turns your notifications back on.',
+    'away.back': 'I am back',
+    'away.badDate': 'That date cannot be used. Pick a day from today onwards, within a year.',
+    'away.saveFailed': 'Not saved — check the connection and try again.',
+    // ⚠️ THE WARNING THAT MAKES THE WHOLE FEATURE SAFE.
+    'away.nobodyTitle': 'Nobody will be told',
+    'away.nobodyMessage': '{names} is away, so no phone will ring for this list. It still appears in Orders and on the Home, and waits there.',
+    'away.nobodyMessagePlain': 'Everybody who runs this place is away, so no phone will ring for this list. It still appears in Orders and on the Home, and waits there.',
+    'away.sendAnyway': 'Send anyway',
     // ── Orders ──────────────────────────────────────────────────────────────
     // ⚠️ THE WHATSAPP MESSAGE A SUPPLIER RECEIVES IS NOT HERE.
     // js/orders/order-text.js is pinned character for character by its own test,
@@ -1538,6 +1557,20 @@ const DICTIONARIES = Object.freeze({
     'calc.logicHint.total': 'Scrivi tu quanti chili d’impasto fare.',
     'calc.logicHint.both': 'Gli ordini dei clienti, più una quantità in più scritta a mano.',
 
+    'away.title': 'Sono in ferie',
+    'away.untilLabel': 'Via fino a, compreso',
+    'away.set': 'Imposta',
+    'away.onUntil': 'In ferie fino al {day}',
+    'away.whatItDoes': 'Il tuo telefono smette di suonare. Le liste d’ordine continuano ad arrivare e restano lì ad aspettarti — non passano a nessun altro.',
+    'away.backTitle': 'Già tornato?',
+    'away.backMessage': 'Le tue ferie arrivano al {day}. Chiuderle adesso riaccende le notifiche.',
+    'away.back': 'Sono tornato',
+    'away.badDate': 'Quella data non si può usare. Scegli un giorno da oggi in avanti, entro un anno.',
+    'away.saveFailed': 'Non salvato — controlla la connessione e riprova.',
+    'away.nobodyTitle': 'Non verrà avvisato nessuno',
+    'away.nobodyMessage': '{names} è in ferie, quindi per questa lista non suonerà nessun telefono. Resta comunque in Ordini e sulla Home, e ti aspetta lì.',
+    'away.nobodyMessagePlain': 'Chi gestisce il locale è in ferie, quindi per questa lista non suonerà nessun telefono. Resta comunque in Ordini e sulla Home, e ti aspetta lì.',
+    'away.sendAnyway': 'Manda lo stesso',
     'orders.deletedIngredient': 'Ingrediente eliminato',
     'orders.setAQuantityTo': 'Metti una quantità a 0 per togliere quella voce dall’ordine.',
     'orders.deleteThisOrder': 'Elimina questo ordine',
