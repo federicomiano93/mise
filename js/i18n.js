@@ -1153,6 +1153,10 @@ const DICTIONARIES = Object.freeze({
     // Field labels on every order row, and two headings. Their own keys on purpose:
     // the «Order» TAB names a screen, this names a box above a number.
     'orders.field.order': 'Order',
+    'orders.tab.suppliers': 'Suppliers',
+    'orders.tab.ingredients': 'Ingredients',
+    'orders.tab.general': 'General',
+    'orders.days': 'days',
     'orders.field.stock': 'Stock',
     'orders.section.alerts': 'Alerts',
     'orders.section.price': 'Price',
@@ -2335,6 +2339,10 @@ const DICTIONARIES = Object.freeze({
     'ui.order': "Ordine",
     'orders.field.order': 'Ordine',
     'orders.field.stock': 'Giacenza',
+    'orders.tab.suppliers': 'Fornitori',
+    'orders.tab.ingredients': 'Ingredienti',
+    'orders.tab.general': 'Generali',
+    'orders.days': 'giorni',
     'orders.section.alerts': 'Avvisi',
     'orders.section.price': 'Prezzo',
     'orders.section.orderScreen': 'La schermata dell’ordine',

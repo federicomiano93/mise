@@ -67,8 +67,18 @@ function jsFiles(dir) {
 }
 
 // A capitalised word inside a string handed to `text:` — the shape every one of the
-// seven had.
-const LITERAL = /text:\s*'([A-Z][a-z][^']*)'/g;
+// seven had — or handed as the LABEL argument of a helper that builds one.
+//
+// ⚠️⚠️ THE SECOND SHAPE WAS ADDED AFTER LOOKING AT A SCREENSHOT, and it is the honest
+// limit of this test. The first version caught only `text:`, so it passed while the
+// Settings panel's own three tabs still read «Suppliers · Ingredients · General» on an
+// Italian phone — they are `tabButton('Suppliers', …)`, a literal in an ARGUMENT, which
+// the first pattern could not see. Measuring found nothing; looking found it in a second.
+//
+// 📌 It cannot catch every shape a string can be passed in, and pretending otherwise
+// would be worse than saying so: it catches the two that this app actually uses. A third
+// shape will be found the same way this one was — by opening the screen in Italian.
+const LITERAL = /(?:text:\s*|tabButton\(\s*)'([A-Z][a-z][^']*)'/g;
 
 test('⚠️ no English is written straight into a screen — it all goes through the dictionary', () => {
   const found = [];

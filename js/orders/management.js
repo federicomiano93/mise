@@ -63,9 +63,9 @@ export function buildManagement(data, actions) {
   // longest label wants 81px and has 78). So the settings that are not a list live
   // together under "General" instead of getting a tab each.
   const tabBar = el('nav', { class: 'tab-bar' }, [
-    tabButton('Suppliers', 'suppliers'),
-    tabButton('Ingredients', 'ingredients'),
-    tabButton('General', 'general'),
+    tabButton(t('orders.tab.suppliers'), 'suppliers'),
+    tabButton(t('orders.tab.ingredients'), 'ingredients'),
+    tabButton(t('orders.tab.general'), 'general'),
   ]);
 
   // The header button is a context-aware Back arrow (matches the app's drill-in
@@ -232,7 +232,6 @@ export function buildManagement(data, actions) {
       // simply have had no styling, silently, which is the same family of defect
       // as the undefined custom properties that left three screens flush to the
       // edge of the phone. Checked before shipping, not after.
-      el('h3', { class: 'mgmt-section-title', text: t('orders.send.settingsTitle') }),
       el('p', { class: 'send-setting-hint', text: t('orders.send.settingsHint') }),
     ]);
 
@@ -313,7 +312,7 @@ export function buildManagement(data, actions) {
     return el('div', { class: 'mgmt-field' }, [
       el('label', { class: 'mgmt-field-label', for: 'history-days-input',
         text: t('orders.daysOfPastOrders') }),
-      el('div', { class: 'mgmt-days-row' }, [input, el('span', { text: 'days' })]),
+      el('div', { class: 'mgmt-days-row' }, [input, el('span', { text: t('orders.days') })]),
       el('p', { class: 'notif-note', text:
         t('orders.olderOrdersAreNever') }),
     ]);
