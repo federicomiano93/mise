@@ -23,11 +23,14 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const root = new URL('../', import.meta.url);
 const read = (name) => readFileSync(new URL(name, root), 'utf8');
 const sheets = readdirSync(root).filter((n) => n.endsWith('.css'));
+const JS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'js');
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 // Every rule in every stylesheet, as { sheet, selector, body }.
@@ -187,62 +190,65 @@ test('that cap never engages on a phone', () => {
   assert.ok(cap >= 398, `the cap (${cap}px) must not be under the 398px this row has on an iPhone 16 Pro Max`);
 });
 
-test('the manifest no longer locks the app to portrait', () => {
-  // A tablet lives on a stand, in landscape. The phone/tablet distinction is made
-  // in js/orientation-lock.js, which a manifest cannot do.
+test('⚠️ NOTHING may lock the app to an orientation — not the manifest, not code', () => {
+  // ⚠️⚠️ THIS TEST EXISTS BECAUSE THE OPPOSITE SHIPPED, AND BROKE THE ONE DEVICE THE
+  // WHOLE RELEASE WAS FOR. v1.56.0 added js/orientation-lock.js: lock to portrait when
+  // the screen's short side is at or below 600px CSS. The threshold was "derived" —
+  // iPhone 440, iPad mini 744 — but derived by looking ONLY at Apple. Real Samsung
+  // tablets sit inside it:
+  //
+  //     Galaxy Tab A 8.0    800x1280 @1.5  ->  533 CSS  ->  LOCKED
+  //     Galaxy Tab A 10.1  1200x1920 @2.0  ->  600 CSS  ->  LOCKED
+  //
+  // Federico turned his tablet landscape and the app stayed upright, unreadable. His
+  // photos showed ANDROID'S OWN STATUS BAR rotated with it — which no web page can do,
+  // and only a real orientation lock can.
+  //
+  // ⚠️ THE LESSON IS NOT "pick a better number". No width separates a phone from a
+  // tablet: the premise is wrong, and it failed on the first real device it met. The
+  // lock was removed rather than retuned.
+  //
+  // ⚠️ AND IT NEVER KEPT ITS PROMISE ANYWAY: screen.orientation.lock() does not exist
+  // on iOS Safari, iPhone or iPad. Half the devices could always rotate.
+  //
+  // ✅ Nothing is lost by removing it: a phone in landscape is 844px wide and gets the
+  // same centred column a tablet gets — the width cap above is what makes that safe.
   const manifest = JSON.parse(read('manifest.json'));
   assert.equal(manifest.orientation, undefined,
     'manifest.json must not pin an orientation — it cannot tell a phone from a tablet');
+
+  const offenders = [];
+  const walk = (dir) => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'vendor') continue;
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) { walk(full); continue; }
+      if (!name.endsWith('.js')) continue;
+      readFileSync(full, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        // Skip the sentence where it appears in a COMMENT — including this file's own
+        // note, and any future explanation of why the lock is gone.
+        if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
+        if (/screen\s*\.\s*orientation\s*\.\s*lock\s*\(/.test(line)) {
+          offenders.push(`${name}:${i + 1}  ${line.trim().slice(0, 60)}`);
+        }
+      });
+    }
+  };
+  walk(JS_DIR);
+
+  assert.deepEqual(offenders, [],
+    'a device must be free to turn. Guessing phone-vs-tablet from the screen size '
+    + 'locked a real Galaxy Tab in portrait — the device this whole release was for:\n  '
+    + offenders.join('\n  '));
 });
 
-test('js/orientation-lock.js is precached', () => {
-  // Adding a cached file without listing it is the one failure mode that does not
-  // heal itself: an offline installed user gets a page referencing a file they do
-  // not have.
-  assert.match(read('sw.js'), /'\.\/js\/orientation-lock\.js'/,
-    'js/orientation-lock.js must be in the ASSETS list in sw.js');
-});
-
-test('every app page loads the orientation lock', () => {
-  for (const page of ['index.html', 'orders.html', 'calculator.html', 'foodcost.html', 'pastries.html', 'catalogue.html']) {
-    assert.match(read(page), /js\/orientation-lock\.js/, `${page} must load js/orientation-lock.js`);
+test('no page loads an orientation lock, and the file is gone from the precache', () => {
+  for (const page of ['index.html', 'orders.html', 'calculator.html', 'foodcost.html',
+    'pastries.html', 'catalogue.html', 'order.html']) {
+    assert.doesNotMatch(read(page), /orientation-lock/, `${page} must not load an orientation lock`);
   }
-});
-
-test('order.html does NOT load it — that page belongs to the client', () => {
-  assert.doesNotMatch(read('order.html'), /js\/orientation-lock\.js/,
-    "the client's ordering page must not lock the client's own phone");
-});
-
-// ---- the pure half of js/orientation-lock.js --------------------------------
-const { shouldLockPortrait, shortSideOf, PHONE_MAX_SHORT_SIDE } = await import('../js/orientation-lock.js');
-
-test('a phone is held upright, a tablet is free to turn', () => {
-  assert.equal(shouldLockPortrait(390), true, 'iPhone');
-  assert.equal(shouldLockPortrait(430), true, 'iPhone Pro Max');
-  assert.equal(shouldLockPortrait(320), true, 'the smallest phone still sold');
-  assert.equal(shouldLockPortrait(744), false, 'iPad mini');
-  assert.equal(shouldLockPortrait(820), false, 'iPad');
-  assert.equal(shouldLockPortrait(1024), false, 'iPad Pro');
-});
-
-test('the boundary sits in the empty space between the widest phone and the narrowest tablet', () => {
-  assert.ok(PHONE_MAX_SHORT_SIDE > 440, 'must be above the iPhone 16 Pro Max (440)');
-  assert.ok(PHONE_MAX_SHORT_SIDE < 744, 'must be below the iPad mini (744)');
-});
-
-test('an unreadable screen size is treated as a tablet, never as a phone', () => {
-  // Failing this way round is deliberate: a wrongly locked tablet cannot be used on
-  // its stand, while an unlocked phone merely rotates — and still lays out correctly,
-  // because the width cap covers a phone in landscape too.
-  for (const bad of [undefined, null, NaN, 0, -1, 'wide', {}]) {
-    assert.equal(shouldLockPortrait(bad), false, `${String(bad)} must not lock`);
-  }
-});
-
-test('the short side is the smaller of the two, whichever way the device is held', () => {
-  assert.equal(shortSideOf({ width: 390, height: 844 }), 390);
-  assert.equal(shortSideOf({ width: 844, height: 390 }), 390, 'a rotated phone is still a phone');
-  assert.ok(Number.isNaN(shortSideOf(null)));
-  assert.ok(Number.isNaN(shortSideOf({ width: 'x', height: 2 })));
+  // ⚠️ A precached file that no longer exists makes install() fail, and install() is
+  // all-or-nothing: one missing entry and NOTHING is cached for that version.
+  assert.doesNotMatch(read('sw.js'), /orientation-lock/,
+    'sw.js must not precache a file that no longer exists');
 });

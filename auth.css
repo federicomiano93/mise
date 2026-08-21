@@ -11,7 +11,17 @@
   z-index: 9000;          /* above the splash and every in-app overlay */
   background: var(--brand);
   display: flex;
-  align-items: center;
+  /* ⚠️ NOT `align-items: center`, AND THIS IS A REAL BUG THAT SHIPPED. A centred flex
+     item taller than its container overflows in BOTH directions, and the half above
+     the top edge cannot be reached by scrolling — the browser will not scroll to
+     content it has pushed into negative space. Measured on a Galaxy Tab held
+     landscape (853×533): the card is 535px tall, so it was cut at the top (-1) and at
+     the bottom (534), and neither end could be brought into view.
+     `margin: auto` on the card does the same centring while it FITS, and degrades to
+     normal top-aligned scrolling when it does not. Universally supported, unlike
+     `align-items: safe center`.
+     ⚠️ It was invisible until now because no short screen was possible: the manifest
+     forbade rotation, so the sign-in screen was only ever seen upright. */
   justify-content: center;
   padding: 24px 26px calc(24px + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
@@ -32,6 +42,9 @@
 .auth-card {
   width: 100%;
   max-width: 360px;
+  /* Centres the card while there is room, and lets it scroll from the top when there
+     is not — see the note on .auth-gate above. */
+  margin: auto;
   background: var(--surface-2);
   border: 0;
   border-radius: 26px;
@@ -113,6 +126,18 @@
   cursor: pointer;
   padding: 12px 4px;
   margin-top: 4px;
+}
+
+/* ⚠️ THE THREE LINKS UNDER THE FORM MUST LINE UP WITH EACH OTHER, and they did not:
+   .auth-guide-link centred itself (below) while the other two are bare <button>s,
+   which sit wherever the flow puts them. Measured on a tablet: "Forgot your password?"
+   and "How to install the app" centred at 419, "I have a join code" at 323 — 96px out,
+   for no reason a reader could see. Scoped to the card so .auth-link keeps its own
+   behaviour on the screens above a venue, which use it inside rows. */
+.auth-card .auth-link {
+  display: block;
+  width: 100%;
+  text-align: center;
 }
 
 /* The install guide, for someone who was sent the app's address and has never
