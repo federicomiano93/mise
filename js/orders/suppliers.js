@@ -123,8 +123,8 @@ export function mountSupplierList(container, ctx) {
     const all = data.suppliers;
     const ordering = orderingCount(all);
 
-    allBtn.textContent = `All (${all.length})`;
-    orderingBtn.textContent = `Ordering (${ordering})`;
+    allBtn.textContent = t('orders.filter.all', { n: all.length });
+    orderingBtn.textContent = t('orders.filter.ordering', { n: ordering });
     // Nothing typed anywhere — there is no "just what I'm ordering" to offer.
     filterSwitch.hidden = ordering === 0 && !filtering;
     [[allBtn, !filtering], [orderingBtn, filtering]].forEach(([btn, on]) => {
@@ -162,7 +162,7 @@ export function mountSupplierList(container, ctx) {
     // and this only refreshes the two filter labels.
     updateCounts() {
       const ordering = orderingCount(data.suppliers);
-      orderingBtn.textContent = `Ordering (${ordering})`;
+      orderingBtn.textContent = t('orders.filter.ordering', { n: ordering });
       filterSwitch.hidden = ordering === 0 && !filtering;
     },
   };

@@ -201,7 +201,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
         class: 'guided-speed'
           + (stepChangedSpeed ? ' guided-speed--changed' : '')
           + (fresh ? ' guided-speed--flash' : ''),
-        text: `Speed ${current.speed}`,
+        text: t('cat.guided.speedN', { n: current.speed }),
       }));
     }
 
@@ -482,7 +482,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     const ok = await app.confirm({
       title: t('cat.leaveTheGuidedMix'),
       message: `You are on ${progressText(index, steps.length).toLowerCase()}. It will be waiting where you left it.`,
-      okLabel: 'Leave',
+      okLabel: t('ui.leave'),
     });
     if (ok) stop();
     return ok;

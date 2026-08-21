@@ -110,7 +110,7 @@ export function openWhatsapp() {
 // copy); leaving a detail to the top prompts to discard unsaved edits; from the top
 // it exits the overlay (nothing is pending there — the top re-reads the saved config).
 async function backWhatsapp() {
-  const discardOk = () => confirmDialog({ message: t('calc.discardUnsavedChanges'), okLabel: 'Discard', danger: true });
+  const discardOk = () => confirmDialog({ message: t('calc.discardUnsavedChanges'), okLabel: t('ui.discard'), danger: true });
   if (activeDirect !== null) {
     if (addingProduct) { addingProduct = false; renderEditor(); return; }
     if (dirty && !(await discardOk())) return;
@@ -178,7 +178,7 @@ async function saveDetail() {
       return;
     }
   }
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -303,13 +303,13 @@ function topRow(label, onOpen, delLabel, onDelete) {
 // Delete a saved list / direct client straight from the top screen, persisting at
 // once (there is no Save here). Always confirmed.
 async function deleteList(li) {
-  if (!(await confirmDialog({ message: t('calc.deleteThisList'), okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThisList'), okLabel: t('ui.delete'), danger: true }))) return;
   lists().splice(li, 1);
   saveConfig(working);
   renderEditor();
 }
 async function deleteDirect(di) {
-  if (!(await confirmDialog({ message: t('calc.deleteThisClient'), okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThisClient'), okLabel: t('ui.delete'), danger: true }))) return;
   directClients().splice(di, 1);
   saveConfig(working);
   renderEditor();
@@ -365,7 +365,7 @@ function entryCard(list, entry, ei) {
   open.addEventListener('click', () => { activeEntry = ei; addingProduct = false; renderEditor(); });
 
   const del = deleteIcon(t('calc.removeClientFromList'), async () => {
-    if (!(await confirmDialog({ message: t('calc.removeThisClientFrom'), okLabel: 'Remove', danger: true }))) return;
+    if (!(await confirmDialog({ message: t('calc.removeThisClientFrom'), okLabel: t('ui.remove'), danger: true }))) return;
     list.clients.splice(ei, 1);
     markDirty();
     renderEditor();

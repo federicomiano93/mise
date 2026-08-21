@@ -347,6 +347,15 @@ const DICTIONARIES = Object.freeze({
     'day.weekdayShort.0': 'Sun', 'day.weekdayShort.1': 'Mon', 'day.weekdayShort.2': 'Tue',
     'day.weekdayShort.3': 'Wed', 'day.weekdayShort.4': 'Thu', 'day.weekdayShort.5': 'Fri',
     'day.weekdayShort.6': 'Sat',
+    // ⚠️ THE LONG FORMS ARE PRESENTATION, LIKE THE SHORT ONES ABOVE — never the data.
+    // WEEKDAY_LONG in js/orders/day.js holds the same seven words as STORED VALUES
+    // (a supplier's orderDays, a proving list's document id) and must stay English:
+    // translating those would make a Monday supplier never match a Monday. These are
+    // only ever printed, and are needed where a short form would read badly inside a
+    // sentence («consegna il mar» vs «consegna il martedì»).
+    'day.weekdayLong.0': 'Sunday', 'day.weekdayLong.1': 'Monday', 'day.weekdayLong.2': 'Tuesday',
+    'day.weekdayLong.3': 'Wednesday', 'day.weekdayLong.4': 'Thursday', 'day.weekdayLong.5': 'Friday',
+    'day.weekdayLong.6': 'Saturday',
     'day.monthShort.0': 'Jan', 'day.monthShort.1': 'Feb', 'day.monthShort.2': 'Mar',
     'day.monthShort.3': 'Apr', 'day.monthShort.4': 'May', 'day.monthShort.5': 'Jun',
     'day.monthShort.6': 'Jul', 'day.monthShort.7': 'Aug', 'day.monthShort.8': 'Sep',
@@ -1117,6 +1126,40 @@ const DICTIONARIES = Object.freeze({
     'ui.back': 'Back',
     'ui.cancel': 'Cancel',
     'ui.delete': 'Delete',
+    // ⚠️ THE BUTTON WORDS THE DIALOGS USE. They were written straight into 30-odd
+    // `okLabel:` props — a shape no i18n test in this project looked at — so on an
+    // Italian phone the dialog asked its question in Italian and offered its answer
+    // in English. Found by opening the screen in Italian, exactly as
+    // tests/no-hardcoded-english.test.mjs predicted a third shape would be.
+    'ui.discard': 'Discard',
+    'ui.edit': 'Edit',
+    'ui.clear': 'Clear',
+    'ui.reset': 'Reset',
+    'ui.restore': 'Restore',
+    'ui.replace': 'Replace',
+    'ui.deactivate': 'Deactivate',
+    'ui.import': 'Import',
+    'ui.calculate': 'Calculate',
+    'ui.leave': 'Leave',
+    // Their own keys rather than reusing people.remove / nc.create: those belong to
+    // one screen each, and a later reword there would silently change a dialog
+    // somewhere else.
+    'ui.remove': 'Remove',
+    'ui.create': 'Create',
+    'ui.whatsNew': 'What’s new',
+    // Read at the mixer, at a glance: the word and the number are one label.
+    'cat.guided.speedN': 'Speed {n}',
+    // The allergen status line on an ingredient. Whole sentences: what follows
+    // «Checked» is a date in one language and a phrase in another.
+    'orders.allergen.notCheckedYet': 'Not checked yet — this ingredient blocks any label it is used in. {note}',
+    'orders.allergen.checkedOn': 'Checked {date} — {what}. {note}',
+    'orders.allergen.checkedNoDate': 'Checked — {what}. {note}',
+    'orders.allergen.containsNone': 'contains none of the 14',
+    'orders.nutritionStillEmpty': 'Nutrition: {n} of {total} still empty.',
+    'past.olderRecordsKept': {
+      one: 'Older records are kept — this screen shows the last day.',
+      other: 'Older records are kept — this screen shows the last {n} days.',
+    },
     'ui.doughScaling': "Dough scaling",
     'ui.recipesKgScaling': "Recipes & kg scaling",
     'ui.suppliersWeeklyOrder': "Suppliers & weekly order",
@@ -1157,6 +1200,22 @@ const DICTIONARIES = Object.freeze({
     'orders.tab.ingredients': 'Ingredients',
     'orders.tab.general': 'General',
     'orders.days': 'days',
+    // The two filter buttons above every list, and the two hints under a quantity box.
+    // ⚠️ THE COUNT IS INSIDE THE PHRASE, not glued on after it: a language is free to
+    // put it somewhere else, or to need a different word around it.
+    'orders.filter.all': 'All ({n})',
+    'orders.filter.ordering': 'Ordering ({n})',
+    'orders.suggestedN': 'Suggested: {n}',
+    'orders.muchMoreThanUsual': 'Much more than usual (about {n})',
+    // ⚠️ WHOLE SENTENCES, not fragments. The day and the date sit inside them because
+    // Italian needs «il» before a weekday and English needs «on» — a rule that cannot
+    // live in code that glues pieces together.
+    'orders.alert.bankHolidayTomorrow': 'UK bank holiday tomorrow ({date}). Plan your orders ahead.',
+    'orders.alert.bankHolidayInDays': {
+      one: 'UK bank holiday in {n} day ({date}). Plan your orders ahead.',
+      other: 'UK bank holiday in {n} days ({date}). Plan your orders ahead.',
+    },
+    'orders.alert.deliveryClash': 'Heads up: {supplier} delivers on {day}, but {date} is a bank holiday — check the delivery.',
     'orders.mute.orderRequests': 'Do not buzz this phone about order lists',
     'orders.mute.stillShown': 'The list still appears in the app — this only silences the alert.',
     'orders.field.stock': 'Stock',
@@ -1587,6 +1646,9 @@ const DICTIONARIES = Object.freeze({
     'day.weekdayShort.0': 'dom', 'day.weekdayShort.1': 'lun', 'day.weekdayShort.2': 'mar',
     'day.weekdayShort.3': 'mer', 'day.weekdayShort.4': 'gio', 'day.weekdayShort.5': 'ven',
     'day.weekdayShort.6': 'sab',
+    'day.weekdayLong.0': 'domenica', 'day.weekdayLong.1': 'lunedì', 'day.weekdayLong.2': 'martedì',
+    'day.weekdayLong.3': 'mercoledì', 'day.weekdayLong.4': 'giovedì', 'day.weekdayLong.5': 'venerdì',
+    'day.weekdayLong.6': 'sabato',
     'day.monthShort.0': 'gen', 'day.monthShort.1': 'feb', 'day.monthShort.2': 'mar',
     'day.monthShort.3': 'apr', 'day.monthShort.4': 'mag', 'day.monthShort.5': 'giu',
     'day.monthShort.6': 'lug', 'day.monthShort.7': 'ago', 'day.monthShort.8': 'set',
@@ -2306,6 +2368,29 @@ const DICTIONARIES = Object.freeze({
     'ui.back': 'Indietro',
     'ui.cancel': 'Annulla',
     'ui.delete': 'Elimina',
+    'ui.discard': 'Scarta',
+    'ui.edit': 'Modifica',
+    'ui.clear': 'Azzera',
+    'ui.reset': 'Reimposta',
+    'ui.restore': 'Ripristina',
+    'ui.replace': 'Sostituisci',
+    'ui.deactivate': 'Disattiva',
+    'ui.import': 'Importa',
+    'ui.calculate': 'Calcola',
+    'ui.leave': 'Esci',
+    'ui.remove': 'Rimuovi',
+    'ui.create': 'Crea',
+    'ui.whatsNew': 'Novità',
+    'cat.guided.speedN': 'Velocità {n}',
+    'orders.allergen.notCheckedYet': 'Non ancora verificato — questo ingrediente blocca ogni etichetta in cui è usato. {note}',
+    'orders.allergen.checkedOn': 'Verificato il {date} — {what}. {note}',
+    'orders.allergen.checkedNoDate': 'Verificato — {what}. {note}',
+    'orders.allergen.containsNone': 'non contiene nessuno dei 14',
+    'orders.nutritionStillEmpty': 'Valori nutrizionali: {n} di {total} ancora da compilare.',
+    'past.olderRecordsKept': {
+      one: 'I record più vecchi restano — questa schermata mostra l’ultimo giorno.',
+      other: 'I record più vecchi restano — questa schermata mostra gli ultimi {n} giorni.',
+    },
     'ui.doughScaling': "Calcolo impasti",
     'ui.recipesKgScaling': "Ricette e scalatura in kg",
     'ui.suppliersWeeklyOrder': "Fornitori e ordine settimanale",
@@ -2345,6 +2430,16 @@ const DICTIONARIES = Object.freeze({
     'orders.tab.ingredients': 'Ingredienti',
     'orders.tab.general': 'Generali',
     'orders.days': 'giorni',
+    'orders.filter.all': 'Tutti ({n})',
+    'orders.filter.ordering': 'Da ordinare ({n})',
+    'orders.suggestedN': 'Suggerito: {n}',
+    'orders.muchMoreThanUsual': 'Molto più del solito (circa {n})',
+    'orders.alert.bankHolidayTomorrow': 'Domani è festivo nel Regno Unito ({date}). Organizza gli ordini in anticipo.',
+    'orders.alert.bankHolidayInDays': {
+      one: 'Fra {n} giorno è festivo nel Regno Unito ({date}). Organizza gli ordini in anticipo.',
+      other: 'Fra {n} giorni è festivo nel Regno Unito ({date}). Organizza gli ordini in anticipo.',
+    },
+    'orders.alert.deliveryClash': 'Attenzione: {supplier} consegna il {day}, ma {date} è festivo — verifica la consegna.',
     'orders.mute.orderRequests': 'Non far suonare questo telefono per le liste d’ordine',
     'orders.mute.stillShown': 'La lista compare comunque nell’app — questo toglie solo l’avviso sonoro.',
     'orders.section.alerts': 'Avvisi',

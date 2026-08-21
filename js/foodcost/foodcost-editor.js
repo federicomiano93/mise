@@ -265,7 +265,7 @@ export function renderEditor({ product, app }) {
     }
 
     busy = true;
-    const ok = await app.confirm({ title: t('fc.saveProduct'), message: t('fc.saveTheseChanges'), okLabel: 'Save' });
+    const ok = await app.confirm({ title: t('fc.saveProduct'), message: t('fc.saveTheseChanges'), okLabel: t('ui.save') });
     if (!ok) { busy = false; return; }
 
     const clean = { ...working, name: String(working.name).trim() };
@@ -289,7 +289,7 @@ export function renderEditor({ product, app }) {
     const ok = await app.confirm({
       title: t('fc.deleteProduct'),
       message: `Delete “${product.name || 'this product'}”? This cannot be undone, and its margin history goes with it.`,
-      okLabel: 'Delete', danger: true,
+      okLabel: t('ui.delete'), danger: true,
     });
     if (!ok) { busy = false; return; }
     dirty = false;
@@ -302,7 +302,7 @@ export function renderEditor({ product, app }) {
     if (!dirty) return true;
     return app.confirm({
       title: t('fc.discardChanges'), message: t('fc.youHaveUnsavedChanges'),
-      okLabel: 'Discard', danger: true,
+      okLabel: t('ui.discard'), danger: true,
     });
   });
 

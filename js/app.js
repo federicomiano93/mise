@@ -396,7 +396,7 @@ function clearTabState(recipeId) {
 }
 
 async function resetTab(recipeId) {
-  if (!(await confirmDialog({ message: t('calc.resetAllFields'), okLabel: 'Reset', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.resetAllFields'), okLabel: t('ui.reset'), danger: true }))) return;
   clearTabState(recipeId);
 }
 

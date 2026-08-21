@@ -279,7 +279,7 @@ const app = {
       ? base + t('cat.itWasImportedInto')
       : base;
 
-    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: 'Delete', danger: true });
+    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: t('ui.delete'), danger: true });
     if (!ok) return false;
     deleteRecipe(recipe.id);
     toast(t('cat.recipeDeleted'));
@@ -300,7 +300,7 @@ const app = {
     const ok = await confirmDialog({
       title: t('cat.importIntoCalculator2'),
       message: `Copy “${recipe.name}” into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
-      okLabel: 'Import',
+      okLabel: t('ui.import'),
     });
     if (!ok) return;
     try {

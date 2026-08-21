@@ -117,7 +117,7 @@ async function requestEdit(day) {
   const ok = await confirmDialog({
     title: `Edit ${day}?`,
     message: `${day} is already recorded for tonight. Edit these quantities?`,
-    okLabel: 'Edit',
+    okLabel: t('ui.edit'),
   });
   if (!ok) return false;
   // The permission carries the work date, so it is spent when the date rolls at

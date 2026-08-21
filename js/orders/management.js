@@ -463,7 +463,7 @@ export function buildManagement(data, actions) {
         if (active) {
           const ok = await confirmDialog({
             message: `Deactivate “${name}”? It will be hidden from the order screen. You can reactivate it later.`,
-            okLabel: 'Deactivate', danger: true,
+            okLabel: t('ui.deactivate'), danger: true,
           });
           if (!ok) return;
         }
@@ -476,7 +476,7 @@ export function buildManagement(data, actions) {
       actions.push(el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
         const ok = await confirmDialog({
           message: `Permanently delete “${name}”? This cannot be undone.`,
-          okLabel: 'Delete', danger: true,
+          okLabel: t('ui.delete'), danger: true,
         });
         if (!ok) return;
         try { await onDelete(); }
@@ -801,18 +801,25 @@ export function buildManagement(data, actions) {
       const missing = missingNutrients({ nutrition: draft.nutrition });
       const nutritionNote = missing.length === NUTRIENTS.length
         ? t('orders.noNutritionYet')
-        : (missing.length ? `Nutrition: ${missing.length} of ${NUTRIENTS.length} still empty.` : t('orders.nutritionComplete'));
+        : (missing.length
+          ? t('orders.nutritionStillEmpty', { n: missing.length, total: NUTRIENTS.length })
+          : t('orders.nutritionComplete'));
 
       if (state === 'unknown') {
-        status.textContent = `Not checked yet — this ingredient blocks any label it is used in. ${nutritionNote}`;
+        status.textContent = t('orders.allergen.notCheckedYet', { note: nutritionNote });
         status.className = 'alg-status alg-status--unknown';
         return;
       }
       const when = (checkedAt(draft) || '').slice(0, 10);
       const what = state === 'none'
-        ? 'contains none of the 14'
+        ? t('orders.allergen.containsNone')
         : draft.allergens.map(allergenLabel).join(', ');
-      status.textContent = `Checked${when ? ` ${when}` : ''} — ${what}. ${nutritionNote}`;
+      // ⚠️ TWO WHOLE SENTENCES, not one with a hole in it. The date is optional, and
+      // «Checked 2026-08-21 — …» / «Verificato il 2026-08-21 — …» differ by more than
+      // the gap: Italian needs «il» before the date and English needs nothing.
+      status.textContent = when
+        ? t('orders.allergen.checkedOn', { date: when, what, note: nutritionNote })
+        : t('orders.allergen.checkedNoDate', { what, note: nutritionNote });
       status.className = 'alg-status alg-status--ok';
     }
 

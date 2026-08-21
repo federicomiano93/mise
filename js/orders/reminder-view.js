@@ -87,7 +87,7 @@ export function renderPending(container, list, { onPlaced, onToday, onDiscard, n
         el('button', {
           type: 'button', class: 'pending-btn danger',
           onClick: () => onDiscard?.(supplier.id),
-        }, 'Discard'),
+        }, t('ui.discard')),
       ]),
     ]));
   });

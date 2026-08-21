@@ -1201,7 +1201,7 @@ function confirmClear(supplierIds) {
   return confirmDialog({
     title: t('orders.clearQuantities'),
     message: `Clear everything typed for ${who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.`,
-    okLabel: 'Clear',
+    okLabel: t('ui.clear'),
     danger: true,
   });
 }
@@ -1422,7 +1422,7 @@ async function discardPending(supplierId) {
   const ok = await confirmDialog({
     title: `Discard ${supplier.name}’s order`,
     message: `Delete the quantities typed for ${supplier.name}? They are not saved anywhere and cannot be recovered.`,
-    okLabel: 'Discard',
+    okLabel: t('ui.discard'),
     danger: true,
   });
   if (!ok) return;

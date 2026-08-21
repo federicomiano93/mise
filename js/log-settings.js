@@ -74,7 +74,7 @@ function recipeCard(recipe) {
 }
 
 async function saveAll() {
-  if (!(await confirmDialog({ message: t('calc.saveTheseLogSettings'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseLogSettings'), okLabel: t('ui.save') }))) return;
   const cfg = cloneConfig(getConfig());
   cfg.logVisibility = { ...working.visibility };
   cfg.logRetentionByDough = { ...working.retention };

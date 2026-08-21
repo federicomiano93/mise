@@ -76,7 +76,7 @@ export function saveDay(tab, day) {
 // and hide the recipe so it can't change live; it returns, recomputed, on the next save.
 export async function editTab(tab) {
   if (!getLock(tab).locked) return;
-  if (!(await confirmDialog({ message: t('calc.editTheseQuantitiesThe'), okLabel: 'Edit' }))) return;
+  if (!(await confirmDialog({ message: t('calc.editTheseQuantitiesThe'), okLabel: t('ui.edit') }))) return;
   clearRevealed(tab);
   hideResult(tab + '-result');
   setLock(tab, false, getLock(tab).logId);
@@ -203,7 +203,7 @@ function closeLogView() { document.getElementById('logview-overlay').classList.r
 
 // Edit (B): confirm first, then open the dedicated edit screen (never the calculator).
 async function startEdit(id) {
-  if (!(await confirmDialog({ message: t('calc.editThisLog'), okLabel: 'Edit' }))) return;
+  if (!(await confirmDialog({ message: t('calc.editThisLog'), okLabel: t('ui.edit') }))) return;
   openLogEdit(id);
 }
 
@@ -222,7 +222,7 @@ document.getElementById('log-content').addEventListener('click', async e => {
     const id = delB.dataset.id;
     const log = getLogById(id);
     const msg = t('calc.deleteThis') + (log ? log.dough : '') + t('calc.logThisCannotBe');
-    if (await confirmDialog({ message: msg, okLabel: 'Delete', danger: true })) deleteLog(id);
+    if (await confirmDialog({ message: msg, okLabel: t('ui.delete'), danger: true })) deleteLog(id);
     return;
   }
   if (bodyB) { openLogView(bodyB.dataset.id); return; }

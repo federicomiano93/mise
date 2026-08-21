@@ -79,7 +79,7 @@ export async function closeRecipes() {
   if (activeRecipe !== null) {
     const r = recipes()[activeRecipe];
     if (freshlyAdded && isEmptyRecipe(r)) {
-      if (!(await confirmDialog({ message: t('calc.discardThisNewRecipe'), okLabel: 'Discard', danger: true }))) return;
+      if (!(await confirmDialog({ message: t('calc.discardThisNewRecipe'), okLabel: t('ui.discard'), danger: true }))) return;
       recipes().splice(activeRecipe, 1);
     }
     freshlyAdded = false;
@@ -131,7 +131,7 @@ async function saveRecipes() {
     alertDialog(t('calc.pleaseGiveEveryRecipe'));
     return;
   }
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -199,7 +199,7 @@ async function deleteRecipe(ri) {
     alertDialog(t('calc.thisRecipeIsUsed') + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
     return;
   }
-  if (!(await confirmDialog({ message: t('calc.deleteThe') + (r.name || 'this') + t('calc.recipe'), okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThe') + (r.name || 'this') + t('calc.recipe'), okLabel: t('ui.delete'), danger: true }))) return;
   recipes().splice(ri, 1);
   markDirty();
   activeRecipe = null;

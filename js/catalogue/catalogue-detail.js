@@ -317,7 +317,7 @@ export function renderDetail({ recipe, app }) {
       message: warning
         ? `${warning}\n\nCalculate ${recipe.name} for ${readable}?`
         : `Calculate ${recipe.name} for ${readable}?`,
-      okLabel: 'Calculate',
+      okLabel: t('ui.calculate'),
     });
     if (!ok) return;
     displayTarget = grams;

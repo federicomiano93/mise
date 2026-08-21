@@ -497,7 +497,7 @@ function renderCutoffSettings() {
       message: wanted
         ? `Close orders at ${wanted} the day before? Every client sees this straight away.`
         : t('calc.removeTheDeadlineClients'),
-      okLabel: 'Save',
+      okLabel: t('ui.save'),
     }))) return;
     save.disabled = true;
     try {

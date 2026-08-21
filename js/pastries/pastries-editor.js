@@ -119,7 +119,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
       const ok = await app.confirm({
         title: t('past.removeThisPastry'),
         message: t('past.removeRowFrom', { name: row.name.trim() || t('past.thisRow'), day: weekdayLabel(day) }),
-        okLabel: 'Remove',
+        okLabel: t('ui.remove'),
         danger: true,
       });
       busy = false;
@@ -172,7 +172,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
       message: clean.length
         ? t('past.saveThese', { n: clean.length, day: weekdayLabel(day) })
         : t('past.saveEmpty', { day: weekdayLabel(day) }),
-      okLabel: 'Save',
+      okLabel: t('ui.save'),
     });
     if (!ok) { busy = false; return; }
 
@@ -187,7 +187,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
     return app.confirm({
       title: t('past.discardChanges'),
       message: t('past.unsavedFor', { day: weekdayLabel(day) }),
-      okLabel: 'Discard',
+      okLabel: t('ui.discard'),
       danger: true,
     });
   });
