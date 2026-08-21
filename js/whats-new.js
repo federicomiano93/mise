@@ -16,12 +16,19 @@
 // Newest FIRST. `id` is a stamp that never changes once released — it is what a
 // phone remembers having read, so editing one would re-show that notice to
 // everyone. To correct a released note, add a new entry.
+//
+// ⚠️ `title` AND every entry in `points` ARE DICTIONARY KEYS, never phrases.
+// noticeText() runs both through t(), and a key the dictionary does not hold comes
+// back as ITSELF — so a phrase written here does not fail, it simply prints in
+// English inside an otherwise Italian notice. Eight of them did exactly that, and
+// nobody could see it while the notice was broken. A section's heading uses the
+// same key as its card on the Home, so the notice and the card cannot drift apart.
 import { t } from './i18n.js';
 
 export const RELEASES = [
   {
     id: '2026-08-06-pastries-confirm',
-    title: 'Pastries',
+    title: 'section.pastries',
     points: [
       'help.acceptIsNowCalled',
       'help.aConfirmedListShows',
@@ -30,7 +37,7 @@ export const RELEASES = [
   },
   {
     id: '2026-08-05-pastries-records',
-    title: 'Pastries',
+    title: 'section.pastries',
     points: [
       'help.tapAPastryTo',
       'help.theNoteAtThe',
@@ -39,7 +46,7 @@ export const RELEASES = [
   },
   {
     id: '2026-08-05-pastries',
-    title: 'Pastries',
+    title: 'section.pastries',
     points: [
       'help.aNewCardOn',
       'help.itOpensOnThe',
@@ -48,7 +55,7 @@ export const RELEASES = [
   },
   {
     id: '2026-07-31-supplier-ingredient-list',
-    title: 'Orders',
+    title: 'section.orders',
     points: [
       'help.tapTheListIcon',
       'help.itIsAList',
@@ -57,7 +64,7 @@ export const RELEASES = [
   },
   {
     id: '2026-07-31-clear-quantities',
-    title: 'Orders',
+    title: 'section.orders',
     points: [
       'help.startAnOrderAgain',
       'help.whatYouCountedOn',
@@ -66,7 +73,7 @@ export const RELEASES = [
   },
   {
     id: '2026-07-31-unusual-quantity',
-    title: 'Orders',
+    title: 'section.orders',
     points: [
       'help.typeAQuantityFar',
       'help.recordingThatOrderAsks',
@@ -75,7 +82,7 @@ export const RELEASES = [
   },
   {
     id: '2026-07-31-history-window',
-    title: 'Orders',
+    title: 'section.orders',
     points: [
       'help.historyOpensOnThe',
       'help.nothingHasBeenDeleted',
@@ -94,7 +101,7 @@ export const RELEASES = [
   },
   {
     id: '2026-07-29-orders-search',
-    title: 'Orders',
+    title: 'section.orders',
     // Short on purpose. A notice is read standing up, once — anything that needs
     // scrolling to finish will not be finished.
     points: [
