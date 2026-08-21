@@ -29,7 +29,9 @@ import { getCatalogueRecipesOnce, stampRecipeRowIds } from './firebase.js';
 // recipeTotal is re-exported so any importer keeps its path unchanged.
 export { recipeTotal };
 
-const LOGIC_LABELS = { orders: t('calc.fromOrders'), total: t('calc.fromATotal'), both: t('calc.bothOrdersTotal') };
+// Keys, resolved at draw time — see the note in js/calculator-render.js. A phrase put
+// here directly is frozen in whatever language the app started in.
+const LOGIC_LABELS = { orders: 'calc.fromOrders', total: 'calc.fromATotal', both: 'calc.bothOrdersTotal' };
 
 let working = null;       // deep copy being edited
 let activeRecipe = null;  // null = the recipe list, an index = a recipe's detail
@@ -158,7 +160,7 @@ function renderRecipeList() {
 
   recipes().forEach((r, ri) => {
     const ings = (r.ingredients || []).length;
-    const sub = LOGIC_LABELS[r.logic] + '  ·  ' + ings + (ings === 1 ? ' ingredient' : ' ingredients')
+    const sub = t(LOGIC_LABELS[r.logic]) + '  ·  ' + ings + (ings === 1 ? ' ingredient' : ' ingredients')
       + (r.visible !== false ? t('calc.shown') : t('calc.hidden'));
     const open = el('button', { class: 'drill-item wa-entry-open', type: 'button' }, [
       el('span', { class: 'wa-entry-text' }, [
@@ -251,7 +253,7 @@ function renderRecipeDetail(ri) {
       class: 'cp-choice' + (chosen ? ' cp-choice--on' : ''),
       'aria-pressed': String(chosen),
     }, [
-      el('span', { class: 'cp-choice-name' }, LOGIC_LABELS[l]),
+      el('span', { class: 'cp-choice-name' }, t(LOGIC_LABELS[l])),
       el('span', { class: 'cp-choice-why' }, t(`calc.logicHint.${l}`)),
     ]);
     row.addEventListener('click', () => {

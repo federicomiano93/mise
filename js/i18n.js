@@ -1157,6 +1157,21 @@ const DICTIONARIES = Object.freeze({
     'ui.recipe': 'Recipe',
     'ui.note': 'Note',
     'ui.ingredients': 'Ingredients',
+    // ⚠️ This one was not even a key — PRICE_UNIT_LABELS carried the bare words
+    // 'by the piece' beside two t() calls, so two thirds of the same list translated
+    // and the third did not.
+    'price.byPiece': 'by the piece',
+    // ⚠️ Eight of these nine sat in COST_REASON_TEXT as bare English beside ONE t()
+    // call — the same list, one line translated and eight not. Each names one thing
+    // to go and do, so they read as the end of «this row could not be costed: …».
+    'cat.cost.noAmount': 'no amount',
+    'cat.cost.notLinked': 'not linked to an ingredient',
+    'cat.cost.missingIngredient': 'linked to an ingredient that no longer exists',
+    'cat.cost.missingRecipe': 'linked to a recipe that no longer exists',
+    'cat.cost.noPrice': 'the linked ingredient has no price yet',
+    'cat.cost.subNotCostable': 'the linked recipe has no cost yet',
+    'cat.cost.cycle': 'this recipe contains itself',
+    'cat.cost.tooDeep': 'nested too many recipes deep',
     // Read at the mixer, at a glance: the word and the number are one label.
     'cat.guided.speedN': 'Speed {n}',
     // The allergen status line on an ingredient. Whole sentences: what follows
@@ -2398,6 +2413,15 @@ const DICTIONARIES = Object.freeze({
     'ui.recipe': 'Ricetta',
     'ui.note': 'Nota',
     'ui.ingredients': 'Ingredienti',
+    'price.byPiece': 'a pezzo',
+    'cat.cost.noAmount': 'nessuna quantità',
+    'cat.cost.notLinked': 'non collegato a un ingrediente',
+    'cat.cost.missingIngredient': 'collegato a un ingrediente che non esiste più',
+    'cat.cost.missingRecipe': 'collegato a una ricetta che non esiste più',
+    'cat.cost.noPrice': 'l’ingrediente collegato non ha ancora un prezzo',
+    'cat.cost.subNotCostable': 'la ricetta collegata non ha ancora un costo',
+    'cat.cost.cycle': 'questa ricetta contiene sé stessa',
+    'cat.cost.tooDeep': 'troppe ricette annidate una dentro l’altra',
     'cat.guided.speedN': 'Velocità {n}',
     'orders.allergen.notCheckedYet': 'Non ancora verificato — questo ingrediente blocca ogni etichetta in cui è usato. {note}',
     'orders.allergen.checkedOn': 'Verificato il {date} — {what}. {note}',

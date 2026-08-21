@@ -40,7 +40,7 @@ import { WEEKDAYS as WEEK_START_DAYS, isValidWeekStart } from './work-week.js';
 // A screen that already talks to Firestore is the right home for a control that does.
 import { muteOrderRequests, orderRequestsMuted, rememberMute } from '../push.js';
 import {
-  CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
+  CURRENCY, PRICE_UNITS, priceUnitLabel,
   pricePatch, priceChanged, priceRecord, pricePerKg,
   formatPricePerUnit, formatRate, costReasonText,
 } from '../price-model.js';
@@ -588,7 +588,7 @@ export function buildManagement(data, actions) {
     const unitSelect = el('select', { class: 'mgmt-input' });
     unitSelect.appendChild(el('option', { value: '', text: t('orders.noPrice2') }));
     PRICE_UNITS.forEach(u => {
-      const opt = el('option', { value: u, text: PRICE_UNIT_LABELS[u] });
+      const opt = el('option', { value: u, text: priceUnitLabel(u) });
       if (item?.priceUnit === u) opt.selected = true;
       unitSelect.appendChild(opt);
     });

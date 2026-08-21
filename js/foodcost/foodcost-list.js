@@ -6,10 +6,11 @@
 
 import { t } from '../i18n.js';
 import { el } from './dom.js';
-import { sortByMargin, BLOCKER_TEXT } from './foodcost-model.js';
+import { sortByMargin, blockerText } from './foodcost-model.js';
 import { formatRate, formatMoney } from '../price-model.js';
 
-const STATUS_TEXT = { green: t('fc.onTarget'), amber: t('fc.slightlyOver'), red: t('fc.overTarget') };
+// Keys, resolved at draw time — see js/calculator-render.js.
+const STATUS_TEXT = { green: 'fc.onTarget', amber: 'fc.slightlyOver', red: 'fc.overTarget' };
 
 export function renderList({ products, tables, onOpen, onAdd }) {
   const rows = el('div', { class: 'fc-list' });
@@ -54,10 +55,10 @@ function row(product, result, onOpen) {
   // What is still missing, or what it earns. Either way ONE line, so every card is
   // the same height and the list stays scannable.
   const sub = costed
-    ? [result.status ? STATUS_TEXT[result.status] : t('fc.noTargetSet'),
+    ? [result.status ? t(STATUS_TEXT[result.status]) : t('fc.noTargetSet'),
        `${formatRate(result.unitCost)} cost`,
        `${formatMoney(result.margin)} margin`].join('  ·  ')
-    : (BLOCKER_TEXT[result.blockers[0]] || t('fc.notCostedYet'));
+    : (result.blockers.length ? blockerText(result.blockers[0]) : t('fc.notCostedYet'));
 
   return el('button', {
     class: 'fc-row' + (costed ? '' : ' incomplete'), type: 'button',

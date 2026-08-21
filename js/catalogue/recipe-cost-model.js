@@ -30,17 +30,25 @@ export const MAX_RECIPE_DEPTH = 4;
 
 // Why a row could not be costed. The order is the order they are TESTED in, and
 // each names one thing to go and do.
+// ⚠️ KEYS, resolved at draw time — see js/calculator-render.js. And eight of these
+// nine were BARE ENGLISH beside one t() call: the same list, one line translated and
+// eight not, which is how a half-translated screen happens.
 export const COST_REASON_TEXT = Object.freeze({
-  'not-weighable': t('cat.notWeighedPiecesSpoons'),
-  'no-amount': 'no amount',
-  'not-linked': 'not linked to an ingredient',
-  'missing-ingredient': 'linked to an ingredient that no longer exists',
-  'missing-recipe': 'linked to a recipe that no longer exists',
-  'no-price': 'the linked ingredient has no price yet',
-  'sub-not-costable': 'the linked recipe has no cost yet',
-  'cycle': 'this recipe contains itself',
-  'too-deep': 'nested too many recipes deep',
+  'not-weighable': 'cat.notWeighedPiecesSpoons',
+  'no-amount': 'cat.cost.noAmount',
+  'not-linked': 'cat.cost.notLinked',
+  'missing-ingredient': 'cat.cost.missingIngredient',
+  'missing-recipe': 'cat.cost.missingRecipe',
+  'no-price': 'cat.cost.noPrice',
+  'sub-not-costable': 'cat.cost.subNotCostable',
+  'cycle': 'cat.cost.cycle',
+  'too-deep': 'cat.cost.tooDeep',
 });
+
+// The one place a cost reason becomes words.
+export function costReasonLabel(reason) {
+  return COST_REASON_TEXT[reason] ? t(COST_REASON_TEXT[reason]) : '';
+}
 
 // Accept a Map or a plain object for the two lookup tables, so callers can hand
 // over whatever they already have without building a second copy.

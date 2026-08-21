@@ -30,7 +30,7 @@ import { t } from './i18n.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   cloneConfig, getClients, getClientById, getProductById, getAllProducts,
-  getOrderPrefillWindow, ORDER_PREFILL_WINDOWS, ORDER_PREFILL_LABELS,
+  getOrderPrefillWindow, ORDER_PREFILL_WINDOWS, orderPrefillLabel,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
@@ -262,7 +262,7 @@ function renderTopScreen() {
 // works on this phone, and has not reached the others yet.
 function buildPrefillWindowField() {
   const sel = el('select', { class: 'extra-unit-select', 'aria-label': t('calc.fillTheOrderFrom') });
-  ORDER_PREFILL_WINDOWS.forEach(w => sel.appendChild(el('option', { value: w }, ORDER_PREFILL_LABELS[w])));
+  ORDER_PREFILL_WINDOWS.forEach(w => sel.appendChild(el('option', { value: w }, orderPrefillLabel(w))));
   sel.value = getOrderPrefillWindow(getConfig());
 
   sel.addEventListener('change', async () => {

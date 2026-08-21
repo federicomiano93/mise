@@ -23,73 +23,73 @@ export const RELEASES = [
     id: '2026-08-06-pastries-confirm',
     title: 'Pastries',
     points: [
-      t('help.acceptIsNowCalled'),
-      t('help.aConfirmedListShows'),
-      t('help.toChangeItAnyway'),
+      'help.acceptIsNowCalled',
+      'help.aConfirmedListShows',
+      'help.toChangeItAnyway',
     ],
   },
   {
     id: '2026-08-05-pastries-records',
     title: 'Pastries',
     points: [
-      t('help.tapAPastryTo'),
-      t('help.theNoteAtThe'),
-      t('help.tapAcceptWhenA'),
+      'help.tapAPastryTo',
+      'help.theNoteAtThe',
+      'help.tapAcceptWhenA',
     ],
   },
   {
     id: '2026-08-05-pastries',
     title: 'Pastries',
     points: [
-      t('help.aNewCardOn'),
-      t('help.itOpensOnThe'),
-      t('help.tapAnyDayAlong'),
+      'help.aNewCardOn',
+      'help.itOpensOnThe',
+      'help.tapAnyDayAlong',
     ],
   },
   {
     id: '2026-07-31-supplier-ingredient-list',
     title: 'Orders',
     points: [
-      t('help.tapTheListIcon'),
-      t('help.itIsAList'),
-      t('help.tappingTheRestOf'),
+      'help.tapTheListIcon',
+      'help.itIsAList',
+      'help.tappingTheRestOf',
     ],
   },
   {
     id: '2026-07-31-clear-quantities',
     title: 'Orders',
     points: [
-      t('help.startAnOrderAgain'),
-      t('help.whatYouCountedOn'),
-      t('help.ordersAlreadyRecordedIn'),
+      'help.startAnOrderAgain',
+      'help.whatYouCountedOn',
+      'help.ordersAlreadyRecordedIn',
     ],
   },
   {
     id: '2026-07-31-unusual-quantity',
     title: 'Orders',
     points: [
-      t('help.typeAQuantityFar'),
-      t('help.recordingThatOrderAsks'),
-      t('help.itStaysQuietOn'),
+      'help.typeAQuantityFar',
+      'help.recordingThatOrderAsks',
+      'help.itStaysQuietOn',
     ],
   },
   {
     id: '2026-07-31-history-window',
     title: 'Orders',
     points: [
-      t('help.historyOpensOnThe'),
-      t('help.nothingHasBeenDeleted'),
-      t('help.changeHowFarBack'),
+      'help.historyOpensOnThe',
+      'help.nothingHasBeenDeleted',
+      'help.changeHowFarBack',
     ],
   },
   {
     id: '2026-07-30-sign-in',
-    title: t('help.signIn'),
+    title: 'help.signIn',
     points: [
-      t('help.theAppNowAsks'),
-      t('help.forgotItTapForgot'),
-      t('help.theHomeScreenShows'),
-      t('help.eachLocationSeesOnly'),
+      'help.theAppNowAsks',
+      'help.forgotItTapForgot',
+      'help.theHomeScreenShows',
+      'help.eachLocationSeesOnly',
     ],
   },
   {
@@ -98,10 +98,10 @@ export const RELEASES = [
     // Short on purpose. A notice is read standing up, once — anything that needs
     // scrolling to finish will not be finished.
     points: [
-      t('help.findAnIngredientBy'),
-      t('help.ingredientsWithNoSupplier'),
-      t('help.sendTheOrderAs'),
-      t('help.theBarAtThe'),
+      'help.findAnIngredientBy',
+      'help.ingredientsWithNoSupplier',
+      'help.sendTheOrderAs',
+      'help.theBarAtThe',
     ],
   },
 ];
@@ -141,9 +141,13 @@ export function pickNotices(releases, seenId, returning = false) {
 // even for a single notice: knowing the change is in Orders is half the message.
 // Plain text with real newlines — .app-dialog-msg renders them (white-space:
 // pre-line) and the dialog sets it with textContent, so nothing here is markup.
+// ⚠️ RELEASES CARRIES KEYS AND THIS IS WHERE THEY BECOME WORDS. The notes used to
+// hold calls to t() with a literal key, which run once at import — before a venue is open, so before the
+// language is known — freezing every release note in the app's starting language. A
+// title with no key (a feature's own name) passes through t() unchanged.
 export function noticeText(notices) {
   return (notices || [])
     .filter(n => n && (n.points || []).length)
-    .map(n => [n.title, ...n.points.map(p => `• ${p}`)].filter(Boolean).join('\n'))
+    .map(n => [t(n.title), ...n.points.map(p => `• ${t(p)}`)].filter(Boolean).join('\n'))
     .join('\n\n');
 }

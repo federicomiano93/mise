@@ -22,66 +22,66 @@ export const HELP = {
   home: {
     title: 'Misé',
     lines: [
-      t('help.eachCardOpensOne'),
-      t('help.yourWorkIsSaved'),
-      t('help.everyScreenHasA'),
-      t('help.aNumberOnA'),
+      'help.eachCardOpensOne',
+      'help.yourWorkIsSaved',
+      'help.everyScreenHasA',
+      'help.aNumberOnA',
     ],
   },
 
   calculator: {
     title: 'Calculator',
     lines: [
-      t('help.typeHowManyPieces'),
-      t('help.confirmSavesTheSheet'),
-      t('help.theFieldsEmptyThemselves'),
+      'help.typeHowManyPieces',
+      'help.confirmSavesTheSheet',
+      'help.theFieldsEmptyThemselves',
     ],
   },
 
   'client-orders': {
-    title: t('help.ordersReceived'),
+    title: 'help.ordersReceived',
     lines: [
-      t('help.ordersYourClientsTyped'),
-      t('help.putInTheCalculator'),
-      t('help.ifAClientChanges'),
-      t('help.ordersForDaysAlready'),
+      'help.ordersYourClientsTyped',
+      'help.putInTheCalculator',
+      'help.ifAClientChanges',
+      'help.ordersForDaysAlready',
     ],
   },
 
   catalogue: {
-    title: t('help.recipeCatalogue'),
+    title: 'help.recipeCatalogue',
     lines: [
-      t('help.everyRecipeYouHave'),
-      t('help.guidedMixingWalksA'),
-      t('help.linkARowTo'),
-      t('help.ifOnlySomeRows'),
+      'help.everyRecipeYouHave',
+      'help.guidedMixingWalksA',
+      'help.linkARowTo',
+      'help.ifOnlySomeRows',
     ],
   },
 
   orders: {
     title: 'Orders',
     lines: [
-      t('help.whatToBuySupplier'),
-      t('help.orderPlacedRecordsIt'),
-      t('help.suggestedAmountsComeFrom'),
+      'help.whatToBuySupplier',
+      'help.orderPlacedRecordsIt',
+      'help.suggestedAmountsComeFrom',
     ],
   },
 
   foodcost: {
-    title: t('help.foodCost'),
+    title: 'help.foodCost',
     lines: [
-      t('help.whatAProductCosts'),
-      t('help.typeTheSellingPrice'),
-      t('help.itIsOnlyRight'),
+      'help.whatAProductCosts',
+      'help.typeTheSellingPrice',
+      'help.itIsOnlyRight',
     ],
   },
 
   pastries: {
     title: 'Pastries',
     lines: [
-      t('help.whatToPutOut'),
-      t('help.confirmKeepsARecord'),
-      t('help.unlikeTheCalculatorA'),
+      'help.whatToPutOut',
+      'help.confirmKeepsARecord',
+      'help.unlikeTheCalculatorA',
     ],
   },
 };
@@ -94,12 +94,21 @@ export function helpFor(id) {
 
 // The message the dialog shows. Blank lines between, because .app-dialog-msg is
 // `white-space: pre-line` — so the paragraphs survive without any markup.
+// ⚠️ HELP CARRIES KEYS AND THIS IS WHERE THEY BECOME WORDS. The table used to hold
+// calls to t() with a literal key, which run once when the module is imported — before a venue is open,
+// so before the app knows which language to speak. Every help screen was therefore
+// frozen in the app's starting language, however the venue was set. See the note in
+// js/calculator-render.js: the same defect was in fourteen places.
 export function helpText(id) {
   const entry = helpFor(id);
-  return entry ? entry.lines.join('\n\n') : '';
+  return entry ? entry.lines.map(key => t(key)).join('\n\n') : '';
 }
 
 export function helpTitle(id) {
   const entry = helpFor(id);
-  return entry ? entry.title : '';
+  if (!entry) return '';
+  // A title is a key unless it is a proper name (the product, a feature's own name),
+  // which has none: t() returns the key unchanged when it does not know it, so a name
+  // passes through untouched.
+  return t(entry.title);
 }
