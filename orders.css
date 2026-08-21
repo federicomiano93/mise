@@ -38,8 +38,10 @@
 .home-header::after {
   content: '';
   position: absolute;
-  left: 16px;
-  right: 16px;
+  /* Follows the header's own inset so the rule sits under the venue name rather
+     than running out to the screen edge on a wide screen. */
+  left: max(16px, var(--app-gutter));
+  right: max(16px, var(--app-gutter));
   bottom: 10px;
   height: 2px;
   border-radius: 2px;
@@ -358,6 +360,10 @@
   min-height: 0;
   overflow-y: auto;
   padding: 14px 16px calc(24px + var(--safe-bot));
+  /* THE screen this whole change exists for: Order sits at the left edge and Stock
+     at the right, so on a 1366 tablet 1142px of nothing separated the two boxes of
+     one ingredient. 16px floor = the padding above, so no phone moves. */
+  padding-inline: max(16px, var(--app-gutter));
 }
 
 /* ── What a supplier sells, read-only ──────────────────────────────────────────
@@ -380,6 +386,7 @@
   /* The safe-area inset has to be here, on the scrolling element — see the long note
      on .orders-offline. On a desktop it is 0, so this cannot be checked by looking. */
   padding: 14px 16px calc(24px + var(--safe-bot));
+  padding-inline: max(16px, var(--app-gutter));
 }
 .supplier-items-list {
   background: var(--surface);
@@ -541,7 +548,21 @@ body.hide-stock .stock-field { display: none; }
    column centres its label over its input. No +/- steppers (they overflowed on
    phones). The order unit (e.g. "casse") sits next to the Order box — a fixed
    per-ingredient label, not an input. */
-.ing-fields { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+/* ⚠️ CAPPING THE ROW WAS NOT ENOUGH, and the number said so. `space-between` with
+   two 96px boxes puts the whole remainder between them: on a 620px row that is
+   620-96-96 = 428px of nothing, against 166px on a 390 phone. The row was no longer
+   stretched, but the hand still had to cross the screen for every ingredient.
+
+   ⚠️ THE VALUE IS DERIVED, NOT INVENTED: 400px is the width this row already has on
+   the widest phone sold (iPhone 16 Pro Max, 430 CSS minus the 16px padding each
+   side = 398). So on a tablet the two boxes end up no further apart than they
+   already are in Federico's hand today, and on every phone the cap never engages —
+   the row is 288px at 320, 358px at 390, 398px at 430, all below 400.
+
+   Safe to write unscoped: .ing-fields belongs to Orders alone (js/orders/
+   ingredients.js and history-edit.js are the only two places that build it), unlike
+   .ing-row, which the Calculator also uses — see the long note above. */
+.ing-fields { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; max-width: 400px; margin-inline: auto; }
 .field { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .field-label { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
 .ing-order-input { display: flex; align-items: center; gap: 6px; }
@@ -631,6 +652,7 @@ input.ing-stock {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 14px 16px;
+  padding-inline: max(16px, var(--app-gutter));
 }
 .preview-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 40px 20px; }
 
@@ -671,6 +693,7 @@ input.ing-stock {
   display: flex;
   gap: 10px;
   padding: 12px 16px calc(16px + var(--safe-bot));
+  padding-inline: max(16px, var(--app-gutter));
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
@@ -845,6 +868,7 @@ input.ing-stock {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 14px 16px calc(24px + var(--safe-bot));
+  padding-inline: max(16px, var(--app-gutter));
 }
 
 /* Search box at the top of the Suppliers / Ingredients lists (same look as the
