@@ -165,6 +165,28 @@ test('the three -view wrappers share the one token, not their own copy of 620px'
   }
 });
 
+test('the order row keeps its two boxes within reach of each other', () => {
+  // ⚠️ CAPPING THE ROW WAS NOT ENOUGH, and only measuring showed it. `space-between`
+  // hands the whole remainder to the space BETWEEN the two boxes, so a 620px row
+  // still left 428px of nothing — against 166px on a 390 phone. Capping .ing-fields
+  // as well brought it to a constant 208px on every screen from 820 to 1366.
+  const css = stripComments(read('orders.css'));
+  const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, s]) => s.trim() === '.ing-fields');
+  assert.ok(rule, '.ing-fields not found');
+  assert.match(rule[2], /max-width:\s*400px/, '.ing-fields must cap at the width it has on the widest phone');
+  assert.match(rule[2], /margin-inline:\s*auto/, '.ing-fields must stay centred once capped');
+});
+
+test('that cap never engages on a phone', () => {
+  // The row is 288px wide at 320, 358 at 390 and 398 at 430 — all below the cap, so
+  // no phone can be touched by it. If anyone lowers this number, that stops being
+  // true and the widest phone loses layout it has today.
+  const css = stripComments(read('orders.css'));
+  const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find(([, s]) => s.trim() === '.ing-fields');
+  const cap = Number(rule[2].match(/max-width:\s*(\d+)px/)[1]);
+  assert.ok(cap >= 398, `the cap (${cap}px) must not be under the 398px this row has on an iPhone 16 Pro Max`);
+});
+
 test('the manifest no longer locks the app to portrait', () => {
   // A tablet lives on a stand, in landscape. The phone/tablet distinction is made
   // in js/orientation-lock.js, which a manifest cannot do.

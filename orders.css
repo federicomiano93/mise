@@ -548,7 +548,21 @@ body.hide-stock .stock-field { display: none; }
    column centres its label over its input. No +/- steppers (they overflowed on
    phones). The order unit (e.g. "casse") sits next to the Order box — a fixed
    per-ingredient label, not an input. */
-.ing-fields { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+/* ⚠️ CAPPING THE ROW WAS NOT ENOUGH, and the number said so. `space-between` with
+   two 96px boxes puts the whole remainder between them: on a 620px row that is
+   620-96-96 = 428px of nothing, against 166px on a 390 phone. The row was no longer
+   stretched, but the hand still had to cross the screen for every ingredient.
+
+   ⚠️ THE VALUE IS DERIVED, NOT INVENTED: 400px is the width this row already has on
+   the widest phone sold (iPhone 16 Pro Max, 430 CSS minus the 16px padding each
+   side = 398). So on a tablet the two boxes end up no further apart than they
+   already are in Federico's hand today, and on every phone the cap never engages —
+   the row is 288px at 320, 358px at 390, 398px at 430, all below 400.
+
+   Safe to write unscoped: .ing-fields belongs to Orders alone (js/orders/
+   ingredients.js and history-edit.js are the only two places that build it), unlike
+   .ing-row, which the Calculator also uses — see the long note above. */
+.ing-fields { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; max-width: 400px; margin-inline: auto; }
 .field { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .field-label { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
 .ing-order-input { display: flex; align-items: center; gap: 6px; }
