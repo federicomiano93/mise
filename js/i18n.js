@@ -1147,6 +1147,11 @@ const DICTIONARIES = Object.freeze({
     'ui.remove': 'Remove',
     'ui.create': 'Create',
     'ui.whatsNew': 'What’s new',
+    'install.stale.title': 'Re-install this app',
+    // ⚠️ SAYS WHAT TO DO, NOT WHAT IS WRONG. «Your manifest is out of date» means nothing
+    // to a baker; the three steps do. And it says outright that nothing is lost, because
+    // the word "uninstall" next to an app somebody depends on is alarming on its own.
+    'install.stale.body': 'This app was added to your home screen a while ago, and part of how it behaves is fixed at that moment — an update cannot change it.\n\nTo bring it up to date:\n1. Hold the app’s icon and choose Uninstall\n2. Open the address in your browser again\n3. Menu ⋮ → Install app\n\nNothing is lost: your work is saved online, not inside the app. And if the install will not go through, carry on using it from the browser — it works just the same.',
     // ⚠️ `Confirm` IS THE BUTTON THE BAKERY PRESSES EVERY DAY — the one that turns a
     // set of client quantities into a dough. It sat in English on an Italian phone,
     // and no test saw it because it is el()'s third argument, not a `text:` prop.
@@ -2406,6 +2411,8 @@ const DICTIONARIES = Object.freeze({
     'ui.remove': 'Rimuovi',
     'ui.create': 'Crea',
     'ui.whatsNew': 'Novità',
+    'install.stale.title': 'Reinstalla questa app',
+    'install.stale.body': 'Questa app è stata aggiunta alla schermata Home tempo fa, e una parte di come funziona viene decisa in quel momento — un aggiornamento non può cambiarla.\n\nPer rimetterla in pari:\n1. Tieni premuta l’icona dell’app e scegli Disinstalla\n2. Riapri l’indirizzo nel browser\n3. Menu ⋮ → Installa app\n\nNon perdi niente: il tuo lavoro è salvato online, non dentro l’app. E se l’installazione non riesce, continua pure a usarla dal browser — funziona uguale.',
     'ui.confirm': 'Conferma',
     'ui.active': 'Attivo',
     'ui.paused': 'In pausa',
