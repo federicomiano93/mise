@@ -8,6 +8,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { _dictionaries, DEFAULT_LANGUAGE } from '../js/i18n.js';
 import {
   RELEASES, newestId, pickNotices, noticeText,
 } from '../js/whats-new.js';
@@ -109,4 +111,52 @@ test('every shipped release has a unique, non-empty id and something to say', ()
 
 test('the shipped list is ordered newest first', () => {
   assert.equal(newestId(), RELEASES[0].id);
+});
+
+// ⚠️ EVERY TITLE AND EVERY POINT IS A KEY, NOT A PHRASE — and this was NOT true until
+// 22 Aug 2026: eight titles were the literals 'Pastries' and 'Orders'. noticeText()
+// already ran them through t(), and a key the dictionary does not hold comes back as
+// ITSELF, so they printed in English inside a fully Italian notice. Three times on one
+// screen. Nothing failed: a missing key is deliberately silent (i18n-keys-exist only
+// inspects LITERAL arguments, and t(n.title) is not one).
+//
+// It could not be seen at all while the notice was broken, which is the wider point —
+// a defect hidden behind another defect surfaces the moment the first is fixed.
+test('every shipped release names itself with a key the dictionary holds', () => {
+  const known = _dictionaries()[DEFAULT_LANGUAGE];
+  const italian = _dictionaries().it;
+  const wrong = [];
+  for (const r of RELEASES) {
+    for (const key of [r.title, ...(r.points || [])]) {
+      if (!(key in known)) wrong.push(`${r.id}: “${key}”`);
+      else if (!(key in italian)) wrong.push(`${r.id}: “${key}” has no Italian`);
+    }
+  }
+  assert.deepEqual(wrong, [],
+    'a phrase written here does not fail — it prints in English inside an Italian notice');
+});
+
+// ⚠️ AND THE ENGLISH MUST NOT HAVE MOVED. Turning the eight literals into keys is only
+// safe if an English reader sees exactly what they saw before; otherwise a translation
+// fix quietly rewords a released note.
+test('turning the titles into keys left the English untouched', () => {
+  const en = _dictionaries()[DEFAULT_LANGUAGE];
+  assert.equal(en['section.pastries'], 'Pastries');
+  assert.equal(en['section.orders'], 'Orders');
+  // The same key the Home card uses, so the notice and the card can never disagree.
+  const home = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(home, /data-i18n="section\.pastries"/);
+  assert.match(home, /data-i18n="section\.orders"/);
+});
+
+// ⚠️ THE FIXTURES ABOVE CANNOT SEE THIS, AND A MUTATION PROVED IT. They use titles
+// like 'Orders' — which is what t('Orders') returns anyway, because a missing key
+// comes back as itself. So translated and untranslated are the SAME STRING and the
+// assertion holds either way: deleting the t() around the heading left every test
+// green while the screen would print «section.orders» in both languages.
+// A fixture whose values coincide proves nothing (v1.28.0, learnt again).
+test('noticeText translates the heading, not only the bullets', () => {
+  const out = noticeText([{ id: 'x', title: 'section.orders', points: ['help.gotIt'] }]);
+  assert.equal(out, 'Orders\n• Got it');
+  assert.doesNotMatch(out, /section\.|help\./, 'a key left untranslated prints on screen as itself');
 });
