@@ -78,7 +78,22 @@ function jsFiles(dir) {
 // 📌 It cannot catch every shape a string can be passed in, and pretending otherwise
 // would be worse than saying so: it catches the two that this app actually uses. A third
 // shape will be found the same way this one was — by opening the screen in Italian.
-const LITERAL = /(?:text:\s*|tabButton\(\s*)'([A-Z][a-z][^']*)'/g;
+const LITERAL = /(?:text:\s*|tabButton\(\s*|okLabel:\s*|cancelLabel:\s*)'([A-Z][a-z][^']*)'/g;
+
+// ⚠️⚠️ THE THIRD AND FOURTH SHAPES, ADDED 21 Aug 2026 — and found exactly the way the
+// note above predicted: by opening the screen in Italian and looking at it.
+//
+//   okLabel: 'Discard'          46 of these, across 22 files. The dialog asked its
+//                               question in Italian and offered its answer in English.
+//   `All (${n})`                the two filter buttons above every Orders list, and the
+//                               hint under every quantity box, assigned to .textContent.
+//   text: `Heads up: ${s.name} delivers on ${wd}, but…`   the whole bank-holiday warning.
+//
+// A template literal needs its interpolations REMOVED before it is judged, or every
+// `${result.foodCostPct}%` reads as English because a variable name is capitalised.
+// What is left after that is real prose, or nothing.
+const TEMPLATE = /(?:text:\s*|textContent\s*=\s*)`([^`]*)`/g;
+const prose = (tpl) => tpl.replace(/\$\{[^}]*\}/g, '').trim();
 
 test('⚠️ no English is written straight into a screen — it all goes through the dictionary', () => {
   const found = [];
@@ -86,12 +101,19 @@ test('⚠️ no English is written straight into a screen — it all goes throug
   for (const file of jsFiles(ROOT)) {
     const src = readFileSync(file, 'utf8');
     src.split(/\r?\n/).forEach((line, i) => {
+      const where = file.split(/[\\/]/).slice(-2).join('/');
       for (const m of line.matchAll(LITERAL)) {
         const phrase = m[1];
         if (SAFE.has(phrase.toLowerCase())) continue;
-        const where = file.split(/[\\/]/).slice(-2).join('/');
         if (KNOWN_DEBT.has(where)) continue;
-        found.push(`${where}:${i + 1}  text: '${phrase}'`);
+        found.push(`${where}:${i + 1}  '${phrase}'`);
+      }
+      for (const m of line.matchAll(TEMPLATE)) {
+        const phrase = prose(m[1]);
+        if (!/[A-Z][a-z]/.test(phrase)) continue;      // nothing but values and symbols
+        if (SAFE.has(phrase.toLowerCase())) continue;
+        if (KNOWN_DEBT.has(where)) continue;
+        found.push(`${where}:${i + 1}  \`${phrase}\``);
       }
     });
   }

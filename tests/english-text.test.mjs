@@ -89,11 +89,27 @@ function stringsIn(line) {
 // nobody reads at the cost of the signal here meaning something.
 const isDeveloperChannel = line => /console\.(warn|error|log|info|debug)/.test(line);
 
+// ⚠️ WHERE THE ENGLISH STOPS. js/i18n.js holds BOTH dictionaries in one file, so a
+// rule about English prose applied to the whole file is applied to Italian too. That
+// is not hypothetical: «Organizza gli ordini in anticipo» — correct Italian — was
+// reported as an American spelling, because `organiz` is inside `organizza`. Italian
+// is full of «-izza» (utilizza, realizza, analizza), so the next Italian sentence
+// would have hit it again. The English half is everything before `it: Object.freeze`.
+const ITALIAN_STARTS_AT = (() => {
+  const dict = FILES.find(f => f.path.endsWith(join('js', 'i18n.js')) || f.path.endsWith('i18n.js'));
+  if (!dict) return Infinity;
+  const at = dict.text.split('\n').findIndex(l => /^\s*it\s*:\s*Object\.freeze\(/.test(l));
+  return at === -1 ? Infinity : at + 1; // 1-based, like the numbers we report
+})();
+
+const isItalianDictionary = (path, lineNumber) =>
+  path.endsWith('i18n.js') && lineNumber >= ITALIAN_STARTS_AT;
+
 function offendingLines(pattern, { skip = () => false } = {}) {
   const found = [];
   for (const { path, text } of FILES) {
     text.split('\n').forEach((line, i) => {
-      if (skip(line)) return;
+      if (skip(line, path, i + 1)) return;
       for (const literal of stringsIn(line)) {
         // ⚠️ A CSS SELECTOR IS NOT A SENTENCE. '[id$="-overlay"].visible' in
         // js/update-gate.js must keep its straight quotes — a curly one simply
@@ -170,7 +186,10 @@ test('British spelling, not American', () => {
   // Deliberately narrow: only words this app would plausibly use, and only in
   // prose. `color` is excluded by the CSS-property guard because it appears in
   // colour-mix(), getComputedStyle().color and inline style strings.
-  const found = offendingLines(/\b(organiz|realiz|analyz|customiz)[a-z]*\b/i);
+  // ⚠️ And only where the app speaks ENGLISH — see ITALIAN_STARTS_AT above.
+  const found = offendingLines(/\b(organiz|realiz|analyz|customiz)[a-z]*\b/i, {
+    skip: (line, path, n) => isItalianDictionary(path, n),
+  });
   assert.deepEqual(found, [], 'this app is written in British English:\n' + found.join('\n'));
 });
 
