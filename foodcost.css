@@ -48,6 +48,9 @@ body {
   align-items: center;
   gap: 8px;
   padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+  /* Centre the header's contents on the same column as .fc-view below it.
+     12px floor = the padding above, so no phone moves. */
+  padding-inline: max(12px, var(--app-gutter));
   background: var(--fc-brand);
   color: var(--fc-brand-ink);
 }
@@ -90,7 +93,9 @@ body {
   padding: 14px 14px calc(24px + env(safe-area-inset-bottom));
 }
 
-.fc-view { display: flex; flex-direction: column; gap: 12px; }
+/* Same cap and centring as .cat-view and .pas-view: this screen already had the
+   wrapper, it was the only one of the three without the width. */
+.fc-view { display: flex; flex-direction: column; gap: 12px; max-width: var(--app-max-width); margin: 0 auto; width: 100%; }
 .fc-view:focus { outline: none; }
 .fc-empty { text-align: center; color: var(--fc-text-3); font-size: .88rem; padding: 28px 8px; }
 .fc-note { font-size: .74rem; color: var(--fc-text-2); margin: 0; }
@@ -298,7 +303,7 @@ body {
   pointer-events: none;
   transition: opacity .2s ease, transform .2s ease;
   z-index: 40;
-  max-width: 90vw;
+  max-width: min(90vw, var(--app-max-width));
   text-align: center;
 }
 .fc-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }

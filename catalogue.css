@@ -50,6 +50,9 @@ body {
   /* viewport-fit=cover lets the green fill the status-bar area; the safe-area top
      inset keeps the title/buttons below the clock. */
   padding: calc(16px + env(safe-area-inset-top)) 16px 20px;
+  /* Centre the header's contents on the same column as .cat-view below it.
+     16px floor = the padding above, so no phone moves. */
+  padding-inline: max(16px, var(--app-gutter));
   border-radius: 0 0 26px 26px;
   display: grid;
   /* ⚠️ THE TWO SIDE TRACKS MUST STAY EQUAL, or the title stops being centred — the
@@ -85,7 +88,7 @@ body {
 .cat-screen { flex: 1; overflow-y: auto; padding: 16px; }
 /* Flex column that fills the scroll area, so the recipe leads and the secondary
    actions (.cat-detail-bottom) can be pushed to the bottom via margin-top:auto. */
-.cat-view { max-width: 620px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
+.cat-view { max-width: var(--app-max-width); margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
 
 /* On each route change the view container is programmatically focused (see
    swap() in catalogue-main.js) so keyboard / screen-reader users don't drop to
@@ -145,7 +148,9 @@ body {
    non-video elements). The rows are vertically centred with AUTO margins — not
    justify-content:center, which would clip the top of a recipe taller than the
    screen — so long recipes still scroll from the top. */
-.cat-ing-list--zoom { position: fixed; inset: 0; z-index: 50; margin: 0; border: 0; border-radius: 0; overflow-y: auto; cursor: zoom-out; display: flex; flex-direction: column; padding: 20px clamp(16px, 6vw, 56px); }
+/* The hold-to-magnify view. Its clamp() already widens the gutter with the screen,
+   but only to 56px — on a 1366 tablet that still leaves a 1254px line. */
+.cat-ing-list--zoom { position: fixed; inset: 0; z-index: 50; margin: 0; border: 0; border-radius: 0; overflow-y: auto; cursor: zoom-out; display: flex; flex-direction: column; padding: 20px clamp(16px, 6vw, 56px); padding-inline: max(clamp(16px, 6vw, 56px), var(--app-gutter)); }
 .cat-ing-list--zoom .cat-ing-rows { margin: auto 0; width: 100%; }
 .cat-ing-list--zoom .cat-ing-row { padding: clamp(14px, 3.2vh, 30px) 6px; }
 .cat-ing-list--zoom .cat-ing-name,
@@ -283,7 +288,7 @@ body.cat-zoom-lock { overflow: hidden; }
    white-space: pre-line the batch warning depends on. */
 
 /* Toast */
-.cat-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: var(--cat-text); color: var(--cat-ground); padding: 11px 18px; border-radius: 999px; font-size: .9rem; opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 40; max-width: 90vw; text-align: center; }
+.cat-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: var(--cat-text); color: var(--cat-ground); padding: 11px 18px; border-radius: 999px; font-size: .9rem; opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 40; max-width: min(90vw, var(--app-max-width)); text-align: center; }
 .cat-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* The reduced-motion kill-switch is now app-wide, in tokens.css. */
@@ -370,7 +375,7 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-pick-title { flex: 1; min-width: 0; text-align: center; }
 .cat-pick-title h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
 .cat-pick-spacer { width: 36px; flex-shrink: 0; }
-.cat-pick-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px calc(20px + env(safe-area-inset-bottom)); }
+.cat-pick-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px calc(20px + env(safe-area-inset-bottom)); padding-inline: max(14px, var(--app-gutter)); }
 
 .cat-pick-search {
   width: 100%;

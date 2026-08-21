@@ -55,6 +55,13 @@ body {
 header {
   background: var(--accent);
   padding: calc(14px + var(--safe-top)) 16px 20px;
+  /* The green bar stays edge to edge — it IS the app's bar — but its CONTENTS are
+     centred on the same column as the screen below. Without this the Back arrow
+     stays pinned to the far edge on a tablet while the content under it is
+     centred, and the mismatch is the first thing the eye catches. 16px floor =
+     the padding above, so no phone moves. Covers .orders-header and .home-header:
+     both are <header>, and index/orders/calculator all load this stylesheet. */
+  padding-inline: max(16px, var(--app-gutter));
   border-radius: 0 0 26px 26px;
   flex-shrink: 0;
   display: flex;
@@ -103,6 +110,9 @@ header p {
   gap: 8px;
   background: transparent;
   padding: 14px 16px 4px;
+  /* The recipe tabs sit above .scroll-area and must share its column, or on a
+     tablet the tabs run the full width while the panel under them is centred. */
+  padding-inline: max(16px, var(--app-gutter));
   flex-shrink: 0;
 }
 .tab {
@@ -135,6 +145,11 @@ header p {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: calc(24px + var(--safe-bot));
+  /* Keep the content column readable on a wide screen. This one rule covers the
+     Calculator, Orders AND the Home — all three use .scroll-area. It had NO
+     horizontal padding before, so the floor here is 0px and every phone keeps
+     exactly the layout it had. See --app-max-width in tokens.css. */
+  padding-inline: var(--app-gutter);
 }
 
 .content { padding: 14px 16px; display: none; }
@@ -497,6 +512,9 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   display: flex;
   gap: 10px;
   padding: 10px 16px calc(10px + var(--safe-bot));
+  /* The bar keeps its full-width surface and border — it is the bottom edge of the
+     app — while its buttons line up with the content column above them. */
+  padding-inline: max(16px, var(--app-gutter));
   background: var(--surface);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
@@ -1245,6 +1263,8 @@ input.cp-prod-weight {
   position: relative;
   background: var(--accent);
   padding: calc(14px + var(--safe-top)) 16px 20px;
+  /* Same column as the recipe body below it. */
+  padding-inline: max(16px, var(--app-gutter));
   border-radius: 0 0 26px 26px;
   flex-shrink: 0;
   display: flex;
@@ -1325,7 +1345,10 @@ input.cp-prod-weight {
   -webkit-overflow-scrolling: touch;
   padding-bottom: calc(24px + var(--safe-bot));
 }
-.recipe-content { padding: 14px 16px; }
+/* The recipe sheet is READ standing up, so the column matters more here than
+   anywhere: full-width lines on a tablet are the hardest thing to read at arm's
+   length. .recipe-scroll has no horizontal padding of its own; this is where it is. */
+.recipe-content { padding: 14px 16px; padding-inline: max(16px, var(--app-gutter)); }
 
 .recipe-card {
   background: var(--surface);

@@ -204,6 +204,35 @@
   --space-3: 12px;
   --space-4: 16px;
 
+  /* ── Layout: how wide a column of content may ever get ───────────────────
+     The app is phone-first and, until this token existed, had exactly ONE
+     width media query in the whole codebase — `max-width: 360px`, an
+     adjustment for SMALL screens. Nothing said what to do with a big one, so
+     a wide screen did not rearrange the layout: it STRETCHED it. Measured on
+     the real app, the gap between an ingredient's Order box and its Stock box
+     ran 166px on a 390 phone → 596px on an 820 tablet → 1142px on an iPad Pro,
+     i.e. 84% of the screen crossed by hand for every row of an order.
+
+     ⚠️ THE VALUE IS DERIVED, NOT INVENTED. 620px is what `.cat-view`
+     (catalogue.css) and `.pas-view` (pastries.css) have always used, and those
+     two screens are the ones that already read well on a tablet. This promotes
+     their number to the shared system instead of picking a new one.
+
+     ⚠️ HOW IT IS APPLIED, AND WHY THE PHONE CANNOT CHANGE. Containers take
+     `padding-inline: max(<their existing padding>, calc((100% - var(--app-max-width)) / 2))`.
+     On any screen at or below 620px the second term is zero or negative, so the
+     first wins and the padding stays EXACTLY what it was. The widest phone sold
+     (iPhone 16 Pro Max) is 440px CSS — 180px below the floor — so "the phone is
+     unaffected" is arithmetic, not a hope. Verified anyway at 320/375/390/430.
+
+     ⚠️ It also fixes a case nobody could see before: a PHONE IN LANDSCAPE is
+     844px wide and had the identical stretched layout. The manifest used to
+     forbid rotation, which hid it rather than solving it. */
+  --app-max-width: 620px;
+  /* The one expression every shell repeats. Kept here so the rule lives in one
+     place: change the cap and every screen follows. */
+  --app-gutter: max(0px, calc((100% - var(--app-max-width)) / 2));
+
   /* ── Type ────────────────────────────────────────────────────────────── */
   --font:       'Manrope', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-round: 'Manrope', system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -470,6 +499,7 @@
   min-height: 0;
   overflow-y: auto;
   padding: var(--space-4);
+  padding-inline: max(var(--space-4), var(--app-gutter));
   padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
