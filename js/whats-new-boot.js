@@ -12,6 +12,7 @@
 import { RELEASES, pickNotices, noticeText, newestId } from './whats-new.js';
 import { alertDialog } from './confirm-dialog.js';
 import { onSession } from './firebase.js';
+import { t } from './i18n.js';
 
 const SEEN_KEY = 'whats-new-seen';
 
