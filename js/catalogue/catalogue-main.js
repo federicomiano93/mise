@@ -4,7 +4,7 @@
 // imports firebaseConfig indirectly (via the data layer) and the pure Calculator
 // data model only inside import-to-calculator.js — never from js/orders/.
 
-import { t } from '../i18n.js';
+import { t, onLanguageChange } from '../i18n.js';
 import {
   initCatalogue, getRecipes, getUsage, bumpUsage, saveRecipe, deleteRecipe, setSyncErrorHandler,
   getIngredients, getSuppliers, getRecipesById,
@@ -78,7 +78,7 @@ function showList() {
   view = 'list';
   activeDetail = null;
   leaveGuard = null;
-  setHeader({ title: 'Recipes', sub: t('cat.recipeCatalogue'), back: false, add: true });
+  setHeader({ title: t('ui.recipes'), sub: t('cat.recipeCatalogue'), back: false, add: true });
   activeList = renderList({
     recipes: getRecipes(),
     usageMap: getUsage(),
@@ -346,5 +346,9 @@ initCatalogue(
   },
   () => toast(t('cat.liveSyncInterruptedRecipes')),
 );
+
+// ⚠️ AND AGAIN WHEN THE LANGUAGE ARRIVES — see js/foodcost/foodcost-main.js.
+// Only from the list, so an open editor is never redrawn under somebody's hands.
+onLanguageChange(() => { if (view === 'list') showList(); });
 
 showList();

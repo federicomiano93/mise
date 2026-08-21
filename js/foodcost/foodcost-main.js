@@ -8,7 +8,7 @@
 // js/ root (price-model.js and the recipe cost maths), which both features already
 // share for the same reason.
 
-import { t } from '../i18n.js';
+import { t, onLanguageChange } from '../i18n.js';
 import {
   initFoodCost, getProducts, tables, saveProduct, deleteProduct, setSyncErrorHandler,
   getRecipes, getIngredients,
@@ -188,5 +188,13 @@ initFoodCost(
   },
   () => toast(t('fc.liveSyncInterruptedProducts')),
 );
+
+// ⚠️ AND AGAIN WHEN THE LANGUAGE ARRIVES — the same rule js/i18n-dom.js already
+// applies to the markup, and for the same reason: this screen is built once, at load,
+// while the venue's language arrives later with the session. Without this the page
+// header translated (i18n-dom does that) and everything inside it stayed English.
+// ⚠️ ONLY FROM THE LIST. Redrawing while somebody is editing would throw away what
+// they have typed — and the language only ever changes at startup or from settings.
+onLanguageChange(() => { if (view === 'list') showList(); });
 
 showList();

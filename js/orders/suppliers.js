@@ -23,10 +23,15 @@ import { buildSearchBox } from './search-box.js';
 import { filterSuppliers } from './ingredient-search.js';
 import { itemsLabel } from './supplier-picker.js';
 
-const DAY_SHORT = {
-  Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu',
-  Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun',
+// ⚠️ THE KEYS OF THE STORED DAYS, MAPPED TO THE DICTIONARY'S SHORT FORMS. The left
+// side is DATA — exactly what a supplier's deliveryDays holds, and it must stay English
+// or a Monday supplier stops matching a Monday. The right side is what reaches a screen,
+// so it is looked up, not written here: this table used to print 'Tue, Fri' under every
+// supplier whatever language the app was in.
+const DAY_INDEX = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
+const dayShort = (stored) => (stored in DAY_INDEX ? t(`day.weekdayShort.${DAY_INDEX[stored]}`) : stored);
 
 const CHEVRON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
@@ -176,7 +181,7 @@ export function mountSupplierList(container, ctx) {
 // container holding two siblings: the wide one opens the order, the narrow one opens
 // the read-only list.
 function buildSupplierRow(supplier, data, ctx) {
-  const days = (supplier.deliveryDays || []).map(d => DAY_SHORT[d] || d).join(', ');
+  const days = (supplier.deliveryDays || []).map(dayShort).join(', ');
   const { filled } = supplierStats(data.ingredientsBySupplier[supplier.id] || [], data.entries);
 
   const count = el('span', { class: 'supplier-row-count', id: `count-${supplier.id}` },
