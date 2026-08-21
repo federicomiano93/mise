@@ -65,7 +65,6 @@ const ASSETS = [
   './js/sw-update.js',
   './js/update-gate.js',
   './js/idle-reset.js',
-  './js/orientation-lock.js',
   './js/install.js',
   './js/home-orders-badge.js',
   './js/splash-init.js',
