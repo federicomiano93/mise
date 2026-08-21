@@ -1201,7 +1201,7 @@ function confirmClear(supplierIds) {
   return confirmDialog({
     title: t('orders.clearQuantities'),
     message: `Clear everything typed for ${who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.`,
-    okLabel: 'Clear',
+    okLabel: t('ui.clear'),
     danger: true,
   });
 }
@@ -1422,7 +1422,7 @@ async function discardPending(supplierId) {
   const ok = await confirmDialog({
     title: `Discard ${supplier.name}’s order`,
     message: `Delete the quantities typed for ${supplier.name}? They are not saved anywhere and cannot be recovered.`,
-    okLabel: 'Discard',
+    okLabel: t('ui.discard'),
     danger: true,
   });
   if (!ok) return;
@@ -1512,7 +1512,9 @@ function setupTabs() {
 
 // The one wording for a failed draft autosave, named because it is both SET and
 // CLEARED from different places and the two must match exactly.
-const DRAFT_SAVE_ERROR = t('orders.couldNotSaveThe2');
+// The KEY, not the phrase: this file is imported before a venue is open, so a t()
+// here would freeze the sentence in the app's starting language. Resolved on use.
+const DRAFT_SAVE_ERROR_KEY = 'orders.couldNotSaveThe2';
 
 let statusTimer = null;
 // Set the status line. With autoHideMs, the line hides itself after that delay,
@@ -1584,8 +1586,8 @@ async function init() {
   // really does persist what the failed write held, and a two-second network blip
   // must not leave a permanent alarm on screen.
   setDraftSaveReporter(ok => {
-    if (ok) clearStatusIf(DRAFT_SAVE_ERROR);
-    else setStatus(DRAFT_SAVE_ERROR, 'error');
+    if (ok) clearStatusIf(t(DRAFT_SAVE_ERROR_KEY));
+    else setStatus(t(DRAFT_SAVE_ERROR_KEY), 'error');
   });
 
   document.getElementById('place-all-btn')?.addEventListener('click', openPlaceAllScreen);

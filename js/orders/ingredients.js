@@ -115,10 +115,10 @@ export function buildRow(ing, supplier, suggest, entries, hooks, { meta = '' } =
     const qty = entryFor(entries, ing.id).qty || 0;
 
     if (result.active && isUnusualQuantity(qty, result.par)) {
-      hint.textContent = `Much more than usual (about ${result.par})`;
+      hint.textContent = t('orders.muchMoreThanUsual', { n: result.par });
       hint.className = 'ing-suggestion warn';
     } else if (result.active) {
-      hint.textContent = `Suggested: ${result.suggestion}`;
+      hint.textContent = t('orders.suggestedN', { n: result.suggestion });
       hint.className = 'ing-suggestion active';
     } else {
       hint.textContent = '';

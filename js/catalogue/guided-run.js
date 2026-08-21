@@ -25,7 +25,7 @@ import {
 } from './guided-model.js';
 import { unitOf } from './catalogue-model.js';
 import { unlockAlarm, startAlarm, stopAlarm, keepScreenAwake, releaseScreen, canKeepScreenAwake } from './guided-alarm.js';
-import { scheduleAlarm, cancelAlarm, pushSupport, enablePush, SUPPORT_TEXT } from '../push.js';
+import { scheduleAlarm, cancelAlarm, pushSupport, enablePush, supportText } from '../push.js';
 
 const SESSION_KEY = 'catalogue-guided-run';
 const TICK_MS = 250;
@@ -201,7 +201,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
         class: 'guided-speed'
           + (stepChangedSpeed ? ' guided-speed--changed' : '')
           + (fresh ? ' guided-speed--flash' : ''),
-        text: `Speed ${current.speed}`,
+        text: t('cat.guided.speedN', { n: current.speed }),
       }));
     }
 
@@ -328,7 +328,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
         onclick: async (e) => {
           e.target.disabled = true;
           const result = await enablePush();
-          if (!result.ok) app.toast(SUPPORT_TEXT[result.reason] || SUPPORT_TEXT.unsupported);
+          if (!result.ok) app.toast(supportText(result.reason));
           paint();
         },
       }));
@@ -340,7 +340,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     // Blocked, not installed, not set up, or a phone that simply cannot: say
     // which, and fall back to the honest instruction.
     return el('div', { class: 'guided-note' }, [
-      el('p', { class: 'guided-note-sub', text: SUPPORT_TEXT[support.reason] || SUPPORT_TEXT.unsupported }),
+      el('p', { class: 'guided-note-sub', text: supportText(support.reason) }),
       el('p', { text: canKeepScreenAwake()
         ? t('cat.keepThisScreenOpen')
         : t('cat.keepThisScreenOpen2') }),
@@ -482,7 +482,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
     const ok = await app.confirm({
       title: t('cat.leaveTheGuidedMix'),
       message: `You are on ${progressText(index, steps.length).toLowerCase()}. It will be waiting where you left it.`,
-      okLabel: 'Leave',
+      okLabel: t('ui.leave'),
     });
     if (ok) stop();
     return ok;

@@ -55,7 +55,7 @@ function render() {
   c.textContent = '';
 
   // Recipe chooser (required, first).
-  c.appendChild(el('div', { class: 'cp-label' }, 'Recipe'));
+  c.appendChild(el('div', { class: 'cp-label' }, t('ui.recipe')));
   const choices = el('div', { class: 'logday-choices' });
   const recipes = getRecipes(getConfig());
   if (!recipes.length) {
@@ -121,7 +121,7 @@ function render() {
 // Build and save a brand-new log — same generic math/shape as a calculator Confirm.
 async function commit() {
   if (!state || !state.recipeId || !state.forDay) return;
-  if (!(await confirmDialog({ message: t('calc.saveThisLog'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveThisLog'), okLabel: t('ui.save') }))) return;
   const recipe = getRecipeById(getConfig(), state.recipeId);
   if (!recipe) return;
   const items = state.items.map(it => ({

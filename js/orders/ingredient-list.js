@@ -63,8 +63,8 @@ export function mountIngredientList(container, ctx) {
 
   function paintFilterSwitch(total, filtering) {
     lastTotal = total;
-    allBtn.textContent = `All (${total})`;
-    orderBtn.textContent = `Ordering (${data.inOrderCount})`;
+    allBtn.textContent = t('orders.filter.all', { n: total });
+    orderBtn.textContent = t('orders.filter.ordering', { n: data.inOrderCount });
     // Nothing typed yet — there is no "just what I'm ordering" to show.
     filterSwitch.hidden = data.inOrderCount === 0 && !filtering;
     [[allBtn, !filtering], [orderBtn, filtering]].forEach(([btn, on]) => {

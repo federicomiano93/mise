@@ -104,16 +104,34 @@ export function computeAlerts(suppliers, now = new Date()) {
   // 2. Bank holiday ahead — warn up to 7 days before so orders can be planned.
   const holiday = nextHolidayWithin(now, 7);
   if (holiday) {
-    const when = holiday.days === 1 ? 'tomorrow' : `in ${holiday.days} days`;
-    alerts.push({ kind: 'holiday', key: `bh-${holiday.iso}`, text: `UK bank holiday ${when} (${holiday.iso}). Plan your orders ahead.` });
+    // ⚠️ "tomorrow" IS ITS OWN SENTENCE, not the n === 1 branch of a plural. English
+    // and Italian both have a word for it, and pouring it into a count reads as
+    // "in 1 day". The remaining case goes through the dictionary's plural forms
+    // rather than a ternary, which is the project's i18n rule: a language whose
+    // plural works differently says so in its own entry.
+    const text = holiday.days === 1
+      ? t('orders.alert.bankHolidayTomorrow', { date: holiday.iso })
+      : t('orders.alert.bankHolidayInDays', { n: holiday.days, date: holiday.iso });
+    alerts.push({ kind: 'holiday', key: `bh-${holiday.iso}`, text });
   }
 
   // 3. Delivery conflict — an upcoming holiday lands on a supplier's delivery day.
   upcomingHolidays(now, CONFLICT_WINDOW_DAYS).forEach(iso => {
-    const wd = WEEKDAYS[new Date(`${iso}T00:00:00`).getDay()];
+    const dayIndex = new Date(`${iso}T00:00:00`).getDay();
+    // ⚠️ TWO USES OF THE SAME WEEKDAY, AND ONLY ONE OF THEM IS A WORD. `wd` is the
+    // STORED value compared against the supplier's deliveryDays and must stay
+    // English — translating it would make a Monday supplier never match a Monday.
+    // What reaches the screen is looked up separately.
+    const wd = WEEKDAYS[dayIndex];
     active.forEach(s => {
       if ((s.deliveryDays || []).includes(wd)) {
-        alerts.push({ kind: 'conflict', key: `conf-${s.id}-${iso}`, text: `Heads up: ${s.name} delivers on ${wd}, but ${iso} is a bank holiday — check the delivery.` });
+        alerts.push({
+          kind: 'conflict',
+          key: `conf-${s.id}-${iso}`,
+          text: t('orders.alert.deliveryClash', {
+            supplier: s.name, day: t(`day.weekdayLong.${dayIndex}`), date: iso,
+          }),
+        });
       }
     });
   });

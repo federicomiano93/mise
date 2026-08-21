@@ -4,7 +4,7 @@
 // imports firebaseConfig indirectly (via the data layer) and the pure Calculator
 // data model only inside import-to-calculator.js — never from js/orders/.
 
-import { t } from '../i18n.js';
+import { t, onLanguageChange } from '../i18n.js';
 import {
   initCatalogue, getRecipes, getUsage, bumpUsage, saveRecipe, deleteRecipe, setSyncErrorHandler,
   getIngredients, getSuppliers, getRecipesById,
@@ -78,7 +78,7 @@ function showList() {
   view = 'list';
   activeDetail = null;
   leaveGuard = null;
-  setHeader({ title: 'Recipes', sub: t('cat.recipeCatalogue'), back: false, add: true });
+  setHeader({ title: t('ui.recipes'), sub: t('cat.recipeCatalogue'), back: false, add: true });
   activeList = renderList({
     recipes: getRecipes(),
     usageMap: getUsage(),
@@ -279,7 +279,7 @@ const app = {
       ? base + t('cat.itWasImportedInto')
       : base;
 
-    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: 'Delete', danger: true });
+    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: t('ui.delete'), danger: true });
     if (!ok) return false;
     deleteRecipe(recipe.id);
     toast(t('cat.recipeDeleted'));
@@ -300,7 +300,7 @@ const app = {
     const ok = await confirmDialog({
       title: t('cat.importIntoCalculator2'),
       message: `Copy “${recipe.name}” into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
-      okLabel: 'Import',
+      okLabel: t('ui.import'),
     });
     if (!ok) return;
     try {
@@ -346,5 +346,9 @@ initCatalogue(
   },
   () => toast(t('cat.liveSyncInterruptedRecipes')),
 );
+
+// ⚠️ AND AGAIN WHEN THE LANGUAGE ARRIVES — see js/foodcost/foodcost-main.js.
+// Only from the list, so an open editor is never redrawn under somebody's hands.
+onLanguageChange(() => { if (view === 'list') showList(); });
 
 showList();

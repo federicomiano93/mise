@@ -385,11 +385,16 @@ export const ORDER_PREFILL_DEFAULT = 'both';
 
 // Wording for the setting, and for the sentence above the order form. Kept beside the
 // values so the two can never drift apart.
+// ⚠️ KEYS, resolved at draw time — see js/calculator-render.js.
 export const ORDER_PREFILL_LABELS = {
-  both: t('help.yesterdayAndToday'),
-  yesterday: t('help.yesterdayOnly'),
-  today: t('help.todayOnly'),
+  both: 'help.yesterdayAndToday',
+  yesterday: 'help.yesterdayOnly',
+  today: 'help.todayOnly',
 };
+
+export function orderPrefillLabel(window) {
+  return t(ORDER_PREFILL_LABELS[window] || ORDER_PREFILL_LABELS.both);
+}
 
 export function getOrderPrefillWindow(config) {
   const v = config && config.orderPrefillWindow;

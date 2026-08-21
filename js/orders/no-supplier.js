@@ -22,6 +22,12 @@ export const NO_SUPPLIER_ID = 'no-supplier';
 
 // Frozen: it is handed to the same code that handles real suppliers, and a single
 // shared object that anything could quietly mutate would be a very confusing bug.
+// ⚠️ `name` IS RESOLVED HERE AND THAT IS A KNOWN COMPROMISE. This object is handed
+// straight to code that expects a real supplier document, which carries a plain
+// `name` string — giving it a key instead would mean teaching every one of those
+// places that this one supplier is different, which is worse. Instead the object is
+// rebuilt whenever the language changes: see noSupplier() below, which every caller
+// uses. The frozen constant stays for the id and the shape.
 export const NO_SUPPLIER = Object.freeze({
   id: NO_SUPPLIER_ID,
   name: t('orders.noSupplier'),
@@ -37,6 +43,14 @@ export const NO_SUPPLIER = Object.freeze({
 
 export function isNoSupplier(supplierId) {
   return supplierId === NO_SUPPLIER_ID;
+}
+
+// The pseudo-supplier with its name in TODAY's language. NO_SUPPLIER above is built
+// once at import — before a venue is open, so before the language is known — and its
+// name would stay in whatever language the app started in. Callers that put this on a
+// screen use this function; the constant remains for the id, the shape and the tests.
+export function noSupplier() {
+  return Object.freeze({ ...NO_SUPPLIER, name: t('orders.noSupplier') });
 }
 
 // Every ingredient's supplierId resolved against the suppliers that actually
@@ -73,6 +87,6 @@ export function orderSuppliers(activeSuppliers, resolvedIngredients) {
   const used = (resolvedIngredients || []).some(
     i => i.supplierId === NO_SUPPLIER_ID && i.active !== false);
   const list = (activeSuppliers || []).slice();
-  if (used) list.push(NO_SUPPLIER);
+  if (used) list.push(noSupplier());
   return list;
 }

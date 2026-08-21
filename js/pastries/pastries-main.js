@@ -6,7 +6,7 @@
 // and never imports from js/orders/ or js/catalogue/.
 
 import { weekdayLabel } from './pastries-model.js';
-import { t } from '../i18n.js';
+import { t, onLanguageChange } from '../i18n.js';
 import {
   initPastries, getDays, getItems, getNote, getCounts, saveDay, setItemQuantity,
   setSyncErrorHandler,
@@ -117,7 +117,7 @@ async function requestEdit(day) {
   const ok = await confirmDialog({
     title: `Edit ${day}?`,
     message: `${day} is already recorded for tonight. Edit these quantities?`,
-    okLabel: 'Edit',
+    okLabel: t('ui.edit'),
   });
   if (!ok) return false;
   // The permission carries the work date, so it is spent when the date rolls at
@@ -169,7 +169,9 @@ function showDay(day, opts = {}) {
   if (strip) strip.setActive(day);
   screen.setAttribute('aria-labelledby', `pas-tab-${day}`);
   setHeader({
-    title: day,
+    // ⚠️ THE LABEL, NOT THE STORED VALUE. `day` is a document id and a supplier
+    // field ('Saturday'); weekdayLabel() is the same day in the reader's language.
+    title: weekdayLabel(day),
     // Naming the day AND saying it is the one you came for, so a glance answers
     // both "which list is this?" and "is this today's job?".
     sub: day === openingDay ? t('past.tomorrowToProve') : t('past.toProve'),
@@ -353,5 +355,9 @@ initPastries(
 // which is how the screen behaved before this existed.
 refreshConfirmations();
 scheduleWorkDayRoll();
+
+// ⚠️ AND AGAIN WHEN THE LANGUAGE ARRIVES — see js/foodcost/foodcost-main.js.
+// Only the day view, which holds nothing unsaved; the editor is left alone.
+onLanguageChange(() => { if (view === 'day') showDay(shownDay, { focus: false }); });
 
 showDay(shownDay);

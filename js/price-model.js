@@ -69,11 +69,18 @@ export const CURRENCY = '£';
 export const PRICE_UNITS = Object.freeze(['kg', 'l', 'pcs']);
 
 // Human wording for each, for labels and for the "not costable" explanations.
+// ⚠️ KEYS, NOT PHRASES — see the note in js/calculator-render.js. A module constant is
+// built once, before any venue is open, so a t() here is frozen in the language the
+// app started in. Resolve with priceUnitLabel() at the moment of drawing.
 export const PRICE_UNIT_LABELS = Object.freeze({
-  kg: t('price.byWeight'),
-  l: t('price.byVolume'),
-  pcs: 'by the piece',
+  kg: 'price.byWeight',
+  l: 'price.byVolume',
+  pcs: 'price.byPiece',
 });
+
+export function priceUnitLabel(unit) {
+  return t(PRICE_UNIT_LABELS[unit] || PRICE_UNIT_LABELS.kg);
+}
 
 // Every field this module owns on an ingredient document. Exported because the
 // form, the data layer and the rules test all need the SAME list, and three
@@ -192,13 +199,13 @@ export function isCostable(ingredient) {
 // The wording shown when an ingredient cannot be costed. One sentence, saying what
 // to do rather than what is wrong.
 export const COST_REASON_TEXT = Object.freeze({
-  'no-price': t('price.none'),
-  'no-piece-weight': t('price.needPieceWeight'),
+  'no-price': 'price.none',
+  'no-piece-weight': 'price.needPieceWeight',
 });
 
 export function costReasonText(ingredient) {
   const { costable, reason } = costState(ingredient);
-  return costable ? '' : (COST_REASON_TEXT[reason] || COST_REASON_TEXT['no-price']);
+  return costable ? '' : t(COST_REASON_TEXT[reason] || COST_REASON_TEXT['no-price']);
 }
 
 // ── Formatting ───────────────────────────────────────────────────────────────

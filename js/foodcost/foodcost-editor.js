@@ -13,7 +13,7 @@ import { t } from '../i18n.js';
 import { canManageHere } from './firebase-foodcost.js';
 import { el } from './dom.js';
 import {
-  VAT_RATES, SELLING_MODES, costProduct, BLOCKER_TEXT, statusFor,
+  VAT_RATES, SELLING_MODES, costProduct, blockerText, statusFor,
   snapshotWorthTaking, productSnapshot, normalizeProduct,
 } from './foodcost-model.js';
 import { CURRENCY, formatRate, formatMoney, pricePerKg } from '../price-model.js';
@@ -22,7 +22,8 @@ import { costRecipe } from '../catalogue/recipe-cost-model.js';
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
-const STATUS_TEXT = { green: t('fc.onTarget'), amber: t('fc.slightlyOverTarget'), red: t('fc.overTarget') };
+// Keys, resolved at draw time — see js/calculator-render.js.
+const STATUS_TEXT = { green: 'fc.onTarget', amber: 'fc.slightlyOverTarget', red: 'fc.overTarget' };
 
 export function renderEditor({ product, app }) {
   // A working COPY. Nothing reaches the stored product until Save.
@@ -53,7 +54,7 @@ export function renderEditor({ product, app }) {
       // just the first one, so the screen is a checklist rather than a drip-feed.
       const list = el('ul', { class: 'fc-blockers' });
       result.blockers.forEach(key => {
-        list.appendChild(el('li', { text: BLOCKER_TEXT[key] || key }));
+        list.appendChild(el('li', { text: blockerText(key) }));
       });
       answer.appendChild(list);
       return;
@@ -70,7 +71,7 @@ export function renderEditor({ product, app }) {
     answer.appendChild(el('p', { class: 'fc-answer-basis', text:
       `${formatRate(result.unitCost)} to make ${unit}  ·  ${formatMoney(result.netUnitPrice)} net  ·  ${formatMoney(result.margin)} margin` }));
 
-    if (status) answer.appendChild(el('p', { class: 'fc-answer-status', text: STATUS_TEXT[status] }));
+    if (status) answer.appendChild(el('p', { class: 'fc-answer-status', text: t(STATUS_TEXT[status]) }));
 
     // ⚠️ A PARTIAL COST MUST NEVER LOOK COMPLETE. If a recipe inside this product
     // is only partly priced, the percentage is real but too LOW — the one
@@ -265,7 +266,7 @@ export function renderEditor({ product, app }) {
     }
 
     busy = true;
-    const ok = await app.confirm({ title: t('fc.saveProduct'), message: t('fc.saveTheseChanges'), okLabel: 'Save' });
+    const ok = await app.confirm({ title: t('fc.saveProduct'), message: t('fc.saveTheseChanges'), okLabel: t('ui.save') });
     if (!ok) { busy = false; return; }
 
     const clean = { ...working, name: String(working.name).trim() };
@@ -289,7 +290,7 @@ export function renderEditor({ product, app }) {
     const ok = await app.confirm({
       title: t('fc.deleteProduct'),
       message: `Delete “${product.name || 'this product'}”? This cannot be undone, and its margin history goes with it.`,
-      okLabel: 'Delete', danger: true,
+      okLabel: t('ui.delete'), danger: true,
     });
     if (!ok) { busy = false; return; }
     dirty = false;
@@ -302,7 +303,7 @@ export function renderEditor({ product, app }) {
     if (!dirty) return true;
     return app.confirm({
       title: t('fc.discardChanges'), message: t('fc.youHaveUnsavedChanges'),
-      okLabel: 'Discard', danger: true,
+      okLabel: t('ui.discard'), danger: true,
     });
   });
 

@@ -130,7 +130,7 @@ async function run() {
   // still stuck behind the sign-in screen would throw it away unread.
   writeSeen(latest);
 
-  await alertDialog(noticeText(notices), { title: 'What’s new', okLabel: 'Got it' });
+  await alertDialog(noticeText(notices), { title: t('ui.whatsNew'), okLabel: t('help.gotIt') });
 }
 
 run();

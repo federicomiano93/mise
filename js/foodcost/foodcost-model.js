@@ -42,15 +42,22 @@ export const AMBER_MULTIPLIER = 1.1;
 
 // Why a product cannot be costed. Each names one thing to go and fill in; the
 // order is the order a person would fill them in.
+// ⚠️ KEYS, resolved at draw time — see js/calculator-render.js. Built once at module
+// load, a t() here would be frozen in the language the app started in.
 export const BLOCKER_TEXT = Object.freeze({
-  'no-components': t('fc.addAtLeastOne'),
-  'no-selling-mode': t('fc.chooseWhetherThisIs'),
-  'no-pieces': t('fc.sayHowManyPieces'),
-  'no-vat': t('fc.chooseTheVatRate'),
-  'no-price': t('fc.enterTheSellingPrice'),
-  'no-recipe-cost': t('fc.theRecipesInThis'),
-  'no-weight': t('fc.theRecipesInThis2'),
+  'no-components': 'fc.addAtLeastOne',
+  'no-selling-mode': 'fc.chooseWhetherThisIs',
+  'no-pieces': 'fc.sayHowManyPieces',
+  'no-vat': 'fc.chooseTheVatRate',
+  'no-price': 'fc.enterTheSellingPrice',
+  'no-recipe-cost': 'fc.theRecipesInThis',
+  'no-weight': 'fc.theRecipesInThis2',
 });
+
+// The one place a blocker key becomes words, so no screen can forget to translate it.
+export function blockerText(key) {
+  return BLOCKER_TEXT[key] ? t(BLOCKER_TEXT[key]) : key;
+}
 
 // A number that may legitimately be zero — a VAT rate, and nothing else here.
 // Kept separate from positiveNumber so the difference is deliberate and visible:

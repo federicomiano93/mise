@@ -24,6 +24,10 @@
     const btn = document.createElement('button');
     btn.className = 'install-btn';
     btn.textContent = t('help.installApp');
+    // ⚠️ AND AGAIN IF THE LANGUAGE ARRIVES AFTER THIS BUTTON DOES. The browser fires
+    // beforeinstallprompt on its own schedule, which can be before the venue's session
+    // opens — and this button is built once, so it kept the app's starting language.
+    onLanguageChange(() => { btn.textContent = t('help.installApp'); });
     btn.addEventListener('click', async () => {
       if (!deferredPrompt) return;
       deferredPrompt.prompt();
@@ -45,5 +49,5 @@
     host.appendChild(tip);
   }
 })();
-import { t } from './i18n.js';
+import { t, onLanguageChange } from './i18n.js';
 

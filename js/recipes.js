@@ -29,7 +29,9 @@ import { getCatalogueRecipesOnce, stampRecipeRowIds } from './firebase.js';
 // recipeTotal is re-exported so any importer keeps its path unchanged.
 export { recipeTotal };
 
-const LOGIC_LABELS = { orders: t('calc.fromOrders'), total: t('calc.fromATotal'), both: t('calc.bothOrdersTotal') };
+// Keys, resolved at draw time — see the note in js/calculator-render.js. A phrase put
+// here directly is frozen in whatever language the app started in.
+const LOGIC_LABELS = { orders: 'calc.fromOrders', total: 'calc.fromATotal', both: 'calc.bothOrdersTotal' };
 
 let working = null;       // deep copy being edited
 let activeRecipe = null;  // null = the recipe list, an index = a recipe's detail
@@ -79,7 +81,7 @@ export async function closeRecipes() {
   if (activeRecipe !== null) {
     const r = recipes()[activeRecipe];
     if (freshlyAdded && isEmptyRecipe(r)) {
-      if (!(await confirmDialog({ message: t('calc.discardThisNewRecipe'), okLabel: 'Discard', danger: true }))) return;
+      if (!(await confirmDialog({ message: t('calc.discardThisNewRecipe'), okLabel: t('ui.discard'), danger: true }))) return;
       recipes().splice(activeRecipe, 1);
     }
     freshlyAdded = false;
@@ -131,7 +133,7 @@ async function saveRecipes() {
     alertDialog(t('calc.pleaseGiveEveryRecipe'));
     return;
   }
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -158,7 +160,7 @@ function renderRecipeList() {
 
   recipes().forEach((r, ri) => {
     const ings = (r.ingredients || []).length;
-    const sub = LOGIC_LABELS[r.logic] + '  ·  ' + ings + (ings === 1 ? ' ingredient' : ' ingredients')
+    const sub = t(LOGIC_LABELS[r.logic]) + '  ·  ' + ings + (ings === 1 ? ' ingredient' : ' ingredients')
       + (r.visible !== false ? t('calc.shown') : t('calc.hidden'));
     const open = el('button', { class: 'drill-item wa-entry-open', type: 'button' }, [
       el('span', { class: 'wa-entry-text' }, [
@@ -187,7 +189,7 @@ function renderRecipeList() {
   content.appendChild(add);
 
   // The list itself can be saved (e.g. after a delete or a visibility change).
-  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   save.addEventListener('click', saveRecipes);
   content.appendChild(save);
 }
@@ -199,7 +201,7 @@ async function deleteRecipe(ri) {
     alertDialog(t('calc.thisRecipeIsUsed') + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
     return;
   }
-  if (!(await confirmDialog({ message: t('calc.deleteThe') + (r.name || 'this') + t('calc.recipe'), okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThe') + (r.name || 'this') + t('calc.recipe'), okLabel: t('ui.delete'), danger: true }))) return;
   recipes().splice(ri, 1);
   markDirty();
   activeRecipe = null;
@@ -251,7 +253,7 @@ function renderRecipeDetail(ri) {
       class: 'cp-choice' + (chosen ? ' cp-choice--on' : ''),
       'aria-pressed': String(chosen),
     }, [
-      el('span', { class: 'cp-choice-name' }, LOGIC_LABELS[l]),
+      el('span', { class: 'cp-choice-name' }, t(LOGIC_LABELS[l])),
       el('span', { class: 'cp-choice-why' }, t(`calc.logicHint.${l}`)),
     ]);
     row.addEventListener('click', () => {
@@ -272,7 +274,7 @@ function renderRecipeDetail(ri) {
   const linked = isLinked(r);
   const resolved = effectiveRecipe(r);
 
-  const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Ingredients')]);
+  const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, t('ui.ingredients'))]);
 
   if (linked) {
     // ⚠️ READ-ONLY, AND THAT IS THE POINT (Federico, 14 Aug 2026): the recipe is
@@ -329,7 +331,7 @@ function renderRecipeDetail(ri) {
     el('label', { class: 'cp-crate-label' }, [visCb, el('span', {}, t('calc.showAsACalculator') + MAX_VISIBLE_RECIPES + ')')]),
   ]));
 
-  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   save.addEventListener('click', saveRecipes);
   content.appendChild(save);
 }

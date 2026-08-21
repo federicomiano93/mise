@@ -65,14 +65,21 @@ function isStandalone() {
 }
 
 // What to say for each reason, in one place so every screen says the same thing.
+// ⚠️ KEYS, resolved at draw time — see js/calculator-render.js. A t() here runs once,
+// at import, before the venue's language is known, and freezes the phrase there.
 export const SUPPORT_TEXT = Object.freeze({
-  granted: t('help.notificationsAreOnFor'),
-  ask: t('help.getToldWhenA'),
-  blocked: t('help.notificationsAreBlockedFor'),
-  'install-first': t('help.addThisAppTo'),
-  'not-configured': t('help.notificationsAreNotSet'),
-  unsupported: t('help.thisPhoneCannotShow'),
+  granted: 'help.notificationsAreOnFor',
+  ask: 'help.getToldWhenA',
+  blocked: 'help.notificationsAreBlockedFor',
+  'install-first': 'help.addThisAppTo',
+  'not-configured': 'help.notificationsAreNotSet',
+  unsupported: 'help.thisPhoneCannotShow',
 });
+
+// The one place a support reason becomes words.
+export function supportText(reason) {
+  return t(SUPPORT_TEXT[reason] || SUPPORT_TEXT.unsupported);
+}
 
 // ── Turning them on ──────────────────────────────────────────────────────────
 

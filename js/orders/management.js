@@ -40,7 +40,7 @@ import { WEEKDAYS as WEEK_START_DAYS, isValidWeekStart } from './work-week.js';
 // A screen that already talks to Firestore is the right home for a control that does.
 import { muteOrderRequests, orderRequestsMuted, rememberMute } from '../push.js';
 import {
-  CURRENCY, PRICE_UNITS, PRICE_UNIT_LABELS,
+  CURRENCY, PRICE_UNITS, priceUnitLabel,
   pricePatch, priceChanged, priceRecord, pricePerKg,
   formatPricePerUnit, formatRate, costReasonText,
 } from '../price-model.js';
@@ -456,14 +456,14 @@ export function buildManagement(data, actions) {
   // would send somebody to find the owner to tidy a list.
   function mgmtRow(name, meta, active, onEdit, onToggle, onDelete) {
     const actions = [
-      el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, 'Edit'),
+      el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, t('ui.edit')),
       el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
         // Confirm before deactivating (guards against accidental taps);
         // reactivating is harmless and needs no confirmation.
         if (active) {
           const ok = await confirmDialog({
             message: `Deactivate “${name}”? It will be hidden from the order screen. You can reactivate it later.`,
-            okLabel: 'Deactivate', danger: true,
+            okLabel: t('ui.deactivate'), danger: true,
           });
           if (!ok) return;
         }
@@ -476,12 +476,12 @@ export function buildManagement(data, actions) {
       actions.push(el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
         const ok = await confirmDialog({
           message: `Permanently delete “${name}”? This cannot be undone.`,
-          okLabel: 'Delete', danger: true,
+          okLabel: t('ui.delete'), danger: true,
         });
         if (!ok) return;
         try { await onDelete(); }
         catch (err) { await reportFailure('delete', name, err); }
-      } }, 'Delete'));
+      } }, t('ui.delete')));
     }
 
     return el('div', { class: 'mgmt-item' + (active ? '' : ' inactive') }, [
@@ -537,7 +537,7 @@ export function buildManagement(data, actions) {
         save.disabled = false;                       // let them try again
         await reportFailure('save', payload.name, err);
       }
-    } }, 'Save');
+    } }, t('ui.save'));
 
     return el('div', { class: 'mgmt-form' }, [
       el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editSupplier') : t('orders.newSupplier') }),
@@ -588,7 +588,7 @@ export function buildManagement(data, actions) {
     const unitSelect = el('select', { class: 'mgmt-input' });
     unitSelect.appendChild(el('option', { value: '', text: t('orders.noPrice2') }));
     PRICE_UNITS.forEach(u => {
-      const opt = el('option', { value: u, text: PRICE_UNIT_LABELS[u] });
+      const opt = el('option', { value: u, text: priceUnitLabel(u) });
       if (item?.priceUnit === u) opt.selected = true;
       unitSelect.appendChild(opt);
     });
@@ -801,18 +801,25 @@ export function buildManagement(data, actions) {
       const missing = missingNutrients({ nutrition: draft.nutrition });
       const nutritionNote = missing.length === NUTRIENTS.length
         ? t('orders.noNutritionYet')
-        : (missing.length ? `Nutrition: ${missing.length} of ${NUTRIENTS.length} still empty.` : t('orders.nutritionComplete'));
+        : (missing.length
+          ? t('orders.nutritionStillEmpty', { n: missing.length, total: NUTRIENTS.length })
+          : t('orders.nutritionComplete'));
 
       if (state === 'unknown') {
-        status.textContent = `Not checked yet — this ingredient blocks any label it is used in. ${nutritionNote}`;
+        status.textContent = t('orders.allergen.notCheckedYet', { note: nutritionNote });
         status.className = 'alg-status alg-status--unknown';
         return;
       }
       const when = (checkedAt(draft) || '').slice(0, 10);
       const what = state === 'none'
-        ? 'contains none of the 14'
+        ? t('orders.allergen.containsNone')
         : draft.allergens.map(allergenLabel).join(', ');
-      status.textContent = `Checked${when ? ` ${when}` : ''} — ${what}. ${nutritionNote}`;
+      // ⚠️ TWO WHOLE SENTENCES, not one with a hole in it. The date is optional, and
+      // «Checked 2026-08-21 — …» / «Verificato il 2026-08-21 — …» differ by more than
+      // the gap: Italian needs «il» before the date and English needs nothing.
+      status.textContent = when
+        ? t('orders.allergen.checkedOn', { date: when, what, note: nutritionNote })
+        : t('orders.allergen.checkedNoDate', { what, note: nutritionNote });
       status.className = 'alg-status alg-status--ok';
     }
 
@@ -913,7 +920,7 @@ export function buildManagement(data, actions) {
         save.disabled = false;                       // let them try again
         await reportFailure('save', payload.name, err);
       }
-    } }, 'Save');
+    } }, t('ui.save'));
 
     return el('div', { class: 'mgmt-form' }, [
       el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editIngredient') : t('orders.newIngredient') }),
@@ -931,7 +938,7 @@ export function buildManagement(data, actions) {
 
   function formActions(saveBtn) {
     return el('div', { class: 'mgmt-form-actions' }, [
-      el('button', { type: 'button', class: 'btn-secondary', onClick: () => { view = { type: 'list' }; render(); } }, 'Cancel'),
+      el('button', { type: 'button', class: 'btn-secondary', onClick: () => { view = { type: 'list' }; render(); } }, t('ui.cancel')),
       saveBtn,
     ]);
   }

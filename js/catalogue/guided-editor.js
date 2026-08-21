@@ -183,7 +183,7 @@ export function renderGuidedEditor({ recipe, app }) {
     busy = true;
     const ok = await app.confirm({
       title: t('cat.removeThisStep'), message: `Step ${i + 1} will be removed from the procedure.`,
-      okLabel: 'Remove', danger: true,
+      okLabel: t('ui.remove'), danger: true,
     });
     busy = false;
     if (!ok) return;
@@ -249,7 +249,7 @@ export function renderGuidedEditor({ recipe, app }) {
       message: clean.length
         ? `Save ${clean.length} step${clean.length === 1 ? '' : 's'} for “${recipe.name}”?`
         : `“${recipe.name}” will have no guided procedure.`,
-      okLabel: 'Save',
+      okLabel: t('ui.save'),
     });
     if (!ok) { busy = false; return; }
     dirty = false;
@@ -268,7 +268,7 @@ export function renderGuidedEditor({ recipe, app }) {
     return app.confirm({
       title: t('cat.discardChanges'),
       message: t('cat.theStepsYouHave'),
-      okLabel: 'Discard', danger: true,
+      okLabel: t('ui.discard'), danger: true,
     });
   });
 

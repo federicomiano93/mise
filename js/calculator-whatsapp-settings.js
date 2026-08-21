@@ -30,7 +30,7 @@ import { t } from './i18n.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   cloneConfig, getClients, getClientById, getProductById, getAllProducts,
-  getOrderPrefillWindow, ORDER_PREFILL_WINDOWS, ORDER_PREFILL_LABELS,
+  getOrderPrefillWindow, ORDER_PREFILL_WINDOWS, orderPrefillLabel,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { icon } from './calculator-icons.js';
@@ -110,7 +110,7 @@ export function openWhatsapp() {
 // copy); leaving a detail to the top prompts to discard unsaved edits; from the top
 // it exits the overlay (nothing is pending there — the top re-reads the saved config).
 async function backWhatsapp() {
-  const discardOk = () => confirmDialog({ message: t('calc.discardUnsavedChanges'), okLabel: 'Discard', danger: true });
+  const discardOk = () => confirmDialog({ message: t('calc.discardUnsavedChanges'), okLabel: t('ui.discard'), danger: true });
   if (activeDirect !== null) {
     if (addingProduct) { addingProduct = false; renderEditor(); return; }
     if (dirty && !(await discardOk())) return;
@@ -151,7 +151,7 @@ function renderEditor() {
 }
 
 function saveBottomButton() {
-  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   btn.addEventListener('click', saveDetail);
   return btn;
 }
@@ -178,7 +178,7 @@ async function saveDetail() {
       return;
     }
   }
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -207,7 +207,7 @@ function renderTopScreen() {
 
   content.appendChild(buildPrefillWindowField());
 
-  content.appendChild(el('div', { class: 'send-picker-label' }, 'Lists'));
+  content.appendChild(el('div', { class: 'send-picker-label' }, t('ui.lists')));
   lists().forEach((list, li) => {
     content.appendChild(topRow(
       list.title || t('calc.untitledList'),
@@ -226,7 +226,7 @@ function renderTopScreen() {
   });
   content.appendChild(addList);
 
-  content.appendChild(el('div', { class: 'send-picker-label' }, 'Clients'));
+  content.appendChild(el('div', { class: 'send-picker-label' }, t('ui.clients')));
   directClients().forEach((dc, di) => {
     content.appendChild(topRow(
       dc.name || t('calc.unnamedClient'),
@@ -262,7 +262,7 @@ function renderTopScreen() {
 // works on this phone, and has not reached the others yet.
 function buildPrefillWindowField() {
   const sel = el('select', { class: 'extra-unit-select', 'aria-label': t('calc.fillTheOrderFrom') });
-  ORDER_PREFILL_WINDOWS.forEach(w => sel.appendChild(el('option', { value: w }, ORDER_PREFILL_LABELS[w])));
+  ORDER_PREFILL_WINDOWS.forEach(w => sel.appendChild(el('option', { value: w }, orderPrefillLabel(w))));
   sel.value = getOrderPrefillWindow(getConfig());
 
   sel.addEventListener('change', async () => {
@@ -303,13 +303,13 @@ function topRow(label, onOpen, delLabel, onDelete) {
 // Delete a saved list / direct client straight from the top screen, persisting at
 // once (there is no Save here). Always confirmed.
 async function deleteList(li) {
-  if (!(await confirmDialog({ message: t('calc.deleteThisList'), okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThisList'), okLabel: t('ui.delete'), danger: true }))) return;
   lists().splice(li, 1);
   saveConfig(working);
   renderEditor();
 }
 async function deleteDirect(di) {
-  if (!(await confirmDialog({ message: t('calc.deleteThisClient'), okLabel: 'Delete', danger: true }))) return;
+  if (!(await confirmDialog({ message: t('calc.deleteThisClient'), okLabel: t('ui.delete'), danger: true }))) return;
   directClients().splice(di, 1);
   saveConfig(working);
   renderEditor();
@@ -365,7 +365,7 @@ function entryCard(list, entry, ei) {
   open.addEventListener('click', () => { activeEntry = ei; addingProduct = false; renderEditor(); });
 
   const del = deleteIcon(t('calc.removeClientFromList'), async () => {
-    if (!(await confirmDialog({ message: t('calc.removeThisClientFrom'), okLabel: 'Remove', danger: true }))) return;
+    if (!(await confirmDialog({ message: t('calc.removeThisClientFrom'), okLabel: t('ui.remove'), danger: true }))) return;
     list.clients.splice(ei, 1);
     markDirty();
     renderEditor();

@@ -58,7 +58,7 @@ export function renderLogs({ logs, app }) {
           const ok = await app.confirm({
             title: t('past.removeThisRecord'),
             message: `Remove the record for ${log.day}, ${spellDate(log.date)}? This cannot be undone.`,
-            okLabel: 'Remove',
+            okLabel: t('ui.remove'),
             danger: true,
           });
           if (!ok) return;
@@ -87,7 +87,7 @@ export function renderLogs({ logs, app }) {
       ...items.map(card),
       el('p', {
         class: 'pas-retention',
-        text: `Older records are kept — this screen shows the last ${LOG_VISIBLE_DAYS} days.`,
+        text: t('past.olderRecordsKept', { n: LOG_VISIBLE_DAYS }),
       }),
     );
   }

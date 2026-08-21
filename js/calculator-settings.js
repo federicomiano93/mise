@@ -100,7 +100,7 @@ async function closeClients() {
   if (activeClient !== null) {
     const client = clients()[activeClient];
     if (freshlyAdded && isEmptyClient(client)) {
-      if (!(await confirmDialog({ message: t('calc.discardThisNewClient'), okLabel: 'Discard', danger: true }))) return;
+      if (!(await confirmDialog({ message: t('calc.discardThisNewClient'), okLabel: t('ui.discard'), danger: true }))) return;
       clients().splice(activeClient, 1);
     }
     freshlyAdded = false;
@@ -141,7 +141,7 @@ async function saveClients() {
     alertDialog(t('calc.pleaseGiveEveryClient'));
     return;
   }
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
   try {
     await saveConfig(working);
     forgetPausedQuantities();
@@ -177,7 +177,7 @@ function renderEditor() {
 }
 
 function saveBottomButton(onSave) {
-  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   btn.addEventListener('click', onSave);
   return btn;
 }
@@ -277,7 +277,7 @@ function renderClientDetail(ci) {
   if (showErrors && isBlank(client.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { client.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
   const del = deleteIcon(t('calc.deleteClient'), async () => {
-    if (!(await confirmDialog({ message: t('calc.deleteThisClientAnd'), okLabel: 'Delete', danger: true }))) return;
+    if (!(await confirmDialog({ message: t('calc.deleteThisClientAnd'), okLabel: t('ui.delete'), danger: true }))) return;
     clients().splice(ci, 1);
     markDirty();
     activeClient = null;
@@ -420,7 +420,7 @@ function orderingLinkField(client) {
     if (account && !(await confirmDialog({
       title: t('calc.replaceThisLink'),
       message: `${client.name}’s current link will stop working immediately, including on a phone that is using it right now. Use “Copy link” instead if you only want to send it again.`,
-      okLabel: 'Replace',
+      okLabel: t('ui.replace'),
       danger: true,
     }))) return;
 
@@ -561,13 +561,13 @@ function productCard(client, product, pi) {
     renderEditor();
   });
   rows.push(el('div', { class: 'cp-check-row' }, [
-    el('label', { class: 'cp-crate-label' }, [activeToggle, el('span', {}, 'Active')]),
+    el('label', { class: 'cp-crate-label' }, [activeToggle, el('span', {}, t('ui.active'))]),
   ]));
 
   // Delete sits alone at the bottom right, away from everything that edits — a small
   // icon that never competes with Save (P20).
   const foot = [];
-  if (paused) foot.push(el('span', { class: 'cp-paused-tag' }, 'Paused'));
+  if (paused) foot.push(el('span', { class: 'cp-paused-tag' }, t('ui.paused')));
   foot.push(deleteIcon(t('calc.removeProduct'), () => {
     client.products.splice(pi, 1);
     markDirty();
@@ -618,7 +618,7 @@ async function closeExtra() {
 }
 
 async function saveExtra() {
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
   try {
     await saveConfig(extraWorking);
     extraDirty = false;
@@ -719,7 +719,7 @@ function renderDivisorTabDetail(tab) {
   const clearBtn = el('button', { class: 'divisor-clear-btn', type: 'button' }, t('calc.untickAll'));
   clearBtn.addEventListener('click', () => clearDivisorTab(tab));
   content.appendChild(clearBtn);
-  const saveBtn = el('button', { class: 'cp-save-bottom', id: 'divisor-save-btn', type: 'button' }, 'Save');
+  const saveBtn = el('button', { class: 'cp-save-bottom', id: 'divisor-save-btn', type: 'button' }, t('ui.save'));
   saveBtn.addEventListener('click', saveDivisor);
   content.appendChild(saveBtn);
   updateDivisorSaveBtn();
@@ -751,7 +751,7 @@ function clearDivisorTab(tab) {
 }
 
 async function saveDivisor() {
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: 'Save' }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
   try {
     await saveConfig(divisorWorking);
     divisorWorking = cloneConfig(getConfig());

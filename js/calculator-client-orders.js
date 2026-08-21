@@ -486,7 +486,7 @@ function renderCutoffSettings() {
       t('calc.cutoff.empty')),
   ]));
 
-  const save = el('button', { class: 'cp-add-prod', type: 'button' }, 'Save');
+  const save = el('button', { class: 'cp-add-prod', type: 'button' }, t('ui.save'));
   save.addEventListener('click', async () => {
     const wanted = normalizeCutoff(input.value);
     if (input.value && !CUTOFF_PATTERN.test(input.value)) {
@@ -497,7 +497,7 @@ function renderCutoffSettings() {
       message: wanted
         ? `Close orders at ${wanted} the day before? Every client sees this straight away.`
         : t('calc.removeTheDeadlineClients'),
-      okLabel: 'Save',
+      okLabel: t('ui.save'),
     }))) return;
     save.disabled = true;
     try {

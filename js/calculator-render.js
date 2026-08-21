@@ -154,7 +154,7 @@ export function buildRecipePanel(recipe) {
     ]));
   }
 
-  content.appendChild(el('button', { class: 'confirm-btn-primary', id: id + '-day-confirm', type: 'button', 'data-confirm-tab': id }, 'Confirm'));
+  content.appendChild(el('button', { class: 'confirm-btn-primary', id: id + '-day-confirm', type: 'button', 'data-confirm-tab': id }, t('ui.confirm')));
   content.appendChild(el('button', { class: 'confirm-btn-primary is-edit', id: id + '-edit-btn', type: 'button' }, [icon('pencil', 16), ' Edit']));
 
   content.appendChild(el('div', { class: 'result-block', id: id + '-result' }, [
@@ -193,20 +193,28 @@ export function buildRecipePanel(recipe) {
 // warning tone here would say it is. That is also why the block reuses the app's
 // dashed `.empty-state` — the same one Orders shows for "No suppliers yet" — and
 // not the amber warning card.
+// ⚠️⚠️ KEYS, NOT PHRASES, AND THE DIFFERENCE IS THE WHOLE SCREEN. This table used to
+// hold calls to t() with a literal key directly. A module is evaluated ONCE, when it is first imported —
+// which happens before any venue is open, so before the app knows which language to
+// speak. Every phrase in here was therefore resolved in the DEFAULT language and
+// frozen there for the life of the page: the dictionary was complete, the keys were
+// right, the Italian translations existed, and the Calculator's empty state still
+// read English on an Italian phone. The lookup now happens in buildEmptyPanel, at
+// draw time, when the venue is known.
 const EMPTY_COPY = {
   loading: {
-    title: t('calc.loading'),
-    sub: t('calc.fetchingTheRecipesSaved'),
+    title: 'calc.loading',
+    sub: 'calc.fetchingTheRecipesSaved',
   },
   'no-recipes': {
-    title: t('calc.noRecipesYet'),
-    sub: t('calc.empty.noRecipes.sub'),
-    action: t('calc.addARecipe'),
+    title: 'calc.noRecipesYet',
+    sub: 'calc.empty.noRecipes.sub',
+    action: 'calc.addARecipe',
   },
   'hidden-recipes': {
-    title: t('calc.noRecipeIsShown'),
-    sub: t('calc.empty.noneShown.sub'),
-    action: t('calc.chooseWhichToShow'),
+    title: 'calc.noRecipeIsShown',
+    sub: 'calc.empty.noneShown.sub',
+    action: 'calc.chooseWhichToShow',
   },
 };
 
@@ -219,11 +227,11 @@ const EMPTY_COPY = {
 export function buildEmptyPanel(reason, onAction) {
   const copy = EMPTY_COPY[reason] || EMPTY_COPY.loading;
   const block = el('div', { class: 'empty-state' }, [
-    el('p', { class: 'empty-title' }, copy.title),
-    el('p', { class: 'empty-sub' }, copy.sub),
+    el('p', { class: 'empty-title' }, t(copy.title)),
+    el('p', { class: 'empty-sub' }, t(copy.sub)),
   ]);
   if (copy.action) {
-    const btn = el('button', { class: 'empty-action', type: 'button', id: 'calc-empty-action' }, copy.action);
+    const btn = el('button', { class: 'empty-action', type: 'button', id: 'calc-empty-action' }, t(copy.action));
     if (typeof onAction === 'function') btn.addEventListener('click', onAction);
     block.appendChild(btn);
   }
