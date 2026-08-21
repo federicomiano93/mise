@@ -182,7 +182,7 @@ function logCard(log) {
   const del = el('button', { class: 'log-delete-btn', type: 'button', 'data-id': log.id, 'aria-label': t('calc.deleteLog') }, icon('trash', 16));
   actions.appendChild(hist);
   if (log.origin === 'manual') {
-    actions.appendChild(el('button', { class: 'log-edit-btn', type: 'button', 'data-id': log.id }, 'Edit'));
+    actions.appendChild(el('button', { class: 'log-edit-btn', type: 'button', 'data-id': log.id }, t('ui.edit')));
   }
   actions.appendChild(del);
   card.appendChild(actions);

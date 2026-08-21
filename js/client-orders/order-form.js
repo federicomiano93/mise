@@ -122,7 +122,7 @@ export function mountOrderForm(host, {
   noteInput.value = state.note;
   noteInput.addEventListener('input', () => { state.note = noteInput.value; report(); });
   body.appendChild(el('section', { class: 'co-field' }, [
-    el('label', { class: 'co-label', for: 'co-note' }, 'Note'),
+    el('label', { class: 'co-label', for: 'co-note' }, t('ui.note')),
     noteInput,
   ]));
 

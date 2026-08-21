@@ -216,7 +216,7 @@ export function openPeople(session) {
     const status = el('p', { class: 'people-note' });
     status.setAttribute('role', 'alert');
 
-    const save = el('button', { type: 'button', class: 'btn-primary people-save' }, 'Save');
+    const save = el('button', { type: 'button', class: 'btn-primary people-save' }, t('ui.save'));
     save.addEventListener('click', async () => {
       const problem = nameProblem(first.value, 'first') || nameProblem(last.value, 'last');
       if (problem) {

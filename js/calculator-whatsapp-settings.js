@@ -151,7 +151,7 @@ function renderEditor() {
 }
 
 function saveBottomButton() {
-  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   btn.addEventListener('click', saveDetail);
   return btn;
 }
@@ -207,7 +207,7 @@ function renderTopScreen() {
 
   content.appendChild(buildPrefillWindowField());
 
-  content.appendChild(el('div', { class: 'send-picker-label' }, 'Lists'));
+  content.appendChild(el('div', { class: 'send-picker-label' }, t('ui.lists')));
   lists().forEach((list, li) => {
     content.appendChild(topRow(
       list.title || t('calc.untitledList'),
@@ -226,7 +226,7 @@ function renderTopScreen() {
   });
   content.appendChild(addList);
 
-  content.appendChild(el('div', { class: 'send-picker-label' }, 'Clients'));
+  content.appendChild(el('div', { class: 'send-picker-label' }, t('ui.clients')));
   directClients().forEach((dc, di) => {
     content.appendChild(topRow(
       dc.name || t('calc.unnamedClient'),

@@ -55,7 +55,7 @@ function render() {
   c.textContent = '';
 
   // Recipe chooser (required, first).
-  c.appendChild(el('div', { class: 'cp-label' }, 'Recipe'));
+  c.appendChild(el('div', { class: 'cp-label' }, t('ui.recipe')));
   const choices = el('div', { class: 'logday-choices' });
   const recipes = getRecipes(getConfig());
   if (!recipes.length) {

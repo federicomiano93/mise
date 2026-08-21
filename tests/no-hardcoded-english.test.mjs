@@ -95,6 +95,14 @@ const LITERAL = /(?:text:\s*|tabButton\(\s*|okLabel:\s*|cancelLabel:\s*)'([A-Z][
 const TEMPLATE = /(?:text:\s*|textContent\s*=\s*)`([^`]*)`/g;
 const prose = (tpl) => tpl.replace(/\$\{[^}]*\}/g, '').trim();
 
+// ⚠️ THE FIFTH SHAPE, AND IT WAS FOUND BY MUTATION TESTING THE OTHER FOUR — not by
+// reading, and not by looking. `el('button', { … }, 'Discard')` passes the words as
+// el()'s THIRD ARGUMENT, its children, so no `text:` and no backtick appear at all.
+// It is the shape the Orders reminder actually used, and a deliberate re-break of it
+// came back GREEN while three other probes went red. A guard that survives its own
+// mutation is not a guard.
+const CHILD = /\}\s*,\s*'([A-Z][a-z][^']*)'\s*\)/g;
+
 test('⚠️ no English is written straight into a screen — it all goes through the dictionary', () => {
   const found = [];
 
@@ -114,6 +122,12 @@ test('⚠️ no English is written straight into a screen — it all goes throug
         if (SAFE.has(phrase.toLowerCase())) continue;
         if (KNOWN_DEBT.has(where)) continue;
         found.push(`${where}:${i + 1}  \`${phrase}\``);
+      }
+      for (const m of line.matchAll(CHILD)) {
+        const phrase = m[1];
+        if (SAFE.has(phrase.toLowerCase())) continue;
+        if (KNOWN_DEBT.has(where)) continue;
+        found.push(`${where}:${i + 1}  el(…, '${phrase}')`);
       }
     });
   }

@@ -104,13 +104,13 @@ function openSendPicker(config, lists, directs) {
   body.textContent = '';
 
   if (lists.length) {
-    body.appendChild(el('div', { class: 'send-picker-label' }, 'Lists'));
+    body.appendChild(el('div', { class: 'send-picker-label' }, t('ui.lists')));
     lists.forEach(list => {
       body.appendChild(pickerItem(list.title || t('calc.untitledList'), () => openList(config, list)));
     });
   }
   if (directs.length) {
-    body.appendChild(el('div', { class: 'send-picker-label' }, 'Clients'));
+    body.appendChild(el('div', { class: 'send-picker-label' }, t('ui.clients')));
     directs.forEach(dc => {
       body.appendChild(pickerItem(dc.name || t('calc.unnamedClient'), () => openDirect(config, dc)));
     });

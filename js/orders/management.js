@@ -456,7 +456,7 @@ export function buildManagement(data, actions) {
   // would send somebody to find the owner to tidy a list.
   function mgmtRow(name, meta, active, onEdit, onToggle, onDelete) {
     const actions = [
-      el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, 'Edit'),
+      el('button', { type: 'button', class: 'mgmt-link', onClick: onEdit }, t('ui.edit')),
       el('button', { type: 'button', class: 'mgmt-link', onClick: async () => {
         // Confirm before deactivating (guards against accidental taps);
         // reactivating is harmless and needs no confirmation.
@@ -481,7 +481,7 @@ export function buildManagement(data, actions) {
         if (!ok) return;
         try { await onDelete(); }
         catch (err) { await reportFailure('delete', name, err); }
-      } }, 'Delete'));
+      } }, t('ui.delete')));
     }
 
     return el('div', { class: 'mgmt-item' + (active ? '' : ' inactive') }, [
@@ -537,7 +537,7 @@ export function buildManagement(data, actions) {
         save.disabled = false;                       // let them try again
         await reportFailure('save', payload.name, err);
       }
-    } }, 'Save');
+    } }, t('ui.save'));
 
     return el('div', { class: 'mgmt-form' }, [
       el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editSupplier') : t('orders.newSupplier') }),
@@ -920,7 +920,7 @@ export function buildManagement(data, actions) {
         save.disabled = false;                       // let them try again
         await reportFailure('save', payload.name, err);
       }
-    } }, 'Save');
+    } }, t('ui.save'));
 
     return el('div', { class: 'mgmt-form' }, [
       el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editIngredient') : t('orders.newIngredient') }),
@@ -938,7 +938,7 @@ export function buildManagement(data, actions) {
 
   function formActions(saveBtn) {
     return el('div', { class: 'mgmt-form-actions' }, [
-      el('button', { type: 'button', class: 'btn-secondary', onClick: () => { view = { type: 'list' }; render(); } }, 'Cancel'),
+      el('button', { type: 'button', class: 'btn-secondary', onClick: () => { view = { type: 'list' }; render(); } }, t('ui.cancel')),
       saveBtn,
     ]);
   }

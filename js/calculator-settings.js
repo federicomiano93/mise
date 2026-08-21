@@ -177,7 +177,7 @@ function renderEditor() {
 }
 
 function saveBottomButton(onSave) {
-  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   btn.addEventListener('click', onSave);
   return btn;
 }
@@ -561,13 +561,13 @@ function productCard(client, product, pi) {
     renderEditor();
   });
   rows.push(el('div', { class: 'cp-check-row' }, [
-    el('label', { class: 'cp-crate-label' }, [activeToggle, el('span', {}, 'Active')]),
+    el('label', { class: 'cp-crate-label' }, [activeToggle, el('span', {}, t('ui.active'))]),
   ]));
 
   // Delete sits alone at the bottom right, away from everything that edits — a small
   // icon that never competes with Save (P20).
   const foot = [];
-  if (paused) foot.push(el('span', { class: 'cp-paused-tag' }, 'Paused'));
+  if (paused) foot.push(el('span', { class: 'cp-paused-tag' }, t('ui.paused')));
   foot.push(deleteIcon(t('calc.removeProduct'), () => {
     client.products.splice(pi, 1);
     markDirty();
@@ -719,7 +719,7 @@ function renderDivisorTabDetail(tab) {
   const clearBtn = el('button', { class: 'divisor-clear-btn', type: 'button' }, t('calc.untickAll'));
   clearBtn.addEventListener('click', () => clearDivisorTab(tab));
   content.appendChild(clearBtn);
-  const saveBtn = el('button', { class: 'cp-save-bottom', id: 'divisor-save-btn', type: 'button' }, 'Save');
+  const saveBtn = el('button', { class: 'cp-save-bottom', id: 'divisor-save-btn', type: 'button' }, t('ui.save'));
   saveBtn.addEventListener('click', saveDivisor);
   content.appendChild(saveBtn);
   updateDivisorSaveBtn();

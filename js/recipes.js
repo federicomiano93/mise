@@ -187,7 +187,7 @@ function renderRecipeList() {
   content.appendChild(add);
 
   // The list itself can be saved (e.g. after a delete or a visibility change).
-  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   save.addEventListener('click', saveRecipes);
   content.appendChild(save);
 }
@@ -272,7 +272,7 @@ function renderRecipeDetail(ri) {
   const linked = isLinked(r);
   const resolved = effectiveRecipe(r);
 
-  const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Ingredients')]);
+  const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, t('ui.ingredients'))]);
 
   if (linked) {
     // ⚠️ READ-ONLY, AND THAT IS THE POINT (Federico, 14 Aug 2026): the recipe is
@@ -329,7 +329,7 @@ function renderRecipeDetail(ri) {
     el('label', { class: 'cp-crate-label' }, [visCb, el('span', {}, t('calc.showAsACalculator') + MAX_VISIBLE_RECIPES + ')')]),
   ]));
 
-  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, t('ui.save'));
   save.addEventListener('click', saveRecipes);
   content.appendChild(save);
 }

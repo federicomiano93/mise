@@ -154,7 +154,7 @@ export function buildRecipePanel(recipe) {
     ]));
   }
 
-  content.appendChild(el('button', { class: 'confirm-btn-primary', id: id + '-day-confirm', type: 'button', 'data-confirm-tab': id }, 'Confirm'));
+  content.appendChild(el('button', { class: 'confirm-btn-primary', id: id + '-day-confirm', type: 'button', 'data-confirm-tab': id }, t('ui.confirm')));
   content.appendChild(el('button', { class: 'confirm-btn-primary is-edit', id: id + '-edit-btn', type: 'button' }, [icon('pencil', 16), ' Edit']));
 
   content.appendChild(el('div', { class: 'result-block', id: id + '-result' }, [

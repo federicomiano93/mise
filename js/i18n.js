@@ -1147,6 +1147,16 @@ const DICTIONARIES = Object.freeze({
     'ui.remove': 'Remove',
     'ui.create': 'Create',
     'ui.whatsNew': 'What’s new',
+    // ⚠️ `Confirm` IS THE BUTTON THE BAKERY PRESSES EVERY DAY — the one that turns a
+    // set of client quantities into a dough. It sat in English on an Italian phone,
+    // and no test saw it because it is el()'s third argument, not a `text:` prop.
+    'ui.confirm': 'Confirm',
+    'ui.active': 'Active',
+    'ui.paused': 'Paused',
+    'ui.lists': 'Lists',
+    'ui.recipe': 'Recipe',
+    'ui.note': 'Note',
+    'ui.ingredients': 'Ingredients',
     // Read at the mixer, at a glance: the word and the number are one label.
     'cat.guided.speedN': 'Speed {n}',
     // The allergen status line on an ingredient. Whole sentences: what follows
@@ -2381,6 +2391,13 @@ const DICTIONARIES = Object.freeze({
     'ui.remove': 'Rimuovi',
     'ui.create': 'Crea',
     'ui.whatsNew': 'Novità',
+    'ui.confirm': 'Conferma',
+    'ui.active': 'Attivo',
+    'ui.paused': 'In pausa',
+    'ui.lists': 'Liste',
+    'ui.recipe': 'Ricetta',
+    'ui.note': 'Nota',
+    'ui.ingredients': 'Ingredienti',
     'cat.guided.speedN': 'Velocità {n}',
     'orders.allergen.notCheckedYet': 'Non ancora verificato — questo ingrediente blocca ogni etichetta in cui è usato. {note}',
     'orders.allergen.checkedOn': 'Verificato il {date} — {what}. {note}',

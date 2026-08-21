@@ -98,7 +98,7 @@ export function buildHistoryEditor(record, ingredients, actions) {
 
   const saveBtn = el('button', {
     type: 'button', class: 'orders-icon-btn hist-edit-save', 'aria-label': 'Save', onClick: save,
-  }, 'Save');
+  }, t('ui.save'));
 
   const overlay = el('div', { class: 'mgmt-overlay' }, [
     el('header', { class: 'orders-header' }, [
