@@ -154,6 +154,28 @@
       <span class="home-card-sub" data-i18n="ui.suppliersWeeklyOrder">Suppliers &amp; weekly order</span>
     </a>
 
+    <!-- ⚠️ data-section="orders", THE SAME NAME AS THE CARD ABOVE, and that is the
+         whole access story. These records ARE the Orders feature's data, so the two
+         cards appear and disappear together (js/home-session.js filters on this
+         attribute) and NO new section name had to be invented — adding one to
+         js/sections.js SECTIONS switches it ON for every venue that already exists.
+         ⚠️ AND NO ROLE GATE. The records were open to everybody in the location when
+         they lived behind the gear, deliberately: correcting a supplier's phone
+         number is ordinary work, and the ingredient screen behind this one is where
+         the allergens are — the one screen in this app that can send somebody to
+         hospital. Only Delete is gated, inside. -->
+    <a class="home-card" href="suppliers.html" data-section="orders">
+      <span class="home-card-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l1.5-4A1 1 0 0 1 5.45 4h13.1a1 1 0 0 1 .95.68L21 9"/>
+          <path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>
+          <path d="M9 13h6"/>
+        </svg>
+      </span>
+      <span class="home-card-title" data-i18n="section.suppliers">Suppliers</span>
+      <span class="home-card-sub" data-i18n="ui.whoYouBuyFrom">Who you buy from</span>
+    </a>
+
     <a class="home-card" href="pastries.html" data-section="pastries">
       <span class="home-card-icon" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">

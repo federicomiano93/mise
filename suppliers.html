@@ -1,0 +1,106 @@
+<!--
+  THE ITALIAN CLUB PWA — Fornitori (the records)
+  Who this venue buys from, and what it buys from them: the supplier list, each
+  supplier's own screen with everything it sells, and one product's whole record
+  (unit, price, allergens, the pack's ingredient list, nutrition).
+
+  ⚠️ A PAGE OF THE ORDERS FEATURE, NOT A FEATURE OF ITS OWN. `data-section="orders"`
+  is the whole access story: same collections, same gate, so a venue that does not
+  use Orders loses this card and the Orders card together and NO new section name
+  had to be invented — one added to js/sections.js SECTIONS defaults to ON for every
+  venue that already exists.
+
+  All logic lives in js/orders/registry*.js. Reuses style.css; styles in orders.css.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!--
+  CSP bootstrap. A <meta> Content-Security-Policy cannot be loosened at runtime
+  (multiple policies combine by intersection), so to allow the LOCAL Firebase
+  emulator on localhost WITHOUT touching the live site's policy, the meta is
+  emitted here. On the live domain the string is byte-identical to the production
+  policy; on localhost only, connect-src additionally allows the Auth (9099) and
+  Firestore (8080) and Functions (5001) emulators.
+  ⚠️ NO www.gov.uk HERE, unlike orders.html: that origin is for the bank-holiday
+  calendar, which this page never asks for. A policy lists what a page needs.
+  This inline script runs before any CSP is in effect (only <meta charset>
+  precedes it) and before any network request.
+-->
+<script>
+(function () {
+  var local = ['localhost', '127.0.0.1', '::1', '[::1]'].indexOf(location.hostname) !== -1;
+  var emu = local
+    ? ' http://localhost:8080 http://localhost:9099 http://localhost:5001 http://127.0.0.1:8080 http://127.0.0.1:9099 http://127.0.0.1:5001'
+    : '';
+  document.write(
+    '<meta http-equiv="Content-Security-Policy" content="' +
+    "default-src 'self'; " +
+    "script-src 'self' https://www.gstatic.com https://www.google.com; " +
+    "connect-src 'self' https://www.gstatic.com https://www.google.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com https://us-central1-bakery-app-ebf90.cloudfunctions.net" + emu + "; " +
+    "frame-src 'self' https://www.google.com; " +
+    "img-src 'self' data:; " +
+    "style-src 'self'; " +
+    "font-src 'self'; " +
+    // Neither is covered by default-src, so both have to be stated. base-uri stops
+    // an injected <base> from re-pointing every relative URL on the page; the app
+    // has no <form> at all, so form-action 'self' can only ever refuse something
+    // that should not be there.
+    "base-uri 'self'; " +
+    "form-action 'self'" +
+    '">'
+  );
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Suppliers — who you buy from, and what you buy from them.">
+<meta name="theme-color" content="#2D5016">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Misé">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="auth.css">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="orders.css">
+<title>Suppliers — Misé</title>
+</head>
+<body data-section="orders">
+<!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
+     paint: the app must never flash a location's data at whoever is holding
+     the phone. js/auth-gate.js fills it in and removes it once a location is
+     open. -->
+<div id="auth-gate" class="auth-gate"></div>
+
+<header class="orders-header">
+  <a class="orders-icon-btn" href="index.html" aria-label="Back">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </a>
+  <div class="orders-header-title">
+    <h1 data-i18n="section.suppliers">Suppliers</h1>
+    <p data-i18n="ui.whoYouBuyFrom">Who you buy from</p>
+  </div>
+  <span class="help-host" data-help="suppliers"></span>
+</header>
+
+<div class="scroll-area">
+  <!-- A live listener that fails leaves an EMPTY list, and an empty list here reads
+       as "this bakery has no suppliers" — which is the wrong thing to believe while
+       standing in front of a delivery. Filled by registry-main.js. -->
+  <p class="orders-status error" id="registry-error" role="status" hidden></p>
+  <div id="registry-host"></div>
+</div>
+
+<script type="module" src="js/i18n-dom.js"></script>
+<script type="module" src="js/auth-gate.js"></script>
+<script type="module" src="js/sw-update.js"></script>
+<script type="module" src="js/idle-reset.js"></script>
+<script type="module" src="js/orders/registry-main.js"></script>
+<script type="module" src="js/help-button.js"></script>
+<script type="module" src="js/hold-to-zoom.js"></script>
+</body>
+</html>

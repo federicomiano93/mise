@@ -50,12 +50,23 @@ const EXEMPT = new Set(['i18n.js', 'i18n-dom.js', 'push-model.js']);
 // ⚠️ THE LIST MAY ONLY EVER SHRINK. A new literal is not on it, so it fails. That is the
 // whole job: this test exists to stop the twenty-third, not to pretend the twenty-two
 // are not there. Delete a line as you fix it; never add one.
+// ⚠️ WIDENING THE SCAN ADDS TO THIS LIST ONCE, AND ONLY THE SCAN MAY DO SO. That is
+// exactly what happened when it was first switched on (the note above), and again on
+// 22 Aug 2026 when `field(` and `message:` were added: four features turned out to be
+// asking a confirmation question in English. The four Orders and five records strings
+// the same widening found were FIXED rather than listed, because they are in the files
+// that PR owned — a debt entry for a file you are already editing is just a dodge.
 const KNOWN_DEBT = new Set([
   'catalogue/catalogue-detail.js', 'catalogue/catalogue-editor.js',
   'catalogue/ingredient-picker.js', 'catalogue/guided-editor.js',
   'staff/new-customer.js', 'foodcost/foodcost-editor.js',
   'pastries/pastries-editor.js', 'pastries/pastries-day.js',
   'js/log-model.js',
+  // Surfaced by the `message:` shape, 22 Aug 2026 — a confirm dialog asking in
+  // English on an Italian phone. Each needs an Italian sentence somebody actually
+  // reads, and nine written in one sitting is how a half-translated app happens.
+  'js/calculator-settings.js', 'catalogue/catalogue-main.js', 'catalogue/guided-run.js',
+  'pastries/pastries-logs.js', 'pastries/pastries-main.js',
 ]);
 
 function jsFiles(dir) {
@@ -103,6 +114,24 @@ const prose = (tpl) => tpl.replace(/\$\{[^}]*\}/g, '').trim();
 // mutation is not a guard.
 const CHILD = /\}\s*,\s*'([A-Z][a-z][^']*)'\s*\)/g;
 
+// ⚠️⚠️ THE SIXTH AND SEVENTH SHAPES, ADDED 22 Aug 2026, and the sixth is the same
+// hole `tabButton(` was: a literal passed as a helper's ARGUMENT.
+//
+//   field('Name', input)        every label on the ingredient form — Name, Supplier,
+//                               Brand, Weight, Category — and on the supplier form.
+//                               The screen the whole allergen job happens on, in
+//                               English, on an Italian phone, while four i18n suites
+//                               and this very test passed.
+//   message: `Delete “${n}”?`   confirmDialog's question. okLabel/cancelLabel were
+//                               already covered, so the dialog offered its ANSWERS in
+//                               Italian and asked its QUESTION in English.
+//
+// 📌 Naming `field(` rather than "any helper" is deliberate: a pattern that matched
+// every `foo('Bar'` would fire on document ids, class names and CSS values, and a
+// guard that cries wolf gets an exception added to it until it guards nothing.
+const ARG = /(?:field\(\s*)'([A-Z][a-z][^']*)'/g;
+const MESSAGE = /message:\s*(?:'([A-Z][a-z][^']*)'|`([^`]*)`)/g;
+
 test('⚠️ no English is written straight into a screen — it all goes through the dictionary', () => {
   const found = [];
 
@@ -129,6 +158,19 @@ test('⚠️ no English is written straight into a screen — it all goes throug
         if (KNOWN_DEBT.has(where)) continue;
         found.push(`${where}:${i + 1}  el(…, '${phrase}')`);
       }
+      for (const m of line.matchAll(ARG)) {
+        const phrase = m[1];
+        if (SAFE.has(phrase.toLowerCase())) continue;
+        if (KNOWN_DEBT.has(where)) continue;
+        found.push(`${where}:${i + 1}  field('${phrase}')`);
+      }
+      for (const m of line.matchAll(MESSAGE)) {
+        const phrase = m[1] !== undefined ? m[1] : prose(m[2]);
+        if (!/[A-Z][a-z]/.test(phrase)) continue;      // nothing but values and symbols
+        if (SAFE.has(phrase.toLowerCase())) continue;
+        if (KNOWN_DEBT.has(where)) continue;
+        found.push(`${where}:${i + 1}  message: '${phrase}'`);
+      }
     });
   }
 
@@ -145,6 +187,26 @@ test('the scan actually finds this shape when it is there', () => {
   const sample = `el('h3', { class: 'x', text: 'Alerts' })`;
   const hits = [...sample.matchAll(LITERAL)].map(m => m[1]);
   assert.deepEqual(hits, ['Alerts']);
+});
+
+// ⚠️ THE TWO NEW SHAPES GET THE SAME TREATMENT, and they need it more: both were
+// added because the four already here passed while a whole form and nine dialogs sat
+// in English. A pattern that matched nothing would restore exactly that state.
+test('the scan finds a label passed as an argument', () => {
+  const sample = `field('Brand', brand),`;
+  assert.deepEqual([...sample.matchAll(ARG)].map(m => m[1]), ['Brand']);
+});
+
+test('the scan finds a dialog QUESTION, quoted or interpolated', () => {
+  const quoted = `message: 'Delete this?',`;
+  assert.deepEqual([...quoted.matchAll(MESSAGE)].map(m => m[1]), ['Delete this?']);
+  const tpl = 'message: `Permanently delete “${name}”?`,';
+  assert.deepEqual([...tpl.matchAll(MESSAGE)].map(m => prose(m[2])), ['Permanently delete “”?']);
+});
+
+test('…and leaves a translated one alone', () => {
+  const sample = "message: t('orders.deleteConfirm', { name }),";
+  assert.deepEqual([...sample.matchAll(MESSAGE)], [], 'a t() call is not a literal');
 });
 
 test('…and leaves a data word alone', () => {

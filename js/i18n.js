@@ -270,6 +270,11 @@ const DICTIONARIES = Object.freeze({
     // bought; they are in DATA_WORDS and can never be a key here.
     'section.calculator': 'Calculator',
     'section.orders': 'Orders',
+    // ⚠️ NOT A SECTION NAME. It is a PAGE inside the `orders` section (the records
+    // that used to sit behind the gear), so it is deliberately absent from
+    // js/sections.js SECTIONS — a name added there switches itself on for every
+    // venue that already exists.
+    'section.suppliers': 'Suppliers',
     'section.catalogue': 'Recipe catalogue',
     'section.pastries': 'Pastries',
     'section.foodcost': 'Food cost',
@@ -593,6 +598,56 @@ const DICTIONARIES = Object.freeze({
     // definition now, and Intl decides the form.
     'orders.itemsCount': { one: '{n} item', other: '{n} items' },
     'orders.whatsappMessage': 'WhatsApp message',
+
+    // ── The Fornitori screen: the records, on a page of their own ────────────
+    'ui.whoYouBuyFrom': 'Who you buy from',
+    'orders.productsCount': { one: '{n} product', other: '{n} products' },
+    'orders.whatTheySell': 'What they sell',
+    'orders.deliveryShort': 'delivery',
+    'orders.orderShort': 'order',
+    // ⚠️ A WORD, NEVER A COLOUR ALONE. «Nobody has looked» and «checked, contains
+    // none of the 14» are the same empty list; only the stamp separates them.
+    'orders.notDeclaredShort': 'not declared',
+    'orders.registry.loadFailed': 'Could not load the suppliers. Check your connection and try again.',
+    'orders.registry.whichList': 'Which list to show',
+    // ⚠️ The NUMBER keeps its decimal point in both languages: these boxes are
+    // <input type="number">, which refuses a comma. Only «e.g.» is translated.
+    'orders.eg.packWeight': 'e.g. 2.27kg',
+    'orders.eg.rate': 'e.g. 7.20',
+    'orders.eg.pieceWeight': 'e.g. 0.055',
+    'orders.ingredientsCount': { one: '{n} ingredient', other: '{n} ingredients' },
+
+    // The record forms. ⚠️ These labels were literals passed as an ARGUMENT —
+    // `field('Name', input)` — which is the one shape tests/no-hardcoded-english
+    // could not see, so the whole ingredient form stayed English on an Italian
+    // phone while four i18n suites passed. The scan now knows that shape.
+    'orders.field.name': 'Name',
+    'orders.field.category': 'Category',
+    'orders.field.email': 'Email',
+    'orders.field.supplier': 'Supplier',
+    'orders.field.brand': 'Brand',
+    'orders.field.weight': 'Weight',
+    'ui.activate': 'Activate',
+    'orders.deactivateConfirm': 'Deactivate “{name}”? It will be hidden from the order screen. You can reactivate it later.',
+    'orders.deleteConfirm': 'Permanently delete “{name}”? This cannot be undone.',
+    // One sentence per verb, not one sentence with a verb dropped into it: the
+    // grammar around it differs between the two languages.
+    'orders.failed.save': 'Could not save “{name}”. Check your network and try again.',
+    'orders.failed.delete': 'Could not delete “{name}”. Check your network and try again.',
+    'orders.failed.deactivate': 'Could not deactivate “{name}”. Check your network and try again.',
+    'orders.failed.activate': 'Could not reactivate “{name}”. Check your network and try again.',
+    'orders.failed.load': 'Could not load the price history for “{name}”. Check your network and try again.',
+    'orders.pricePerKg': 'Price per kg ({currency}, excluding VAT)',
+    'orders.pricePerLitre': 'Price per litre ({currency}, excluding VAT)',
+    'orders.pricePerPiece': 'Price per piece ({currency}, excluding VAT)',
+    'orders.priceGeneric': 'Price ({currency}, excluding VAT)',
+    // The two "start again" dialogs. Surfaced by widening the scan to `message:` —
+    // okLabel and cancelLabel were already covered, so these two asked their question
+    // in English and offered their answers in Italian.
+    'orders.nSuppliers': { one: '{n} supplier', other: '{n} suppliers' },
+    'orders.clearConfirm': 'Clear everything typed for {who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.',
+    'orders.discardTitle': 'Discard {name}’s order',
+    'orders.discardConfirm': 'Delete the quantities typed for {name}? They are not saved anywhere and cannot be recovered.',
 
     // ── An order list one person sends to another ────────────────────────────
     'orders.request.someone': 'Someone',
@@ -1422,6 +1477,9 @@ const DICTIONARIES = Object.freeze({
     'help.whatToBuySupplier': 'What to buy, supplier by supplier. Order is how many you need; Stock is what you still have.',
     'help.orderPlacedRecordsIt': '“Order placed” records it and clears the row, so the screen always shows what is left to do.',
     'help.suggestedAmountsComeFrom': 'Suggested amounts come from your last 8 orders of that item, so they mean nothing until you have placed a few.',
+    'help.suppliersEverythingYouBuy': 'Everything you buy and who you buy it from. Tap a supplier for its details and every product it sells; tap a product to open its record.',
+    'help.suppliersAllergensLiveHere': 'Allergens belong to the PRODUCT, not to the recipe — so declaring milk on your butter answers for every recipe that uses that butter.',
+    'help.suppliersPasteThePack': 'Paste the ingredient list printed on the pack and the app ticks the allergen boxes for you. It only ever suggests: the product stays undeclared until you tick “I have checked this” yourself.',
     'help.foodCost': 'Food cost',
     'help.whatAProductCosts': 'What a product costs to make, and what it earns.',
     'help.typeTheSellingPrice': 'Type the selling price as it is on the label, WITH VAT. The app works the cost out on the price without VAT.',
@@ -1766,6 +1824,7 @@ const DICTIONARIES = Object.freeze({
 
     'section.calculator': 'Calcolatore',
     'section.orders': 'Ordini',
+    'section.suppliers': 'Fornitori',
     'section.catalogue': 'Ricettario',
     'section.pastries': 'Paste',
     'section.foodcost': 'Food cost',
@@ -2033,6 +2092,45 @@ const DICTIONARIES = Object.freeze({
 
     'orders.itemsCount': { one: '{n} voce', other: '{n} voci' },
     'orders.whatsappMessage': 'Messaggio WhatsApp',
+
+    // ── La schermata Fornitori: le schede, su una pagina tutta loro ──────────
+    'ui.whoYouBuyFrom': 'Da chi compri',
+    'orders.productsCount': { one: '{n} prodotto', other: '{n} prodotti' },
+    'orders.whatTheySell': 'Cosa vendono',
+    'orders.deliveryShort': 'consegna',
+    'orders.orderShort': 'ordine',
+    'orders.notDeclaredShort': 'non dichiarato',
+    'orders.registry.loadFailed': 'Non è stato possibile caricare i fornitori. Controlla la connessione e riprova.',
+    'orders.registry.whichList': 'Quale elenco mostrare',
+    'orders.eg.packWeight': 'es. 2.27kg',
+    'orders.eg.rate': 'es. 7.20',
+    'orders.eg.pieceWeight': 'es. 0.055',
+    'orders.ingredientsCount': { one: '{n} ingrediente', other: '{n} ingredienti' },
+
+    // Le schede. ⚠️ Erano scritte in inglese dentro il codice, in una forma che il
+    // controllo automatico non sapeva vedere.
+    'orders.field.name': 'Nome',
+    'orders.field.category': 'Categoria',
+    'orders.field.email': 'Email',
+    'orders.field.supplier': 'Fornitore',
+    'orders.field.brand': 'Marca',
+    'orders.field.weight': 'Peso',
+    'ui.activate': 'Riattiva',
+    'orders.deactivateConfirm': 'Sospendere «{name}»? Sparirà dalla schermata degli ordini. Puoi riattivarlo quando vuoi.',
+    'orders.deleteConfirm': 'Eliminare «{name}» per sempre? Non si può annullare.',
+    'orders.failed.save': 'Non è stato possibile salvare «{name}». Controlla la connessione e riprova.',
+    'orders.failed.delete': 'Non è stato possibile eliminare «{name}». Controlla la connessione e riprova.',
+    'orders.failed.deactivate': 'Non è stato possibile sospendere «{name}». Controlla la connessione e riprova.',
+    'orders.failed.activate': 'Non è stato possibile riattivare «{name}». Controlla la connessione e riprova.',
+    'orders.failed.load': 'Non è stato possibile caricare lo storico prezzi di «{name}». Controlla la connessione e riprova.',
+    'orders.pricePerKg': 'Prezzo al kg ({currency}, IVA esclusa)',
+    'orders.pricePerLitre': 'Prezzo al litro ({currency}, IVA esclusa)',
+    'orders.pricePerPiece': 'Prezzo al pezzo ({currency}, IVA esclusa)',
+    'orders.priceGeneric': 'Prezzo ({currency}, IVA esclusa)',
+    'orders.nSuppliers': { one: '{n} fornitore', other: '{n} fornitori' },
+    'orders.clearConfirm': 'Azzerare tutto quello che hai scritto per {who}?\n\nLe giacenze restano. Gli ordini già registrati nello Storico non vengono toccati.',
+    'orders.discardTitle': 'Scartare l’ordine di {name}',
+    'orders.discardConfirm': 'Cancellare le quantità scritte per {name}? Non sono salvate da nessuna parte e non si possono recuperare.',
 
     // ── Una lista d'ordine che una persona manda a un'altra ──────────────────
     'orders.request.someone': 'Qualcuno',
@@ -2796,6 +2894,9 @@ const DICTIONARIES = Object.freeze({
     'help.whatToBuySupplier': 'Cosa comprare, fornitore per fornitore. Ordine è quanti te ne servono; Giacenza è quanti ne hai ancora.',
     'help.orderPlacedRecordsIt': '“Ordine fatto” lo registra e azzera la riga, così la schermata mostra sempre quello che resta da fare.',
     'help.suggestedAmountsComeFrom': 'Le quantità suggerite vengono dai tuoi ultimi 8 ordini di quella voce, quindi non vogliono dire niente finché non ne hai fatti alcuni.',
+    'help.suppliersEverythingYouBuy': 'Tutto quello che compri e da chi lo compri. Tocca un fornitore per vedere i suoi dati e tutti i prodotti che vende; tocca un prodotto per aprire la sua scheda.',
+    'help.suppliersAllergensLiveHere': 'Gli allergeni stanno sul PRODOTTO, non sulla ricetta — quindi dichiarare il latte sul tuo burro risponde per ogni ricetta che usa quel burro.',
+    'help.suppliersPasteThePack': 'Incolla l’elenco ingredienti stampato sulla confezione e l’app spunta le caselle degli allergeni al posto tuo. Propone soltanto: il prodotto resta non dichiarato finché non metti tu la spunta «ho verificato».',
     'help.foodCost': 'Food cost',
     'help.whatAProductCosts': 'Quanto costa produrre un prodotto, e quanto rende.',
     'help.typeTheSellingPrice': 'Scrivi il prezzo di vendita com’è sull’etichetta, CON l’IVA. L’app calcola il costo sul prezzo senza IVA.',

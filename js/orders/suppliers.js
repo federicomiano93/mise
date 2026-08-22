@@ -31,7 +31,11 @@ import { itemsLabel } from './supplier-picker.js';
 const DAY_INDEX = {
   Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
 };
-const dayShort = (stored) => (stored in DAY_INDEX ? t(`day.weekdayShort.${DAY_INDEX[stored]}`) : stored);
+// ⚠️ EXPORTED, because the Fornitori screen prints the same days on a supplier's own
+// record. Its first draft did `.slice(0, 3)` and printed «consegna Tue, Fri» under an
+// Italian heading — the same list, two screens, two answers. Found by looking at a
+// screenshot; nothing measured it.
+export const dayShort = (stored) => (stored in DAY_INDEX ? t(`day.weekdayShort.${DAY_INDEX[stored]}`) : stored);
 
 const CHEVRON_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';

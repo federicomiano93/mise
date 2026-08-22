@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v326';
+const CACHE_NAME = 'theitalianclub-v327';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -10,6 +10,7 @@ const ASSETS = [
   './home.html',
   './calculator.html',
   './orders.html',
+  './suppliers.html',
   './install-guide.html',
   './qr.png',
   './js/install-guide.js',
@@ -167,6 +168,11 @@ const ASSETS = [
   './js/orders/history.js',
   './js/orders/history-edit.js',
   './js/orders/management.js',
+  // The records screen: what the Settings panel used to hold, on a page of its own.
+  './js/orders/mgmt-ui.js',
+  './js/orders/registry.js',
+  './js/orders/registry-main.js',
+  './js/orders/ingredient-form.js',
   './js/orders/bank-holidays.js',
   './js/orders/suggestions.js',
   './js/orders/notifications.js',

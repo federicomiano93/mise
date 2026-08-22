@@ -536,6 +536,10 @@ select.qty-select:focus { outline: none; border-color: var(--crust); background:
   justify-content: center;
   gap: 8px;
   padding: 12px;
+  /* One of these is an <a> (Orders → Suppliers leaves the page), so the underline
+     and the visited colour have to be turned off or it stops matching its
+     neighbours. Everything above already applies to both elements. */
+  text-decoration: none;
 }
 .recipe-footer-btn:active { background: var(--accent-light); }
 

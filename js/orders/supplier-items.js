@@ -48,7 +48,7 @@ export function itemGroups(ingredients) {
 }
 
 export function countLabel(total) {
-  return total === 1 ? '1 ingredient' : `${total} ingredients`;
+  return t('orders.ingredientsCount', { n: total });
 }
 
 // supplier: { id, name }; ingredients: that supplier's products (already lensed).

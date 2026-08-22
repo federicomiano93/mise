@@ -18,13 +18,17 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   fingerprint, shouldWarn, checkInstall, isStandalone, FIELDS_NEEDING_REINSTALL,
 } from '../js/install-version.js';
 
 const root = new URL('../', import.meta.url);
 const read = (n) => readFileSync(new URL(n, root), 'utf8');
+// ⚠️ DERIVED, NOT LISTED. This was a hand-written list of five pages, so a page
+// added later simply was not checked — suppliers.html walked past it, and past two
+// other hardcoded lists, in silence. A rule covers the page nobody remembers.
+const PAGES = readdirSync(root).filter((n) => n.endsWith('.html'));
 const MANIFEST = JSON.parse(read('manifest.json'));
 
 const store = (initial = null) => {
@@ -146,7 +150,8 @@ test('both ways of telling an installed app from a tab are honoured', () => {
 
 test('the notice is wired into the Home, and ONLY the Home', () => {
   assert.match(read('index.html'), /js\/install-version-boot\.js/, 'the Home must load it');
-  for (const page of ['orders.html', 'calculator.html', 'catalogue.html', 'pastries.html', 'foodcost.html']) {
+  assert.ok(PAGES.length >= 8, `only found ${PAGES.length} pages — the scan is not finding them`);
+  for (const page of PAGES.filter((n) => n !== 'index.html')) {
     assert.doesNotMatch(read(page), /install-version-boot/,
       `${page} must not: a dialog in the middle of the work interrupts the one thing the app is for`);
   }
