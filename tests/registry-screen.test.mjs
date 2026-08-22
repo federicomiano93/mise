@@ -172,7 +172,7 @@ test('the plural of «product» comes from the dictionary, not from an if', () =
 test('⚠️ the chrome takes its words at PAINT time, not when the module loads', () => {
   const code = codeOf(REGISTRY);
   const build = code.slice(0, code.indexOf('function paintChrome'));
-  for (const key of ['orders.tab.suppliers', 'ui.allIngredients', 'orders.searchASupplier']) {
+  for (const key of ['orders.tab.suppliers', 'ui.ingredients', 'orders.searchASupplier']) {
     assert.ok(!build.includes(key),
       `${key} is resolved while buildRegistry() runs — and registry-main.js runs it at `
       + 'module load, so the word freezes in the app\'s starting language');
@@ -242,6 +242,18 @@ test('⚠️⚠️ the Orders bottom bar keeps the SHORT label', () => {
     + 'nothing but its words');
 });
 
+test('⚠️ the two view switches say the SAME word, and it is the plain one', () => {
+  // Federico, looking at the screen: «tutti gli ingredienti chiamalo semplicemente
+  // ingredienti». The identical control exists on BOTH the Orders screen and this
+  // one, so a word changed on one and not the other is the two-names-one-thing
+  // muddle v1.65.0 was built to remove. ui.ingredients already existed — no key was
+  // invented, and ui.allIngredients was retired rather than reworded.
+  assert.match(codeOf(REGISTRY), /ingredientsBtn\.textContent = t\('ui\.ingredients'\)/,
+    'the Fornitori switch must use the plain key');
+  assert.match(read('orders.html'), /id="view-all-ingredients"[^>]*data-i18n="ui\.ingredients"/,
+    'and the Orders switch must use the very same one');
+});
+
 test('the retired subtitles are gone from the markup AND from both dictionaries', () => {
   // ⚠️ A KEY LEFT BEHIND IS NOT HARMLESS: the next person reads it as live, and its
   // English no longer describes anything the app shows.
@@ -249,7 +261,7 @@ test('the retired subtitles are gone from the markup AND from both dictionaries'
   // which is exactly the shape that made an earlier check in this suite go red on a
   // correct app.
   const i18n = codeOf(read('js/i18n.js'));
-  for (const dead of ['ui.whoYouBuyFrom', 'ui.suppliersWeeklyOrder']) {
+  for (const dead of ['ui.whoYouBuyFrom', 'ui.suppliersWeeklyOrder', 'ui.allIngredients']) {
     assert.ok(!i18n.includes(dead), `${dead} was replaced — remove it, do not leave it`);
     for (const page of ['index.html', 'suppliers.html', 'orders.html']) {
       assert.ok(!read(page).includes(dead), `${page} still points at ${dead}`);

@@ -608,7 +608,11 @@ const DICTIONARIES = Object.freeze({
     // ── The Fornitori screen: the records, on a page of their own ────────────
     // ⚠️ NOT "prices". An employee is refused ingredient-prices by the rules and sees
     // none, and a card must not advertise what it will not show.
-    'ui.contactsProductsAllergens': 'Contacts, products & allergens',
+    // ⚠️ AND NOT "products" either, which the title's own «ingredients» already says:
+    // measured, the longer phrase took the Home card to a second sub-line and 130px
+    // against every other card's 104px. Two words carry the whole point — the contact
+    // details and the allergen declarations are what is NOT obvious from the title.
+    'ui.contactsAndAllergens': 'Contacts & allergens',
     'orders.productsCount': { one: '{n} product', other: '{n} products' },
     'orders.whatTheySell': 'What they sell',
     'orders.deliveryShort': 'delivery',
@@ -1461,7 +1465,9 @@ const DICTIONARIES = Object.freeze({
     'orders.section.orderScreen': 'The order screen',
     'orders.section.howSent': 'How orders may be sent',
     'ui.history': "History",
-    'ui.allIngredients': "All ingredients",
+    // ⚠️ ui.allIngredients («All ingredients») was retired here: both view switches now
+    // reuse the plain ui.ingredients that already existed. Federico, on the screen:
+    // «tutti gli ingredienti chiamalo semplicemente ingredienti».
     'ui.orderPlaced': "Order placed…",
     'ui.clearQuantities': "Clear quantities…",
     'ui.youReOfflineReconnect': "You’re offline — reconnect to load and save orders.",
@@ -2106,7 +2112,7 @@ const DICTIONARIES = Object.freeze({
     'orders.whatsappMessage': 'Messaggio WhatsApp',
 
     // ── La schermata Fornitori: le schede, su una pagina tutta loro ──────────
-    'ui.contactsProductsAllergens': 'Contatti, prodotti e allergeni',
+    'ui.contactsAndAllergens': 'Contatti e allergeni',
     'orders.productsCount': { one: '{n} prodotto', other: '{n} prodotti' },
     'orders.whatTheySell': 'Cosa vendono',
     'orders.deliveryShort': 'consegna',
@@ -2880,7 +2886,6 @@ const DICTIONARIES = Object.freeze({
     'orders.section.orderScreen': 'La schermata dell’ordine',
     'orders.section.howSent': 'Come si mandano gli ordini',
     'ui.history': "Storico",
-    'ui.allIngredients': "Tutti gli ingredienti",
     'ui.orderPlaced': "Ordine fatto…",
     'ui.clearQuantities': "Azzera le quantità…",
     'ui.youReOfflineReconnect': "Sei offline — riconnettiti per caricare e salvare gli ordini.",
