@@ -36,6 +36,7 @@ const addBtn = document.getElementById('catAdd');
 const editBtn = document.getElementById('catEdit');
 const footerEl = document.getElementById('catFooter');
 const settingsBtn = document.getElementById('catSettings');
+const allergensBtn = document.getElementById('catAllergens');
 
 // Which of the three the label screen opens on. Session-only on purpose: it is a
 // property of this morning's job, not of a recipe.
@@ -75,9 +76,21 @@ function setHeader({ title, sub, back, add, edit = false, footer = false }) {
   // ⚠️ THE BOTTOM BAR IS CHROME, SO IT IS HIDDEN PER SCREEN RATHER THAN BUILT PER
   // SCREEN. Left visible everywhere it would put a Settings button under an open
   // editor and beside a running mixing timer — one mis-tap from leaving either.
-  // It is also hidden from anybody who may not change anything: the switch is the
-  // only thing behind it.
-  footerEl.hidden = !footer || currentSession().canManage !== true;
+  footerEl.hidden = !footer;
+  // ⚠️⚠️ THE PERMISSION IS ON THE BUTTON, NOT ON THE BAR, AND THAT CHANGED HERE.
+  // Until the allergen sheet moved down here the switch WAS the only thing behind the
+  // bar, so hiding the whole bar from an employee was the same thing as hiding the
+  // switch. It is not any more: the sheet has never had a role gate — the rules let
+  // any member of the venue read recipes and ingredients — and its own header names
+  // counter staff as its first audience, «somebody asked "does this contain nuts?"
+  // wants an answer NOW». Gating the bar would take the one screen in this app that
+  // can send somebody to hospital away from exactly the person it was written for.
+  // Federico's decision, asked before the work: everyone, employees included.
+  //
+  // ⚠️ Hiding Settings is courtesy, never security: the server refuses setRecipePhoto
+  // from an employee regardless (functions/onboarding.js), proved with a second
+  // account in v1.60.0.
+  settingsBtn.hidden = currentSession().canManage !== true;
 }
 
 function swap(node) {
@@ -111,7 +124,6 @@ function showList() {
     initialQuery: searchQuery,
     onQueryChange: (q) => { searchQuery = q; },
     onOpen: openDetail,
-    onAllergenSheet: showAllergenSheet,
   });
   swap(activeList.root);
 }
@@ -482,6 +494,7 @@ const app = {
 backBtn.addEventListener('click', handleBack);
 addBtn.addEventListener('click', () => openEditor(null));
 editBtn.addEventListener('click', () => { if (currentRecipe) openEditor(currentRecipe); });
+allergensBtn.addEventListener('click', showAllergenSheet);
 settingsBtn.addEventListener('click', showSettings);
 
 // Surface background write failures (rolled back by the store) as a toast.

@@ -67,6 +67,11 @@ const MUST_BE_CAPPED = [
   '.preview-footer',
   '.mgmt-scroll',
   '.cat-header',
+  // ⚠ Added 22 Aug 2026 because catalogue.css:967 SAID this test enforced the cap on
+  // it and the test did not: .cat-footer was in neither this list nor the sweep below,
+  // which only catches a padded container that is also `position: fixed`. A comment
+  // naming a guard that does not exist is how a real guard gets deleted later.
+  '.cat-footer',
   '.cat-pick-body',
   '.cat-ing-list--zoom',
   '.pas-header',
@@ -311,4 +316,69 @@ test('⚠ the banner is actually placed, and stops watching when it goes', () =>
   // content — the geometric test is what makes the selector list safe to be approximate.
   assert.match(src, /Math\.abs\(box\.bottom - window\.innerHeight\)/,
     'the placement must check the bar really rests on the bottom edge');
+});
+
+test('⚠⚠ the allergen sheet is reachable by ANYBODY in the venue', () => {
+  // It moved into the catalogue's bottom bar on 22 Aug 2026, and that bar had been
+  // hidden from ordinary employees — correctly, while the photo switch was the only
+  // thing behind it. It is not the only thing any more.
+  //
+  // The sheet has NEVER had a role gate: firestore.rules lets any member of the venue
+  // read recipes and ingredients, and the screen's own header names counter staff as
+  // its first audience — «somebody asked "does this contain nuts?" wants an answer
+  // NOW». This is the one screen in the app that can send somebody to hospital, so
+  // walling it behind the manager gate is the mistake this test exists to prevent.
+  // Federico's decision, asked before the work: everyone, employees included.
+  const main = read('js/catalogue/catalogue-main.js');
+  const fn = main.slice(main.indexOf('function setHeader'), main.indexOf('function swap'));
+  assert.ok(fn.length > 100, 'setHeader is gone');
+
+  assert.match(fn, /footerEl\.hidden = !footer;/,
+    'the BAR must not be gated on a role — the allergen sheet lives in it');
+  assert.doesNotMatch(fn.replace(/\/\/[^\n]*/g, ''), /footerEl\.hidden[^;]*canManage/,
+    'the bar is gated on canManage again, which hides the allergen sheet from staff');
+  // ⚠ And the other half: the switch must STILL be gated, or an employee is shown a
+  // control the server will refuse.
+  assert.match(fn, /settingsBtn\.hidden = currentSession\(\)\.canManage !== true;/,
+    'Settings must stay owner/manager only');
+});
+
+test('⚠ the catalogue\'s bottom bar holds both buttons, and the list holds neither', () => {
+  const html = read('catalogue.html');
+  const bar = html.slice(html.indexOf('<div class="cat-footer"'), html.indexOf('</div>', html.indexOf('<div class="cat-footer"')));
+  assert.match(bar, /id="catAllergens"/, 'the allergen sheet button is not in the bar');
+  assert.match(bar, /id="catSettings"/, 'the Settings button is not in the bar');
+  // ⚠ The everyday screen is the first one, so it falls under the thumb.
+  assert.ok(bar.indexOf('catAllergens') < bar.indexOf('catSettings'),
+    'the allergen sheet must come first');
+  assert.match(bar, /data-i18n="cat\.allergenSheet"/, 'the label must be translatable');
+
+  // It must be GONE from the list, or there are two ways in and one of them is the
+  // full-width row this change removed.
+  const list = read('js/catalogue/catalogue-list.js');
+  assert.doesNotMatch(list, /onAllergenSheet/, 'the sheet row is back on the recipe list');
+
+  // And something must actually open it.
+  assert.match(read('js/catalogue/catalogue-main.js'),
+    /allergensBtn\.addEventListener\('click', showAllergenSheet\)/,
+    'the new button opens nothing');
+});
+
+test('⚠ the catalogue\'s bottom bar is the page, and its buttons are the raised chip', () => {
+  // The bar was copied from .pas-footer and the two colours were INVERTED in the
+  // copying: the bar took --surface and the button --surface-2, which paints a pale
+  // #FFFDF7 band across the foot of a #F4EDE0 page. Federico saw it on his own phone.
+  // Pastries pairs them the other way; this pins the faithful copy.
+  const css = read('catalogue.css');
+  const bar = css.slice(css.indexOf('.cat-footer {'), css.indexOf('.cat-footer[hidden]'));
+  const btn = css.slice(css.indexOf('.cat-footer-btn {'), css.indexOf('.cat-footer-btn > span'));
+
+  assert.match(bar, /background: var\(--cat-ground\)/, 'the bar must be the page\'s own ground');
+  assert.doesNotMatch(bar, /background: var\(--cat-surface\)/, 'the white band is back');
+  assert.match(btn, /background: var\(--cat-surface\)/, 'the button must be the raised chip');
+
+  // ⚠ The height is load-bearing beyond looks: js/sw-update.js measures this bar to
+  // lift the update banner above it, so the padding must not drift.
+  assert.match(bar, /padding: 10px 16px calc\(12px \+ env\(safe-area-inset-bottom\)\)/,
+    'changing the bar\'s padding moves the update banner');
 });

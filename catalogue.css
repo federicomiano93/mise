@@ -973,7 +973,16 @@ body.cat-zoom-lock { overflow: hidden; }
   gap: 10px;
   padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
   padding-inline: max(16px, var(--app-gutter));
-  background: var(--cat-surface);
+  /* ⚠⚠ THE BAR IS THE PAGE'S OWN GROUND, NOT A RAISED SURFACE, AND THE FIRST
+     VERSION HAD IT THE OTHER WAY ROUND. This rule was copied from .pas-footer and
+     the two colours were inverted in the copying: the bar took --surface and the
+     button --surface-2, which paints a pale #FFFDF7 band across the foot of a
+     #F4EDE0 page and leaves the button barely distinguishable from it. Federico saw
+     it on his own phone. Pastries pairs them the other way and reads correctly;
+     this is now a faithful copy rather than an invented look.
+     ⚠ The hairline STAYS: with the band gone it is the only thing marking where
+     the scrolling list ends and the chrome begins, and Pastries keeps it too. */
+  background: var(--cat-ground);
   border-top: 1px solid var(--cat-border);
 }
 .cat-footer[hidden] { display: none; }
@@ -983,7 +992,9 @@ body.cat-zoom-lock { overflow: hidden; }
   max-width: 220px;
   height: 44px;
   cursor: pointer;
-  background: var(--cat-surface-2);
+  /* The raised chip, now that the bar behind it is the page. --surface-2 was
+     invisible against a --surface bar and is barely lighter than the ground. */
+  background: var(--cat-surface);
   border: 1px solid var(--cat-border);
   border-radius: var(--cat-radius);
   color: var(--cat-text-2);
