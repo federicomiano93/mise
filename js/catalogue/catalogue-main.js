@@ -222,12 +222,20 @@ async function togglePhoto() {
     cancelLabel: t('ui.cancel'),
   });
   if (!ok) return;
+  // ⚠️ THE SCREEN THIS TAP BELONGS TO, CAPTURED BEFORE THE ROUND TRIP. setPhotoEnabled
+  // is a Cloud Function call — a real journey, cold start included — and nothing locks
+  // the screen while it is in flight: the dialog removes itself before it resolves, and
+  // Back stays live. Somebody can be two screens away by the time it lands.
+  const settingsAtTap = activeSettings;
   try {
     await setPhotoEnabled(turningOn);
     overriddenPhotoOn = turningOn;
-    // ⚠️ REPAINT WHERE THE SWITCH IS, which is no longer the list. Repainting the
-    // list would drop somebody out of Settings the moment they used it.
-    if (activeSettings) activeSettings.refresh(turningOn); else showList();
+    // ⚠️ REPAINT ONLY IF THEY ARE STILL ON THAT SAME SCREEN. The old line ended in
+    // `else showList()`, which would tear down whatever they had moved to — an open
+    // editor with typing in it, a running mixing timer — WITHOUT asking the leave
+    // guard, because showList() is a direct swap. The switch has already been written;
+    // there is nothing left that has to be shown anywhere.
+    if (settingsAtTap && activeSettings === settingsAtTap) settingsAtTap.refresh(turningOn);
     toast(turningOn ? t('cat.photo.nowOn') : t('cat.photo.nowOff'));
   } catch (err) {
     // ⚠️ The server's own words when it has any: it is the half that knows why.
@@ -259,6 +267,13 @@ function showSettings() {
 // ⚠️ CONSUMED THE INSTANT IT IS READ, exactly like the one-shot flag behind "Back to
 // Misé" (v275). Left set, every later Back would open an editor instead of the list.
 let backToEditor = false;
+// ⚠️ AND WHAT WAS TYPED COMES BACK WITH IT. Without this the editor's working copy
+// died the moment the photo screen replaced it — it lives only in renderEditor's
+// closure, is never written anywhere, and swap() throws the DOM away. So somebody who
+// typed a name, tapped the photo button, then changed their mind came back to a BLANK
+// form: the app had asked "shall I replace what you typed?", they said yes expecting a
+// photo to replace it, and nothing did. Consumed with the marker, in the same gesture.
+let backToEditorDraft = null;
 
 // Read a recipe from a photograph.
 //
@@ -268,8 +283,9 @@ let backToEditor = false;
 // about an EXISTING recipe and wrong about a new one — a new form is empty, and if
 // anything has been typed the editor asks before it navigates. Federico's note of
 // 23 Aug 2026: this is needed at the moment you add a recipe, which is where it is now.
-function showPhotoCapture(fromEditor = false) {
+function showPhotoCapture(fromEditor = false, keepDraft = null) {
   backToEditor = !!fromEditor;
+  backToEditorDraft = fromEditor ? keepDraft : null;
   stopRun();
   view = 'photo';
   activeList = null;
@@ -286,6 +302,7 @@ function showPhotoCapture(fromEditor = false) {
       // The read succeeded, so this IS the way back to the editor — the one-shot has
       // done its job and must not fire again on the next Back.
       backToEditor = false;
+      backToEditorDraft = null;
       openEditor(null, draft);
       if (notes && notes.rowsCapped) toast(t('cat.photo.capped'));
     },
@@ -349,7 +366,7 @@ async function handleBack() {
   leaveGuard = null;
   // ⚠️ READ AND CLEARED IN ONE GESTURE. Left set it would send every later Back into a
   // new editor — the trap the "Back to Misé" flag was written to avoid.
-  if (backToEditor) { backToEditor = false; openEditor(null); return; }
+  if (backToEditor) { const kept = backToEditorDraft; backToEditor = false; backToEditorDraft = null; openEditor(null, kept); return; }
   showList();
 }
 
@@ -379,7 +396,7 @@ const app = {
   // all. ⚠️ photoOn is a FUNCTION, not a value: the switch can be thrown from another
   // phone, and a value captured when this object was built would be stale for the
   // life of the page.
-  openPhotoCapture: () => showPhotoCapture(true),
+  openPhotoCapture: (keepDraft) => showPhotoCapture(true, keepDraft),
   photoOn: () => photoIsOn(),
   startGuided: (recipe, targetGrams) => openRun(recipe, targetGrams, null),
   resumeGuided: (recipe) => {

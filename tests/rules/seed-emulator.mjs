@@ -348,6 +348,23 @@ export async function seedDemoWorld() {
     allergens: [], mayContain: [],
     allergensCheckedAt: '2026-08-01T09:00:00.000Z',
   });
+  // ⚠️ AND THEY ARE PRICED, OR THE COST CARD CANNOT EXIST. Costing reads
+  // `locations/{lid}/ingredient-prices/{ingredientId}` — a PARALLEL collection, not a
+  // field on the ingredient (v270, so an employee cannot read what the business pays).
+  // With no document there, `costRecipe` returns nothing and `.cat-cost-panel` renders
+  // the "no cost yet" state — which means the recipe screen's LAYOUT, the very thing
+  // Federico complained about, could not be measured with a real cost card on it.
+  await seedDoc('locations/bakery/ingredient-prices/ING_FLOUR_DECL', {
+    bakery: 'bakery', priceUnit: 'kg', pricePerUnit: 1.15,
+    priceUpdatedAt: '2026-08-01T09:00:00.000Z',
+  });
+  await seedDoc('locations/bakery/ingredient-prices/ING_WATER_DECL', {
+    // ⚠️ A RATE OF 0 IS A REAL ANSWER, not a missing one — the same rule the Food Cost
+    // model states about a 0% VAT rate. Water costs about nothing and must still cost
+    // SOMETHING rather than making the recipe read as unpriced.
+    bakery: 'bakery', priceUnit: 'l', pricePerUnit: 0.001,
+    priceUpdatedAt: '2026-08-01T09:00:00.000Z',
+  });
   await seedDoc('locations/bakery/recipes/CAT_3', {
     bakery: 'bakery', name: 'Focaccia', lossPct: 12,
     ingredients: [
@@ -509,7 +526,10 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   console.log(`Seeded the emulator:
   locations/bakery — The Italian Club Bakery, every section
     2 suppliers  (SUP_LEGACY has notifyHoursBefore and NO orderDays)
-    3 ingredients (ING_LEGACY has no brand/weight)
+    5 ingredients (ING_LEGACY has no brand/weight; 2 are allergen-declared)
+    2 ingredient-prices (so a recipe can show a real cost, not "no cost yet")
+    3 recipes (CAT_1 empty, CAT_2 typed rows = NOT DECLARED, CAT_3 linked = DECLARED)
+    2 pastry days (Tuesday, Wednesday; the other five have never been written)
     drafts/current (carries the retired weekId, 1 row stamped 2026-07-20)
     2 orders-history records (2026-W28 legacy + 2026-07-20_SUP_MODERN)
   locations/trattoria-rosa — Orders only, its own supplier + ingredient

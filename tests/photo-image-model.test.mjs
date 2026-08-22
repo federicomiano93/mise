@@ -316,8 +316,19 @@ test('⚠️ the way back out of the photo screen is a ONE-SHOT marker', () => {
   // deleting the consume-on-read left it green. Caught by a reviewer after the
   // release, not by the mutation run, because the mutation I chose happened to change
   // the declaration too.
-  assert.match(main, /if \(backToEditor\) \{ backToEditor = false;/,
-    'the marker must be consumed the instant it is read, before anything else runs');
+  // ⚠️ ASKS ABOUT THE ORDER, NOT ABOUT EXACT TEXT. Pinning the literal
+  // `if (backToEditor) { backToEditor = false;` broke the moment the kept draft was
+  // read on the line before — a correct change failing a guard teaches people to
+  // loosen guards. What must hold is that BOTH are cleared before anything navigates.
+  const block = main.slice(main.indexOf('if (backToEditor)'));
+  const end = block.indexOf('}');
+  const guarded = block.slice(0, end);
+  assert.ok(guarded.includes('backToEditor = false'), 'the marker is not cleared inside the guard');
+  assert.ok(guarded.includes('backToEditorDraft = null'), 'the kept draft is not cleared inside the guard');
+  assert.ok(guarded.indexOf('backToEditor = false') < guarded.indexOf('openEditor('),
+    'the marker must be cleared BEFORE the editor is opened');
+  assert.ok(guarded.indexOf('backToEditorDraft = null') < guarded.indexOf('openEditor('),
+    'the kept draft must be cleared BEFORE the editor is opened, or it comes back twice');
 });
 
 test('⚠️ the batch-weight box sits directly under the recipe, above the cost card', () => {
@@ -443,6 +454,22 @@ test('⚠ a computed boolean is never handed to el() as an attribute', () => {
   }
   assert.deepEqual(offenders, [],
     'set the property after building the element — setAttribute(attr, false) still hides it');
+});
+
+test('⚠ the Settings switch repaints from its CURRENT state, not the one it was built with', () => {
+  // `paint(on = photoOn)` looked equivalent to tracking the state and was not: photoOn
+  // is the value captured when the screen was BUILT, and the onLanguageChange listener
+  // calls paint() with no argument. Switch the feature on, then change the language,
+  // and the pill went back to OFF while the feature was ON — the one fact this screen
+  // exists to report, wrong, with nothing to notice it by.
+  const src = codeOf(read('js/catalogue/catalogue-settings.js'));
+  assert.doesNotMatch(src, /function paint\(on = photoOn\)/,
+    'the repaint falls back to the build-time value');
+  assert.match(src, /let current = photoOn/, 'the current state is not tracked');
+  assert.match(src, /function paint\(next = current\)/,
+    'paint must default to the CURRENT state, not the initial one');
+  // And the listener must still be there, or the screen freezes in one language.
+  assert.match(src, /onLanguageChange\(\(\) => \{ if \(root\.isConnected\) paint\(\); \}\)/);
 });
 
 // Comments stripped before every source check above. Three separate checks in this

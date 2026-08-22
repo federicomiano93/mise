@@ -667,12 +667,23 @@ body.cat-zoom-lock { overflow: hidden; }
    caveat. A partial cost is useful; a partial allergen list is dangerous. */
 .cat-alg-panel {
   margin-top: 10px;
-  padding: 12px 14px;
+  /* ⚠ NO TOP PADDING: THE HEAD ABSORBS IT, SO THE TAP TARGET IS THE WHOLE TOP OF
+     THE CARD. The head is a button with `padding: 0`, so its height was just its
+     11.84px text — measured 23px inside a 49px card, i.e. more than half the card
+     looked tappable and was not. Growing the button rather than the card keeps the
+     folded card the same height. */
+  padding: 0 14px 12px;
   border: 1px solid var(--cat-border);
   border-radius: var(--cat-radius);
   background: var(--cat-surface);
 }
-.cat-alg-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.cat-alg-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  /* Takes the card's own top padding back, plus enough to reach a comfortable target.
+     `align-items` moves from baseline to center now that the row has real height, or
+     the label and the status pill sit against the top edge. */
+  min-height: 44px; padding: 12px 0;
+}
 .cat-alg-label { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--cat-text-2); font-family: var(--cat-font-mono); }
 .cat-alg-ok { font-size: .74rem; font-weight: 700; color: var(--cat-brand); font-family: var(--cat-font-mono); text-transform: uppercase; letter-spacing: .06em; }
 .cat-alg-blocked { font-size: .74rem; font-weight: 700; color: var(--cat-warn); font-family: var(--cat-font-mono); text-transform: uppercase; letter-spacing: .06em; }
@@ -942,7 +953,7 @@ body.cat-zoom-lock { overflow: hidden; }
 
 /* The folded half. It gets the breathing room the head used to provide, so opening
    the card does not make the first line collide with the status pill. */
-.cat-alg-body { padding-top: 8px; }
+.cat-alg-body { padding-top: 2px; }
 
 /* ── The bottom bar ────────────────────────────────────────────
    Secondary actions live here, not in the header — the app's own rule, and this
