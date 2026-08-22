@@ -185,6 +185,25 @@ test('⚠️ the chrome takes its words at PAINT time, not when the module loads
     + 'was none — so the field would be announced unlabelled (P18)');
 });
 
+// ⚠️ TWO MORE THAT 34 DRIVEN CHECKS PASSED AND A SCREENSHOT CAUGHT.
+test('a product on its own supplier\'s screen names no supplier at all', () => {
+  const code = codeOf(REGISTRY);
+  assert.match(code, /supplierName === undefined \? null :/,
+    'omitting the supplier must mean "do not print it", never fall through to '
+    + '«No supplier» — on the one screen that exists to say whose product it is');
+  assert.match(code, /ingredientRow\(i\)\)/,
+    'the supplier screen calls it with the name omitted, not with null');
+});
+
+test('the delivery days are the same words the Orders list prints', () => {
+  const code = codeOf(REGISTRY);
+  assert.match(code, /import \{ dayShort \}/,
+    'the mapping is imported, not copied: two screens printing one supplier’s days '
+    + 'must not be able to disagree');
+  assert.doesNotMatch(code, /\.slice\(0, 3\)/,
+    'slicing the stored English key prints «Tue, Fri» under an Italian heading');
+});
+
 test('the two lists share ONE search box, mounted once', () => {
   const code = codeOf(REGISTRY);
   assert.equal((code.match(/buildSearchBox\(/g) || []).length, 1,
