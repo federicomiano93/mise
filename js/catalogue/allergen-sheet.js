@@ -32,7 +32,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
 
   // ── Where things stand ──────────────────────────────────────────────────────
   root.appendChild(el('div', { class: 'alg-sheet-summary' }, [
-    el('p', { class: 'alg-sheet-count', text: `${declared.length} of ${list.length} recipes fully declared` }),
+    el('p', { class: 'alg-sheet-count', text: t('cat.sheet.declaredCount', { n: declared.length, total: list.length }) }),
     el('p', { class: 'alg-sheet-sub', text: blocked.length
       ? `${blocked.length} cannot be labelled yet.`
       : t('cat.everyRecipeCanBe') }),
@@ -48,7 +48,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
 
   // Twelve is about a screenful; beyond that a plan turns back into the flat list
   // it exists to replace.
-  const workBox = (title, sub, items, count, unit) => {
+  const workBox = (title, sub, items, count, unitKey) => {
     const box = el('div', { class: 'alg-sheet-work' }, [
       el('p', { class: 'alg-sheet-work-title', text: title }),
       el('p', { class: 'alg-sheet-work-sub', text: sub }),
@@ -58,11 +58,11 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
       const n = count(item);
       ul.appendChild(el('li', {}, [
         el('span', { class: 'alg-sheet-work-name', text: item.name }),
-        el('span', { class: 'alg-sheet-work-n', text: `${n} ${n === 1 ? unit : `${unit}s`}` }),
+        el('span', { class: 'alg-sheet-work-n', text: t(unitKey, { n }) }),
       ]));
     }
     if (items.length > 12) {
-      ul.appendChild(el('li', { class: 'alg-sheet-work-more', text: `…and ${items.length - 12} more` }));
+      ul.appendChild(el('li', { class: 'alg-sheet-work-more', text: t('cat.andMore', { n: items.length - 12 }) }));
     }
     box.appendChild(ul);
     return box;
@@ -72,7 +72,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
     root.appendChild(workBox(
       t('cat.linkTheseRowsFirst'),
       t('cat.aRecipeRowHas'),
-      unlinked, item => item.rows, 'row',
+      unlinked, item => item.rows, 'cat.nRows',
     ));
   }
 
@@ -80,7 +80,7 @@ export function renderAllergenSheet({ recipes, ingredients, recipesById, onOpen 
     root.appendChild(workBox(
       unlinked.length ? t('cat.thenDeclareThese') : t('cat.declareTheseFirst'),
       t('cat.eachOneIsHolding'),
-      work, item => item.blocks, 'recipe',
+      work, item => item.blocks, 'cat.nRecipes',
     ));
   }
 

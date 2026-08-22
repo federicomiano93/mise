@@ -274,6 +274,7 @@ export function openNewCustomer({ onClose, host, ownerKind } = {}) {
           ? t('help.itWillBeCreated')
           : t('help.whoeverOpensTheLink')),
       okLabel: t('ui.create'),
+      cancelLabel: t('ui.cancel'),
     });
     if (!ok) return;
 

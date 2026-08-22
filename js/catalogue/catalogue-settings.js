@@ -30,10 +30,18 @@ export function renderSettings({ photoOn, onTogglePhoto }) {
 
   const note = el('p', { class: 'cat-settings-note' });
 
-  function paint(on = photoOn) {
+  // ⚠️ THE SWITCH'S STATE IS TRACKED HERE, NOT TAKEN FROM THE ARGUMENT EACH TIME.
+  // `paint(on = photoOn)` looked equivalent and was not: `photoOn` is the value the
+  // screen was BUILT with, so the language listener below — which calls paint() with
+  // no argument — put the pill back to whatever it said when the screen opened. Switch
+  // the feature on, change the language, and the pill read OFF while the feature was
+  // ON: the one thing this screen exists to tell you, wrong, with no way to notice.
+  let current = photoOn;
+  function paint(next = current) {
+    current = next;
     label.textContent = t('cat.photo.setting');
-    state.textContent = on ? t('cat.photo.on') : t('cat.photo.off');
-    row.classList.toggle('cat-photo-setting--on', !!on);
+    state.textContent = current ? t('cat.photo.on') : t('cat.photo.off');
+    row.classList.toggle('cat-photo-setting--on', !!current);
     note.textContent = t('cat.photo.settingNote');
   }
   paint();

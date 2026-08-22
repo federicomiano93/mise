@@ -113,9 +113,72 @@ function applyUpdate(reg, button) {
   }
 }
 
+// ⚠️⚠️ THE BANNER SITS ABOVE THE PAGE'S BOTTOM BAR, AND WITHOUT THIS IT SAT ON TOP OF
+// IT. The host is `position: fixed; bottom: 0; z-index: 9999` and every bottom bar in
+// this app is the last thing in normal flow, so they land on the same pixels: measured
+// on the Recipe catalogue at 390×844, the banner covered all 69px of the bar and a tap
+// aimed at «Settings» hit the banner instead. Every feature with a bottom bar had it.
+//
+// ⚠️ MEASURED, NOT LISTED BY HEIGHT. The four bars differ and would drift from any
+// number written here. The geometric test is also what makes the list safe to be
+// approximate: a selector that matches something NOT at the foot of the viewport
+// simply contributes nothing.
+//
+// 📌 It is a courtesy, not a rescue: the banner is the first of two signals and the
+// compulsory gate (js/update-gate.js) follows it, so nothing is lost if a bar is
+// missed here. What IS lost is the one route to a screen while the banner is up —
+// which for the catalogue's Settings is the only route there is.
+const BOTTOM_BARS = ['.cat-footer', '.pas-footer', '.recipe-footer'];
+
+function bottomBarHeight() {
+  let tallest = 0;
+  for (const selector of BOTTOM_BARS) {
+    for (const bar of document.querySelectorAll(selector)) {
+      if (bar.hidden || bar.offsetParent === null) continue;
+      const box = bar.getBoundingClientRect();
+      // Only a bar actually resting on the foot of the viewport displaces the banner.
+      // One that scrolls with the page does not, and must not push the banner up over
+      // content for no reason.
+      if (box.height > 0 && Math.abs(box.bottom - window.innerHeight) <= 2) {
+        tallest = Math.max(tallest, box.height);
+      }
+    }
+  }
+  return tallest;
+}
+
+function placeAboveBottomBar(host) {
+  const height = bottomBarHeight();
+  // Cleared rather than set to 0 so the stylesheet keeps ownership of the default.
+  host.style.bottom = height ? `${height}px` : '';
+}
+
+// ⚠️ IT HAS TO KEEP UP: the catalogue hides its bar on every screen but the list, so a
+// banner placed once would float over nothing after one tap, or drop back onto the bar
+// after another. The observer is narrow (three attributes) and lives only as long as
+// the banner does — which is the short window before the compulsory gate takes over.
+// ⚠️ EXPORTED ONLY SO A DRIVER CAN EXERCISE THE REAL ONE. showBanner() runs only when
+// a new service worker is waiting, which cannot be arranged from a test; the
+// alternative is a driver that re-implements the placement, which would prove the
+// driver works and nothing else. Underscored: nothing in the app may call it.
+export function __keepAboveBottomBar(host) { keepAboveBottomBar(host); }
+
+function keepAboveBottomBar(host) {
+  placeAboveBottomBar(host);
+  const reposition = () => {
+    if (!host.isConnected) { window.removeEventListener('resize', reposition); observer.disconnect(); return; }
+    placeAboveBottomBar(host);
+  };
+  const observer = new MutationObserver(reposition);
+  observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+  window.addEventListener('resize', reposition);
+}
+
 // The banner is built here (not in each page's HTML) so no page can ship
 // without it; its styles live in tokens.css because the CSP (style-src 'self')
-// forbids styles injected from JS.
+// forbids a <style> block or a stylesheet injected from JS. Setting a property
+// through the CSSOM, as placeAboveBottomBar does, is NOT what that forbids — the app
+// already does it in js/app.js and js/calc.js, in production.
 function showBanner(reg) {
   if (document.getElementById('sw-update-banner')) return;
 
@@ -129,6 +192,7 @@ function showBanner(reg) {
   host.setAttribute('role', 'status');
   host.appendChild(banner);
   document.body.appendChild(host);
+  keepAboveBottomBar(host);
 
   banner.addEventListener('click', () => applyUpdate(reg, banner));
 }

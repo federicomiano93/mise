@@ -52,7 +52,12 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
         ingredients: (Array.isArray(draft.ingredients) && draft.ingredients.length
           ? draft.ingredients
           : [{ label: '', grams: '', unit: 'g' }]).map(i => ({ ...i, unit: unitOf(i) })),
-        lossPct: 0,
+        // ⚠️ CARRIED, NOT ZEROED. A draft used to come only from a photograph, which
+        // never reads a cooking loss, so 0 was always right. It now also carries a
+        // form somebody backed out of — and silently resetting a typed 12% while
+        // keeping every other field is the kind of loss nobody notices until the
+        // costing is wrong.
+        lossPct: normalizeLossPct(draft.lossPct),
       }
       : { id: null, name: '', ingredients: [{ label: '', grams: '', unit: 'g' }], lossPct: 0 };
 
@@ -347,7 +352,10 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
         // The guard belongs to a form that is about to stop existing; leaving it in
         // place would ask a second time on the way out of the photo screen.
         app.setLeaveGuard(null);
-        app.openPhotoCapture();
+        // ⚠ THE TYPED COPY TRAVELS WITH THE NAVIGATION. The guard is dropped because
+        // this IS the answer to it, but nothing is thrown away: back out of the photo
+        // screen and the form comes back exactly as it was left.
+        app.openPhotoCapture(working);
       },
     }, [el('span', { icon: CAMERA_ICON, 'aria-hidden': 'true' }), el('span', { text: t('cat.photo.fill') })])
     : null;

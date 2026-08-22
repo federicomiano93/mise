@@ -252,3 +252,63 @@ test('no page loads an orientation lock, and the file is gone from the precache'
   assert.doesNotMatch(read('sw.js'), /orientation-lock/,
     'sw.js must not precache a file that no longer exists');
 });
+
+// ---------------------------------------------------------------------------
+// The update banner and the bottom bars share the foot of the screen
+// ---------------------------------------------------------------------------
+
+test('⚠⚠ every page-level bottom bar is one the update banner knows about', () => {
+  // The banner host is `position: fixed; bottom: 0; z-index: 9999` and every bottom bar
+  // in this app is the last thing in NORMAL FLOW, so they land on the same pixels.
+  // Measured on the Recipe catalogue at 390×844 before the fix: the banner covered all
+  // 69px of the bar and a tap aimed at «Settings» hit the banner. js/sw-update.js now
+  // lifts the banner above whichever bar is on screen.
+  //
+  // ⚠ THIS IS A RULE, NOT A LIST. A bar added to a new feature next year lands in
+  // neither place and turns this red, naming itself — which is the only way the list in
+  // sw-update.js can stay true without somebody remembering it.
+  const swUpdate = read('js/sw-update.js');
+  const declared = new Set(
+    [...(swUpdate.match(/const BOTTOM_BARS = \[([^\]]*)\]/) || [, ''])[1]
+      .matchAll(/'\.([a-z-]+)'/g)].map((m) => m[1]),
+  );
+  assert.ok(declared.size > 0, 'BOTTOM_BARS is gone from js/sw-update.js');
+
+  // A bar is a class ending in -footer used in the MARKUP of a page that loads the
+  // banner. `-footer-btn` and the like are children, not the bar.
+  const EXEMPT = new Map([
+    // The client's ordering page deliberately does not load js/sw-update.js — it is
+    // not the staff app, and a client must never be shown a staff update banner.
+    ['co-footer', 'order.html does not load sw-update.js'],
+    // Inside a full-screen overlay, not at the foot of the page.
+    ['preview-footer', 'lives inside the send-order overlay'],
+  ]);
+
+  const missing = [];
+  for (const page of readdirSync(root).filter((n) => n.endsWith('.html'))) {
+    const html = read(page);
+    if (!html.includes('sw-update.js')) continue;
+    for (const m of html.matchAll(/class="([^"]*)"/g)) {
+      for (const cls of m[1].split(/\s+/)) {
+        if (!/^[a-z]+-footer$/.test(cls)) continue;
+        if (declared.has(cls) || EXEMPT.has(cls)) continue;
+        missing.push(`${page}: .${cls}`);
+      }
+    }
+  }
+  assert.deepEqual([...new Set(missing)], [],
+    'add these to BOTTOM_BARS in js/sw-update.js, or the update banner will cover them');
+});
+
+test('⚠ the banner is actually placed, and stops watching when it goes', () => {
+  const src = read('js/sw-update.js');
+  assert.match(src, /document\.body\.appendChild\(host\);\s*\r?\n\s*keepAboveBottomBar\(host\);/,
+    'showBanner must place the banner above the bottom bar');
+  // ⚠ The observer outliving the banner would keep measuring for the life of the page.
+  assert.match(src, /if \(!host\.isConnected\)[^\n]*disconnect\(\)/,
+    'the observer must stop when the banner is gone');
+  // ⚠ A bar that is NOT at the foot of the viewport must not push the banner up over
+  // content — the geometric test is what makes the selector list safe to be approximate.
+  assert.match(src, /Math\.abs\(box\.bottom - window\.innerHeight\)/,
+    'the placement must check the bar really rests on the bottom edge');
+});

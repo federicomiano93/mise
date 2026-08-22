@@ -316,8 +316,19 @@ test('⚠️ the way back out of the photo screen is a ONE-SHOT marker', () => {
   // deleting the consume-on-read left it green. Caught by a reviewer after the
   // release, not by the mutation run, because the mutation I chose happened to change
   // the declaration too.
-  assert.match(main, /if \(backToEditor\) \{ backToEditor = false;/,
-    'the marker must be consumed the instant it is read, before anything else runs');
+  // ⚠️ ASKS ABOUT THE ORDER, NOT ABOUT EXACT TEXT. Pinning the literal
+  // `if (backToEditor) { backToEditor = false;` broke the moment the kept draft was
+  // read on the line before — a correct change failing a guard teaches people to
+  // loosen guards. What must hold is that BOTH are cleared before anything navigates.
+  const block = main.slice(main.indexOf('if (backToEditor)'));
+  const end = block.indexOf('}');
+  const guarded = block.slice(0, end);
+  assert.ok(guarded.includes('backToEditor = false'), 'the marker is not cleared inside the guard');
+  assert.ok(guarded.includes('backToEditorDraft = null'), 'the kept draft is not cleared inside the guard');
+  assert.ok(guarded.indexOf('backToEditor = false') < guarded.indexOf('openEditor('),
+    'the marker must be cleared BEFORE the editor is opened');
+  assert.ok(guarded.indexOf('backToEditorDraft = null') < guarded.indexOf('openEditor('),
+    'the kept draft must be cleared BEFORE the editor is opened, or it comes back twice');
 });
 
 test('⚠️ the batch-weight box sits directly under the recipe, above the cost card', () => {
@@ -392,9 +403,30 @@ test('⚠️ the seven gap reasons are KEYS, resolved when the row is drawn', ()
   const model = codeOf(read('js/catalogue/recipe-allergen-model.js'));
   const block = model.slice(model.indexOf('ALLERGEN_REASON_TEXT'), model.indexOf('ALLERGEN_REASON_TEXT') + 700);
   assert.doesNotMatch(block, /\bt\(/, 'a t() inside the constant freezes in one language');
-  assert.match(block, /cat\.alg\.reason\./, 'the constant must hold keys');
-  assert.match(codeOf(read('js/catalogue/catalogue-detail.js')), /function reasonLabel/,
-    'nothing resolves the keys at draw time');
+  // ⚠ ALL SEVEN, NOT «at least one». Asking for a single occurrence let six of them
+  // go back to English while the seventh kept the test green — reported by a reviewer.
+  const reasons = [...block.matchAll(/'[a-z-]+': '([^']+)'/g)].map(m => m[1]);
+  assert.ok(reasons.length >= 7, `expected the seven reasons, found ${reasons.length}`);
+  const notKeys = reasons.filter(v => !v.startsWith('cat.alg.reason.'));
+  assert.deepEqual(notKeys, [], 'every reason must be a KEY, not a phrase');
+  // ⚠️ THE CALL, NOT THE DECLARATION. Asking only for `/function reasonLabel/` was
+  // worthless twice over: bypassing it at the one call site
+  // (`ALLERGEN_REASON_TEXT[gap.reason]`) prints the raw key on every gap row and left
+  // the test green, and — because the pattern has no `(` — renaming the declaration to
+  // `reasonLabelX` ALSO stayed green, which is a ReferenceError the instant a blocked
+  // recipe is opened. Reported by a reviewer; confirmed by mutating and running THIS
+  // file rather than the whole suite.
+  const detail = codeOf(read('js/catalogue/catalogue-detail.js'));
+  assert.match(detail, /function reasonLabel\(reason\)/, 'the resolver is gone or renamed');
+  assert.match(detail, /reasonLabel\(gap\.reason\)/,
+    'the gap rows must go through the resolver, or they print the raw key');
+  // ⚠️ Banned OUTSIDE the resolver only — inside it is the one legitimate read, and a
+  // guard that fires on the correct code is a guard people delete.
+  const resolver = detail.slice(detail.indexOf('function reasonLabel'));
+  const beforeResolver = detail.slice(0, detail.indexOf('function reasonLabel'));
+  const afterResolver = resolver.slice(resolver.indexOf('\n}') + 2);
+  assert.doesNotMatch(beforeResolver + afterResolver, /ALLERGEN_REASON_TEXT\[/,
+    'reading the constant directly, outside reasonLabel(), bypasses the translation');
 });
 
 test('⚠⚠ a data update must not delete the allergen card from an open recipe', () => {
@@ -433,16 +465,66 @@ test('⚠ a computed boolean is never handed to el() as an attribute', () => {
     const src = codeOf(read(`js/catalogue/${file}`));
     for (const attr of BOOLEAN_ATTRS) {
       // `attr: <something that is not the literal true>` inside an el() prop object.
-      const rx = new RegExp(`\b${attr}: *(?!true\b)([^,\n]+)`, 'g');
+      //
+      // ⚠️⚠️ THE ESCAPES MUST BE DOUBLED, AND WITHOUT THAT THIS GUARD MATCHED NOTHING.
+      // Inside a TEMPLATE LITERAL `\b` is the BACKSPACE character and `\n` is a real
+      // newline — not the regex escapes. The pattern was literally
+      // «[backspace]hidden: … [^,<newline>]», so it never fired once, and the very
+      // defect it was written for survived a mutation run in silence. Same family as
+      // the `\d` eaten by a template literal in v1.55.0, which made two colours parse
+      // as black and read 1:1 against a button measuring 8.8:1.
+      const rx = new RegExp(`\\b${attr}: *(?!true\\b)([^,\\n]+)`, 'g');
       for (const m of src.matchAll(rx)) {
         const value = m[1].trim();
         if (/^'|^"|^\`/.test(value)) continue;          // a string literal is fine
+        // ⚠️ `null` AND `undefined` ARE SAFE, AND THE DISTINCTION IS THE WHOLE POINT:
+        // el() skips them outright (dom.js: `if (value === null || value === undefined)
+        // continue`), so `disabled: cond ? 'disabled' : null` never sets the attribute.
+        // It is the idiom this codebase already uses correctly, and the first version
+        // of this guard reported both of its uses as defects. Only `false` — which el()
+        // does NOT skip and setAttribute stringifies to "false" — is the trap.
+        if (/\bnull\b|\bundefined\b/.test(value) && !/\bfalse\b/.test(value)) continue;
         offenders.push(`${file}: ${attr}: ${value.slice(0, 40)}`);
       }
     }
   }
   assert.deepEqual(offenders, [],
     'set the property after building the element — setAttribute(attr, false) still hides it');
+});
+
+test('⚠ the Settings switch repaints from its CURRENT state, not the one it was built with', () => {
+  // `paint(on = photoOn)` looked equivalent to tracking the state and was not: photoOn
+  // is the value captured when the screen was BUILT, and the onLanguageChange listener
+  // calls paint() with no argument. Switch the feature on, then change the language,
+  // and the pill went back to OFF while the feature was ON — the one fact this screen
+  // exists to report, wrong, with nothing to notice it by.
+  const src = codeOf(read('js/catalogue/catalogue-settings.js'));
+  assert.doesNotMatch(src, /function paint\(on = photoOn\)/,
+    'the repaint falls back to the build-time value');
+  assert.match(src, /let current = photoOn/, 'the current state is not tracked');
+  assert.match(src, /function paint\(next = current\)/,
+    'paint must default to the CURRENT state, not the initial one');
+  // And the listener must still be there, or the screen freezes in one language.
+  assert.match(src, /onLanguageChange\(\(\) => \{ if \(root\.isConnected\) paint\(\); \}\)/);
+});
+
+test('⚠ a slow switch write does not navigate the user out of where they moved to', () => {
+  // togglePhoto() awaits a Cloud Function — a real round trip — and nothing locks the
+  // screen: the dialog removes itself before it resolves and Back stays live. The old
+  // completion ran `else showList()`, tearing down whatever they were now on (an open
+  // editor with typing in it, a running mixing timer) WITHOUT asking the leave guard,
+  // because showList() is a direct swap.
+  const main = codeOf(read('js/catalogue/catalogue-main.js'));
+  const fn = main.slice(main.indexOf('async function togglePhoto'), main.indexOf('function showSettings'));
+  assert.ok(fn.length > 100, 'togglePhoto is gone');
+  assert.match(fn, /const settingsAtTap = activeSettings;/,
+    'the screen the tap belonged to must be captured BEFORE the await');
+  assert.ok(fn.indexOf('const settingsAtTap') < fn.indexOf('await setPhotoEnabled'),
+    'capturing it after the await proves nothing');
+  assert.doesNotMatch(fn, /else showList\(\)/,
+    'navigating on completion tears down whatever screen they moved to');
+  assert.match(fn, /activeSettings === settingsAtTap/,
+    'it must repaint only the screen the tap belonged to');
 });
 
 // Comments stripped before every source check above. Three separate checks in this

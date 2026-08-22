@@ -1202,6 +1202,7 @@ function confirmClear(supplierIds) {
     title: t('orders.clearQuantities'),
     message: `Clear everything typed for ${who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.`,
     okLabel: t('ui.clear'),
+    cancelLabel: t('ui.cancel'),
     danger: true,
   });
 }
@@ -1301,6 +1302,7 @@ function confirmPlacement(supplier, date) {
       : t('orders.orderPlacedTitle', { supplier: supplier.name }),
     message: odd.length ? `${unusualWarning(odd)}\n\n${base}` : base,
     okLabel: already ? t('orders.addToIt') : t('orders.orderPlaced'),
+    cancelLabel: t('ui.cancel'),
     // Recording is what turns the rows into an order, and this is the last screen
     // before it. A red button on a quantity worth a second look is the difference
     // between catching an extra digit and phoning a supplier to unpick it.
@@ -1423,6 +1425,7 @@ async function discardPending(supplierId) {
     title: `Discard ${supplier.name}’s order`,
     message: `Delete the quantities typed for ${supplier.name}? They are not saved anywhere and cannot be recovered.`,
     okLabel: t('ui.discard'),
+    cancelLabel: t('ui.cancel'),
     danger: true,
   });
   if (!ok) return;

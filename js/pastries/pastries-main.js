@@ -118,6 +118,7 @@ async function requestEdit(day) {
     title: `Edit ${day}?`,
     message: `${day} is already recorded for tonight. Edit these quantities?`,
     okLabel: t('ui.edit'),
+    cancelLabel: t('ui.cancel'),
   });
   if (!ok) return false;
   // The permission carries the work date, so it is spent when the date rolls at
@@ -284,6 +285,7 @@ async function confirmToday(day, items, note) {
     title: t('past.confirmDay', { day: weekdayLabel(day) }),
     message,
     okLabel: t('past.confirm'),
+    cancelLabel: t('ui.cancel'),
   });
   if (!ok) return;
 

@@ -28,7 +28,7 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
     const list = el('div', { class: 'cat-pick-list' });
 
     const search = el('input', {
-      class: 'cat-pick-search', type: 'search', placeholder: 'Search an ingredient…',
+      class: 'cat-pick-search', type: 'search', placeholder: t('cat.searchAnIngredient'),
       'aria-label': t('cat.searchAnIngredient'),
       oninput: e => { query = e.target.value; paint(); },
     });
@@ -54,7 +54,7 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
       list.replaceChildren();
 
       if (options.ingredients.length) {
-        list.appendChild(el('div', { class: 'cat-pick-head', text: 'Ingredients' }));
+        list.appendChild(el('div', { class: 'cat-pick-head', text: t('cat.ingredients') }));
         options.ingredients.forEach(opt => {
           // Name · weight · supplier · what a kilo costs — the four things that tell
           // two similar-looking articles apart. "No price yet" is said out loud
@@ -70,7 +70,7 @@ export function openLinkPicker({ ingredients, recipes, suppliers, excludeRecipeI
       }
 
       if (options.recipes.length) {
-        list.appendChild(el('div', { class: 'cat-pick-head', text: 'Recipes' }));
+        list.appendChild(el('div', { class: 'cat-pick-head', text: t('ui.recipes') }));
         options.recipes.forEach(opt => {
           list.appendChild(row(opt.name, 'Recipe',
             () => close({ kind: 'recipe', refId: opt.id, name: opt.name })));

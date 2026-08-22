@@ -255,6 +255,7 @@ export function openPeople(session) {
       title: t(CONFIRM_TITLE[choice.key], { name: displayName(person) }),
       message: t(ROLE_MEANS[choice.key]),
       okLabel: t('people.make', { role: choiceLabelInSentence(choice) }),
+      cancelLabel: t('ui.cancel'),
       // Taking power away is the direction that surprises somebody mid-shift.
       danger: choice.role === 'staff',
     });
@@ -272,6 +273,7 @@ export function openPeople(session) {
         name: displayName(person), email: person.email || t('people.noEmail'),
       }),
       okLabel: t('people.remove'), danger: true,
+      cancelLabel: t('ui.cancel'),
     });
     if (!ok) return;
     try { await setMemberRole(person.uid, null); }

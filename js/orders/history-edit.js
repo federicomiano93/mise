@@ -148,6 +148,7 @@ export function buildHistoryEditor(record, ingredients, actions) {
       title: t('orders.saveChanges'),
       message: t('orders.updateOrderFor', { supplier: recordTitle(record), day: dayPhrase(recordDate(record)) }),
       okLabel: t('ui.save'),
+      cancelLabel: t('ui.cancel'),
     });
     if (!ok) return;
 
@@ -172,6 +173,7 @@ export function buildHistoryEditor(record, ingredients, actions) {
       title: t('orders.deleteThisOrder'),
       message: t('orders.deleteOrderFor', { supplier: recordTitle(record), day: dayPhrase(recordDate(record)) }),
       okLabel: t('ui.delete'),
+      cancelLabel: t('ui.cancel'),
       danger: true,
     });
     if (!ok) return;
