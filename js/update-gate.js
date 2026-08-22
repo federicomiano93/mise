@@ -47,6 +47,12 @@ export const BUSY_SELECTORS = Object.freeze([
   // app has. The element is built when the run opens and torn down when it
   // closes, so it exists only while the mix is on screen.
   '.guided-run',
+  // ⚠️ A PHOTOGRAPHED RECIPE BEING READ. This is the only work in the app that has
+  // already COST MONEY by the time it is on screen: the daily allowance is charged
+  // before the reader is called and is never refunded, so a reload here throws
+  // away something that cannot be got back for free. The class goes on only while
+  // the call is in flight and comes off in a `finally`, so it can never stick.
+  '.cat-photo-busy',
   '.preview-overlay',           // a tick-list waiting for a choice
   // The Calculator's own screens: Settings, the recipe editor, the log editors,
   // and the "Save this dough for: Today / Tomorrow" chooser raised by Confirm.
