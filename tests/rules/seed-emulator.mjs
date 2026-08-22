@@ -385,6 +385,23 @@ export async function seedDemoWorld() {
     ],
   });
 
+  // ⚠️⚠️ HALF LINKED, HALF NOT — the state every real recipe passes THROUGH while
+  // somebody fills the data in, and the only one that exercises «show the allergens
+  // we do have» on the recipe card. Without it the fixture jumps straight from
+  // nothing-known to fully-declared, so the partial answer and the sentence that
+  // qualifies it («this is NOT the full list») could never be seen.
+  //
+  // ⚠️ AND IT IS THE STATE THE SHEET MUST STILL CALL «not declared». Two of its
+  // three rows say WHEAT and MILK; the third could be anything.
+  await seedDoc('locations/bakery/recipes/CAT_5', {
+    bakery: 'bakery', name: 'Half-done loaf', lossPct: 10,
+    ingredients: [
+      { label: 'Strong flour', grams: 1000, kind: 'ingredient', refId: 'ING_FLOUR_DECL' },
+      { label: 'Water', grams: 600, kind: 'ingredient', refId: 'ING_WATER_DECL' },
+      { label: 'Seed mix', grams: 80 },   // never linked — the gap
+    ],
+  });
+
   // TWO days of pastries, five deliberately absent. A day that has never been
   // written is the state all seven start in and the one the empty screen has to
   // hold together for — and two rather than one, so switching day visibly
@@ -540,11 +557,12 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     2 suppliers  (SUP_LEGACY has notifyHoursBefore and NO orderDays)
     5 ingredients (ING_LEGACY has no brand/weight; 2 are allergen-declared)
     2 ingredient-prices (so a recipe can show a real cost, not "no cost yet")
-    4 recipes — one per state the allergen sheet can show:
+    5 recipes — one per state the allergen sheet can show:
       CAT_1 empty          = nothing yet
       CAT_2 typed rows     = NOT DECLARED
       CAT_3 linked         = DECLARED, contains wheat
       CAT_4 water only     = DECLARED, contains none of the 14
+      CAT_5 half linked    = NOT DECLARED, but two rows already say wheat + milk
     2 pastry days (Tuesday, Wednesday; the other five have never been written)
     drafts/current (carries the retired weekId, 1 row stamped 2026-07-20)
     2 orders-history records (2026-W28 legacy + 2026-07-20_SUP_MODERN)
