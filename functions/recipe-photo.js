@@ -48,7 +48,25 @@ const PHOTO_CALL = {
   maxInstances: 10,
 };
 
-const MODEL = 'claude-opus-5';
+// ⚠️ FEDERICO'S CHOICE, 22 Aug 2026, made on measured numbers rather than a guess:
+// one real read of an Italian recipe cost 3318 input + 280 output tokens, which is
+// about 2.4p on Opus 5 and about 1.4p here. Loading two hundred recipes is the
+// difference between roughly £4.80 and £2.80, once.
+//
+// ⚠️ WHAT IS BEING TRADED IS NOT MONEY, IT IS THE ONE ERROR THIS FEATURE CAN MAKE.
+// Nothing downstream can catch a misread quantity: «1,5 kg» read as 15 kg looks
+// exactly like a number somebody typed, and it is found at the oven.
+//
+// ✅ MEASURED, NOT ASSUMED: the same photograph was read by both, and the two answers
+// were identical line for line — name, seven rows, «1,5 kg» correctly 1.5 and not 15,
+// «1 cucchiaino» as 1 tsp, «q.b.» as 0 "to taste", the method ignored. On PRINTED
+// text there is nothing to choose between them.
+//
+// ⚠️ THAT COMPARISON WAS PRINTED TEXT, AND HANDWRITING IS THE HARD CASE — the one
+// this feature exists for, and the one neither model has been tried on. If
+// handwritten recipes start coming back wrong, THIS LINE is the first thing to
+// change back.
+const MODEL = 'claude-sonnet-5';
 const MAX_TOKENS = 8000;
 
 // The one call to the reader.
@@ -57,7 +75,7 @@ async function askAnthropic(images, apiKey) {
   // mean three full PAID attempts, each able to outlive the function itself.
   const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 50_000 });
 
-  return client.beta.messages.create({
+  return client.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
     // ⚠️ LOW EFFORT, AND THINKING LEFT ON. This is transcription, not reasoning, so
@@ -66,10 +84,15 @@ async function askAnthropic(images, apiKey) {
     // the tool call into visible TEXT instead of emitting a tool_use block. The
     // call succeeds, nothing errors, and the extraction silently returns nothing.
     output_config: { effort: 'low' },
-    // A policy decline is vanishingly unlikely on a photograph of a recipe, but it
-    // costs one header to reroute rather than fail.
-    betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
+    // ⚠️ NO `fallbacks` HERE, AND ITS ABSENCE IS DELIBERATE. The server-side refusal
+    // fallback is documented for Opus 5 and Fable 5; it is NOT documented for this
+    // model, and an unsupported parameter is a 400 — which would not be a degraded
+    // read, it would be the whole feature dead on the first tap.
+    //
+    // Nothing is lost. A policy decline on a photograph of a recipe is vanishingly
+    // unlikely, and readToolResult() already reads `stop_reason === 'refusal'` first
+    // and turns it into a sentence somebody can act on. The fallback would only have
+    // saved a retry.
     tools: [toolDefinition()],
     messages: [{
       role: 'user',

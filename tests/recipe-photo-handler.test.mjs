@@ -275,3 +275,39 @@ test('⚠️ the shell delegates the membership question, never re-answers it', 
   assert.match(shell, /access:\s*accessValue/);
   assert.doesNotMatch(shell, /users\/\$\{/, 'a fourth reading of a membership value is a lockout');
 });
+
+// ── the model, and the parameters that belong to a different one ─────────────
+
+test('⚠️ the model is named once, and the request suits it', () => {
+  // Federico chose Sonnet 5 on measured numbers (22 Aug 2026). Pinned here so a
+  // change is a deliberate edit to a test, not a quiet edit to a string — the model
+  // decides both the bill and how well handwriting is read, and only one of those
+  // shows up anywhere.
+  const shell = codeOf('functions/recipe-photo.js');
+  assert.match(shell, /const MODEL = 'claude-sonnet-5';/);
+
+  // ⚠️ `fallbacks` AND ITS BETA HEADER ARE DOCUMENTED FOR OPUS 5 AND FABLE 5, NOT
+  // FOR THIS MODEL. An unsupported parameter is a 400, and a 400 here is not a worse
+  // read — it is the feature dead on the first tap, for everybody, at once. The
+  // refusal is still handled: readToolResult() reads stop_reason before content.
+  assert.doesNotMatch(shell, /fallbacks/, 'not documented for this model');
+  assert.doesNotMatch(shell, /server-side-fallback/);
+  // …and with no beta parameters left, the beta endpoint is the wrong door.
+  assert.match(shell, /client\.messages\.create\(/);
+  assert.doesNotMatch(shell, /client\.beta\.messages\.create\(/);
+});
+
+test('⚠️ the screen never resolves the venue — the data layer does, after the wait', () => {
+  // The first version passed locationId in from the screen, which read it ONCE while
+  // rendering. currentLocationId() returns null before a location is open, so the
+  // screen froze a null and every read afterwards came back "which location?" — for
+  // the life of that screen. It was a RACE: the same code read a recipe perfectly on
+  // one run and refused on the next. Found by driving the app twice.
+  const view = readFileSync(new URL('../js/catalogue/photo-capture.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(view, /locationId/, 'the screen must not know or hold the venue');
+
+  const layer = readFileSync(new URL('../js/catalogue/firebase-photo.js', import.meta.url), 'utf8')
+    .replace(/^\s*\/\/.*$/gm, '');
+  assert.ok(layer.indexOf('await sessionReady') < layer.indexOf('currentLocationId()'),
+    'the venue must be read AFTER the wait, or it can still be null');
+});
