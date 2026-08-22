@@ -21,8 +21,11 @@ import {
   labelLanguageNote,
   ingredientNamesNote,
   noCountryReason,
+  allergenGroupName,
+  allergenGroupCodes,
 } from '../js/market.js';
-import { ALLERGEN_CODES, NUTRIENT_KEYS, allergenLabel } from '../js/allergen-model.js';
+import { ALLERGEN_CODES, ALLERGEN_GROUPS, NUTRIENT_KEYS, allergenLabel } from '../js/allergen-model.js';
+import { _dictionaries } from '../js/i18n.js';
 
 // ── The unknown country ─────────────────────────────────────────────────────
 
@@ -271,4 +274,70 @@ test('the copied text is in the same language as the label on screen', () => {
   assert.match(copy, /nutrientName\(n, lang\)/);
   assert.doesNotMatch(copy, /'Ingredients: '|'Typical values|'May contain:/,
     'no English left hard-coded in the copied label');
+});
+
+// ── The fourteen groups, for the law card on the allergen sheet ──────────────
+
+test('every group the law names answers in both languages', () => {
+  for (const group of ALLERGEN_GROUPS) {
+    for (const lang of ['en', 'it']) {
+      const name = allergenGroupName(group, lang);
+      assert.ok(name && name.length > 1, `${group} has no ${lang} name`);
+    }
+  }
+  // Fourteen groups, not twenty-six: this is the list the law asks about, and the
+  // specific cereals and nuts sit INSIDE two of them.
+  assert.equal(ALLERGEN_GROUPS.length, 14);
+});
+
+// ⚠️ THE TWELVE UNSUBDIVIDED GROUPS ARE NAMED BY THEIR OWN ALLERGEN WORD, DERIVED.
+// Writing all fourteen headings out by hand would be the second list market.js
+// exists to avoid, and the thing the two copies would disagree about is what is in
+// somebody's food. A code added to allergen-model.js must need nothing here.
+test('a group of one is named by its own word, in the country language', () => {
+  assert.equal(allergenGroupName('milk', 'en'), 'Milk');
+  assert.equal(allergenGroupName('milk', 'it'), 'Latte');
+  assert.equal(allergenGroupName('celery', 'it'), 'Sedano');
+  // Only the two collections carry a written heading.
+  assert.equal(allergenGroupName('gluten', 'en'), 'Cereals containing gluten');
+  assert.equal(allergenGroupName('gluten', 'it'), 'Cereali contenenti glutine');
+  assert.equal(allergenGroupName('nuts', 'it'), 'Frutta a guscio');
+  // An unknown group answers empty rather than inventing a heading.
+  assert.equal(allergenGroupName('nonsense', 'en'), '');
+});
+
+test('only the two collections list their specific codes', () => {
+  assert.deepEqual(allergenGroupCodes('milk', 'en'), []);
+  assert.deepEqual(allergenGroupCodes('celery', 'it'), []);
+  assert.equal(allergenGroupCodes('gluten', 'en').length, 6);
+  assert.equal(allergenGroupCodes('nuts', 'en').length, 8);
+  assert.ok(allergenGroupCodes('gluten', 'it').includes('Grano'));
+  assert.ok(allergenGroupCodes('nuts', 'it').includes('Nocciole'));
+});
+
+// ⚠️ A GROUP HEADING IS FOR READING, NEVER FOR A LABEL. A label must name the
+// specific cereal and nut — "Wheat", not "cereals containing gluten" — so the two
+// files that build a label may not reach for this.
+test('no label file uses a group heading', () => {
+  for (const file of ['js/catalogue/recipe-label-model.js', 'js/catalogue/label-view.js']) {
+    const src = readFileSync(new URL('../' + file, import.meta.url), 'utf8');
+    assert.doesNotMatch(src, /allergenGroupName|allergenGroupCodes/,
+      `${file} must name the specific allergen, never its group`);
+  }
+});
+
+// ⚠️ A COMPUTED KEY IS ONE tests/i18n-keys-exist.test.mjs CANNOT SEE. Two screens
+// build `country.${countryOf(location)}.in` from a template literal — the allergen
+// sheet's law card and js/staff/language.js — so the scanner walks past both. This
+// is what it would have done.
+test('both country phrases exist in both dictionaries', () => {
+  const dict = _dictionaries();
+  for (const country of COUNTRIES) {
+    for (const lang of ['en', 'it']) {
+      const key = `country.${country}.in`;
+      const phrase = dict[lang][key];
+      assert.ok(typeof phrase === 'string' && phrase.length > 1,
+        `${key} is missing from ${lang} — a screen would print the key itself`);
+    }
+  }
 });
