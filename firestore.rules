@@ -543,7 +543,8 @@ service cloud.firestore {
                'category', 'unit', 'active',
                'priceUnit', 'pricePerUnit', 'packPrice', 'packSize',
                'unitWeightKg', 'priceUpdatedAt',
-               'allergens', 'mayContain', 'allergensCheckedAt', 'nutrition'
+               'allergens', 'mayContain', 'allergensCheckedAt', 'nutrition',
+               'packIngredients'
              ])
           && (!('name' in request.resource.data)
               || (request.resource.data.name is string
@@ -624,7 +625,29 @@ service cloud.firestore {
           && (!('nutrition' in request.resource.data)
               || (request.resource.data.nutrition is map
                   && request.resource.data.nutrition.keys().hasOnly(
-                       ['kj', 'kcal', 'fat', 'saturates', 'carbs', 'sugars', 'protein', 'salt'])));
+                       ['kj', 'kcal', 'fat', 'saturates', 'carbs', 'sugars', 'protein', 'salt'])))
+          // The ingredient list as printed on the supplier's pack, typed or pasted
+          // in by hand. The app matches known allergen words against it and
+          // PRE-TICKS the boxes above; it never writes allergensCheckedAt, so a
+          // suggestion is inert until a person presses the verification tick.
+          //
+          // ⚠️ IT IS STORED, NOT USED AND THROWN AWAY, and that is the point. It is
+          // the audit trail — being able to show WHY something was declared — and
+          // it is what lets a better dictionary re-check every ingredient later
+          // without anybody re-typing a pack.
+          //
+          // ⚠️ 4000 CHARACTERS: generous for the longest real pack list, and far
+          // enough from the 1MB document ceiling that a corrupt or hostile write
+          // cannot get near it. Same reasoning as the caps on name and weight.
+          //
+          // ⚠️ OPTIONAL IN BOTH DIRECTIONS, and an empty string is accepted so the
+          // text can be cleared. Deployed BEFORE the code that writes it: this key
+          // list is CLOSED, so an unlisted field makes EVERY save of that
+          // ingredient fail, not just the new field.
+          && (!('packIngredients' in request.resource.data)
+              || request.resource.data.packIngredients == null
+              || (request.resource.data.packIngredients is string
+                  && request.resource.data.packIngredients.size() <= 4000));
 
         // OWNER ONLY, and this is the one that costs the most to undo: recipe
         // rows link to it, Food Cost prices through it, and its allergen
