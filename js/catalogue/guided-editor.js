@@ -136,12 +136,12 @@ export function renderGuidedEditor({ recipe, app }) {
         el('span', { class: 'guided-edit-n', text: t('cat.stepN', { n: i + 1 }) }),
         el('button', {
           class: 'cat-del-icon', type: 'button', icon: UP_SVG,
-          'aria-label': `Move step ${i + 1} up`, disabled: i === 0 ? 'disabled' : null,
+          'aria-label': t('cat.moveStepUp', { n: i + 1 }), disabled: i === 0 ? 'disabled' : null,
           onclick: () => move(i, -1),
         }),
         el('button', {
           class: 'cat-del-icon', type: 'button', icon: DOWN_SVG,
-          'aria-label': `Move step ${i + 1} down`, disabled: i === steps.length - 1 ? 'disabled' : null,
+          'aria-label': t('cat.moveStepDown', { n: i + 1 }), disabled: i === steps.length - 1 ? 'disabled' : null,
           onclick: () => move(i, 1),
         }),
         el('button', {
