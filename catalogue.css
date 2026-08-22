@@ -842,3 +842,84 @@ body.cat-zoom-lock { overflow: hidden; }
 .lab-caveat p { margin: 0; }
 .lab-copy { margin-top: 12px; }
 .lab-copy-status { font-size: .8rem; font-weight: 400; color: var(--cat-text-2); }
+
+/* ── Reading a recipe from a photograph ────────────────────────────────────
+   The only screen in this app that needs the network, so it says what it is
+   doing at every moment: the button relabels, a status line speaks, and the
+   note under it never stops reminding that the numbers were READ, not typed. */
+.cat-photo-lead {
+  margin: 0 0 14px; font-size: .95rem; line-height: 1.45; color: var(--cat-text-2);
+}
+.cat-photo-strip {
+  display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px;
+}
+.cat-photo-thumb {
+  position: relative; width: 96px; height: 96px; flex-shrink: 0;
+  border: 1px solid var(--cat-border); border-radius: var(--cat-radius); overflow: hidden;
+  background: var(--cat-surface);
+}
+.cat-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The bin is its own button, so it cannot live inside another one. 32px because
+   it sits over a 96px thumbnail; the thumbnail itself is not tappable. */
+.cat-photo-remove {
+  position: absolute; top: 4px; right: 4px;
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0;
+  border: none; border-radius: 999px; cursor: pointer;
+  background: rgba(0, 0, 0, .55); color: #fff;
+}
+.cat-photo-remove svg { width: 16px; height: 16px; }
+.cat-photo-remove:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+
+/* Icon and label on one flex row. ⚠️ An SVG in a span is an inline box and would
+   sit on the text BASELINE, about 2px low — the most common alignment defect in
+   this app, and invisible to review. */
+.cat-photo-add,
+.cat-photo-read {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; margin-top: 10px; min-height: 44px;
+}
+/* .cat-save-btn is written for a row of two and carries flex: 1; alone it has no
+   row to share, so the width has to be stated. */
+.cat-photo-read { flex: none; }
+.cat-photo-add svg { width: 20px; height: 20px; flex-shrink: 0; }
+.cat-photo-add[disabled], .cat-photo-read[disabled] { opacity: .55; cursor: default; }
+
+/* The file picker is driven by the button above it and is never seen. */
+.cat-photo-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.cat-photo-status {
+  margin: 10px 0 0; min-height: 1.2em; font-size: .9rem; line-height: 1.4;
+  color: var(--cat-text-2);
+}
+.cat-photo-status--bad { color: var(--danger); }
+.cat-photo-status--busy { color: var(--cat-text-2); }
+
+/* ⚠️ NOT styled as a footnote. The numbers on the next screen were read by a
+   machine, and 100 g read as 1000 g looks exactly like a number somebody typed. */
+.cat-photo-note {
+  margin: 18px 0 0; padding: 12px 14px;
+  padding-inline: max(14px, var(--app-gutter));
+  background: var(--cat-surface); border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius);
+  font-size: .88rem; line-height: 1.45; color: var(--cat-text-2);
+}
+
+/* The view itself, and the label inside the camera button. ⚠️ The label needs its
+   own flex rule: an SVG wrapped in a span is an inline box and rests on the text
+   BASELINE, about 2px low — the most common alignment defect in this app, and one
+   that no test and no glance catches. */
+.cat-photo { display: block; }
+.cat-photo-add-label { display: flex; align-items: center; }
+
+/* The switch itself. ⚠️ Shown only to an owner or a manager, and styled as a row
+   rather than a button because it REPORTS a state as well as changing it. */
+.cat-photo-setting { justify-content: space-between; }
+.cat-photo-setting-state {
+  font-size: .82rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--cat-surface-2); color: var(--cat-text-2);
+}
+.cat-photo-setting--on .cat-photo-setting-state {
+  background: var(--cat-brand); color: var(--cat-brand-ink);
+}

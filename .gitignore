@@ -3,6 +3,14 @@ firebase-config.js
 # The Firebase web config is public by design; the API key is restricted to
 # the app domain in Google Cloud Console. Do not re-add it to .gitignore.
 .env
+# ⚠️ THE ANTHROPIC API KEY LIVES HERE WHEN THE EMULATOR RUNS, AND IT IS A REAL
+# SECRET — not public config like js/firebase.js. `firebase functions:secrets:set`
+# and `firebase emulators:start` both write functions/.secret.local, and this repo
+# is PUBLIC. These two lines exist BEFORE the first secrets command was ever run,
+# on purpose: a key committed here would be readable by anyone and chargeable to
+# the account until somebody noticed.
+.secret.local
+functions/.secret.local
 node_modules/
 # CLAUDE.md (project context) and CLAUDE.global.md (transport copy of the global
 # rules) stay local and must never be committed or published.

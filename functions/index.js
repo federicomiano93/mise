@@ -318,5 +318,10 @@ export const notifyOrderRequest = onDocumentCreated(
 export {
   createWorkspace, listWorkspaces, reissueOwnerLink, deleteWorkspace,
   createJoinCode, redeemJoinCode, setMemberRole, setMemberName,
-  setLocationLanguage,
+  setLocationLanguage, setRecipePhoto,
 } from './onboarding.js';
+
+// Reading a photographed recipe. ⚠️ THE ONLY FUNCTION HERE THAT HOLDS A REAL
+// SECRET AND SPENDS MONEY PER CALL — it carries its own options object with the
+// secret and a maxInstances ceiling, deliberately not the shared one.
+export { readRecipeFromPhotos } from './recipe-photo.js';

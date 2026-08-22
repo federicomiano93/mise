@@ -22,7 +22,16 @@ const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, useGroupin
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
-export function renderEditor({ recipe, allRecipes, app }) {
+// `draft` is a recipe read from a photograph: not saved, not saveable without a
+// person, and NOT an existing recipe.
+//
+// ⚠️ IT IS A THIRD ARGUMENT AND NOT A VALUE FOR `recipe`, ON PURPOSE. Passing it as
+// `recipe` would work and then be wrong in four separate places: the screen would
+// be titled "Edit recipe", the toast would say "saved" rather than "added", the
+// Delete button would appear — and calling it would delete `undefined` — and
+// line 1 below would read `.ingredients` off something that might not have any.
+// Keeping `recipe` null is what makes all four correct without touching them.
+export function renderEditor({ recipe, draft, allRecipes, app }) {
   // Working copy — nothing touches the stored recipe until Save.
   // ⚠️ ...i, NOT a hand-listed set of fields. This copy and cleanWorking() below
   // both rebuild every row, so any field named in neither is dropped on save —
@@ -34,9 +43,21 @@ export function renderEditor({ recipe, allRecipes, app }) {
       ...recipe,
       ingredients: recipe.ingredients.map(i => ({ ...i, unit: unitOf(i) })),
     }
-    : { id: null, name: '', ingredients: [{ label: '', grams: '', unit: 'g' }], lossPct: 0 };
+    : draft
+      ? {
+        id: null,
+        name: typeof draft.name === 'string' ? draft.name : '',
+        ingredients: (Array.isArray(draft.ingredients) && draft.ingredients.length
+          ? draft.ingredients
+          : [{ label: '', grams: '', unit: 'g' }]).map(i => ({ ...i, unit: unitOf(i) })),
+        lossPct: 0,
+      }
+      : { id: null, name: '', ingredients: [{ label: '', grams: '', unit: 'g' }], lossPct: 0 };
 
-  let dirty = false;
+  // ⚠️ A DRAFT STARTS DIRTY. It is unsaved work that somebody has already paid for
+  // — leaving it with `dirty` false means Back walks away in silence and the read
+  // is simply gone, with no question asked and nothing to show for it.
+  let dirty = !!draft;
   let showErrors = false;
   let busy = false; // guards against re-entrant Save/Delete while a confirm is open
   const markDirty = () => { dirty = true; };
