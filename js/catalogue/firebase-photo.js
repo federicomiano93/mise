@@ -67,3 +67,15 @@ export async function readRecipePhotos(images) {
   const res = await readRecipeFromPhotos({ locationId, images });
   return res.data;
 }
+
+// Switch the feature on or off for this venue.
+//
+// ⚠️ IT WRITES NOTHING ITSELF — locations/{lid} is `allow write: if false` for every
+// client, so this is a request to a Cloud Function that checks the role and does the
+// write. Hiding the control from an employee is courtesy; the server is what refuses.
+export async function setPhotoEnabled(enabled) {
+  await sessionReady;
+  const locationId = currentLocationId();
+  const res = await httpsCallable(functions, 'setRecipePhoto')({ locationId, enabled });
+  return res.data;
+}

@@ -19,7 +19,7 @@ import {
   MAX_IMAGES, MAX_IMAGE_BYTES, MAX_TOTAL_BYTES, WINDOW_MS,
   DAILY_IMAGES_PER_PERSON, DAILY_IMAGES_PER_VENUE,
   approxBytes, payloadProblem, toolDefinition, promptText,
-  readToolResult, draftFromToolInput, chargeImages,
+  readToolResult, draftFromToolInput, chargeImages, photoEnabled, sectionOn, readRecipe,
 } from '../functions/recipe-photo-model.js';
 
 const root = new URL('../', import.meta.url);
@@ -329,3 +329,62 @@ test('⚠️ the model has no imports — CI never installs functions/ dependenc
   assert.doesNotMatch(code, /^\s*import\s/m, 'this file must resolve with no node_modules');
   assert.doesNotMatch(code, /require\s*\(/, 'and it is an ES module either way');
 });
+
+// ── the switch ───────────────────────────────────────────────────────────────
+
+test('⚠️ the photograph reader is OFF unless the venue has said otherwise', async () => {
+  // The opposite default to a SECTION, and the reason is the whole point of the
+  // switch: a section missing from a venue's document means YES, because a part of
+  // the app added later must not switch itself off for that venue. This one SPENDS
+  // MONEY per tap, on an account nobody in the venue owns, so a venue that has never
+  // heard of it must never find it already running.
+  for (const doc of [null, undefined, {}, { sections: { catalogue: true } },
+    { recipePhoto: false }, { recipePhoto: 'true' }, { recipePhoto: 1 },
+    { sections: { recipePhoto: true } }]) {
+    assert.equal(photoEnabled(doc), false, JSON.stringify(doc));
+  }
+  assert.equal(photoEnabled({ recipePhoto: true }), true, 'and a literal true is on');
+});
+
+test('⚠️ it is NOT inside `sections`, or it would default ON everywhere', () => {
+  // sectionOn() reads a missing key as true. Putting the switch there would hand the
+  // feature to every venue at once, and the mistake would be invisible until an
+  // invoice arrived.
+  assert.equal(sectionOn({ sections: {} }, 'recipePhoto'), true, 'this is why');
+  assert.equal(photoEnabled({ sections: {} }), false, 'and this is why it lives elsewhere');
+});
+
+test('a venue with it switched off is refused, and is not charged', async () => {
+  const store = fakeStoreForSwitch({ 'locations/bakery': { } });
+  const out = await readRecipe({
+    uid: 'u1', locationId: 'bakery', images: [{ mediaType: 'image/jpeg', data: 'QUFBQQ==' }],
+    store, ask: async () => { throw new Error('the reader must never be called'); }, now: 1,
+  });
+  assert.equal(out.error.code, 'failed-precondition');
+  assert.equal(out.error.key, 'photo-off');
+  assert.deepEqual(store.writes, [], 'nothing written means nothing charged');
+});
+
+test('and with it switched on the read proceeds', async () => {
+  const store = fakeStoreForSwitch({ 'locations/bakery': { recipePhoto: true } });
+  const out = await readRecipe({
+    uid: 'u1', locationId: 'bakery', images: [{ mediaType: 'image/jpeg', data: 'QUFBQQ==' }],
+    store,
+    ask: async () => ({ stop_reason: 'tool_use', usage: {},
+      content: [{ type: 'tool_use', input: { found: true, name: 'X', ingredients: [] } }] }),
+    now: 1,
+  });
+  assert.equal(out.ok, true);
+});
+
+function fakeStoreForSwitch(seed) {
+  const docs = new Map(Object.entries({ 'users/u1': { locations: { bakery: true } }, ...seed }));
+  const writes = [];
+  return {
+    docs, writes,
+    access: async () => docs.get('users/u1').locations.bakery,
+    location: async (lid) => docs.get(`locations/${lid}`) || null,
+    limit: async () => null,
+    saveLimit: async (path, v) => { docs.set(path, v); writes.push(path); },
+  };
+}

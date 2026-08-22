@@ -339,8 +339,14 @@ export async function readRecipe({ uid, locationId, images, store, ask, now }) {
   if (!await store.access(uid, locationId)) {
     return { error: { code: 'permission-denied', key: 'not-allowed', message: 'You are not in that venue.' } };
   }
-  if (!sectionOn(await store.location(locationId), 'catalogue')) {
+  // ⚠️ ONE READ ANSWERS BOTH QUESTIONS. The section and the switch live on the same
+  // document, so asking twice would double the reads for nothing.
+  const location = await store.location(locationId);
+  if (!sectionOn(location, 'catalogue')) {
     return { error: { code: 'permission-denied', key: 'not-allowed', message: 'The recipe catalogue is not switched on here.' } };
+  }
+  if (!photoEnabled(location)) {
+    return { error: { code: 'failed-precondition', key: 'photo-off', message: 'Reading recipes from a photo is switched off for this venue.' } };
   }
 
   // ⚠️ CHARGED BEFORE THE READER IS CALLED, AND NEVER REFUNDED. A refund path would
@@ -380,6 +386,25 @@ export async function readRecipe({ uid, locationId, images, store, ask, now }) {
 // literal `sections ` key); the rules do not, and it is the rules that decide
 // whether the finished recipe can be SAVED. A check that disagreed with them would
 // let somebody pay for a read they cannot keep.
+// Is reading a photograph switched on for this venue?
+//
+// ⚠️⚠️ THE DEFAULT IS OFF, AND IT POINTS THE OPPOSITE WAY TO sectionOn() BELOW ON
+// PURPOSE. A missing SECTION means yes, because a part of the app added after a venue
+// was created must not switch itself off for that venue. A missing switch here means
+// NO, because this one SPENDS MONEY per tap, on an account nobody in the venue owns —
+// a venue that has never heard of it must never find it already running.
+//
+// ⚠️ ONLY A LITERAL `true` COUNTS. A stray string, a 1, a corrupt value: all off. Read
+// the other way round, "anything truthy is on", a mangled field would quietly start
+// spending.
+//
+// ⚠️ AND IT IS NOT INSIDE `sections`. sectionOn() reads a missing key as true, so
+// putting it there would hand the feature to every venue at once and the mistake
+// would be invisible until an invoice arrived.
+export function photoEnabled(locationDoc) {
+  return !!locationDoc && typeof locationDoc === 'object' && locationDoc.recipePhoto === true;
+}
+
 export function sectionOn(locationDoc, name) {
   if (!locationDoc || typeof locationDoc !== 'object') return true;
   const sections = locationDoc.sections;

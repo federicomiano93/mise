@@ -803,3 +803,43 @@ export const setLocationLanguage = onCall(CALL, async (request) => {
   await db().doc(`locations/${locationId}`).set({ language }, { merge: true });
   return { language };
 });
+
+
+// Switch the "read a recipe from a photograph" feature on or off for one venue.
+//
+// ⚠️⚠️ IT SHIPS OFF, AND THE FIELD'S ABSENCE MEANS OFF — the opposite default to
+// `sections`, deliberately. A section missing from a location document means ON,
+// because a part of the app added after a venue was created must not switch itself
+// off for that venue. This is the reverse: it SPENDS MONEY per tap, on an account
+// nobody in the venue owns, so a venue that has never heard of it must never find it
+// switched on. Federico's instruction, 22 Aug 2026: ship it off.
+//
+// ⚠️ AND IT IS NOT INSIDE `sections`, for exactly that reason. sectionOn() reads a
+// missing key as true; putting it there would hand it to every venue at once, and
+// the mistake would be invisible until an invoice.
+//
+// ⚠️ THE SERVER DECIDES, NOT THE SCREEN. The app hides the control from an employee,
+// but hiding is courtesy — this is the part that refuses. It matters more here than
+// anywhere else in this file: an employee who could switch it back on could undo the
+// only decision standing between the venue and a bill.
+export const setRecipePhoto = onCall(CALL, async (request) => {
+  const uid = requireAuth(request);
+  const { locationId, enabled } = request.data || {};
+
+  if (typeof locationId !== 'string' || !locationId) {
+    throw new HttpsError('invalid-argument', 'Which location?');
+  }
+  if (typeof enabled !== 'boolean') {
+    throw new HttpsError('invalid-argument', 'On or off?');
+  }
+
+  const access = await accessValue(uid, locationId);
+  if (access !== 'owner' && access !== 'manager') {
+    throw new HttpsError('permission-denied', 'Only an owner or a manager can change that.');
+  }
+
+  // merge, never a whole write: this document also holds the venue's name, its
+  // sections and its country, and a whole write here would erase all three.
+  await db().doc(`locations/${locationId}`).set({ recipePhoto: enabled }, { merge: true });
+  return { recipePhoto: enabled };
+});

@@ -10,7 +10,7 @@ import { sortByUsage, filterByName } from './catalogue-model.js';
 const SEARCH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 
-export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange, onOpen, onAllergenSheet, onPhotoRecipe }) {
+export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange, onOpen, onAllergenSheet, onPhotoRecipe, photoOn, canManage, onPhotoSetting }) {
   let query = initialQuery;
   let currentRecipes = recipes;
   let currentUsage = usageMap;
@@ -77,7 +77,32 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
   const photoBtn = el('button', {
     class: 'cat-alg-sheet-btn cat-photo-btn', type: 'button', onclick: () => onPhotoRecipe(),
   }, [t('cat.photo.entry'), el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]);
-  const root = el('div', { class: 'cat-view' }, [search, photoBtn, sheetBtn, listPanel]);
+  // ⚠️ SHOWN ONLY WHEN THE VENUE HAS SWITCHED IT ON. It ships off: it spends money per
+  // tap, on an account nobody in the venue owns, so a venue that never asked for it
+  // must not find it waiting on the screen. The server refuses it too — hiding a
+  // button is courtesy, never a gate.
+  photoBtn.hidden = !photoOn;
+
+  // The switch itself, for an owner or a manager only. The catalogue has no settings
+  // screen and one row does not justify building one; it sits with the other two
+  // secondary actions, under the search.
+  const settingRow = el('button', {
+    class: 'cat-alg-sheet-btn cat-photo-setting', type: 'button',
+    onclick: () => onPhotoSetting(),
+  }, [
+    el('span', { class: 'cat-photo-setting-label' }),
+    el('span', { class: 'cat-photo-setting-state' }),
+  ]);
+  settingRow.hidden = !canManage;
+  const paintSetting = () => {
+    settingRow.querySelector('.cat-photo-setting-label').textContent = t('cat.photo.setting');
+    settingRow.querySelector('.cat-photo-setting-state').textContent =
+      photoOn ? t('cat.photo.on') : t('cat.photo.off');
+    settingRow.classList.toggle('cat-photo-setting--on', !!photoOn);
+  };
+  paintSetting();
+
+  const root = el('div', { class: 'cat-view' }, [search, photoBtn, sheetBtn, settingRow, listPanel]);
 
   return {
     root,

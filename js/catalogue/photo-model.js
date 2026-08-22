@@ -87,6 +87,7 @@ const BY_KEY = {
   'not-allowed': 'cat.photo.err.notAllowed',
   'person-limit': 'cat.photo.err.personLimit',
   'venue-limit': 'cat.photo.err.venueLimit',
+  'photo-off': 'cat.photo.err.photoOff',
   'read-failed': 'cat.photo.err.failed',
   // Not errors at all — the call worked and the answer was "nothing I can use".
   // They are here so one lookup covers both, and the screen treats them alike.

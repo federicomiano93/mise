@@ -12,6 +12,7 @@ import {
 import { renderList } from './catalogue-list.js';
 import { renderAllergenSheet } from './allergen-sheet.js';
 import { renderPhotoCapture } from './photo-capture.js';
+import { setPhotoEnabled } from './firebase-photo.js';
 import { renderLabel } from './label-view.js';
 import { renderDetail } from './catalogue-detail.js';
 import { renderEditor } from './catalogue-editor.js';
@@ -23,7 +24,7 @@ import { normalizeSteps, progressText } from './guided-model.js';
 import { confirmDialog } from './confirm-dialog.js';
 // The session, for the venue's own document: its country decides what language a
 // label is printed in. Imported from js/ root, not from a feature folder.
-import { currentSession } from '../firebase.js';
+import { currentSession, onSession } from '../firebase.js';
 
 const screen = document.getElementById('catScreen');
 const titleEl = document.getElementById('catTitle');
@@ -101,6 +102,12 @@ function showList() {
     onOpen: openDetail,
     onAllergenSheet: showAllergenSheet,
     onPhotoRecipe: showPhotoCapture,
+    // ⚠️ READ FRESH ON EVERY PAINT, never captured once: the switch can be thrown
+    // from another phone, and a value frozen at page load would leave this one
+    // showing a door that is no longer there — or hiding one that is.
+    photoOn: photoIsOn(),
+    canManage: currentSession().canManage === true,
+    onPhotoSetting: togglePhoto,
   });
   swap(activeList.root);
 }
@@ -175,6 +182,47 @@ function openEditor(recipe, draft) {
     sub: t('cat.recipeCatalogue'), back: true, add: false,
   });
   swap(renderEditor({ recipe, draft, allRecipes: getRecipes(), app }));
+}
+
+// Is the photograph reader switched on for this venue?
+//
+// ⚠️ OFF UNLESS THE FIELD SAYS true, and only a literal true. This is the opposite
+// default to a SECTION, deliberately: a section missing from a venue's document means
+// yes, because a part of the app added later must not switch itself off. This one
+// spends money per tap, so a venue that never asked for it must never find it on.
+// functions/recipe-photo-model.js photoEnabled() reads it the same way, and it is the
+// one that actually refuses.
+//
+// `overriddenPhotoOn` holds the answer between throwing the switch and the next page
+// load: the session's copy of the location document is read when the location opens
+// and does not follow a write made afterwards.
+let overriddenPhotoOn = null;
+function photoIsOn() {
+  if (overriddenPhotoOn !== null) return overriddenPhotoOn;
+  const location = currentSession().location;
+  return !!location && location.recipePhoto === true;
+}
+
+// ⚠️ IT ASKS, AND IT SAYS WHAT IT COSTS. This is the only control in the app that
+// starts something billable, so switching it on is a decision somebody makes on
+// purpose rather than a tap they can make by accident.
+async function togglePhoto() {
+  const turningOn = !photoIsOn();
+  const ok = await confirmDialog({
+    title: turningOn ? t('cat.photo.turnOnTitle') : t('cat.photo.turnOffTitle'),
+    message: turningOn ? t('cat.photo.turnOnBody') : t('cat.photo.turnOffBody'),
+    okLabel: turningOn ? t('cat.photo.turnOn') : t('cat.photo.turnOff'),
+  });
+  if (!ok) return;
+  try {
+    await setPhotoEnabled(turningOn);
+    overriddenPhotoOn = turningOn;
+    showList();
+    toast(turningOn ? t('cat.photo.nowOn') : t('cat.photo.nowOff'));
+  } catch (err) {
+    // ⚠️ The server's own words when it has any: it is the half that knows why.
+    toast((err && err.message && !/^internal$/i.test(err.message)) ? err.message : t('cat.photo.err.failed'));
+  }
 }
 
 // Read a recipe from a photograph. ⚠️ Reached ONLY from the list, never from an
@@ -393,6 +441,27 @@ initCatalogue(
 // been narrow. The photo screen is the exception that is safe: it holds only the
 // photographs, and its own paint() rebuilds them — so it repaints itself (see
 // photo-capture.js) and only its HEADER, which lives out here, is re-applied.
+// ⚠️⚠️ THE LIST IS DRAWN BEFORE THE SESSION IS READY, EVERY TIME, and until now
+// nothing redrew it when the session arrived. Measured: at one second `canManage` is
+// false and the venue document is null; at three seconds both are right and the
+// screen still shows what it painted at one.
+//
+// It was invisible while nothing on the list depended on the session. The photograph
+// switch does — it is shown only to an owner or a manager, and only when the venue
+// has it on — so an owner opening the Catalogue simply never saw it, for ever. Not a
+// race: a certainty, hidden only by the fact that a language change happened to
+// repaint the list as a side effect.
+//
+// ⚠️ ONCE, AND ONLY FROM THE LIST. Repainting on every session change would rebuild
+// the screen under somebody's fingers; repainting any other view would throw away
+// what they had typed. Same rule, same reason, as the language handler below.
+let paintedWithSession = false;
+onSession((s) => {
+  if (s.status !== 'ready' || paintedWithSession) return;
+  paintedWithSession = true;
+  if (view === 'list') showList();
+});
+
 onLanguageChange(() => {
   if (view === 'list') showList();
   else if (view === 'photo') {

@@ -911,3 +911,15 @@ body.cat-zoom-lock { overflow: hidden; }
    that no test and no glance catches. */
 .cat-photo { display: block; }
 .cat-photo-add-label { display: flex; align-items: center; }
+
+/* The switch itself. ⚠️ Shown only to an owner or a manager, and styled as a row
+   rather than a button because it REPORTS a state as well as changing it. */
+.cat-photo-setting { justify-content: space-between; }
+.cat-photo-setting-state {
+  font-size: .82rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 3px 10px; border-radius: 999px;
+  background: var(--cat-surface-2); color: var(--cat-text-2);
+}
+.cat-photo-setting--on .cat-photo-setting-state {
+  background: var(--cat-brand); color: var(--cat-brand-ink);
+}

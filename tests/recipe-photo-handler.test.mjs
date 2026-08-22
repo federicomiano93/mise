@@ -54,7 +54,14 @@ function fakeStore(seed = {}) {
   };
 }
 
-const MEMBER = { 'users/u1': { locations: { bakery: true } } };
+// ⚠️ THE VENUE HAS THE FEATURE SWITCHED ON IN THIS FIXTURE, and it has to say so
+// out loud: it ships OFF, so every test below is about what happens once somebody
+// has deliberately turned it on. The other direction — off, and refused before a
+// penny is charged — is proved in tests/recipe-photo-model.test.mjs.
+const MEMBER = {
+  'users/u1': { locations: { bakery: true } },
+  'locations/bakery': { recipePhoto: true },
+};
 
 const call = (over = {}) => readRecipe({
   uid: 'u1',
@@ -107,19 +114,19 @@ test('somebody outside the venue is refused, and is not charged', async () => {
 
 test('a manager and an owner may use it; a value nobody recognises may not', async () => {
   for (const value of [true, 'manager', 'owner']) {
-    const store = fakeStore({ 'users/u1': { locations: { bakery: value } } });
+    const store = fakeStore({ 'users/u1': { locations: { bakery: value } }, 'locations/bakery': { recipePhoto: true } });
     assert.equal((await call({ store })).ok, true, `value ${value}`);
   }
   // ⚠️ A membership value nobody recognises must read as NO ACCESS, never as more.
   for (const value of ['head-chef', false, null, 1, 'Owner']) {
-    const store = fakeStore({ 'users/u1': { locations: { bakery: value } } });
+    const store = fakeStore({ 'users/u1': { locations: { bakery: value } }, 'locations/bakery': { recipePhoto: true } });
     assert.equal((await call({ store })).error.code, 'permission-denied',
       `value ${JSON.stringify(value)}`);
   }
 });
 
 test('the catalogue being switched off refuses it', async () => {
-  const store = fakeStore({ ...MEMBER, 'locations/bakery': { sections: { catalogue: false } } });
+  const store = fakeStore({ ...MEMBER, 'locations/bakery': { recipePhoto: true, sections: { catalogue: false } } });
   assert.equal((await call({ store })).error.code, 'permission-denied');
 });
 
@@ -129,9 +136,9 @@ test('⚠️ every section default points ON', async () => {
   // predates the feature — which is all of them.
   for (const seed of [
     MEMBER,
-    { ...MEMBER, 'locations/bakery': {} },
-    { ...MEMBER, 'locations/bakery': { sections: {} } },
-    { ...MEMBER, 'locations/bakery': { sections: { orders: false } } },
+    { ...MEMBER, 'locations/bakery': { recipePhoto: true } },
+    { ...MEMBER, 'locations/bakery': { recipePhoto: true, sections: {} } },
+    { ...MEMBER, 'locations/bakery': { recipePhoto: true, sections: { orders: false } } },
   ]) {
     assert.equal((await call({ store: fakeStore(seed) })).ok, true);
   }
