@@ -1360,7 +1360,12 @@ a.home-reminder {
 /* The rule the whole screen rests on, restated where the temptation is. */
 .alg-pack-warn { font-weight: 600; color: var(--warn); }
 
-.alg-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+/* ⚠️ 8px, NOT 4px, AND IT IS THE FIX FOR «si toccano tra loro». Twenty-six rows of
+   44px-tall filled cards separated by 4px read as one continuous white column — the
+   rows stop being rows. 8px is the app's own spacing for exactly this (.day-checks,
+   .alg-nutrition): no value was invented. It costs ~104px of scroll, which is the
+   right trade on the one form where a mis-tap declares the wrong allergen. */
+.alg-list { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
 .alg-group {
   margin: 12px 0 2px; font-family: var(--font-mono);
   font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--text3);
@@ -1369,9 +1374,13 @@ a.home-reminder {
    two straight columns instead of a ragged edge that has to be read one line at a
    time. `minmax(0, 1fr)` on the name is what lets a long one wrap rather than
    pushing the ticks off the screen — measured at 320px. */
+/* ⚠️ THE TWO TICK COLUMNS ARE THE SAME WIDTH, AND THAT IS THE FIX FOR «non sono
+   allineate bene». They used to be 64px and 78px — each sized to its own word — so
+   twenty-six rows drew two columns of visibly unequal blocks. Both are now the wider
+   of the two, which is the one that has to hold «traces». */
 .alg-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) 64px 78px;
-  align-items: center; gap: 6px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 78px 78px;
+  align-items: center; gap: 8px;
 }
 .alg-name { font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
 /* ⚠️ 44px TALL, NOT THE 31px THE SHARED .day-check GIVES. There are 52 of these
@@ -1379,7 +1388,12 @@ a.home-reminder {
    the wrong allergen on every product the ingredient is used in. This is the one
    place in the app where the tap target matters more than the scroll length, so
    the form is long on purpose. */
-.alg-tick { justify-content: center; padding: 0 4px; min-height: 44px; font-size: 11px; }
+/* ⚠️ LEFT-ALIGNED, NOT CENTRED, AND THIS IS THE OTHER HALF OF «non allineate». With
+   the content centred, «has» and «traces» are different widths, so their checkboxes
+   sat at a different distance from each box's edge — fifty-two squares, none of them
+   in a column. Pinned to the left they form two straight vertical lines down the
+   form, which is what makes a long tick list scannable. */
+.alg-tick { justify-content: flex-start; padding: 0 9px; min-height: 44px; font-size: 11px; }
 .alg-tick--may { color: var(--text2); }
 .alg-checked { margin-top: 12px; font-size: 13px; font-weight: 600; align-items: flex-start; }
 
