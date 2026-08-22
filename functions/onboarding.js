@@ -95,7 +95,11 @@ function requireAuth(request) {
 // same shape, three files that must be changed together.
 const ACCESS_VALUES = [true, 'manager', 'owner'];
 
-async function accessValue(uid, locationId) {
+// ⚠️ EXPORTED SINCE 22 Aug 2026 so functions/recipe-photo.js can ask the same
+// question rather than writing a FOURTH copy of it. The comment above lists the
+// three places that must already agree; a fourth would be the one nobody
+// remembers to update, and the mistake it makes is a lockout, not a demotion.
+export async function accessValue(uid, locationId) {
   const snap = await db().doc(`users/${uid}`).get();
   if (!snap.exists) return false;
   const locations = snap.data().locations;

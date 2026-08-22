@@ -298,6 +298,27 @@ service cloud.firestore {
     match /join-codes/{codeId} { allow read, write: if false; }
     match /rate-limits/{uid}   { allow read, write: if false; }
 
+    //   recipe-photo-limits/{uid} and recipe-photo-venue/{lid}
+    //                     how many photographs an account, and a venue, have had
+    //                     read today. ⚠️ THE FIRST THING IN THIS APP THAT COSTS
+    //                     REAL MONEY PER TAP, so the same rule applies and for a
+    //                     sharper reason: a limit somebody can reset is not a
+    //                     limit, it is a button that spends.
+    //
+    //                     ⚠️ DELIBERATELY NOT A FIELD ON rate-limits/{uid}, which
+    //                     would have been the obvious reuse. chargeAttempt() in
+    //                     functions/onboarding.js writes that document WHOLE, with
+    //                     no merge — so one mistyped join code would wipe the photo
+    //                     counter, and the allowance could be reset by getting a
+    //                     door code wrong on purpose.
+    //
+    //                     Deny-only, so neither adds a read to any rule's budget:
+    //                     this ruleset already sits at Firestore's ten-read
+    //                     ceiling, where one more get() answers with an evaluation
+    //                     error rather than a decision.
+    match /recipe-photo-limits/{uid} { allow read, write: if false; }
+    match /recipe-photo-venue/{lid}  { allow read, write: if false; }
+
     match /locations/{lid} {
 
       // The location's own document: its display name and which sections of the

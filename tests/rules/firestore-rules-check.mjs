@@ -2240,6 +2240,19 @@ async function onboardingCollections() {
   await expectDenied('an account cannot read its own rate limit',
     () => fetch(`${FS}/rate-limits/${ALICE.uid}`, { headers: asUser() }));
 
+  // ⚠️ THE PHOTO ALLOWANCE IS THE FIRST THING IN THIS APP THAT COSTS REAL MONEY
+  // PER TAP, so the same rule applies for a sharper reason: a limit somebody can
+  // reset is not a limit, it is a button that spends. Both directions, both
+  // documents, including the account's and the venue's own.
+  await expectDenied('an account cannot clear its own photo allowance',
+    () => mergeWrite(`recipe-photo-limits/${ALICE.uid}`, { at: [] }, asUser()));
+  await expectDenied('an account cannot read its own photo allowance',
+    () => fetch(`${FS}/recipe-photo-limits/${ALICE.uid}`, { headers: asUser() }));
+  await expectDenied('a member cannot clear the venue photo allowance',
+    () => mergeWrite('recipe-photo-venue/bakery', { at: [] }, asUser()));
+  await expectDenied('a member cannot read the venue photo allowance',
+    () => fetch(`${FS}/recipe-photo-venue/bakery`, { headers: asUser() }));
+
   // Making yourself the app's administrator would mean creating locations for
   // anybody, so WRITING here is closed to everybody, including an administrator.
   await expectDenied('nobody can make themselves the app administrator',
