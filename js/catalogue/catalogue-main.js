@@ -12,6 +12,7 @@ import {
 import { renderList } from './catalogue-list.js';
 import { renderAllergenSheet } from './allergen-sheet.js';
 import { renderPhotoCapture } from './photo-capture.js';
+import { renderSettings } from './catalogue-settings.js';
 import { setPhotoEnabled } from './firebase-photo.js';
 import { renderLabel } from './label-view.js';
 import { renderDetail } from './catalogue-detail.js';
@@ -33,6 +34,8 @@ const homeBtn = document.getElementById('catHome');
 const backBtn = document.getElementById('catBack');
 const addBtn = document.getElementById('catAdd');
 const editBtn = document.getElementById('catEdit');
+const footerEl = document.getElementById('catFooter');
+const settingsBtn = document.getElementById('catSettings');
 
 // Which of the three the label screen opens on. Session-only on purpose: it is a
 // property of this morning's job, not of a recipe.
@@ -41,6 +44,7 @@ let view = 'list';        // 'list' | 'detail' | 'editor' | 'steps' | 'run'
 let searchQuery = '';
 let activeList = null;     // { root, refresh } while the list is shown
 let activeDetail = null;   // { root, refreshCost } while a recipe is shown
+let activeSettings = null; // { root, refresh } while Settings is shown
 let activeRun = null;      // { root, confirmLeave, stop } while a guided mix is on screen
 let currentRecipe = null;  // the recipe shown in detail (for the header Edit button)
 let leaveGuard = null;     // async () => boolean; blocks Back when there are unsaved edits
@@ -48,7 +52,7 @@ let resumeOffered = false; // the "you were mixing" offer is made once per page 
 
 // ── Header + view helpers ───────────────────────────────────────────────────────
 
-function setHeader({ title, sub, back, add, edit = false }) {
+function setHeader({ title, sub, back, add, edit = false, footer = false }) {
   // ⚠️⚠️ THE data-i18n ATTRIBUTES HAVE TO GO, AND THIS WAS A REAL DEFECT ON EVERY
   // SCREEN OF THIS PAGE. catalogue.html marks both elements `data-i18n` so they read
   // correctly before any JavaScript runs — but js/i18n-dom.js rewrites EVERY
@@ -68,6 +72,12 @@ function setHeader({ title, sub, back, add, edit = false }) {
   backBtn.hidden = !back;
   addBtn.hidden = !add;
   editBtn.hidden = !edit;
+  // ⚠️ THE BOTTOM BAR IS CHROME, SO IT IS HIDDEN PER SCREEN RATHER THAN BUILT PER
+  // SCREEN. Left visible everywhere it would put a Settings button under an open
+  // editor and beside a running mixing timer — one mis-tap from leaving either.
+  // It is also hidden from anybody who may not change anything: the switch is the
+  // only thing behind it.
+  footerEl.hidden = !footer || currentSession().canManage !== true;
 }
 
 function swap(node) {
@@ -92,8 +102,9 @@ function showList() {
   stopRun();
   view = 'list';
   activeDetail = null;
+  activeSettings = null;
   leaveGuard = null;
-  setHeader({ title: t('ui.recipes'), sub: t('cat.recipeCatalogue'), back: false, add: true });
+  setHeader({ title: t('ui.recipes'), sub: t('cat.recipeCatalogue'), back: false, add: true, footer: true });
   activeList = renderList({
     recipes: getRecipes(),
     usageMap: getUsage(),
@@ -101,13 +112,6 @@ function showList() {
     onQueryChange: (q) => { searchQuery = q; },
     onOpen: openDetail,
     onAllergenSheet: showAllergenSheet,
-    onPhotoRecipe: showPhotoCapture,
-    // ⚠️ READ FRESH ON EVERY PAINT, never captured once: the switch can be thrown
-    // from another phone, and a value frozen at page load would leave this one
-    // showing a door that is no longer there — or hiding one that is.
-    photoOn: photoIsOn(),
-    canManage: currentSession().canManage === true,
-    onPhotoSetting: togglePhoto,
   });
   swap(activeList.root);
 }
@@ -122,6 +126,7 @@ function openLabel(recipe) {
   view = 'label';
   activeList = null;
   activeDetail = null;
+  activeSettings = null;
   currentRecipe = recipe;
   leaveGuard = null;
   setHeader({ title: recipe.name || 'Label', sub: 'Label', back: true, add: false });
@@ -148,6 +153,7 @@ function showAllergenSheet() {
   view = 'allergens';
   activeList = null;
   activeDetail = null;
+  activeSettings = null;
   leaveGuard = null;
   setHeader({ title: 'Allergens', sub: t('cat.recipeCatalogue'), back: true, add: false });
   swap(renderAllergenSheet({
@@ -165,7 +171,7 @@ function openDetail(recipe) {
   currentRecipe = recipe;
   leaveGuard = null;
   bumpUsage(recipe.id);
-  setHeader({ title: recipe.name || 'Recipe', sub: 'Recipe', back: true, add: false, edit: true });
+  setHeader({ title: recipe.name || t('cat.recipe'), sub: t('cat.recipe'), back: true, add: false, edit: true });
   activeDetail = renderDetail({ recipe, app });
   swap(activeDetail.root);
 }
@@ -175,6 +181,7 @@ function openEditor(recipe, draft) {
   view = 'editor';
   activeList = null;
   activeDetail = null;
+  activeSettings = null;
   setHeader({
     // ⚠️ A draft is a NEW recipe, so `recipe` stays null and the title is right
     // without a special case. See renderEditor for the four things that depends on.
@@ -212,12 +219,15 @@ async function togglePhoto() {
     title: turningOn ? t('cat.photo.turnOnTitle') : t('cat.photo.turnOffTitle'),
     message: turningOn ? t('cat.photo.turnOnBody') : t('cat.photo.turnOffBody'),
     okLabel: turningOn ? t('cat.photo.turnOn') : t('cat.photo.turnOff'),
+    cancelLabel: t('ui.cancel'),
   });
   if (!ok) return;
   try {
     await setPhotoEnabled(turningOn);
     overriddenPhotoOn = turningOn;
-    showList();
+    // ⚠️ REPAINT WHERE THE SWITCH IS, which is no longer the list. Repainting the
+    // list would drop somebody out of Settings the moment they used it.
+    if (activeSettings) activeSettings.refresh(turningOn); else showList();
     toast(turningOn ? t('cat.photo.nowOn') : t('cat.photo.nowOff'));
   } catch (err) {
     // ⚠️ The server's own words when it has any: it is the half that knows why.
@@ -225,14 +235,46 @@ async function togglePhoto() {
   }
 }
 
-// Read a recipe from a photograph. ⚠️ Reached ONLY from the list, never from an
-// open editor: from there it would have to ask "merge this with what you have
-// typed, or replace it?", and neither answer is one somebody can give safely.
-function showPhotoCapture() {
+// What this venue lets itself do. One switch today.
+//
+// ⚠️ Reached only from the bottom bar, which setHeader() hides from anybody who is
+// not an owner or a manager — and the server refuses the change regardless.
+function showSettings() {
+  stopRun();
+  view = 'settings';
+  activeList = null;
+  activeDetail = null;
+  activeSettings = null;
+  leaveGuard = null;
+  setHeader({ title: t('ui.settings'), sub: t('cat.recipeCatalogue'), back: true, add: false });
+  activeSettings = renderSettings({ photoOn: photoIsOn(), onTogglePhoto: togglePhoto });
+  swap(activeSettings.root);
+}
+
+// ⚠️ BACK FROM THE PHOTO SCREEN GOES TO A BLANK NEW-RECIPE FORM, ONCE. The app's one
+// rule is that Back always returns to the list (handleBack), and this is the single
+// exception: the photo screen is now reached from inside the new-recipe form, so
+// dropping somebody on the list would strand them mid-task.
+//
+// ⚠️ CONSUMED THE INSTANT IT IS READ, exactly like the one-shot flag behind "Back to
+// Misé" (v275). Left set, every later Back would open an editor instead of the list.
+let backToEditor = false;
+
+// Read a recipe from a photograph.
+//
+// ⚠️ REACHED FROM THE NEW-RECIPE FORM, AND THE OLD COMMENT HERE SAID IT NEVER COULD BE:
+// "from an open editor it would have to ask 'merge this with what you have typed, or
+// replace it?', and neither answer is one somebody can give safely." That was right
+// about an EXISTING recipe and wrong about a new one — a new form is empty, and if
+// anything has been typed the editor asks before it navigates. Federico's note of
+// 23 Aug 2026: this is needed at the moment you add a recipe, which is where it is now.
+function showPhotoCapture(fromEditor = false) {
+  backToEditor = !!fromEditor;
   stopRun();
   view = 'photo';
   activeList = null;
   activeDetail = null;
+  activeSettings = null;
   leaveGuard = null;
   setHeader({ title: t('cat.photo.title'), sub: t('cat.recipeCatalogue'), back: true, add: false });
   swap(renderPhotoCapture({
@@ -241,6 +283,9 @@ function showPhotoCapture() {
     // editor as a working copy, and waits there for the same Save as any recipe
     // typed by hand.
     onDraft: (draft, notes) => {
+      // The read succeeded, so this IS the way back to the editor — the one-shot has
+      // done its job and must not fire again on the next Back.
+      backToEditor = false;
       openEditor(null, draft);
       if (notes && notes.rowsCapped) toast(t('cat.photo.capped'));
     },
@@ -252,8 +297,9 @@ function openGuidedEditor(recipe) {
   view = 'steps';
   activeList = null;
   activeDetail = null;
+  activeSettings = null;
   currentRecipe = recipe;
-  setHeader({ title: t('cat.mixingSteps'), sub: recipe.name || 'Recipe', back: true, add: false });
+  setHeader({ title: t('cat.mixingSteps'), sub: recipe.name || t('cat.recipe'), back: true, add: false });
   swap(renderGuidedEditor({ recipe, app }));
 }
 
@@ -267,8 +313,9 @@ function openRun(recipe, targetGrams, resume) {
   view = 'run';
   activeList = null;
   activeDetail = null;
+  activeSettings = null;
   currentRecipe = recipe;
-  setHeader({ title: recipe.name || 'Recipe', sub: t('cat.guidedMixing'), back: true, add: false, edit: false });
+  setHeader({ title: recipe.name || t('cat.recipe'), sub: t('cat.guidedMixing'), back: true, add: false, edit: false });
   activeRun = renderRun({ recipe, targetGrams, app, resume });
   leaveGuard = activeRun.confirmLeave;
   swap(activeRun.root);
@@ -300,6 +347,9 @@ async function handleBack() {
     if (!ok) return;
   }
   leaveGuard = null;
+  // ⚠️ READ AND CLEARED IN ONE GESTURE. Left set it would send every later Back into a
+  // new editor — the trap the "Back to Misé" flag was written to avoid.
+  if (backToEditor) { backToEditor = false; openEditor(null); return; }
   showList();
 }
 
@@ -325,6 +375,12 @@ const app = {
   deleteRecipe,
   bumpUsage,
   setLeaveGuard: (fn) => { leaveGuard = fn; },
+  // The new-recipe form's way to the photograph reader, and whether to offer it at
+  // all. ⚠️ photoOn is a FUNCTION, not a value: the switch can be thrown from another
+  // phone, and a value captured when this object was built would be stale for the
+  // life of the page.
+  openPhotoCapture: () => showPhotoCapture(true),
+  photoOn: () => photoIsOn(),
   startGuided: (recipe, targetGrams) => openRun(recipe, targetGrams, null),
   resumeGuided: (recipe) => {
     const saved = resumableSession(getRecipes());
@@ -366,7 +422,7 @@ const app = {
       ? base + t('cat.itWasImportedInto')
       : base;
 
-    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: t('ui.delete'), danger: true });
+    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: t('ui.delete'), danger: true, cancelLabel: t('ui.cancel') });
     if (!ok) return false;
     deleteRecipe(recipe.id);
     toast(t('cat.recipeDeleted'));
@@ -388,6 +444,7 @@ const app = {
       title: t('cat.importIntoCalculator2'),
       message: `Copy “${recipe.name}” into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
       okLabel: t('ui.import'),
+      cancelLabel: t('ui.cancel'),
     });
     if (!ok) return;
     try {
@@ -408,6 +465,7 @@ const app = {
 backBtn.addEventListener('click', handleBack);
 addBtn.addEventListener('click', () => openEditor(null));
 editBtn.addEventListener('click', () => { if (currentRecipe) openEditor(currentRecipe); });
+settingsBtn.addEventListener('click', showSettings);
 
 // Surface background write failures (rolled back by the store) as a toast.
 setSyncErrorHandler((msg) => toast(msg));

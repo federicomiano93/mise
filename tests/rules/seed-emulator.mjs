@@ -301,6 +301,61 @@ export async function seedDemoWorld() {
   await seedDoc('locations/bakery/recipes/CAT_1',
     { bakery: 'bakery', name: 'Sourdough', ingredients: [] });
 
+  // ⚠️ THREE RECIPES, NOT ONE, AND THE EMPTY ONE STAYS. The catalogue's detail screen
+  // draws three cards that each HIDE THEMSELVES when there is nothing to say — the
+  // batch-weight box when no row can be weighed, the cost card when nothing is
+  // priced, the allergen card when there is nothing to declare and nothing to fix.
+  // Against an empty recipe all three are absent, so a driver measuring them reads
+  // zeros and reports a passing layout about a screen that drew none of it. That
+  // happened on 23 Aug 2026: a hidden element's getBoundingClientRect() is all
+  // zeros, so "the weight box is above the cost card" passed as 0 < 165 with neither
+  // on screen.
+  //
+  // CAT_1 keeps the empty case (it is what a brand-new recipe looks like, and the
+  // silence is deliberate behaviour worth being able to see). These two add the
+  // two states the allergen card actually has.
+
+  // NOT DECLARED — plain typed rows, nothing linked to an ingredient. This is the
+  // state every real recipe in production is in today (0 of 77 rows are linked),
+  // and it is the screen in Federico's screenshot.
+  await seedDoc('locations/bakery/recipes/CAT_2', {
+    bakery: 'bakery', name: 'Brioche', lossPct: 10,
+    ingredients: [
+      { label: 'Strong flour', grams: 1000 },
+      { label: 'Butter', grams: 250 },
+      { label: 'Eggs', grams: 200 },
+      { label: 'Sugar', grams: 120 },
+      { label: 'Salt', grams: 20 },
+      // ⚠️ An unweighable row on purpose: it must be named as a gap (a pinch of
+      // mustard is still mustard) while staying out of the weighed total.
+      { label: 'Vanilla', unit: 'to taste' },
+    ],
+  });
+
+  // DECLARED — every row linked to an ingredient somebody has verified. The other
+  // branch of the same card, and the only state in which a label may be printed.
+  await seedDoc('locations/bakery/ingredients/ING_FLOUR_DECL', {
+    bakery: 'bakery', name: 'Strong flour', supplierId: 'SUP_MODERN',
+    category: 'Flour', unit: '', active: true,
+    allergens: ['gluten-wheat'], mayContain: ['nuts-hazelnut'],
+    allergensCheckedAt: '2026-08-01T09:00:00.000Z',
+  });
+  await seedDoc('locations/bakery/ingredients/ING_WATER_DECL', {
+    bakery: 'bakery', name: 'Water', supplierId: 'SUP_MODERN',
+    category: 'Other', unit: '', active: true,
+    // ⚠️ AN EMPTY LIST WITH A STAMP IS «checked: contains none» — a real answer,
+    // and the whole reason the stamp exists rather than a boolean.
+    allergens: [], mayContain: [],
+    allergensCheckedAt: '2026-08-01T09:00:00.000Z',
+  });
+  await seedDoc('locations/bakery/recipes/CAT_3', {
+    bakery: 'bakery', name: 'Focaccia', lossPct: 12,
+    ingredients: [
+      { label: 'Strong flour', grams: 1000, kind: 'ingredient', refId: 'ING_FLOUR_DECL' },
+      { label: 'Water', grams: 700, kind: 'ingredient', refId: 'ING_WATER_DECL' },
+    ],
+  });
+
   // TWO days of pastries, five deliberately absent. A day that has never been
   // written is the state all seven start in and the one the empty screen has to
   // hold together for — and two rather than one, so switching day visibly

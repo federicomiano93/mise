@@ -923,3 +923,83 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-photo-setting--on .cat-photo-setting-state {
   background: var(--cat-brand); color: var(--cat-brand-ink);
 }
+
+/* ── The allergen card folds shut ──────────────────────────────────────────
+   ⚠️ A real <button> as the head, not a div with a handler: keyboard and screen
+   reader come free, and aria-expanded says which way it is. The head keeps the
+   .cat-alg-head layout and adds nothing but the reset a button needs. */
+.cat-alg-toggle {
+  width: 100%; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+.cat-alg-toggle:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 3px; }
+/* The chevron turns to point down while it is open — the only moving part. */
+.cat-alg-toggle .chev { transition: transform .15s ease; }
+.cat-alg-toggle--open .chev { transform: rotate(90deg); }
+/* The status pill must not be squeezed by a long title. */
+.cat-alg-toggle .cat-alg-ok,
+.cat-alg-toggle .cat-alg-blocked { margin-left: auto; }
+
+/* The folded half. It gets the breathing room the head used to provide, so opening
+   the card does not make the first line collide with the status pill. */
+.cat-alg-body { padding-top: 8px; }
+
+/* ── The bottom bar ────────────────────────────────────────────
+   Secondary actions live here, not in the header — the app's own rule, and this
+   header's two 84px slots are already full.
+   ⚠ WRITTEN HERE RATHER THAN REUSED. .recipe-footer lives in style.css, which this
+   page does not load, so borrowing the name would give an unstyled bar and a bare
+   grey button with no error anywhere. Copied from .pas-footer, which exists for
+   exactly this reason.
+   ⚠ The safe-area inset is written out rather than taken from --safe-bot: that
+   variable is also a style.css one.
+   ⚠ padding-inline carries the width cap, or tests/tablet-width.test.mjs fails — a
+   full-width bar left uncapped runs the whole width of a tablet. */
+.cat-footer {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+  padding-inline: max(16px, var(--app-gutter));
+  background: var(--cat-surface);
+  border-top: 1px solid var(--cat-border);
+}
+.cat-footer[hidden] { display: none; }
+.cat-footer-btn {
+  appearance: none;
+  flex: 1;
+  max-width: 220px;
+  height: 44px;
+  cursor: pointer;
+  background: var(--cat-surface-2);
+  border: 1px solid var(--cat-border);
+  border-radius: var(--cat-radius);
+  color: var(--cat-text-2);
+  font-family: var(--cat-font-round);
+  font-size: 15px;
+  font-weight: 600;
+  /* ⚠ Icon + text is a flex ROW, and so is the wrapping span — an SVG in an inline
+     box rests on the text baseline, about 2px low. The commonest bug in this app. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.cat-footer-btn > span { display: flex; align-items: center; }
+.cat-footer-btn:active { transform: scale(.97); }
+.cat-footer-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+
+/* "Fill this in from a photo", offered only on a NEW recipe and only when the venue
+   has the reader switched on. Quiet, like the import button it borrows from: it is an
+   alternative to typing, not the main action of the screen. */
+.cat-photo-fill { margin: 10px 0 4px; }
+
+/* The line under the switch that says what it costs. Quiet, like every other note
+   on this page — it explains, it does not warn. */
+.cat-settings-note {
+  margin: 10px 2px 0;
+  font-size: .88rem;
+  line-height: 1.45;
+  color: var(--cat-text-2);
+}

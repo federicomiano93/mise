@@ -39,14 +39,24 @@ import { normalizeAllergens, normalizeMayContain, isDeclared } from '../allergen
 // from the cost model. A pinch of something still contains what it contains; a
 // row measured in spoons can be pure mustard. The cost model can skip those
 // because a pinch costs nothing worth counting — an allergen declaration cannot.
+// ⚠⚠ KEYS, NOT PHRASES, AND THAT IS THE POINT. These were seven plain English
+// sentences and could therefore never be anything else — they printed in English on a
+// fully Italian screen, which is how Federico found them.
+//
+// ⚠ THEY ARE NOT t() CALLS EITHER. A module constant is evaluated ONCE, at first
+// import — before a venue is open, so before the interface language (which comes from
+// the venue) is known — and would freeze in whatever language the app started in.
+// Fourteen constants in this app did exactly that, each holding a correct key with a
+// correct translation, and each rendering English anyway: the defect is WHEN, not WHAT.
+// The lookup lives in reasonLabel() in catalogue-detail.js, called while drawing.
 export const ALLERGEN_REASON_TEXT = Object.freeze({
-  'not-linked': 'not linked to an ingredient',
-  'missing-ingredient': 'linked to an ingredient that no longer exists',
-  'not-declared': 'the linked ingredient has no allergen information yet',
-  'missing-recipe': 'linked to a recipe that no longer exists',
-  'sub-incomplete': 'the linked recipe is not fully declared',
-  'cycle': 'this recipe contains itself',
-  'too-deep': 'nested too many recipes deep',
+  'not-linked': 'cat.alg.reason.notLinked',
+  'missing-ingredient': 'cat.alg.reason.missingIngredient',
+  'not-declared': 'cat.alg.reason.notDeclared',
+  'missing-recipe': 'cat.alg.reason.missingRecipe',
+  'sub-incomplete': 'cat.alg.reason.subIncomplete',
+  'cycle': 'cat.alg.reason.cycle',
+  'too-deep': 'cat.alg.reason.tooDeep',
 });
 
 function lookup(table, id) {
@@ -161,7 +171,11 @@ export function incompleteText(result) {
   if (!result || result.complete) return '';
   const n = result.gaps.length;
   if (!n) return t('cat.nothingInThisRecipe');
-  return `${n} ${n === 1 ? 'ingredient is' : 'ingredients are'} not declared — no label can be made`;
+  // ⚠ THE PLURAL IS THE DICTIONARY'S JOB, NOT THIS FILE'S. It used to be
+  // `n === 1 ? 'ingredient is' : 'ingredients are'` — English grammar written into the
+  // code, which no translation can reach. t() takes a count and the dictionary carries
+  // both forms, in each language.
+  return t('cat.alg.notDeclaredCount', { n });
 }
 
 // ⚠️ THE ONE FUNCTION EVERY LABEL MUST ASK, so there is a single place to look and
