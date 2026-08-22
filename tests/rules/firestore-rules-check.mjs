@@ -401,6 +401,29 @@ async function ingredients() {
   await expectDenied('a stamp long enough to be a payload', () =>
     mergeWrite('locations/main/ingredients/ING_MODERN', { allergensCheckedAt: bigString(65), bakery: 'main' }));
 
+  // ── The pack's own ingredient list, typed in so the app can read it ────────
+  //
+  // ⚠️ THE KEY LIST ON THIS COLLECTION IS CLOSED, so before these rules deployed an
+  // ingredient carrying this field had its WHOLE save refused — not just the new
+  // field. That is why the rules go out before the code, and why it is optional in
+  // both directions: rules land on every phone instantly, code arrives per device.
+  await expectAllowed('the pack ingredient list', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', {
+      packIngredients: 'Farina di GRANO tenero tipo 0, acqua, LATTE in polvere, sale.',
+      bakery: 'main',
+    }));
+  // Clearing it must be possible — a pack gets re-read and the old text is wrong.
+  await expectAllowed('clearing the pack ingredient list', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', { packIngredients: '', bakery: 'main' }));
+  await expectAllowed('an ingredient that has never carried one', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN', { name: 'Flour T45', bakery: 'main' }));
+  await expectDenied('a pack list long enough to be a payload', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN',
+      { packIngredients: bigString(4001), bakery: 'main' }));
+  await expectDenied('the pack list sent as anything but text', () =>
+    mergeWrite('locations/main/ingredients/ING_MODERN',
+      { packIngredients: ['grano'], bakery: 'main' }));
+
   await expectAllowed('delete an ingredient', () => deleteWrite('locations/main/ingredients/ING_MODERN'));
 }
 

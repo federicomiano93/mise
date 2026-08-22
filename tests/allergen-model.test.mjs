@@ -219,8 +219,49 @@ test('the fields written are exactly the ones the rules whitelist', () => {
     allergens: ['gluten-wheat'], mayContain: [], checkedAt: '2026-08-11', nutrition: { kcal: 330 },
   });
   assert.deepEqual(Object.keys(fields).sort(),
-    ['allergens', 'allergensCheckedAt', 'mayContain', 'nutrition']);
+    ['allergens', 'allergensCheckedAt', 'mayContain', 'nutrition', 'packIngredients']);
   assert.deepEqual(Object.keys(fields.nutrition).sort(), [...NUTRIENT_KEYS].sort());
+});
+
+// ── The pack's own ingredient list ───────────────────────────────────────────
+
+test('the pack text is carried through, and capped where the rules cap it', () => {
+  const out = buildAllergenFields({
+    allergens: [], mayContain: [], checkedAt: '', nutrition: {},
+    packIngredients: 'Farina di GRANO tenero, acqua.',
+  });
+  assert.equal(out.packIngredients, 'Farina di GRANO tenero, acqua.');
+  // ⚠️ 4000, THE SAME NUMBER THE RULES USE. A longer string is refused by the
+  // rules — and the rules refuse the WHOLE document, so a paste from a PDF would
+  // make the ingredient unsaveable with nothing on screen explaining why.
+  const long = buildAllergenFields({
+    allergens: [], mayContain: [], checkedAt: '', nutrition: {},
+    packIngredients: 'x'.repeat(5000),
+  });
+  assert.equal(long.packIngredients.length, 4000);
+});
+
+test('no pack text is an empty string, never undefined', () => {
+  for (const nothing of [undefined, null, '']) {
+    const out = buildAllergenFields({
+      allergens: [], mayContain: [], checkedAt: '', nutrition: {}, packIngredients: nothing,
+    });
+    assert.equal(out.packIngredients, '', String(nothing));
+  }
+});
+
+// ⚠️⚠️ READING A PACK MUST NEVER STAMP. The suggestion is inert by construction:
+// ticks with no verification stamp still read 'unknown', so an ingredient the app
+// filled in and nobody confirmed still blocks every label it appears in.
+test('⚠️ pack text plus ticks, with no stamp, is still UNKNOWN', () => {
+  const out = buildAllergenFields({
+    allergens: ['milk', 'gluten-wheat'], mayContain: [], checkedAt: '', nutrition: {},
+    packIngredients: 'Farina di GRANO, LATTE',
+  });
+  assert.deepEqual(out.allergens, ['gluten-wheat', 'milk']);
+  assert.equal(out.allergensCheckedAt, '');
+  assert.equal(allergenState(out), 'unknown',
+    'a machine guess must never read as a declaration');
 });
 
 test('building from nothing gives blanks, never undefined', () => {
