@@ -22,6 +22,8 @@ const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, useGroupin
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
+const CAMERA_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+
 // `draft` is a recipe read from a photograph: not saved, not saveable without a
 // person, and NOT an existing recipe.
 //
@@ -91,7 +93,7 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
   const totalNote = el('span', { class: 'cat-edit-total-note' });
 
   const totalRow = el('div', { class: 'cat-ing-editrow cat-edit-total' }, [
-    el('span', { class: 'cat-edit-total-label', text: 'Total' }),
+    el('span', { class: 'cat-edit-total-label', text: t('cat.total') }),
     totalEl,
     el('span', { class: 'cat-edit-total-unit', text: 'g' }),
   ]);
@@ -103,9 +105,10 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
     totalEl.textContent = nf.format(weighableTotalGrams(working));
     const skipped = working.ingredients
       .filter(i => String(i.label || '').trim() && !isWeighableUnit(unitOf(i))).length;
-    totalNote.textContent = skipped
-      ? `${skipped} ${skipped === 1 ? 'ingredient is' : 'ingredients are'} not weighed (pieces / to taste) — not in the total`
-      : '';
+    // ⚠ THE PLURAL IS THE DICTIONARY'S, NOT THIS FILE'S. It used to be
+    // `skipped === 1 ? 'ingredient is' : 'ingredients are'` — English grammar written
+    // into the code, which no translation can reach.
+    totalNote.textContent = skipped ? t('cat.notWeighed', { n: skipped }) : '';
     totalNote.hidden = !skipped;
     countEl.textContent = String(working.ingredients.length);
   }
@@ -114,25 +117,25 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
     rowsContainer.replaceChildren();
     working.ingredients.forEach((ing, idx) => {
       const labelInput = el('input', {
-        class: 'cat-lbl', type: 'text', placeholder: 'Ingredient', value: ing.label,
+        class: 'cat-lbl', type: 'text', placeholder: t('cat.ingredient'), value: ing.label,
         list: 'cat-ingredient-names', 'aria-label': t('cat.ingredientName'),
         oninput: (e) => { ing.label = e.target.value; markDirty(); updateTotal(); if (showErrors) validateUI(); },
       });
       const gramsInput = el('input', {
         class: 'cat-grm', type: 'number', min: '0', step: 'any', inputmode: 'decimal',
         placeholder: '0', value: ing.grams === '' || ing.grams === undefined ? '' : ing.grams,
-        'aria-label': 'Amount',
+        'aria-label': t('cat.amount'),
         oninput: (e) => { ing.grams = e.target.value; markDirty(); updateTotal(); },
       });
       // Per-ingredient unit (g by default). Reuses the model's whitelist so the
       // editor and the scaling/import logic can never drift apart.
       const unitSelect = el('select', {
-        class: 'cat-unit', 'aria-label': 'Unit',
+        class: 'cat-unit', 'aria-label': t('cat.unit'),
         onchange: (e) => { ing.unit = e.target.value; markDirty(); updateTotal(); },
       }, CATALOGUE_UNITS.map(u => el('option', { value: u }, u)));
       unitSelect.value = unitOf(ing);
       const delIcon = el('button', {
-        class: 'cat-del-icon', type: 'button', 'aria-label': 'Remove ingredient', icon: TRASH_SVG,
+        class: 'cat-del-icon', type: 'button', 'aria-label': t('cat.removeIngredient'), icon: TRASH_SVG,
         onclick: () => {
           working.ingredients.splice(idx, 1);
           if (!working.ingredients.length) working.ingredients.push({ label: '', grams: '', unit: 'g' });
@@ -302,12 +305,12 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
   ]);
 
   const addRowBtn = el('button', {
-    class: 'cat-add-row', type: 'button', text: '+ Add ingredient',
+    class: 'cat-add-row', type: 'button', text: t('cat.addIngredient'),
     onclick: () => { working.ingredients.push({ label: '', grams: '', unit: 'g' }); markDirty(); renderIngredientRows(); if (showErrors) validateUI(); },
   });
 
   const actions = el('div', { class: 'cat-editor-actions' }, [
-    el('button', { class: 'cat-save-btn', type: 'button', text: 'Save', onclick: onSave }),
+    el('button', { class: 'cat-save-btn', type: 'button', text: t('ui.save'), onclick: onSave }),
     // ⚠️ Owner only, same as the detail screen. Staff may still edit and save.
     recipe && canManageHere() ? el('button', { class: 'cat-del-btn', type: 'button', onclick: onDelete }, [
       el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }),
@@ -317,12 +320,44 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
 
   renderIngredientRows();
 
+  // ⚠️ ONLY ON A NEW RECIPE, AND ONLY WHEN THE VENUE HAS IT SWITCHED ON. `recipe` is
+  // null exactly when this is a new one — the same flag that already decides the
+  // title, the toast and the absent Delete button. Federico, 23 Aug 2026: this is
+  // needed at the moment you ADD a recipe, so this is where it lives.
+  //
+  // ⚠️ AND IF ANYTHING HAS BEEN TYPED, IT ASKS FIRST. Leaving for the photo screen
+  // abandons this form, and coming back builds a fresh one — so a half-typed name
+  // would vanish without a word. This is the "merge or replace?" question the old
+  // comment said had no safe answer; on a NEW recipe it has one, because the choice
+  // is small and it is asked out loud.
+  const photoBtn = (!recipe && app.photoOn && app.photoOn())
+    ? el('button', {
+      class: 'cat-import-btn cat-photo-fill', type: 'button',
+      onclick: async () => {
+        if (dirty) {
+          const ok = await app.confirm({
+            title: t('cat.photo.replaceTitle'),
+            message: t('cat.photo.replaceBody'),
+            okLabel: t('cat.photo.replaceOk'),
+            danger: true,
+          });
+          if (!ok) return;
+        }
+        // The guard belongs to a form that is about to stop existing; leaving it in
+        // place would ask a second time on the way out of the photo screen.
+        app.setLeaveGuard(null);
+        app.openPhotoCapture();
+      },
+    }, [el('span', { icon: CAMERA_ICON, 'aria-hidden': 'true' }), el('span', { text: t('cat.photo.fill') })])
+    : null;
+
   return el('div', { class: 'cat-view cat-editor' }, [
     datalist,
     el('label', { for: 'catRecipeName', text: t('cat.recipeName') }),
     nameInput,
+    photoBtn,
     el('div', { class: 'cat-ing-head' }, [
-      el('label', { class: 'cat-ing-head-label', text: 'Ingredients' }),
+      el('label', { class: 'cat-ing-head-label', text: t('cat.ingredients') }),
       countEl,
     ]),
     rowsContainer,
