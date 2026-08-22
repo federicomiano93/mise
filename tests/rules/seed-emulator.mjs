@@ -373,6 +373,18 @@ export async function seedDemoWorld() {
     ],
   });
 
+  // ⚠️⚠️ THE FOURTH STATE, AND IT IS THE DANGEROUS ONE TO GET RIGHT: «checked, and
+  // it contains none of the fourteen». Without a recipe in it the allergen sheet
+  // could only ever be driven through three of its four rows — and the one left
+  // out is precisely the one that must NOT look like «nobody has said anything».
+  // Both are an empty allergen list; only the stamp tells them apart.
+  await seedDoc('locations/bakery/recipes/CAT_4', {
+    bakery: 'bakery', name: 'Boiled water', lossPct: 0,
+    ingredients: [
+      { label: 'Water', grams: 1000, kind: 'ingredient', refId: 'ING_WATER_DECL' },
+    ],
+  });
+
   // TWO days of pastries, five deliberately absent. A day that has never been
   // written is the state all seven start in and the one the empty screen has to
   // hold together for — and two rather than one, so switching day visibly
@@ -528,7 +540,11 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     2 suppliers  (SUP_LEGACY has notifyHoursBefore and NO orderDays)
     5 ingredients (ING_LEGACY has no brand/weight; 2 are allergen-declared)
     2 ingredient-prices (so a recipe can show a real cost, not "no cost yet")
-    3 recipes (CAT_1 empty, CAT_2 typed rows = NOT DECLARED, CAT_3 linked = DECLARED)
+    4 recipes — one per state the allergen sheet can show:
+      CAT_1 empty          = nothing yet
+      CAT_2 typed rows     = NOT DECLARED
+      CAT_3 linked         = DECLARED, contains wheat
+      CAT_4 water only     = DECLARED, contains none of the 14
     2 pastry days (Tuesday, Wednesday; the other five have never been written)
     drafts/current (carries the retired weekId, 1 row stamped 2026-07-20)
     2 orders-history records (2026-W28 legacy + 2026-07-20_SUP_MODERN)

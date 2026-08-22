@@ -186,6 +186,41 @@ export function canLabel(result) {
   return !!result && result.complete === true;
 }
 
+// ── What a one-line row should say about a recipe ────────────────────────────
+//
+// ⚠️⚠️ THE THREE STATES, PLUS THE EMPTY RECIPE, AS ONE TESTED ANSWER. This
+// decision used to live as a chain of ifs inside allergen-sheet.js, where no test
+// could reach it — on the one screen in this app that can send somebody to
+// hospital. Moved here beside canLabel(), the rest of the allergen judgement, so
+// a mutation has something to break.
+//
+// ⚠️ 'declared-none' AND 'declared-listed' ARE BOTH STATEMENTS SOMEBODY MADE, and
+// a screen must dress them the same way. The dangerous reading is a recipe whose
+// allergens are simply absent looking like one checked and found clear.
+export const ROW_STATES = Object.freeze([
+  'declared-listed',  // checked: contains these
+  'declared-none',    // checked: contains none of the 14
+  'nothing-yet',      // no rows at all — nobody has said anything, and there is nothing to say it about
+  'not-declared',     // has rows, and at least one of them is a gap
+]);
+
+// ⚠️ A MISSING RESULT ANSWERS 'not-declared', NEVER THE CLEAN-LOOKING ONE. Every
+// default in this file points the same way: doubt reads as "we do not know".
+export function rowState(result) {
+  if (!result) return 'not-declared';
+  if (canLabel(result)) {
+    return Array.isArray(result.allergens) && result.allergens.length
+      ? 'declared-listed'
+      : 'declared-none';
+  }
+  return Array.isArray(result.gaps) && result.gaps.length ? 'not-declared' : 'nothing-yet';
+}
+
+// Is this row one the screen must mark as having no answer?
+export function rowIsBlocked(state) {
+  return state === 'not-declared' || state === 'nothing-yet';
+}
+
 // ── Where to start ───────────────────────────────────────────────────────────
 //
 // ⚠️ THE ANSWER TO "DO I REALLY HAVE TO FILL IN 65 INGREDIENTS?" — and it is

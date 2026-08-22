@@ -34,6 +34,14 @@ const LABEL_FILES = [
   'js/market.js',
   'js/catalogue/recipe-label-model.js',
   'js/catalogue/label-view.js',
+  // ⚠️ ADDED 22 Aug 2026, AND THE GUARD BELOW FOUND IT RATHER THAN A PERSON. The
+  // allergen sheet gained a card naming the fourteen the law requires in the
+  // venue's COUNTRY, so it now builds label words as well as interface text —
+  // exactly the mixture label-view.js is allowed and everything else is not. Like
+  // that file it draws the screen around them too, so it keeps the dictionary and
+  // is held to the stricter invariant instead: no currentLanguage, no
+  // setLanguage, no interfaceLanguage anywhere in it.
+  'js/catalogue/allergen-sheet.js',
 ];
 
 // ⚠️⚠️ ASKING FOR A LABEL'S WORDS AND ASKING ABOUT A LABEL ARE NOT THE SAME

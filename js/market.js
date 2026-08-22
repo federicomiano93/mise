@@ -35,7 +35,7 @@
 // their English names. This file adds a second COLUMN beside that, never a second
 // list: a copy of the fourteen would be the copy that quietly drifts, and the
 // thing it would disagree about is what is in somebody's food.
-import { allergenLabel } from './allergen-model.js';
+import { ALLERGENS, allergenLabel } from './allergen-model.js';
 
 export const COUNTRIES = Object.freeze(['GB', 'IT']);
 
@@ -182,6 +182,40 @@ export function nutrientWordIt(key) {
 export function allergenName(code, lang) {
   if (lang === 'it') return allergenWordIt(code) || allergenLabel(code);
   return allergenLabel(code);
+}
+
+// ── The fourteen, as the law groups them ─────────────────────────────────────
+//
+// ⚠️ TWO ENTRIES, NOT FOURTEEN, AND THAT IS THE POINT. Only `gluten` and `nuts`
+// are collections the law names as a category; the other twelve ARE their single
+// code, so their heading is simply that code's own word. Writing all fourteen out
+// here would be the second list this file exists to avoid — and the thing the two
+// copies would disagree about is what is in somebody's food.
+//
+// ⚠️ THESE HEADINGS ARE FOR READING, NEVER FOR A LABEL. A label must name the
+// specific cereal and the specific nut ("Wheat", not "cereals containing
+// gluten"); this pair is only ever used to tell somebody which fourteen groups
+// the law asks about. Nothing in recipe-label-model.js may call it.
+const GROUP_HEADING = Object.freeze({
+  en: { gluten: 'Cereals containing gluten', nuts: 'Nuts' },
+  it: { gluten: 'Cereali contenenti glutine', nuts: 'Frutta a guscio' },
+});
+
+export function allergenGroupName(group, lang) {
+  const table = GROUP_HEADING[lang] || GROUP_HEADING.en;
+  if (table[group] !== undefined) return table[group];
+  // Not a named collection: the group is one allergen, so it is named by its own
+  // word — derived, so a code added to allergen-model.js needs nothing here.
+  const codes = ALLERGENS.filter(a => a.group === group);
+  return codes.length === 1 ? allergenName(codes[0].code, lang) : '';
+}
+
+// Every code the law names inside one group, in the country's language. Used for
+// the "the specific cereals and nuts" detail — empty for the twelve that have no
+// subdivision, so a caller can simply skip them.
+export function allergenGroupCodes(group, lang) {
+  const codes = ALLERGENS.filter(a => a.group === group);
+  return codes.length > 1 ? codes.map(a => allergenName(a.code, lang)) : [];
 }
 
 // The same, for a row of the nutrition table. `nutrient` is an entry of NUTRIENTS.
