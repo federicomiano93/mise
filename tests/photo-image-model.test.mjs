@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import {
   MAX_EDGE, MAX_PHOTOS, MAX_IMAGE_BYTES, MAX_TOTAL_BYTES,
   fitWithin, base64Of, mediaTypeOf, approxBytes, payloadProblem,
@@ -211,15 +211,25 @@ test('⚠️ the photo screen answers a language change itself', () => {
   assert.doesNotMatch(build, /text: t\(/, 'a phrase set once at build time freezes in one language');
 });
 
-test('⚠️ every class the photo screen uses is one this page actually defines', () => {
+test('⚠️ every class the CATALOGUE uses is one this page actually defines', () => {
   // `.btn-primary` and `.btn-secondary` do NOT exist in catalogue.css — using them
   // produced a bare grey browser button and no error anywhere, the same silent
   // shape as the three spacing tokens that were used by twenty declarations and
   // defined nowhere.
-  const css = read('catalogue.css') + read('tokens.css');
-  const view = read('js/catalogue/photo-capture.js');
+  // ⚠️ EVERY FILE IN THE FEATURE, not just the one that was wrong. Scanning a
+  // single file caught the defect that prompted this check and would have missed the
+  // identical one two files away — `.btn-primary` was in catalogue-list.js too.
+  // catalogue.html loads tokens.css, auth.css and catalogue.css and NOT style.css, so
+  // every `.recipe-*` and `.mgmt-*` class the rest of the app uses is silently dead
+  // here: an unstyled bar, a bare grey button, and no error anywhere.
+  const css = read('catalogue.css') + read('tokens.css') + read('auth.css');
   const used = new Set();
-  for (const m of view.matchAll(/class: '([^']+)'/g)) m[1].split(/\s+/).forEach(c => used.add(c));
+  for (const file of readdirSync(new URL('../js/catalogue/', import.meta.url))) {
+    if (!file.endsWith('.js')) continue;
+    const src = read(`js/catalogue/${file}`);
+    for (const m of src.matchAll(/class: '([^']+)'/g)) m[1].split(/\s+/).forEach(c => used.add(c));
+    for (const m of src.matchAll(/classList\.(?:add|toggle)\('([^']+)'/g)) used.add(m[1]);
+  }
   // ⚠️ NO REGEX HERE ON PURPOSE. The first version built one from a template
   // literal, `\.` and `\s` collapsed to `.` and `s`, and it reported every class in
   // the file as undefined — the instrument, not the code, for the fifth time today.
@@ -232,6 +242,140 @@ test('⚠️ every class the photo screen uses is one this page actually defines
     }
     return false;
   };
-  const missing = [...used].filter(c => !defined(c));
+  // ⚠️ A CLASS MAY BE A HANDLE RATHER THAN A LOOK, and the check has to tell the
+  // two apart or it is noise. Everything here was verified to be queried or gated from
+  // JavaScript and styled by a sibling class it composes with — none of them is defined
+  // in a stylesheet this page fails to load, which is the dangerous shape.
+  //
+  // ⚠️ THIS LIST MAY ONLY EVER SHRINK. Adding a name to it to make the check pass is
+  // how `.btn-primary` would have shipped a second time; every entry needs a reason on
+  // the line beside it.
+  const HANDLES = new Set([
+    'alg-sheet',              // namespace prefix; .alg-sheet-* carry the look
+    'lab-view', 'lab-body',   // same, for the label screen
+    'guided-body',            // same, for the guided editor
+    'cat-cost-host',          // container replaced in place when prices arrive
+    'cat-guided-host',        // container replaced in place when the batch changes
+    'cat-photo-btn',          // queried to show/hide; .cat-alg-sheet-btn is the look
+    'cat-photo-setting-label',// queried in the repaint; the row carries the look
+    'guided-edit-list', 'guided-edit-missed', // queried while writing a procedure
+    'guided-edit',            // js/update-gate.js BUSY_SELECTORS — a marker, not a look
+    'cat-photo-busy',         // js/update-gate.js BUSY_SELECTORS — a paid read in flight
+  ]);
+  const missing = [...used].filter(c => !defined(c) && !HANDLES.has(c));
   assert.deepEqual(missing, [], 'these classes style nothing at all');
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WHERE EACH CONTROL LIVES (Federico, 23 Aug 2026)
+//
+// Four notes, all of the same kind — *this control is in the wrong place* — and none
+// of them changes what anything DOES. That makes them exactly the sort of change a
+// later edit undoes without noticing, because nothing breaks when it does: the
+// switch works just as well on the list, and the app still runs with the weight box
+// two cards down. Only somebody looking at the screen would know. Hence these.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('⚠️ the recipe LIST carries neither the switch nor the way into the photo reader', () => {
+  // Both used to live here. A switch nobody expects on a screen of recipes is worse
+  // than a settings screen with one row on it, and the photo reader belongs where
+  // the job is — inside the form for a NEW recipe.
+  const list = codeOf(read('js/catalogue/catalogue-list.js'));
+  assert.doesNotMatch(list, /cat-photo-setting/, 'the switch is back on the recipe list');
+  assert.doesNotMatch(list, /cat-photo-btn|openPhotoCapture/, 'the photo entry is back on the recipe list');
+  // And the props that fed them, or the list would quietly accept them again.
+  for (const prop of ['onPhotoRecipe', 'onPhotoSetting', 'photoOn']) {
+    assert.doesNotMatch(list, new RegExp(prop), `${prop} is back on the list`);
+  }
+});
+
+test('⚠️ the photo reader is offered only while ADDING a recipe, never while editing', () => {
+  // `recipe` is null exactly on the new-recipe path — the same flag the editor
+  // already uses for its title and for hiding Delete. On an EXISTING recipe the
+  // button would raise "merge with what is here, or replace it?", a question with no
+  // good answer; on a new one the honest choice is binary and small.
+  const editor = codeOf(read('js/catalogue/catalogue-editor.js'));
+  assert.match(editor, /!recipe && app\.photoOn && app\.photoOn\(\)/,
+    'the photo entry must be gated on there being no recipe yet');
+  // ⚠️ photoOn is CALLED, not read. A value captured when the editor was built is a
+  // value from before the owner touched the switch. The `&&` guard before it is the
+  // other half: a view mounted by something that does not pass photoOn must not throw.
+  assert.doesNotMatch(editor, /app\.photoOn\s*[?)]/, 'photoOn must be called, not read as a value');
+  // Nothing typed may vanish silently.
+  assert.match(editor, /dirty/, 'the editor must ask before replacing what has been typed');
+});
+
+test('⚠️ the way back out of the photo screen is a ONE-SHOT marker', () => {
+  // Left set, it would send every later Back into a new editor — the trap the
+  // sessionStorage flag behind "Back to Misé" (v275) is consumed on read to avoid.
+  const main = codeOf(read('js/catalogue/catalogue-main.js'));
+  const i = main.indexOf('backToEditor');
+  assert.ok(i !== -1, 'the return marker is gone');
+  // It has to be cleared in the same breath as it is read.
+  assert.match(main, /backToEditor\s*=\s*false/, 'the marker is never cleared');
+  const reads = [...main.matchAll(/if \(backToEditor\)/g)].length;
+  assert.ok(reads >= 1, 'nothing ever reads the marker');
+});
+
+test('⚠️ the batch-weight box sits directly under the recipe, above the cost card', () => {
+  // His screenshot: the box the screen is opened for was below the cost card AND a
+  // nine-line allergen card. Order is the whole change, so order is what is pinned.
+  const detail = codeOf(read('js/catalogue/catalogue-detail.js'));
+  const row = detail.slice(detail.indexOf("class: 'cat-detail-top'"));
+  const order = ['ingList', 'weightPanel', 'costHost', 'guidedHost'].map(n => row.indexOf(n));
+  assert.ok(order.every(i => i !== -1), 'the detail top no longer holds all four');
+  assert.deepEqual([...order].sort((a, b) => a - b), order,
+    'the weight box must come after the recipe and before the cost card');
+});
+
+test('⚠️ the allergen card folds, and what stays OUTSIDE the fold is the safety rule', () => {
+  // This is the only screen in the app that can send somebody to hospital. Folding
+  // the ANSWER away would mean a rushed reply at the counter given without opening
+  // the card. Only the JOB folds: which rows to fix, the traces, the way to a label.
+  const detail = codeOf(read('js/catalogue/catalogue-detail.js'));
+  const panel = detail.slice(detail.indexOf('function allergenPanel'), detail.indexOf('function reasonLabel'));
+
+  assert.match(panel, /cat-alg-body[^)]*hidden: 'hidden'/s, 'the card no longer opens closed');
+  assert.match(panel, /'aria-expanded': 'false'/, 'the head is not announced as a disclosure');
+  assert.match(panel, /el\('button', \{\s*class: 'cat-alg-head cat-alg-toggle'/,
+    'the head must be a real button — a div with a click handler reaches no keyboard');
+
+  // ⚠️ THE STATE IS APPENDED TO THE PANEL, THE DETAIL TO THE BODY. Both branches.
+  const declared = panel.slice(panel.indexOf('panel.appendChild(head(el(\'span\', { class: \'cat-alg-ok\''));
+  assert.match(declared, /panel\.appendChild\(el\('p', \{ class: 'cat-alg-list'/,
+    'what a recipe CONTAINS must stay outside the fold');
+  assert.match(declared, /body\.appendChild\(el\('button', \{\s*class: 'cat-alg-label-btn'/,
+    'the label button belongs inside the fold, so it cannot be tapped blind');
+  const blocked = panel.slice(panel.indexOf('cat-alg-blocked'), panel.indexOf('cat-alg-ok'));
+  assert.match(blocked, /panel\.appendChild\(head\(/, 'the "not declared" state must stay visible when shut');
+  assert.match(blocked, /body\.appendChild\(el\('p', \{ class: 'cat-alg-warn'/,
+    'the work list belongs inside the fold');
+});
+
+test('⚠️ the seven gap reasons are KEYS, resolved when the row is drawn', () => {
+  // They were seven plain English strings in a frozen module constant — not the
+  // v1.57.0 frozen-t() trap, but seven phrases no translation could ever reach.
+  // ⚠️ Resolving them in the constant would be the OTHER half of that trap: a
+  // module is evaluated once, before a venue is open, so before the language is
+  // known. The defect is WHEN, not WHAT.
+  const model = codeOf(read('js/catalogue/recipe-allergen-model.js'));
+  const block = model.slice(model.indexOf('ALLERGEN_REASON_TEXT'), model.indexOf('ALLERGEN_REASON_TEXT') + 700);
+  assert.doesNotMatch(block, /\bt\(/, 'a t() inside the constant freezes in one language');
+  assert.match(block, /cat\.alg\.reason\./, 'the constant must hold keys');
+  assert.match(codeOf(read('js/catalogue/catalogue-detail.js')), /function reasonLabel/,
+    'nothing resolves the keys at draw time');
+});
+
+// Comments stripped before every source check above. Three separate checks in this
+// project have failed on their own warning comment — a guard that fires on prose is
+// a guard people widen, and widening is how a real guard gets weakened.
+//
+// Naive about `//` inside a string literal, deliberately: nothing matched above
+// appears inside one.
+function codeOf(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map(line => { const at = line.indexOf('//'); return at === -1 ? line : line.slice(0, at); })
+    .join('\n');
+}
