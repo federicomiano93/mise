@@ -366,6 +366,54 @@ test('⚠️ the seven gap reasons are KEYS, resolved when the row is drawn', ()
     'nothing resolves the keys at draw time');
 });
 
+test('⚠⚠ a data update must not delete the allergen card from an open recipe', () => {
+  // THE DEFECT THIS PINS WAS LIVE FOR ELEVEN DAYS AND IS THE WORST THIS SCREEN CAN
+  // HAVE. costHost holds TWO cards; refreshCost() replaced its children with ONE, so
+  // the first snapshot to arrive while a recipe was open DELETED the allergen card —
+  // the only thing saying "not declared", or naming what the recipe contains.
+  //
+  // ⚠ INVISIBLE TO EVERY DRIVEN CHECK BECAUSE OF *WHEN*: the card is there on the
+  // first paint and destroyed by the NEXT update, so anything that opens a recipe and
+  // measures straight away sees it.
+  const detail = codeOf(read('js/catalogue/catalogue-detail.js'));
+  const fn = detail.slice(detail.indexOf('refreshCost(latest)'), detail.indexOf('refreshCost(latest)') + 700);
+  assert.ok(fn.length > 40, 'refreshCost is gone');
+  assert.match(fn, /allergenPanel\(/,
+    'refreshCost must rebuild the allergen card, or the next update deletes it');
+  // Both cards, in the same call, in the order the first render uses.
+  assert.match(fn, /replaceChildren\(costPanel\([^)]*\), *allergens\)/,
+    'refreshCost must put BOTH cards back');
+  // And the reader must not have the card shut under them mid-read.
+  assert.match(fn, /aria-expanded/, 'the open state is not carried across the rebuild');
+});
+
+test('⚠ a computed boolean is never handed to el() as an attribute', () => {
+  // el() ends in node.setAttribute(key, value), and setAttribute('hidden', false)
+  // writes the STRING "false" — the attribute is PRESENT and [hidden] matches on
+  // presence. `hidden: !allowed` therefore hid "Import into Calculator" for EVERY
+  // user, including the venues that do use the Calculator.
+  //
+  // ⚠ THE RULE, NOT THE ONE SITE: any el() prop whose value is a negation or a
+  // comparison is this bug waiting to happen. Set the PROPERTY afterwards instead.
+  const BOOLEAN_ATTRS = ['hidden', 'disabled', 'checked', 'readonly', 'required', 'selected'];
+  const offenders = [];
+  for (const file of readdirSync(new URL('../js/catalogue/', import.meta.url))) {
+    if (!file.endsWith('.js')) continue;
+    const src = codeOf(read(`js/catalogue/${file}`));
+    for (const attr of BOOLEAN_ATTRS) {
+      // `attr: <something that is not the literal true>` inside an el() prop object.
+      const rx = new RegExp(`\b${attr}: *(?!true\b)([^,\n]+)`, 'g');
+      for (const m of src.matchAll(rx)) {
+        const value = m[1].trim();
+        if (/^'|^"|^\`/.test(value)) continue;          // a string literal is fine
+        offenders.push(`${file}: ${attr}: ${value.slice(0, 40)}`);
+      }
+    }
+  }
+  assert.deepEqual(offenders, [],
+    'set the property after building the element — setAttribute(attr, false) still hides it');
+});
+
 // Comments stripped before every source check above. Three separate checks in this
 // project have failed on their own warning comment — a guard that fires on prose is
 // a guard people widen, and widening is how a real guard gets weakened.
