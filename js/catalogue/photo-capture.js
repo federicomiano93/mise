@@ -68,7 +68,7 @@ async function shrink(file) {
   return dataUrl;
 }
 
-export function renderPhotoCapture({ app, locationId, onDraft }) {
+export function renderPhotoCapture({ app, onDraft }) {
   // The working set. Each entry is { dataUrl } — one string, used twice.
   const photos = [];
   let busy = false;
@@ -187,7 +187,7 @@ export function renderPhotoCapture({ app, locationId, onDraft }) {
     paint();
 
     try {
-      const answer = await readRecipePhotos(locationId, images);
+      const answer = await readRecipePhotos(images);
       if (!answer || !answer.ok) {
         // ⚠️ NOT A FAILURE. The call worked; there was no recipe to find. Saying
         // "something went wrong" here is what teaches somebody to stop believing

@@ -6,6 +6,7 @@
 // See functions/recipe-photo.js.
 
 import { sessionReady, isLocalEmulator } from '../firebase.js';
+import { currentLocationId } from '../location.js';
 import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import {
   getFunctions, httpsCallable, connectFunctionsEmulator,
@@ -46,11 +47,23 @@ const readRecipeFromPhotos = httpsCallable(functions, 'readRecipeFromPhotos', {
 // and REJECTS only when the call itself failed. Those two are different things
 // and the screen says different sentences for them.
 //
-// ⚠️ sessionReady, NOT signedInReady: this call carries a locationId, so it needs
-// a location to be open and not merely an account to be signed in. Sent too early
-// it would answer 'unauthenticated', which reads exactly like being logged out.
-export async function readRecipePhotos(locationId, images) {
+// ⚠️ sessionReady, NOT signedInReady: this call carries a locationId, so it needs a
+// location to be OPEN and not merely an account to be signed in. Sent too early it
+// would answer 'unauthenticated', which reads exactly like being logged out.
+//
+// ⚠️⚠️ AND THE LOCATION IS READ HERE, AFTER THAT WAIT — NEVER PASSED IN FROM THE
+// SCREEN. The first version took it as an argument and the screen resolved it once,
+// while rendering. currentLocationId() returns null before a location is open (it is
+// pathFor that throws, not this), so the screen froze a null and every read
+// afterwards came back "which location?" — for the life of that screen.
+//
+// It was a RACE, which is the worst part: the same code read a recipe perfectly on
+// one run and refused on the next, with nothing on screen distinguishing them. Found
+// by driving the app twice. Reading it at call time cannot race, because by then the
+// wait above has already finished.
+export async function readRecipePhotos(images) {
   await sessionReady;
+  const locationId = currentLocationId();
   const res = await readRecipeFromPhotos({ locationId, images });
   return res.data;
 }

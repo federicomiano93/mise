@@ -24,7 +24,6 @@ import { confirmDialog } from './confirm-dialog.js';
 // The session, for the venue's own document: its country decides what language a
 // label is printed in. Imported from js/ root, not from a feature folder.
 import { currentSession } from '../firebase.js';
-import { currentLocationId } from '../location.js';
 
 const screen = document.getElementById('catScreen');
 const titleEl = document.getElementById('catTitle');
@@ -190,7 +189,6 @@ function showPhotoCapture() {
   setHeader({ title: t('cat.photo.title'), sub: t('cat.recipeCatalogue'), back: true, add: false });
   swap(renderPhotoCapture({
     app,
-    locationId: currentLocationId(),
     // The draft never touches the database. It goes straight into the ordinary
     // editor as a working copy, and waits there for the same Save as any recipe
     // typed by hand.
