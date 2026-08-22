@@ -102,61 +102,109 @@ function allergenPanel(recipe, app) {
 
   const panel = el('div', { class: 'cat-alg-panel' });
 
+  // ⚠️⚠️ THE CARD FOLDS SHUT, AND WHAT STAYS OUTSIDE THE FOLD IS THE WHOLE DESIGN.
+  // Federico, 23 Aug 2026: on an incomplete recipe this was nine lines — a head, a
+  // warning and up to eight named rows — and it pushed the batch-weight box, the
+  // thing the screen is opened for, two cards down the page.
+  //
+  // ⚠️ THE ANSWER IS NEVER BEHIND A TAP. This is the only screen in the app that can
+  // send somebody to hospital. Closed, it still says «not declared», or on a complete
+  // recipe still names what it contains — so somebody at the counter asked "are there
+  // hazelnuts in this?" answers without touching anything. Only the JOB folds away:
+  // which rows to go and fix, the traces, the caveat, the way to the label.
+  //
+  // ⚠️ AND IT OPENS CLOSED EVERY TIME. Remembering it open would quietly undo the
+  // change on the screens he opens most.
+  const body = el('div', { class: 'cat-alg-body', hidden: 'hidden' });
+  const head = (statusEl) => {
+    const btn = el('button', {
+      class: 'cat-alg-head cat-alg-toggle', type: 'button', 'aria-expanded': 'false',
+      onclick: () => {
+        const open = body.hidden;
+        body.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+        btn.classList.toggle('cat-alg-toggle--open', open);
+      },
+    }, [
+      el('span', { class: 'cat-alg-label', text: t('cat.alg.title') }),
+      statusEl,
+      el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' }),
+    ]);
+    return btn;
+  };
+
   if (!canLabel(result)) {
     // A brand-new empty recipe stays silent, like the cost panel does: there is
     // nothing to declare and nothing to go and fix.
     if (!result.gaps.length) { panel.hidden = true; return panel; }
 
-    panel.appendChild(el('div', { class: 'cat-alg-head' }, [
-      el('span', { class: 'cat-alg-label', text: 'Allergens' }),
-      el('span', { class: 'cat-alg-blocked', text: 'not declared' }),
-    ]));
-    panel.appendChild(el('p', { class: 'cat-alg-warn', text: incompleteText(result) }));
+    panel.appendChild(head(el('span', { class: 'cat-alg-blocked', text: t('cat.alg.notDeclared') })));
+    panel.appendChild(body);
+    body.appendChild(el('p', { class: 'cat-alg-warn', text: incompleteText(result) }));
     // ⚠️ NAME THE ROWS. "Incomplete" leaves somebody hunting through twenty
     // ingredients; this list IS the work, and it is why the panel appears long
     // before the data is in.
     const list = el('ul', { class: 'cat-alg-gaps' });
     for (const gap of result.gaps.slice(0, 8)) {
-      list.appendChild(el('li', { text: `${gap.label} — ${ALLERGEN_REASON_TEXT[gap.reason] || gap.reason}` }));
+      list.appendChild(el('li', { text: `${gap.label} — ${reasonLabel(gap.reason)}` }));
     }
     if (result.gaps.length > 8) {
-      list.appendChild(el('li', { class: 'cat-alg-more', text: `…and ${result.gaps.length - 8} more` }));
+      list.appendChild(el('li', { class: 'cat-alg-more', text: t('cat.alg.andMore', { n: result.gaps.length - 8 }) }));
     }
-    panel.appendChild(list);
+    body.appendChild(list);
     // What IS known so far, marked as explicitly NOT an answer.
     if (result.allergens.length) {
-      panel.appendChild(el('p', { class: 'cat-alg-sofar', text:
-        `So far, from the rows that are declared: ${result.allergens.map(allergenLabel).join(', ')}. This is NOT the full list.` }));
+      body.appendChild(el('p', { class: 'cat-alg-sofar',
+        text: t('cat.alg.soFar', { list: result.allergens.map(allergenLabel).join(', ') }) }));
     }
     return panel;
   }
 
-  panel.appendChild(el('div', { class: 'cat-alg-head' }, [
-    el('span', { class: 'cat-alg-label', text: 'Allergens' }),
-    el('span', { class: 'cat-alg-ok', text: 'fully declared' }),
-  ]));
+  panel.appendChild(head(el('span', { class: 'cat-alg-ok', text: t('cat.alg.declared') })));
+  // ⚠️ OUTSIDE THE FOLD, DELIBERATELY. What a recipe contains is the answer somebody
+  // at the counter needs in the moment they are asked; putting it behind a tap means
+  // a rushed answer given without opening it.
   panel.appendChild(el('p', { class: 'cat-alg-list', text: result.allergens.length
     ? result.allergens.map(allergenLabel).join(', ')
     : t('cat.noneOfThe14') }));
+  panel.appendChild(body);
   if (result.mayContain.length) {
-    panel.appendChild(el('p', { class: 'cat-alg-traces', text:
-      `May contain: ${result.mayContain.map(allergenLabel).join(', ')}` }));
+    body.appendChild(el('p', { class: 'cat-alg-traces',
+      text: t('cat.alg.mayContain', { list: result.mayContain.map(allergenLabel).join(', ') }) }));
   }
   // ⚠️ THE SENTENCE THAT MUST NOT BE DROPPED. The app gathers what it was told;
   // it cannot know what happened on the bench this morning, and a screen that
   // implies otherwise is worse than one that says nothing.
-  panel.appendChild(el('p', { class: 'cat-alg-caveat', text:
+  //
+  // ⚠️ It is INSIDE the fold, and that is a judgement worth stating: it qualifies an
+  // answer that is already outside the fold, and somebody reading the list without
+  // opening the card is reading what the SUPPLIER said either way. Anyone acting on
+  // it — printing a label — opens the card to reach the button below.
+  body.appendChild(el('p', { class: 'cat-alg-caveat', text:
     t('cat.fromTheSuppliersSpecifications2') }));
 
   // ⚠️ THE WAY TO THE LABEL EXISTS ONLY WHEN THERE IS A LABEL TO MAKE. Offering
   // it on a recipe with gaps would mean tapping through to a refusal — and the
   // refusal is already here, three lines above, naming exactly what is missing.
-  panel.appendChild(el('button', {
+  body.appendChild(el('button', {
     class: 'cat-alg-label-btn', type: 'button',
     onclick: () => app.openLabel(recipe),
   }, [t('cat.makeALabel'), el('span', { class: 'chev', text: '›', 'aria-hidden': 'true' })]));
 
   return panel;
+}
+
+// The seven reasons a row cannot be declared.
+//
+// ⚠️ RESOLVED HERE, NOT IN THE FROZEN CONSTANT. ALLERGEN_REASON_TEXT in
+// recipe-allergen-model.js now holds KEYS: a module constant that called t() would be
+// evaluated once, at first import — before a venue is open, so before the interface
+// language is even known — and would render English for ever with a correct Italian
+// translation sitting in the dictionary. Fourteen constants in this app did exactly
+// that. The defect is WHEN, not WHAT.
+function reasonLabel(reason) {
+  const key = ALLERGEN_REASON_TEXT[reason];
+  return key ? t(key) : reason;
 }
 
 // ── Guided mixing ─────────────────────────────────────────────────────────────
@@ -275,7 +323,7 @@ export function renderDetail({ recipe, app }) {
   });
 
   const calcBtn = el('button', {
-    class: 'cat-calc-btn', type: 'button', text: 'Calculate', onclick: onCalculate,
+    class: 'cat-calc-btn', type: 'button', text: t('cat.calculate'), onclick: onCalculate,
   });
 
   function renderRows() {
@@ -293,7 +341,7 @@ export function renderDetail({ recipe, app }) {
     // to-taste) are shown above but never enter this total.
     const total = scaled ? displayTarget : weighableTotalGrams(recipe);
     ingRows.appendChild(el('div', { class: 'cat-ing-row cat-ing-total' }, [
-      el('span', { class: 'cat-ing-name', text: 'Total' }),
+      el('span', { class: 'cat-ing-name', text: t('cat.total') }),
       amountEl({ num: nf.format(total), unit: 'g' }),
     ]));
     clearBtn.hidden = !scaled;
@@ -382,10 +430,17 @@ export function renderDetail({ recipe, app }) {
     [guidedPanel(recipe, app, () => displayTarget)]);
 
   const root = el('div', { class: 'cat-view' }, [
+    // ⚠️ THE WEIGHT BOX SITS DIRECTLY UNDER THE RECIPE, and it did not until now.
+    // Federico, 23 Aug 2026, from a photograph of Brioche on his own phone: scaling
+    // the batch is the thing this screen is opened FOR, and it was below the cost
+    // card and a nine-line allergen card — two cards and a scroll away from the
+    // ingredients it rewrites. Nothing depends on the order: the cost panel is
+    // replaced in place, and the guided panel reads the weight through a closure
+    // rather than off the DOM.
     el('div', { class: 'cat-detail-top' }, [
       ingList,
-      costHost,
       weightPanel,
+      costHost,
       guidedHost,
     ]),
     el('div', { class: 'cat-detail-bottom' }, [
