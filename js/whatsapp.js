@@ -45,6 +45,7 @@ async function clearAllQuantities() {
   if (!(await confirmDialog({
     message: t('calc.setEveryQuantityIn'),
     okLabel: t('calc.clearAll'),
+    cancelLabel: t('ui.cancel'),
     danger: true,
   }))) return;
 

@@ -121,7 +121,7 @@ function render() {
 // Build and save a brand-new log — same generic math/shape as a calculator Confirm.
 async function commit() {
   if (!state || !state.recipeId || !state.forDay) return;
-  if (!(await confirmDialog({ message: t('calc.saveThisLog'), okLabel: t('ui.save') }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveThisLog'), okLabel: t('ui.save'), cancelLabel: t('ui.cancel') }))) return;
   const recipe = getRecipeById(getConfig(), state.recipeId);
   if (!recipe) return;
   const items = state.items.map(it => ({

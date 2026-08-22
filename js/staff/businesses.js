@@ -159,6 +159,7 @@ export function openBusinesses({ host } = {}) {
       title: t('bz.newLink.title'),
       message: t('bz.newLink.message', { name: row.name }),
       okLabel: t('bz.newLink'),
+      cancelLabel: t('ui.cancel'),
     });
     if (!ok) return;
 
@@ -188,6 +189,7 @@ export function openBusinesses({ host } = {}) {
       title: t('bz.delete.title'),
       message: t('bz.delete.message', { name: row.name }),
       okLabel: t('bz.delete'),
+      cancelLabel: t('ui.cancel'),
       danger: true,
     });
     if (!ok) return;

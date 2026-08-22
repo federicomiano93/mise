@@ -583,6 +583,7 @@ function hubScreen(session) {
       title: t('auth.logOut.title'),
       message: t('auth.logOut.message'),
       okLabel: t('auth.logOut'),
+      cancelLabel: t('ui.cancel'),
       danger: true,
     });
     if (ok) signOutNow();

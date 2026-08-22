@@ -299,7 +299,7 @@ async function submit(grant, clientName, products, dates, date, orderId, existin
   const question = lines === 0
     ? t('co.sendEmptyFor', { day: dayLabel(date, Date.now()) })
     : t('co.sendOrderFor', { day: dayLabel(date, Date.now()) });
-  if (!(await confirmDialog({ message: question, okLabel: t('co.send') }))) return;
+  if (!(await confirmDialog({ message: question, okLabel: t('co.send'), cancelLabel: t('ui.cancel') }))) return;
 
   form.setBusy(true);
   form.setStatus(t('co.sending'), 'info');

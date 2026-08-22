@@ -18,5 +18,5 @@ export const UNSAVED_MESSAGE =
 // Resolves true when it is safe to leave the editor now: either nothing was
 // changed, or the user confirmed they want to discard their edits.
 export async function confirmDiscard(dirty) {
-  return !dirty || confirmDialog({ message: UNSAVED_MESSAGE, okLabel: t('ui.discard'), danger: true });
+  return !dirty || confirmDialog({ message: UNSAVED_MESSAGE, okLabel: t('ui.discard'), danger: true, cancelLabel: t('ui.cancel') });
 }

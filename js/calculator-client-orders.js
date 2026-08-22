@@ -431,6 +431,7 @@ async function applyOrder(order, button) {
     title: clashes.length ? t('calc.thisWillReplaceWhat') : undefined,
     message,
     okLabel: t('calc.putItIn'),
+    cancelLabel: t('ui.cancel'),
     danger: clashes.length > 0,
   }))) return;
 
@@ -498,6 +499,7 @@ function renderCutoffSettings() {
         ? `Close orders at ${wanted} the day before? Every client sees this straight away.`
         : t('calc.removeTheDeadlineClients'),
       okLabel: t('ui.save'),
+      cancelLabel: t('ui.cancel'),
     }))) return;
     save.disabled = true;
     try {

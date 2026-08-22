@@ -79,6 +79,7 @@ function renderSessionActions(session) {
           ? `${t('home.switch.toOne', { other: names[other[0]] || other[0], here: session.name })}\n\n${cleared}`
           : `${t('home.switch.toMany')}\n\n${cleared}`,
         okLabel: t('home.switch.ok'),
+        cancelLabel: t('ui.cancel'),
       });
       if (!ok) return;
       if (other.length === 1) switchLocation(other[0]);
@@ -137,6 +138,7 @@ function renderSessionActions(session) {
       title: t('auth.logOut.title'),
       message: t('auth.logOut.message'),
       okLabel: t('auth.logOut'),
+      cancelLabel: t('ui.cancel'),
       danger: true,
     });
     if (ok) signOutNow();

@@ -100,7 +100,7 @@ async function closeClients() {
   if (activeClient !== null) {
     const client = clients()[activeClient];
     if (freshlyAdded && isEmptyClient(client)) {
-      if (!(await confirmDialog({ message: t('calc.discardThisNewClient'), okLabel: t('ui.discard'), danger: true }))) return;
+      if (!(await confirmDialog({ message: t('calc.discardThisNewClient'), okLabel: t('ui.discard'), danger: true, cancelLabel: t('ui.cancel') }))) return;
       clients().splice(activeClient, 1);
     }
     freshlyAdded = false;
@@ -141,7 +141,7 @@ async function saveClients() {
     alertDialog(t('calc.pleaseGiveEveryClient'));
     return;
   }
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save'), cancelLabel: t('ui.cancel') }))) return;
   try {
     await saveConfig(working);
     forgetPausedQuantities();
@@ -277,7 +277,7 @@ function renderClientDetail(ci) {
   if (showErrors && isBlank(client.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { client.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
   const del = deleteIcon(t('calc.deleteClient'), async () => {
-    if (!(await confirmDialog({ message: t('calc.deleteThisClientAnd'), okLabel: t('ui.delete'), danger: true }))) return;
+    if (!(await confirmDialog({ message: t('calc.deleteThisClientAnd'), okLabel: t('ui.delete'), danger: true, cancelLabel: t('ui.cancel') }))) return;
     clients().splice(ci, 1);
     markDirty();
     activeClient = null;
@@ -421,6 +421,7 @@ function orderingLinkField(client) {
       title: t('calc.replaceThisLink'),
       message: `${client.name}’s current link will stop working immediately, including on a phone that is using it right now. Use “Copy link” instead if you only want to send it again.`,
       okLabel: t('ui.replace'),
+      cancelLabel: t('ui.cancel'),
       danger: true,
     }))) return;
 
@@ -450,6 +451,7 @@ function orderingLinkField(client) {
       if (!(await confirmDialog({
         message: `Stop ${client.name} sending orders through the app? Their link will stop working. Orders they have already sent are kept.`,
         okLabel: t('calc.turnOff'),
+        cancelLabel: t('ui.cancel'),
         danger: true,
       }))) return;
       try {
@@ -618,7 +620,7 @@ async function closeExtra() {
 }
 
 async function saveExtra() {
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save'), cancelLabel: t('ui.cancel') }))) return;
   try {
     await saveConfig(extraWorking);
     extraDirty = false;
@@ -751,7 +753,7 @@ function clearDivisorTab(tab) {
 }
 
 async function saveDivisor() {
-  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save') }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChanges'), okLabel: t('ui.save'), cancelLabel: t('ui.cancel') }))) return;
   try {
     await saveConfig(divisorWorking);
     divisorWorking = cloneConfig(getConfig());

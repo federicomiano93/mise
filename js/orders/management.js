@@ -464,6 +464,7 @@ export function buildManagement(data, actions) {
           const ok = await confirmDialog({
             message: `Deactivate “${name}”? It will be hidden from the order screen. You can reactivate it later.`,
             okLabel: t('ui.deactivate'), danger: true,
+            cancelLabel: t('ui.cancel'),
           });
           if (!ok) return;
         }
@@ -477,6 +478,7 @@ export function buildManagement(data, actions) {
         const ok = await confirmDialog({
           message: `Permanently delete “${name}”? This cannot be undone.`,
           okLabel: t('ui.delete'), danger: true,
+          cancelLabel: t('ui.cancel'),
         });
         if (!ok) return;
         try { await onDelete(); }

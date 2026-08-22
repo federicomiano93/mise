@@ -159,3 +159,43 @@ test('the scan reads the app, not an empty folder', () => {
   assert.ok(files.length > 40, `only ${files.length} files scanned — the walk is broken`);
   assert.ok(files.some(f => f.endsWith('management.js')), 'the Settings screen must be in scope');
 });
+
+// ---------------------------------------------------------------------------
+// Every confirm dialog names its own Cancel button
+// ---------------------------------------------------------------------------
+
+test('⚠ every confirm dialog passes cancelLabel', () => {
+  // confirm-dialog.js defaults cancelLabel to the English literal 'Cancel', so a
+  // dialog that does not pass one shows «Cancel» beside an Italian confirm button.
+  // That was true of FIFTY-TWO dialogs across six features, and it was found by
+  // screenshotting ONE of them — no i18n suite looks at a default parameter, and the
+  // literal lives in a file this suite exempts anyway.
+  //
+  // ⚠⚠ THE DEFAULT ITSELF IS DELIBERATELY NOT FIXED, and the reason is the point.
+  // All SEVEN copies of confirm-dialog.js have NO IMPORTS AT ALL — that is what makes
+  // it the most liftable file in the project ("a feature folder never imports from
+  // another feature's folder"), and tests/copie-allineate.test.mjs pins the copies
+  // byte-identical. Adding `import { t }` would couple a deliberately dependency-free
+  // file to i18n AND give each folder a different relative path, breaking that pin.
+  // The CALLERS carry the label, and this test is what stops the next one forgetting.
+  //
+  // An alert has no cancel button at all, so alertOnly dialogs are exempt.
+  const offenders = [];
+  for (const file of jsFiles(ROOT)) {
+    const src = readFileSync(file, 'utf8');
+    for (const m of src.matchAll(/(?:confirmDialog|app\.confirm)\(\{/g)) {
+      const start = m.index + m[0].length - 1;
+      let depth = 0;
+      let end = start;
+      for (let j = start; j < src.length; j++) {
+        if (src[j] === '{') depth++;
+        else if (src[j] === '}') { depth--; if (depth === 0) { end = j; break; } }
+      }
+      const call = src.slice(start, end + 1);
+      if (call.includes('alertOnly') || call.includes('cancelLabel')) continue;
+      offenders.push(`${file.slice(file.indexOf('js'))}:${src.slice(0, m.index).split('\n').length}`);
+    }
+  }
+  assert.deepEqual(offenders, [],
+    "these dialogs fall back to the English default — pass cancelLabel: t('ui.cancel')");
+});

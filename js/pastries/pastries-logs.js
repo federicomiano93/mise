@@ -59,6 +59,7 @@ export function renderLogs({ logs, app }) {
             title: t('past.removeThisRecord'),
             message: `Remove the record for ${log.day}, ${spellDate(log.date)}? This cannot be undone.`,
             okLabel: t('ui.remove'),
+            cancelLabel: t('ui.cancel'),
             danger: true,
           });
           if (!ok) return;

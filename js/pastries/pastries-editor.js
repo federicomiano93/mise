@@ -120,6 +120,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
         title: t('past.removeThisPastry'),
         message: t('past.removeRowFrom', { name: row.name.trim() || t('past.thisRow'), day: weekdayLabel(day) }),
         okLabel: t('ui.remove'),
+        cancelLabel: t('ui.cancel'),
         danger: true,
       });
       busy = false;
@@ -173,6 +174,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
         ? t('past.saveThese', { n: clean.length, day: weekdayLabel(day) })
         : t('past.saveEmpty', { day: weekdayLabel(day) }),
       okLabel: t('ui.save'),
+      cancelLabel: t('ui.cancel'),
     });
     if (!ok) { busy = false; return; }
 
@@ -188,6 +190,7 @@ export function renderEditor({ day, items, note, allDays, app }) {
       title: t('past.discardChanges'),
       message: t('past.unsavedFor', { day: weekdayLabel(day) }),
       okLabel: t('ui.discard'),
+      cancelLabel: t('ui.cancel'),
       danger: true,
     });
   });

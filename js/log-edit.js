@@ -110,7 +110,7 @@ function saveBottom() {
 }
 
 async function save() {
-  if (!(await confirmDialog({ message: t('calc.saveTheseChangesAs'), okLabel: t('ui.save') }))) return;
+  if (!(await confirmDialog({ message: t('calc.saveTheseChangesAs'), okLabel: t('ui.save'), cancelLabel: t('ui.cancel') }))) return;
   const tab = working.tab;
 
   const items = working.items.map(it => ({
@@ -216,7 +216,7 @@ function openHistoryVersion(i) {
   if (i !== vs.length - 1) {
     const restore = el('button', { class: 'cp-save-bottom', type: 'button' }, t('calc.restoreThisVersion'));
     restore.addEventListener('click', async () => {
-      if (!(await confirmDialog({ message: t('calc.restoreThisVersionIt'), okLabel: t('ui.restore') }))) return;
+      if (!(await confirmDialog({ message: t('calc.restoreThisVersionIt'), okLabel: t('ui.restore'), cancelLabel: t('ui.cancel') }))) return;
       restoreAndSave(historyLogId, i, { calculatedBy: v.calculatedBy || '', at: logTimestamp() });
       renderHistoryList();
     });
