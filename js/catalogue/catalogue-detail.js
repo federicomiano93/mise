@@ -389,14 +389,21 @@ export function renderDetail({ recipe, app }) {
   // "Import into Calculator" WRITES the Calculator's configuration. A location
   // that does not use the Calculator is refused that write by the rules, so the
   // button would only ever produce a permission error: hide it instead.
+  // ⚠️ `hidden` IS SET AFTERWARDS, NOT PASSED TO el(), AND THAT IS THE WHOLE FIX.
+  // el() ends in `node.setAttribute(key, value)`, and setAttribute('hidden', false)
+  // writes the STRING "false" — the attribute is PRESENT, and `[hidden]` matches on
+  // presence. So `hidden: !allowed` hid this button for EVERYBODY, including every
+  // venue that does use the Calculator: the only way to copy a recipe into it was
+  // gone. Assigning the property takes a real boolean and removes the attribute when
+  // false. This was the only computed boolean handed to el() anywhere in the app.
   const importBtn = el('button', {
     class: 'cat-import-btn', type: 'button',
-    hidden: !isSectionAllowed(currentSession().location, 'calculator'),
     onclick: () => app.importRecipe(recipe),
   }, [
     el('span', { icon: IMPORT_SVG, 'aria-hidden': 'true' }),
     t('cat.importIntoCalculator'),
   ]);
+  importBtn.hidden = !isSectionAllowed(currentSession().location, 'calculator');
 
   // Low-key delete (P20 — de-emphasised destructive action): routed through the
   // shared guard, which warns if the recipe was imported into the Calculator and
@@ -463,8 +470,35 @@ export function renderDetail({ recipe, app }) {
   // edited on another phone, from being a stale figure on an open screen.
   return {
     root,
+    // ⚠️⚠️ THIS REBUILDS BOTH CARDS, AND THE ALLERGEN ONE IS WHY. It used to be
+    // `costHost.replaceChildren(costPanel(...))` — one child, where the host holds
+    // TWO — so the first data update to arrive while a recipe was open DELETED the
+    // allergen card outright, with nothing on screen saying so. On the only screen in
+    // this app that can send somebody to hospital, the line reading «not declared» —
+    // or naming what the recipe contains — silently disappeared, and with it the way
+    // to a label. Live from 11 Aug 2026 (v1.37.0) to 22 Aug 2026.
+    //
+    // ⚠️ IT WAS INVISIBLE TO EVERY CHECK BECAUSE OF *WHEN*: the card is present on the
+    // first paint and destroyed by the NEXT snapshot, so anything that opens a recipe
+    // and measures straight away — which is what every driven check did — sees it
+    // there. Found by four independent reviewers reading the code, then reproduced by
+    // editing the recipe from another connection with the screen open.
+    //
+    // ⚠️ AND REBUILDING IS RIGHT, NOT MERELY SAFE: an ingredient declared on another
+    // phone must reach this screen. Leaving the card alone would fix the disappearance
+    // and freeze the answer at whatever was known when the screen opened, which on
+    // this screen is its own kind of wrong.
     refreshCost(latest) {
-      costHost.replaceChildren(costPanel(latest || recipe));
+      const fresh = latest || recipe;
+      // ⚠️ Carry the disclosure's state across the rebuild. Somebody reading the list
+      // of rows still to declare must not have it shut under them because a price
+      // arrived. Re-opened through the button's OWN handler so aria-expanded, the
+      // class and the body's hidden attribute cannot drift apart.
+      const openBefore = costHost.querySelector('.cat-alg-toggle')
+        ?.getAttribute('aria-expanded') === 'true';
+      const allergens = allergenPanel(fresh, app);
+      costHost.replaceChildren(costPanel(fresh), allergens);
+      if (openBefore) allergens.querySelector('.cat-alg-toggle')?.click();
     },
   };
 }

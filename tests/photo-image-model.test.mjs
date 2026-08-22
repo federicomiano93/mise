@@ -309,12 +309,15 @@ test('⚠️ the way back out of the photo screen is a ONE-SHOT marker', () => {
   // Left set, it would send every later Back into a new editor — the trap the
   // sessionStorage flag behind "Back to Misé" (v275) is consumed on read to avoid.
   const main = codeOf(read('js/catalogue/catalogue-main.js'));
-  const i = main.indexOf('backToEditor');
-  assert.ok(i !== -1, 'the return marker is gone');
-  // It has to be cleared in the same breath as it is read.
-  assert.match(main, /backToEditor\s*=\s*false/, 'the marker is never cleared');
-  const reads = [...main.matchAll(/if \(backToEditor\)/g)].length;
-  assert.ok(reads >= 1, 'nothing ever reads the marker');
+  assert.ok(main.includes('backToEditor'), 'the return marker is gone');
+  // ⚠️ CLEARED IN THE SAME BREATH AS IT IS READ, and the assertion has to SAY so.
+  // The first version asked only for `backToEditor = false` somewhere in the file —
+  // which the DECLARATION (`let backToEditor = false`) satisfies on its own, so
+  // deleting the consume-on-read left it green. Caught by a reviewer after the
+  // release, not by the mutation run, because the mutation I chose happened to change
+  // the declaration too.
+  assert.match(main, /if \(backToEditor\) \{ backToEditor = false;/,
+    'the marker must be consumed the instant it is read, before anything else runs');
 });
 
 test('⚠️ the batch-weight box sits directly under the recipe, above the cost card', () => {
@@ -341,15 +344,43 @@ test('⚠️ the allergen card folds, and what stays OUTSIDE the fold is the saf
     'the head must be a real button — a div with a click handler reaches no keyboard');
 
   // ⚠️ THE STATE IS APPENDED TO THE PANEL, THE DETAIL TO THE BODY. Both branches.
-  const declared = panel.slice(panel.indexOf('panel.appendChild(head(el(\'span\', { class: \'cat-alg-ok\''));
-  assert.match(declared, /panel\.appendChild\(el\('p', \{ class: 'cat-alg-list'/,
-    'what a recipe CONTAINS must stay outside the fold');
-  assert.match(declared, /body\.appendChild\(el\('button', \{\s*class: 'cat-alg-label-btn'/,
-    'the label button belongs inside the fold, so it cannot be tapped blind');
-  const blocked = panel.slice(panel.indexOf('cat-alg-blocked'), panel.indexOf('cat-alg-ok'));
-  assert.match(blocked, /panel\.appendChild\(head\(/, 'the "not declared" state must stay visible when shut');
+  //
+  // ⚠️⚠️ THE BRANCHES ARE SPLIT ON THE `if`, NOT ON A CLASS NAME, AND THAT MATTERS.
+  // The first version sliced from indexOf('cat-alg-blocked') — an index INSIDE the
+  // very call it meant to inspect, so the slice began after `panel.appendChild(head(`
+  // and ran on to include the DECLARED branch's identical call. Moving the "not
+  // declared" head into the fold — the exact defect this guard exists to stop — left
+  // it GREEN. It was reported by a reviewer after the release; the mutation run had
+  // said "caught" because a different test file happened to fail.
+  // ⚠️ THE BOUNDARY IS THE WHOLE CALL, so neither half can contain a piece of it.
+  // Splitting on the first `return panel;` does not work either: the blocked branch
+  // has an EARLY return for a recipe with nothing to declare, so the slice stopped
+  // before the line under test.
+  const split = panel.indexOf('if (!canLabel(result))');
+  assert.ok(split !== -1, 'the two branches can no longer be told apart');
+  const declaredHead = "panel.appendChild(head(el('span', { class: 'cat-alg-ok'";
+  const at = panel.indexOf(declaredHead);
+  // Finding it at all IS the guard for the declared branch's own head.
+  assert.ok(at > split, 'the "declared" state must stay visible when the card is shut');
+  const blocked = panel.slice(split, at);
+  const declared = panel.slice(at);
+
+  // "NOT DECLARED" must be readable with the card shut — a blank card reads as safe.
+  assert.match(blocked, /panel\.appendChild\(head\(/,
+    'the "not declared" state must stay visible when the card is shut');
+  assert.doesNotMatch(blocked, /body\.appendChild\(head\(/,
+    'the "not declared" state has been folded away');
   assert.match(blocked, /body\.appendChild\(el\('p', \{ class: 'cat-alg-warn'/,
     'the work list belongs inside the fold');
+
+  // What a recipe CONTAINS must be readable with the card shut, for the person at
+  // the counter who is asked and answers in the moment.
+  assert.match(declared, /panel\.appendChild\(el\('p', \{ class: 'cat-alg-list'/,
+    'what a recipe CONTAINS must stay outside the fold');
+  assert.doesNotMatch(declared, /body\.appendChild\(el\('p', \{ class: 'cat-alg-list'/,
+    'what a recipe contains has been folded away');
+  assert.match(declared, /body\.appendChild\(el\('button', \{\s*class: 'cat-alg-label-btn'/,
+    'the label button belongs inside the fold, so it cannot be tapped blind');
 });
 
 test('⚠️ the seven gap reasons are KEYS, resolved when the row is drawn', () => {
@@ -364,6 +395,54 @@ test('⚠️ the seven gap reasons are KEYS, resolved when the row is drawn', ()
   assert.match(block, /cat\.alg\.reason\./, 'the constant must hold keys');
   assert.match(codeOf(read('js/catalogue/catalogue-detail.js')), /function reasonLabel/,
     'nothing resolves the keys at draw time');
+});
+
+test('⚠⚠ a data update must not delete the allergen card from an open recipe', () => {
+  // THE DEFECT THIS PINS WAS LIVE FOR ELEVEN DAYS AND IS THE WORST THIS SCREEN CAN
+  // HAVE. costHost holds TWO cards; refreshCost() replaced its children with ONE, so
+  // the first snapshot to arrive while a recipe was open DELETED the allergen card —
+  // the only thing saying "not declared", or naming what the recipe contains.
+  //
+  // ⚠ INVISIBLE TO EVERY DRIVEN CHECK BECAUSE OF *WHEN*: the card is there on the
+  // first paint and destroyed by the NEXT update, so anything that opens a recipe and
+  // measures straight away sees it.
+  const detail = codeOf(read('js/catalogue/catalogue-detail.js'));
+  const fn = detail.slice(detail.indexOf('refreshCost(latest)'), detail.indexOf('refreshCost(latest)') + 700);
+  assert.ok(fn.length > 40, 'refreshCost is gone');
+  assert.match(fn, /allergenPanel\(/,
+    'refreshCost must rebuild the allergen card, or the next update deletes it');
+  // Both cards, in the same call, in the order the first render uses.
+  assert.match(fn, /replaceChildren\(costPanel\([^)]*\), *allergens\)/,
+    'refreshCost must put BOTH cards back');
+  // And the reader must not have the card shut under them mid-read.
+  assert.match(fn, /aria-expanded/, 'the open state is not carried across the rebuild');
+});
+
+test('⚠ a computed boolean is never handed to el() as an attribute', () => {
+  // el() ends in node.setAttribute(key, value), and setAttribute('hidden', false)
+  // writes the STRING "false" — the attribute is PRESENT and [hidden] matches on
+  // presence. `hidden: !allowed` therefore hid "Import into Calculator" for EVERY
+  // user, including the venues that do use the Calculator.
+  //
+  // ⚠ THE RULE, NOT THE ONE SITE: any el() prop whose value is a negation or a
+  // comparison is this bug waiting to happen. Set the PROPERTY afterwards instead.
+  const BOOLEAN_ATTRS = ['hidden', 'disabled', 'checked', 'readonly', 'required', 'selected'];
+  const offenders = [];
+  for (const file of readdirSync(new URL('../js/catalogue/', import.meta.url))) {
+    if (!file.endsWith('.js')) continue;
+    const src = codeOf(read(`js/catalogue/${file}`));
+    for (const attr of BOOLEAN_ATTRS) {
+      // `attr: <something that is not the literal true>` inside an el() prop object.
+      const rx = new RegExp(`\b${attr}: *(?!true\b)([^,\n]+)`, 'g');
+      for (const m of src.matchAll(rx)) {
+        const value = m[1].trim();
+        if (/^'|^"|^\`/.test(value)) continue;          // a string literal is fine
+        offenders.push(`${file}: ${attr}: ${value.slice(0, 40)}`);
+      }
+    }
+  }
+  assert.deepEqual(offenders, [],
+    'set the property after building the element — setAttribute(attr, false) still hides it');
 });
 
 // Comments stripped before every source check above. Three separate checks in this
