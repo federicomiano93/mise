@@ -6,37 +6,28 @@
 import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { sortByUsage, filterByName } from './catalogue-model.js';
-
-const SEARCH_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
+import { buildCatalogueSearch } from './search-box.js';
 
 export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange, onOpen }) {
   let query = initialQuery;
   let currentRecipes = recipes;
   let currentUsage = usageMap;
-  let debounceTimer = null;
 
   const listContainer = el('div', { class: 'cat-list' });
 
-  const input = el('input', {
-    type: 'search',
-    placeholder: t('cat.searchARecipe'),
-    'aria-label': t('cat.searchARecipeBy'),
-    autocomplete: 'off',
+  // The field itself moved to search-box.js so the allergen sheet gets the same
+  // one. Same behaviour: the query is stored on every keystroke, the repaint is
+  // debounced.
+  const { node: search } = buildCatalogueSearch({
     value: query,
-    oninput: (e) => {
-      query = e.target.value;
+    placeholder: t('cat.searchARecipe'),
+    ariaLabel: t('cat.searchARecipeBy'),
+    onInput: (text) => {
+      query = text;
       if (onQueryChange) onQueryChange(query);
-      // Debounce so a large catalogue isn't re-rendered on every keystroke.
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(paint, 140);
     },
+    onChange: () => paint(),
   });
-
-  const search = el('div', { class: 'cat-search' }, [
-    el('span', { icon: SEARCH_SVG, 'aria-hidden': 'true' }),
-    input,
-  ]);
 
   function paint() {
     listContainer.replaceChildren();
