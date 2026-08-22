@@ -68,7 +68,7 @@ export function renderGuidedEditor({ recipe, app }) {
       return;
     }
     missedBox.appendChild(el('p', { class: 'guided-edit-warn', text:
-      `Not in any step yet: ${missed.map(r => r.label).join(', ')}` }));
+      t('cat.notInAnyStepYet', { list: missed.map(r => r.label).join(', ') }) }));
     missedBox.appendChild(el('p', { class: 'guided-edit-hint', text:
       t('cat.whoeverFollowsThisWill') }));
   }
@@ -133,7 +133,7 @@ export function renderGuidedEditor({ recipe, app }) {
 
     return el('div', { class: 'guided-edit-card' }, [
       el('div', { class: 'guided-edit-head' }, [
-        el('span', { class: 'guided-edit-n', text: `Step ${i + 1}` }),
+        el('span', { class: 'guided-edit-n', text: t('cat.stepN', { n: i + 1 }) }),
         el('button', {
           class: 'cat-del-icon', type: 'button', icon: UP_SVG,
           'aria-label': `Move step ${i + 1} up`, disabled: i === 0 ? 'disabled' : null,
@@ -154,7 +154,7 @@ export function renderGuidedEditor({ recipe, app }) {
         el('span', { class: 'guided-edit-lbl', text: t('cat.ingredientsToAdd') }), picks,
       ]) : null,
       el('div', { class: 'guided-edit-field' }, [
-        el('span', { class: 'guided-edit-lbl', text: 'Timer' }),
+        el('span', { class: 'guided-edit-lbl', text: t('cat.timer') }),
         el('div', { class: 'guided-edit-time' }, [
           mins, el('span', { class: 'guided-edit-unit', text: 'min' }),
           secs, el('span', { class: 'guided-edit-unit', text: 'sec' }),
@@ -283,7 +283,7 @@ export function renderGuidedEditor({ recipe, app }) {
     el('button', { class: 'cat-add-row', type: 'button', text: t('cat.addStep'), onclick: add }),
     endNoteBlock,
     el('div', { class: 'cat-editor-actions' }, [
-      el('button', { class: 'cat-save-btn', type: 'button', text: 'Save', onclick: onSave }),
+      el('button', { class: 'cat-save-btn', type: 'button', text: t('ui.save'), onclick: onSave }),
     ]),
   ]);
 }

@@ -129,7 +129,7 @@ function openLabel(recipe) {
   activeSettings = null;
   currentRecipe = recipe;
   leaveGuard = null;
-  setHeader({ title: recipe.name || 'Label', sub: 'Label', back: true, add: false });
+  setHeader({ title: recipe.name || t('cat.label'), sub: t('cat.label'), back: true, add: false });
   swap(renderLabel({
     recipe,
     ingredients: getIngredients(),
@@ -155,7 +155,7 @@ function showAllergenSheet() {
   activeDetail = null;
   activeSettings = null;
   leaveGuard = null;
-  setHeader({ title: 'Allergens', sub: t('cat.recipeCatalogue'), back: true, add: false });
+  setHeader({ title: t('cat.allergens'), sub: t('cat.recipeCatalogue'), back: true, add: false });
   swap(renderAllergenSheet({
     recipes: getRecipes(),
     ingredients: getIngredients(),
@@ -450,7 +450,7 @@ const app = {
     // The Calculator is grams-only. If there's no weighable ingredient there is
     // nothing to import; otherwise warn about any rows that will be left out.
     if (weighableTotalGrams(recipe) <= 0) {
-      toast('This recipe has no weight-based ingredients, so there’s nothing to import into the grams-only Calculator.');
+      toast(t('cat.nothingToImport'));
       return;
     }
     const skipped = nonWeighableLabels(recipe);

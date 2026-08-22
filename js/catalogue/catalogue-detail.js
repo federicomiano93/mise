@@ -68,7 +68,7 @@ function costPanel(recipe) {
   }
 
   panel.appendChild(el('div', { class: 'cat-cost-head' }, [
-    el('span', { class: 'cat-cost-label', text: 'Cost' }),
+    el('span', { class: 'cat-cost-label', text: t('cat.cost') }),
     el('span', { class: 'cat-cost-value', text: `${formatRate(result.pricePerKg)} / kg` }),
   ]));
 
@@ -76,8 +76,9 @@ function costPanel(recipe) {
   // total whenever a row is unlinked — and a reader comparing the two numbers
   // deserves to know why they differ rather than doubting both.
   const over = result.lossPct > 0
-    ? `over ${formatWeight(result.yieldGrams)} finished (${result.lossPct}% lost from ${formatWeight(result.costedGrams)})`
-    : `over ${formatWeight(result.yieldGrams)}`;
+    ? t('cat.costOverLoss', { yield: formatWeight(result.yieldGrams), pct: result.lossPct,
+      from: formatWeight(result.costedGrams) })
+    : t('cat.costOver', { yield: formatWeight(result.yieldGrams) });
   panel.appendChild(el('p', { class: 'cat-cost-basis', text: over }));
 
   const note = partialCostText(result);
@@ -247,7 +248,8 @@ function guidedPanel(recipe, app, getTarget) {
 
   const timed = steps.reduce((sum, s) => sum + s.seconds, 0);
   panel.appendChild(el('p', { class: 'cat-guided-hint', text:
-    `${steps.length} step${steps.length === 1 ? '' : 's'}${timed ? ` · ${formatDuration(timed)} of timers` : ''}` }));
+    t('cat.nSteps', { n: steps.length })
+      + (timed ? ' · ' + t('cat.ofTimers', { time: formatDuration(timed) }) : '') }));
 
   // ⚠️ THE WARNING TRAVELS WITH THE PROCEDURE. It is shown while writing the steps
   // and again at the end of a run, but somebody about to start deserves it too:
@@ -255,11 +257,11 @@ function guidedPanel(recipe, app, getTarget) {
   const missed = unassignedRows(recipe);
   if (missed.length) {
     panel.appendChild(el('p', { class: 'cat-guided-warn', text:
-      `Not in any step: ${missed.map(r => r.label).join(', ')}` }));
+      t('cat.notInAnyStep', { list: missed.map(r => r.label).join(', ') }) }));
   }
 
   panel.appendChild(el('button', {
-    class: 'cat-guided-edit', type: 'button', text: 'Edit the steps',
+    class: 'cat-guided-edit', type: 'button', text: t('cat.editTheSteps'),
     onclick: () => app.openGuidedEditor(recipe),
   }));
   return panel;
