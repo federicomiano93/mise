@@ -151,7 +151,7 @@
         </svg>
       </span>
       <span class="home-card-title" data-i18n="section.orders">Orders</span>
-      <span class="home-card-sub" data-i18n="ui.suppliersWeeklyOrder">Suppliers &amp; weekly order</span>
+      <span class="home-card-sub" data-i18n="ui.thisWeeksOrder">This week’s order</span>
     </a>
 
     <!-- ⚠️ data-section="orders", THE SAME NAME AS THE CARD ABOVE, and that is the
@@ -163,7 +163,12 @@
          they lived behind the gear, deliberately: correcting a supplier's phone
          number is ordinary work, and the ingredient screen behind this one is where
          the allergens are — the one screen in this app that can send somebody to
-         hospital. Only Delete is gated, inside. -->
+         hospital. Only Delete is gated, inside.
+         ⚠️ AND THE TITLE IS THE LONG KEY, NOT section.suppliers. Behind this card
+         sit TWO lists, and the one that matters right now is the second — every
+         ingredient, with its allergens. «Fornitori» alone never said so. The short
+         key stays on the Orders bottom bar, where three buttons share a 320px
+         phone and this label would wrap it. -->
     <a class="home-card" href="suppliers.html" data-section="orders">
       <span class="home-card-icon" aria-hidden="true">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -172,8 +177,8 @@
           <path d="M9 13h6"/>
         </svg>
       </span>
-      <span class="home-card-title" data-i18n="section.suppliers">Suppliers</span>
-      <span class="home-card-sub" data-i18n="ui.whoYouBuyFrom">Who you buy from</span>
+      <span class="home-card-title" data-i18n="section.suppliersAndIngredients">Suppliers &amp; ingredients</span>
+      <span class="home-card-sub" data-i18n="ui.contactsAndAllergens">Contacts &amp; allergens</span>
     </a>
 
     <a class="home-card" href="pastries.html" data-section="pastries">

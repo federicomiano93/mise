@@ -105,7 +105,7 @@ export function buildRegistry(data, actions) {
   // venue's language has arrived — see the note on the buttons above.
   function paintChrome() {
     suppliersBtn.textContent = t('orders.tab.suppliers');
-    ingredientsBtn.textContent = t('ui.allIngredients');
+    ingredientsBtn.textContent = t('ui.ingredients');
     viewSwitch.setAttribute('aria-label', t('orders.registry.whichList'));
     [[suppliersBtn, tab === 'suppliers'], [ingredientsBtn, tab === 'ingredients']]
       .forEach(([btn, on]) => {

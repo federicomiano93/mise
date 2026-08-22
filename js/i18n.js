@@ -275,6 +275,12 @@ const DICTIONARIES = Object.freeze({
     // js/sections.js SECTIONS — a name added there switches itself on for every
     // venue that already exists.
     'section.suppliers': 'Suppliers',
+    // ⚠️ THE LONG NAME AND THE SHORT ONE ARE TWO KEYS ON PURPOSE. This one names the
+    // page everywhere somebody is CHOOSING what to open (the Home card, the screen's
+    // own title, the help sheet) — because «Suppliers» alone never told anybody the
+    // 67 ingredients were in there. The short one above stays on the Orders bottom
+    // bar, where three buttons share a 320px phone and this label would wrap it.
+    'section.suppliersAndIngredients': 'Suppliers & ingredients',
     'section.catalogue': 'Recipe catalogue',
     'section.pastries': 'Pastries',
     'section.foodcost': 'Food cost',
@@ -600,7 +606,13 @@ const DICTIONARIES = Object.freeze({
     'orders.whatsappMessage': 'WhatsApp message',
 
     // ── The Fornitori screen: the records, on a page of their own ────────────
-    'ui.whoYouBuyFrom': 'Who you buy from',
+    // ⚠️ NOT "prices". An employee is refused ingredient-prices by the rules and sees
+    // none, and a card must not advertise what it will not show.
+    // ⚠️ AND NOT "products" either, which the title's own «ingredients» already says:
+    // measured, the longer phrase took the Home card to a second sub-line and 130px
+    // against every other card's 104px. Two words carry the whole point — the contact
+    // details and the allergen declarations are what is NOT obvious from the title.
+    'ui.contactsAndAllergens': 'Contacts & allergens',
     'orders.productsCount': { one: '{n} product', other: '{n} products' },
     'orders.whatTheySell': 'What they sell',
     'orders.deliveryShort': 'delivery',
@@ -1388,7 +1400,10 @@ const DICTIONARIES = Object.freeze({
     },
     'ui.doughScaling': "Dough scaling",
     'ui.recipesKgScaling': "Recipes & kg scaling",
-    'ui.suppliersWeeklyOrder': "Suppliers & weekly order",
+    // ⚠️ RENAMED FROM ui.suppliersWeeklyOrder, key and all: the records LEFT Orders in
+    // v1.65.0, so a subtitle still advertising «Suppliers» sent people to the wrong
+    // card — and sat directly above a card whose title now starts with that word.
+    'ui.thisWeeksOrder': "This week’s order",
     'ui.toProveForTomorrow': "To prove for tomorrow",
     'ui.productsMargins': "Products & margins",
     'ui.doughScalingFromOrders': "Dough scaling from orders",
@@ -1450,7 +1465,9 @@ const DICTIONARIES = Object.freeze({
     'orders.section.orderScreen': 'The order screen',
     'orders.section.howSent': 'How orders may be sent',
     'ui.history': "History",
-    'ui.allIngredients': "All ingredients",
+    // ⚠️ ui.allIngredients («All ingredients») was retired here: both view switches now
+    // reuse the plain ui.ingredients that already existed. Federico, on the screen:
+    // «tutti gli ingredienti chiamalo semplicemente ingredienti».
     'ui.orderPlaced': "Order placed…",
     'ui.clearQuantities': "Clear quantities…",
     'ui.youReOfflineReconnect': "You’re offline — reconnect to load and save orders.",
@@ -1825,6 +1842,7 @@ const DICTIONARIES = Object.freeze({
     'section.calculator': 'Calcolatore',
     'section.orders': 'Ordini',
     'section.suppliers': 'Fornitori',
+    'section.suppliersAndIngredients': 'Fornitori e ingredienti',
     'section.catalogue': 'Ricettario',
     'section.pastries': 'Paste',
     'section.foodcost': 'Food cost',
@@ -2094,7 +2112,7 @@ const DICTIONARIES = Object.freeze({
     'orders.whatsappMessage': 'Messaggio WhatsApp',
 
     // ── La schermata Fornitori: le schede, su una pagina tutta loro ──────────
-    'ui.whoYouBuyFrom': 'Da chi compri',
+    'ui.contactsAndAllergens': 'Contatti e allergeni',
     'orders.productsCount': { one: '{n} prodotto', other: '{n} prodotti' },
     'orders.whatTheySell': 'Cosa vendono',
     'orders.deliveryShort': 'consegna',
@@ -2814,7 +2832,7 @@ const DICTIONARIES = Object.freeze({
     },
     'ui.doughScaling': "Calcolo impasti",
     'ui.recipesKgScaling': "Ricette e scalatura in kg",
-    'ui.suppliersWeeklyOrder': "Fornitori e ordine settimanale",
+    'ui.thisWeeksOrder': "L’ordine della settimana",
     'ui.toProveForTomorrow': "Da mettere per domani",
     'ui.productsMargins': "Prodotti e margini",
     'ui.doughScalingFromOrders': "Calcolo impasti dagli ordini",
@@ -2868,7 +2886,6 @@ const DICTIONARIES = Object.freeze({
     'orders.section.orderScreen': 'La schermata dell’ordine',
     'orders.section.howSent': 'Come si mandano gli ordini',
     'ui.history': "Storico",
-    'ui.allIngredients': "Tutti gli ingredienti",
     'ui.orderPlaced': "Ordine fatto…",
     'ui.clearQuantities': "Azzera le quantità…",
     'ui.youReOfflineReconnect': "Sei offline — riconnettiti per caricare e salvare gli ordini.",
