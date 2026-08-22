@@ -52,6 +52,10 @@ import {
   allergenLabel, allergenState, checkedAt, isDeclared,
   missingNutrients, buildAllergenFields,
 } from '../allergen-model.js';
+// Reading the pack's own ingredient list. PURE, and also from js/ ROOT: the
+// vocabulary it walks is the same one a label is built from, so a second copy is
+// the copy that quietly disagrees about what is in somebody's food.
+import { readPackIngredients } from '../allergen-match.js';
 
 export const isAdmin = true; // the panel is for everybody; Delete is the gated part
 
@@ -778,6 +782,106 @@ export function buildManagement(data, actions) {
       ]));
     }
 
+    // ── The pack's own ingredient list, and what the app makes of it ──────────
+    //
+    // ⚠️⚠️ IT PROPOSES, IT NEVER DECLARES. Reading the pack pre-ticks the boxes
+    // above and nothing else: `allergensCheckedAt` is untouched, so until somebody
+    // presses the verification tick the ingredient still reads 'unknown' and still
+    // blocks every label. A wrong suggestion costs a correction, never a false
+    // declaration — that is what makes offering one safe at all.
+    //
+    // ⚠️ AND IT NEVER UNTICKS. Somebody who ticked a box by hand knows something
+    // the pack does not say; a machine must not take it away.
+    const packBox = el('textarea', {
+      class: 'mgmt-input alg-pack-text', rows: '4',
+      placeholder: t('orders.pack.placeholder'),
+      'aria-label': t('orders.pack.label'),
+    });
+    packBox.value = item?.packIngredients || '';
+    const packResult = el('div', { class: 'alg-pack-result' });
+
+    function suggest() {
+      packResult.replaceChildren();
+      const text = packBox.value;
+      const out = readPackIngredients(text);
+
+      if (!out.hasText) {
+        packResult.appendChild(el('p', { class: 'alg-pack-note', text: t('orders.pack.nothingTyped') }));
+        return;
+      }
+
+      let added = 0;
+      for (const code of out.allergens) {
+        const pair = boxes.get(code);
+        if (pair && !pair.contains.checked) { pair.contains.checked = true; added += 1; }
+      }
+      for (const code of out.mayContain) {
+        const pair = boxes.get(code);
+        if (pair && !pair.may.checked && !pair.contains.checked) { pair.may.checked = true; added += 1; }
+      }
+      refresh();
+
+      // ⚠️ THE EVIDENCE, NOT JUST THE VERDICT. Re-drawing the pasted text with the
+      // recognised words marked turns «did it find everything?» — which nobody can
+      // answer — into «is there anything left in the grey worth checking?», which
+      // anybody can. An extractor that cannot point at its reasons cannot be
+      // checked by the person legally responsible for the answer.
+      const marked = el('p', { class: 'alg-pack-marked' });
+      let at = 0;
+      for (const m of out.matches) {
+        if (m.from > at) marked.appendChild(el('span', { text: text.slice(at, m.from) }));
+        marked.appendChild(el('mark', {
+          class: 'alg-pack-hit' + (m.traces ? ' alg-pack-hit--traces' : ''),
+          title: allergenLabel(m.code),
+          text: text.slice(m.from, m.to),
+        }));
+        at = m.to;
+      }
+      if (at < text.length) marked.appendChild(el('span', { text: text.slice(at) }));
+      packResult.appendChild(marked);
+
+      packResult.appendChild(el('p', {
+        class: 'alg-pack-note',
+        text: out.recognisedAnything
+          // ⚠️ «Ticked 0 boxes» READS AS A FAILURE and is not one — it is what you
+          // get every time you read the same pack twice, or correct a typo. Found
+          // by looking at a screenshot: the words were plainly highlighted above
+          // and the sentence underneath said nothing had happened.
+          ? (added ? t('orders.pack.ticked', { n: added }) : t('orders.pack.alreadyTicked'))
+          // ⚠️ RECOGNISING NOTHING IS AN ANSWER AND MUST LOOK LIKE ONE. Silence here
+          // would be read as «this pack contains nothing», which is the single
+          // worst thing this feature could say.
+          : t('orders.pack.recognisedNothing'),
+      }));
+
+      // ⚠️ WHAT IT CANNOT ANSWER IS ASKED, NEVER GUESSED. An Italian pack very often
+      // prints only «emulsionante: lecitine» — soya, sunflower or egg, and the pack
+      // does not say which. Choosing the commonest is declaring something nobody
+      // was told.
+      for (const q of out.questions) {
+        const word = text.slice(q.from, q.to);
+        const names = q.could.map(allergenLabel).filter(Boolean).join(' / ');
+        // ⚠️ A CATEGORY IS ITS OWN QUESTION, and it is the one the pack itself
+        // raises: «può contenere tracce di FRUTTA A GUSCIO» is a real warning that
+        // this app has no box for, because the law wants the specific nut. Left in
+        // the vague bucket it would read as «might hide something», which
+        // understates a warning the supplier actually printed.
+        let line;
+        if (q.kind === 'category') line = t('orders.pack.questionCategory', { word });
+        else if (names) line = t('orders.pack.questionWhich', { word, options: names });
+        else line = t('orders.pack.questionVague', { word });
+        packResult.appendChild(el('p', { class: 'alg-pack-question', text: line }));
+      }
+
+      // The rule the whole screen rests on, restated where the temptation is.
+      packResult.appendChild(el('p', { class: 'alg-pack-note alg-pack-warn', text: t('orders.pack.stillYours') }));
+    }
+
+    const suggestBtn = el('button', {
+      class: 'mgmt-btn alg-pack-btn', type: 'button', text: t('orders.pack.suggest'),
+      onclick: suggest,
+    });
+
     function read() {
       const contains = [];
       const may = [];
@@ -790,7 +894,10 @@ export function buildManagement(data, actions) {
       // ⚠️ The stamp is KEPT when it exists, so re-saving does not silently move
       // the verification date and make a two-year-old check look like today's.
       const stamp = checked.checked ? (checkedAt(item) || new Date().toISOString()) : '';
-      return buildAllergenFields({ allergens: contains, mayContain: may, checkedAt: stamp, nutrition });
+      return buildAllergenFields({
+        allergens: contains, mayContain: may, checkedAt: stamp, nutrition,
+        packIngredients: packBox.value,
+      });
     }
 
     // The live line at the top: which of the three states this ingredient is in.
@@ -838,6 +945,16 @@ export function buildManagement(data, actions) {
       status,
       el('p', { class: 'notif-note', text:
         t('orders.copyThisFromThe') }),
+      // ⚠️ THE PACK BOX SITS ABOVE THE 52 TICK BOXES, not below them. It is the
+      // fast way to fill them in; below, it would be the thing you find after
+      // doing the job by hand.
+      el('div', { class: 'alg-pack' }, [
+        el('span', { class: 'mgmt-field-label', text: t('orders.pack.label') }),
+        el('p', { class: 'notif-note', text: t('orders.pack.help') }),
+        packBox,
+        suggestBtn,
+        packResult,
+      ]),
       el('div', { class: 'alg-list' }, sections),
       el('label', { class: 'day-check alg-checked' }, [checked, el('span', { text: t('orders.iHaveCheckedThe') })]),
       el('p', { class: 'mgmt-field-label alg-nut-title', text: t('orders.per100G') }),

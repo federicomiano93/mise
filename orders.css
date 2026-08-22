@@ -1278,6 +1278,44 @@ a.home-reminder {
 .alg-status--unknown { background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn); }
 .alg-status--ok { background: var(--accent-light); border: 1px solid var(--border); color: var(--brand); }
 
+/* ── The pack's own ingredient list ─────────────────────────────────────────
+   Sits ABOVE the 52 tick boxes: it is the fast way to fill them in, and below
+   them it would be the thing you find after doing the job by hand. */
+.alg-pack {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 10px; padding: 12px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+}
+.alg-pack-text { width: 100%; min-height: 92px; resize: vertical; font-size: 15px; line-height: 1.4; }
+.alg-pack-btn { align-self: flex-start; }
+.alg-pack-result:empty { display: none; }
+.alg-pack-result { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+/* ⚠️ THE EVIDENCE. The pasted text is re-drawn with the recognised words marked
+   and everything else left plain, so the question becomes «is there anything in
+   the grey worth checking?» rather than the unanswerable «did it find
+   everything?». `overflow-wrap` because a pasted pack list has no spaces to break
+   at when it runs long. */
+.alg-pack-marked {
+  margin: 0; padding: 10px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 14px; line-height: 1.6; color: var(--text-3); overflow-wrap: anywhere;
+}
+.alg-pack-hit {
+  background: var(--accent-light); color: var(--brand);
+  font-weight: 700; border-radius: 4px; padding: 1px 3px;
+}
+/* A trace is marked differently from an ingredient, because they are different
+   statements and the label prints them on separate lines. */
+.alg-pack-hit--traces { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+.alg-pack-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
+.alg-pack-question {
+  margin: 0; padding: 8px 10px; border-radius: 8px;
+  background: var(--warn-bg); border: 1px solid var(--warn-border);
+  font-size: 13px; line-height: 1.45; color: var(--warn); font-weight: 600;
+}
+/* The rule the whole screen rests on, restated where the temptation is. */
+.alg-pack-warn { font-weight: 600; color: var(--warn); }
+
 .alg-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .alg-group {
   margin: 12px 0 2px; font-family: var(--font-mono);
