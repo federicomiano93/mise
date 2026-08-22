@@ -43,7 +43,7 @@ export function buildManagement(data, actions) {
   // the first two gone a bar of one tab is a control that appears to do nothing.
   const overlay = el('div', { class: 'mgmt-overlay' }, [
     el('header', { class: 'orders-header' }, [
-      el('button', { type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back', icon: BACK_ICON, onClick: () => actions.onClose() }),
+      el('button', { type: 'button', class: 'orders-icon-btn', 'aria-label': t('ui.back'), icon: BACK_ICON, onClick: () => actions.onClose() }),
       el('div', { class: 'orders-header-title' }, [el('h1', { text: t('ui.settings') })]),
       el('span', { style: { width: '36px', flexShrink: '0' } }),
     ]),

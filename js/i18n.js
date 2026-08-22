@@ -609,6 +609,39 @@ const DICTIONARIES = Object.freeze({
     // none of the 14» are the same empty list; only the stamp separates them.
     'orders.notDeclaredShort': 'not declared',
     'orders.registry.loadFailed': 'Could not load the suppliers. Check your connection and try again.',
+    'orders.ingredientsCount': { one: '{n} ingredient', other: '{n} ingredients' },
+
+    // The record forms. ⚠️ These labels were literals passed as an ARGUMENT —
+    // `field('Name', input)` — which is the one shape tests/no-hardcoded-english
+    // could not see, so the whole ingredient form stayed English on an Italian
+    // phone while four i18n suites passed. The scan now knows that shape.
+    'orders.field.name': 'Name',
+    'orders.field.category': 'Category',
+    'orders.field.email': 'Email',
+    'orders.field.supplier': 'Supplier',
+    'orders.field.brand': 'Brand',
+    'orders.field.weight': 'Weight',
+    'ui.activate': 'Activate',
+    'orders.deactivateConfirm': 'Deactivate “{name}”? It will be hidden from the order screen. You can reactivate it later.',
+    'orders.deleteConfirm': 'Permanently delete “{name}”? This cannot be undone.',
+    // One sentence per verb, not one sentence with a verb dropped into it: the
+    // grammar around it differs between the two languages.
+    'orders.failed.save': 'Could not save “{name}”. Check your network and try again.',
+    'orders.failed.delete': 'Could not delete “{name}”. Check your network and try again.',
+    'orders.failed.deactivate': 'Could not deactivate “{name}”. Check your network and try again.',
+    'orders.failed.activate': 'Could not reactivate “{name}”. Check your network and try again.',
+    'orders.failed.load': 'Could not load the price history for “{name}”. Check your network and try again.',
+    'orders.pricePerKg': 'Price per kg ({currency}, excluding VAT)',
+    'orders.pricePerLitre': 'Price per litre ({currency}, excluding VAT)',
+    'orders.pricePerPiece': 'Price per piece ({currency}, excluding VAT)',
+    'orders.priceGeneric': 'Price ({currency}, excluding VAT)',
+    // The two "start again" dialogs. Surfaced by widening the scan to `message:` —
+    // okLabel and cancelLabel were already covered, so these two asked their question
+    // in English and offered their answers in Italian.
+    'orders.nSuppliers': { one: '{n} supplier', other: '{n} suppliers' },
+    'orders.clearConfirm': 'Clear everything typed for {who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.',
+    'orders.discardTitle': 'Discard {name}’s order',
+    'orders.discardConfirm': 'Delete the quantities typed for {name}? They are not saved anywhere and cannot be recovered.',
 
     // ── An order list one person sends to another ────────────────────────────
     'orders.request.someone': 'Someone',
@@ -2062,6 +2095,32 @@ const DICTIONARIES = Object.freeze({
     'orders.orderShort': 'ordine',
     'orders.notDeclaredShort': 'non dichiarato',
     'orders.registry.loadFailed': 'Non è stato possibile caricare i fornitori. Controlla la connessione e riprova.',
+    'orders.ingredientsCount': { one: '{n} ingrediente', other: '{n} ingredienti' },
+
+    // Le schede. ⚠️ Erano scritte in inglese dentro il codice, in una forma che il
+    // controllo automatico non sapeva vedere.
+    'orders.field.name': 'Nome',
+    'orders.field.category': 'Categoria',
+    'orders.field.email': 'Email',
+    'orders.field.supplier': 'Fornitore',
+    'orders.field.brand': 'Marca',
+    'orders.field.weight': 'Peso',
+    'ui.activate': 'Riattiva',
+    'orders.deactivateConfirm': 'Sospendere «{name}»? Sparirà dalla schermata degli ordini. Puoi riattivarlo quando vuoi.',
+    'orders.deleteConfirm': 'Eliminare «{name}» per sempre? Non si può annullare.',
+    'orders.failed.save': 'Non è stato possibile salvare «{name}». Controlla la connessione e riprova.',
+    'orders.failed.delete': 'Non è stato possibile eliminare «{name}». Controlla la connessione e riprova.',
+    'orders.failed.deactivate': 'Non è stato possibile sospendere «{name}». Controlla la connessione e riprova.',
+    'orders.failed.activate': 'Non è stato possibile riattivare «{name}». Controlla la connessione e riprova.',
+    'orders.failed.load': 'Non è stato possibile caricare lo storico prezzi di «{name}». Controlla la connessione e riprova.',
+    'orders.pricePerKg': 'Prezzo al kg ({currency}, IVA esclusa)',
+    'orders.pricePerLitre': 'Prezzo al litro ({currency}, IVA esclusa)',
+    'orders.pricePerPiece': 'Prezzo al pezzo ({currency}, IVA esclusa)',
+    'orders.priceGeneric': 'Prezzo ({currency}, IVA esclusa)',
+    'orders.nSuppliers': { one: '{n} fornitore', other: '{n} fornitori' },
+    'orders.clearConfirm': 'Azzerare tutto quello che hai scritto per {who}?\n\nLe giacenze restano. Gli ordini già registrati nello Storico non vengono toccati.',
+    'orders.discardTitle': 'Scartare l’ordine di {name}',
+    'orders.discardConfirm': 'Cancellare le quantità scritte per {name}? Non sono salvate da nessuna parte e non si possono recuperare.',
 
     // ── Una lista d'ordine che una persona manda a un'altra ──────────────────
     'orders.request.someone': 'Qualcuno',

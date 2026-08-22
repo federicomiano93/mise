@@ -55,10 +55,15 @@ export function formActions(saveBtn, onCancel) {
 // A dialog, not the Orders status line: these screens are full-screen overlays, so
 // #orders-status is BEHIND them and would never be read. alertDialog sits at
 // z-index 10000, above the overlay.
-export async function reportFailure(action, name, err) {
-  console.error(`${action} failed:`, err);
+//
+// ⚠️ `action` IS A KEY NOW, NOT A WORD. It used to be the English verb dropped into
+// an English sentence — «Could not save "Mozzarella"» — so a failed write on an
+// Italian screen answered in English. One whole sentence per verb, because the
+// grammar around it is not the same in the two languages.
+export async function reportFailure(actionKey, name, err) {
+  console.error(`${actionKey} failed:`, err);
   await alertDialog(
-    `Could not ${action} “${name}”. Check your network and try again.`,
+    t(`orders.failed.${actionKey}`, { name }),
     { title: t('orders.notSaved') },
   );
 }
@@ -81,7 +86,7 @@ export function mgmtRow(name, meta, active, onEdit, onToggle, onDelete) {
       // reactivating is harmless and needs no confirmation.
       if (active) {
         const ok = await confirmDialog({
-          message: `Deactivate “${name}”? It will be hidden from the order screen. You can reactivate it later.`,
+          message: t('orders.deactivateConfirm', { name }),
           okLabel: t('ui.deactivate'), danger: true,
           cancelLabel: t('ui.cancel'),
         });
@@ -89,13 +94,13 @@ export function mgmtRow(name, meta, active, onEdit, onToggle, onDelete) {
       }
       try { await onToggle(); }
       catch (err) { await reportFailure(active ? 'deactivate' : 'activate', name, err); }
-    } }, active ? 'Deactivate' : 'Activate'),
+    } }, active ? t('ui.deactivate') : t('ui.activate')),
   ];
 
   if (canManageHere()) {
     actions.push(el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
       const ok = await confirmDialog({
-        message: `Permanently delete “${name}”? This cannot be undone.`,
+        message: t('orders.deleteConfirm', { name }),
         okLabel: t('ui.delete'), danger: true,
         cancelLabel: t('ui.cancel'),
       });

@@ -314,8 +314,8 @@ export function buildRegistry(data, actions) {
 
       const body = el('div', { class: 'mgmt-scroll' }, [
         el('div', { class: 'mgmt-form' }, [
-          field('Name', name),
-          field('Category', category),
+          field(t('orders.field.name'), name),
+          field(t('orders.field.category'), category),
           el('div', { class: 'mgmt-field' }, [
             el('span', { class: 'mgmt-field-label', text: t('orders.deliveryDaysWhenThey') }),
             el('div', { class: 'day-checks' }, deliveryChecks),
@@ -325,7 +325,7 @@ export function buildRegistry(data, actions) {
             el('div', { class: 'day-checks' }, orderChecks),
           ]),
           field(t('orders.phoneWhatsappDigitsOnly'), phone),
-          field('Email', email),
+          field(t('orders.field.email'), email),
           formActions(save, pop),
         ]),
       ]);

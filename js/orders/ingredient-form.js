@@ -55,9 +55,9 @@ function priceBlock(item, actions) {
   // freezes in the app's starting language whatever the venue says. That defect was
   // in fourteen places on 21 Aug (v1.57.0); this is the shape that avoids it.
   const RATE_LABEL = Object.freeze({
-    kg: `Price per kg (${CURRENCY}, excluding VAT)`,
-    l: `Price per litre (${CURRENCY}, excluding VAT)`,
-    pcs: `Price per piece (${CURRENCY}, excluding VAT)`,
+    kg: t('orders.pricePerKg', { currency: CURRENCY }),
+    l: t('orders.pricePerLitre', { currency: CURRENCY }),
+    pcs: t('orders.pricePerPiece', { currency: CURRENCY }),
   });
 
   // The worked example under the box. It exists to pre-empt the ONE mistake this
@@ -121,7 +121,7 @@ function priceBlock(item, actions) {
   function refresh() {
     const unit = unitSelect.value;
     pieceField.hidden = unit !== 'pcs';
-    rateLabel.textContent = RATE_LABEL[unit] || `Price (${CURRENCY}, excluding VAT)`;
+    rateLabel.textContent = RATE_LABEL[unit] || t('orders.priceGeneric', { currency: CURRENCY });
     rateHint.textContent = RATE_HINT[unit] || '';
     rateHint.hidden = !RATE_HINT[unit];
 
@@ -188,7 +188,7 @@ function priceHistoryBlock(item, actions) {
     } catch (err) {
       button.disabled = false;
       button.textContent = t('orders.priceHistory');
-      await reportFailure('load the price history for', item.name, err);
+      await reportFailure('load', item.name, err);
     }
   } }, t('orders.priceHistory'));
 
@@ -525,11 +525,11 @@ export function buildIngredientForm({ item, suppliers, preset, actions, onDone, 
 
   return el('div', { class: 'mgmt-form' }, [
     el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editIngredient') : t('orders.newIngredient') }),
-    field('Name', name),
-    field('Supplier', supplierSelect),
-    field('Brand', brand),
-    field('Weight', weight),
-    field('Category', category),
+    field(t('orders.field.name'), name),
+    field(t('orders.field.supplier'), supplierSelect),
+    field(t('orders.field.brand'), brand),
+    field(t('orders.field.weight'), weight),
+    field(t('orders.field.category'), category),
     field(t('orders.orderUnit'), unit),
     ...(price ? [price.node] : []),
     allergens.root,

@@ -1198,11 +1198,11 @@ function confirmClear(supplierIds) {
   const names = supplierIds.map(id => findOrderSupplier(id)?.name).filter(Boolean);
   const who = names.length === 1 ? names[0]
     : names.length <= 3 ? names.join(', ')
-    : `${names.length} suppliers`;
+    : t('orders.nSuppliers', { n: names.length });
 
   return confirmDialog({
     title: t('orders.clearQuantities'),
-    message: `Clear everything typed for ${who}?\n\nThe stock readings stay. Orders already recorded in History are not touched.`,
+    message: t('orders.clearConfirm', { who }),
     okLabel: t('ui.clear'),
     cancelLabel: t('ui.cancel'),
     danger: true,
@@ -1424,8 +1424,8 @@ async function discardPending(supplierId) {
   if (!supplier) return;
 
   const ok = await confirmDialog({
-    title: `Discard ${supplier.name}’s order`,
-    message: `Delete the quantities typed for ${supplier.name}? They are not saved anywhere and cannot be recovered.`,
+    title: t('orders.discardTitle', { name: supplier.name }),
+    message: t('orders.discardConfirm', { name: supplier.name }),
     okLabel: t('ui.discard'),
     cancelLabel: t('ui.cancel'),
     danger: true,
