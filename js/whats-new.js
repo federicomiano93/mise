@@ -26,6 +26,24 @@
 import { t } from './i18n.js';
 
 export const RELEASES = [
+  // ⚠️ THE ONE ENTRY THAT IS NOT ABOUT A NEW FEATURE, AND IT HAD TO BE HERE.
+  // js/install-version.js tells somebody when their installed app was built from an
+  // older manifest — but only by comparing against a fingerprint IT recorded, so it is
+  // blind to every app installed before it existed. Nothing can close that: there is no
+  // API exposing the manifest an installed app was built from (measured — the manifest
+  // <link> gives the CURRENT file, and getInstalledRelatedApps returns related NATIVE
+  // apps, never the web app itself). Every device installed before 22 Aug 2026 is
+  // therefore stale and cannot be told automatically. A release note is the only
+  // channel that reaches them, so it carries the instruction once and then stops.
+  {
+    id: '2026-08-22-reinstall-once',
+    title: 'install.stale.title',
+    points: [
+      'help.reinstallOnce',
+      'help.reinstallNothingLost',
+      'help.reinstallFromNowOn',
+    ],
+  },
   {
     id: '2026-08-06-pastries-confirm',
     title: 'section.pastries',

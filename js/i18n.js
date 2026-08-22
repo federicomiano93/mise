@@ -1288,6 +1288,16 @@ const DICTIONARIES = Object.freeze({
     'help.whatToPutOut': 'What to put out to prove, as one standing list per weekday.',
     'help.confirmKeepsARecord': 'Confirm keeps a record of the night and locks the list until 4am.',
     'help.unlikeTheCalculatorA': 'Unlike the Calculator, a new day does NOT empty it: the list is what you normally do on that weekday.',
+    // ⚠️ A ONE-OFF ANNOUNCEMENT, NOT A FEATURE. Every app installed before 22 Aug 2026
+    // carries a wrapper built from an older manifest, and js/install-version.js CANNOT
+    // see that: there is no API anywhere that exposes the manifest an installed app was
+    // built from (measured, not assumed — getInstalledRelatedApps returns related NATIVE
+    // apps, never the web app itself). It can only compare against what it recorded
+    // itself, so it is blind to every install that predates it. A release note is the
+    // only channel that reaches those devices.
+    'help.reinstallOnce': 'If you use Misé from your home screen, delete it and add it again once — part of an installed app is fixed when you add it, and no update can reach it.',
+    'help.reinstallNothingLost': 'Nothing is lost: your work is saved online, not inside the app.',
+    'help.reinstallFromNowOn': 'If the install will not go through, carry on from the browser — it works just the same. From now on the app tells you by itself whenever this is needed.',
     'help.acceptIsNowCalled': 'Accept is now called Confirm — the same word the Calculator uses for the same thing.',
     'help.aConfirmedListShows': 'A confirmed list shows as done, and its numbers stop opening, so nothing changes by accident.',
     'help.toChangeItAnyway': 'To change it anyway, tap Edit or any row and it asks first. Every list reopens on its own at 4am.',
@@ -2528,6 +2538,9 @@ const DICTIONARIES = Object.freeze({
     'help.whatToPutOut': 'Cosa mettere a lievitare, come una lista fissa per ogni giorno della settimana.',
     'help.confirmKeepsARecord': 'Conferma tiene un registro della nottata e blocca la lista fino alle 4.',
     'help.unlikeTheCalculatorA': 'A differenza del Calcolatore, un nuovo giorno NON la svuota: la lista è quello che fai di solito quel giorno della settimana.',
+    'help.reinstallOnce': 'Se usi Misé dalla schermata Home, cancellala e riaggiungila una volta — una parte di un’app installata viene fissata quando la aggiungi, e nessun aggiornamento può raggiungerla.',
+    'help.reinstallNothingLost': 'Non perdi niente: il tuo lavoro è salvato online, non dentro l’app.',
+    'help.reinstallFromNowOn': 'Se l’installazione non riesce, continua pure dal browser — funziona uguale. D’ora in poi è l’app stessa ad avvisarti quando serve.',
     'help.acceptIsNowCalled': 'Accetta ora si chiama Conferma — la stessa parola che il Calcolatore usa per la stessa cosa.',
     'help.aConfirmedListShows': 'Una lista confermata risulta fatta, e i suoi numeri smettono di aprirsi, così niente cambia per sbaglio.',
     'help.toChangeItAnyway': 'Per cambiarla comunque, tocca Modifica o una riga qualsiasi e ti chiede conferma. Ogni lista si riapre da sola alle 4.',

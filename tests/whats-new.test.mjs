@@ -160,3 +160,39 @@ test('noticeText translates the heading, not only the bullets', () => {
   assert.equal(out, 'Orders\n• Got it');
   assert.doesNotMatch(out, /section\.|help\./, 'a key left untranslated prints on screen as itself');
 });
+
+// ⚠️ THE ONE-OFF REINSTALL ANNOUNCEMENT MUST ACTUALLY REACH A REAL PHONE, and "real"
+// here has a precise meaning: v1.57.0's broken notice wrote the NEWEST id to every
+// device before throwing, so every phone in the field carries
+// '2026-08-06-pastries-confirm'. If the announcement were not newer than that, those
+// devices — which are exactly the devices that need it — would be shown nothing.
+//
+// It exists because js/install-version.js cannot see an app installed before it did:
+// no API anywhere exposes the manifest an installed app was built from (measured).
+// A release note is the only channel that reaches them.
+test('a phone carrying the stamp the broken notice left behind IS told to re-install', () => {
+  const STAMP_LEFT_BY_THE_BUG = '2026-08-06-pastries-confirm';
+  const shown = pickNotices(RELEASES, STAMP_LEFT_BY_THE_BUG, true);
+  assert.equal(shown.length, 1, 'exactly one notice — the announcement, nothing else');
+  assert.equal(shown[0].id, '2026-08-22-reinstall-once');
+
+  const text = noticeText(shown);
+  assert.doesNotMatch(text, /help\.|install\.stale/, 'every key must have become words');
+
+  // ⚠️ ASSERT ON THE INSTRUCTION, NOT THE HEADING. The first version of this checked
+  // the whole text for the word "re-install" — which the TITLE supplies, so it stayed
+  // green when a mutation gutted the instruction itself. A mutation exposed it. Read
+  // the bullets on their own.
+  const instruction = text.split('\n').slice(1).join('\n');
+  assert.match(instruction, /delete it and add it again/i,
+    'the note must say what to DO, not merely name the subject');
+  // ⚠️ The sentence whose absence left somebody with no app at all on 21 Aug.
+  assert.match(instruction, /carry on from the browser/i,
+    'it must offer the browser if the install will not go through');
+  assert.match(instruction, /nothing is lost/i, 'and say plainly that nothing is lost');
+});
+
+test('a phone that has never opened the app is NOT shown the announcement', () => {
+  // Nothing to re-install: it is about to be installed from the current manifest.
+  assert.deepEqual(pickNotices(RELEASES, '', false), []);
+});
