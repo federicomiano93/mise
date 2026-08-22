@@ -67,7 +67,7 @@
 <link rel="stylesheet" href="auth.css">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="orders.css">
-<title>Suppliers — Misé</title>
+<title>Suppliers &amp; ingredients — Misé</title>
 </head>
 <body data-section="orders">
 <!-- Sign-in cover. It is HERE, in the markup, so it is opaque from the first
@@ -81,8 +81,11 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
   </a>
   <div class="orders-header-title">
-    <h1 data-i18n="section.suppliers">Suppliers</h1>
-    <p data-i18n="ui.whoYouBuyFrom">Who you buy from</p>
+    <!-- ⚠️ THE SAME KEY THE HOME CARD USES, and a test pins that. What you tap and
+         what you land on must carry the same name, or the rename only moves the
+         confusion one screen along. -->
+    <h1 data-i18n="section.suppliersAndIngredients">Suppliers &amp; ingredients</h1>
+    <p data-i18n="ui.contactsProductsAllergens">Contacts, products &amp; allergens</p>
   </div>
   <span class="help-host" data-help="suppliers"></span>
 </header>

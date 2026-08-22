@@ -211,3 +211,48 @@ test('the two lists share ONE search box, mounted once', () => {
   assert.match(code, /onInput: text => \{ query = text; \}/,
     'the text is stored on every keystroke: a live snapshot must find the CURRENT text');
 });
+
+// ── 5. The name on the door ──────────────────────────────────────────────────
+//
+// ⚠️ TWO KEYS FOR ONE DESTINATION, AND THAT IS THE DESIGN. The long name goes
+// everywhere somebody is CHOOSING what to open; the short one stays where three
+// buttons share a 320px phone. Both halves need pinning: unify them and the Orders
+// bar wraps, split them further and the card and the screen drift apart.
+
+test('⚠️ the card you tap and the screen you land on carry the SAME name', () => {
+  const home = read('index.html');
+  const card = home.match(/<a class="home-card" href="suppliers\.html"[\s\S]*?<\/a>/);
+  assert.ok(card, 'index.html must carry a card pointing at suppliers.html');
+  const KEY = 'section.suppliersAndIngredients';
+  assert.match(card[0], new RegExp(`class="home-card-title" data-i18n="${KEY}"`),
+    `the Home card's title must be ${KEY} — «Fornitori» alone never told anybody the `
+    + 'ingredients, and the allergen work, were behind it');
+  assert.match(PAGE, new RegExp(`<h1 data-i18n="${KEY}"`),
+    'the page must announce itself with the same key, or the rename only moves the '
+    + 'confusion one screen along');
+});
+
+test('⚠️⚠️ the Orders bottom bar keeps the SHORT label', () => {
+  const bar = read('orders.html').match(/<a[^>]*id="suppliers-footer-btn"[\s\S]*?<\/a>/);
+  assert.ok(bar, 'orders.html must still carry the second door');
+  assert.match(bar[0], /data-i18n="section\.suppliers"/,
+    'three buttons share a 320px phone here and this bar has already shipped a broken '
+    + 'release from a tab that wrapped by 3px — «Fornitori e ingredienti» would wrap it. '
+    + 'Inside Orders the context is given and the button has an icon; the Home card has '
+    + 'nothing but its words');
+});
+
+test('the retired subtitles are gone from the markup AND from both dictionaries', () => {
+  // ⚠️ A KEY LEFT BEHIND IS NOT HARMLESS: the next person reads it as live, and its
+  // English no longer describes anything the app shows.
+  // ⚠️ THE CODE, NOT THE FILE — this file's own comment records the rename by name,
+  // which is exactly the shape that made an earlier check in this suite go red on a
+  // correct app.
+  const i18n = codeOf(read('js/i18n.js'));
+  for (const dead of ['ui.whoYouBuyFrom', 'ui.suppliersWeeklyOrder']) {
+    assert.ok(!i18n.includes(dead), `${dead} was replaced — remove it, do not leave it`);
+    for (const page of ['index.html', 'suppliers.html', 'orders.html']) {
+      assert.ok(!read(page).includes(dead), `${page} still points at ${dead}`);
+    }
+  }
+});

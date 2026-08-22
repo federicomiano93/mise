@@ -68,7 +68,7 @@ export const HELP = {
   },
 
   suppliers: {
-    title: 'section.suppliers',
+    title: 'section.suppliersAndIngredients',
     lines: [
       'help.suppliersEverythingYouBuy',
       'help.suppliersAllergensLiveHere',
