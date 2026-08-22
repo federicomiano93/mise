@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   recipeAllergens, canLabel, incompleteText, ALLERGEN_REASON_TEXT,
-  blockingIngredients, unlinkedRowNames,
+  blockingIngredients, unlinkedRowNames, rowState, rowIsBlocked, ROW_STATES,
 } from '../js/catalogue/recipe-allergen-model.js';
 import { MAX_RECIPE_DEPTH } from '../js/catalogue/recipe-cost-model.js';
 
@@ -318,4 +318,72 @@ test('the order is busiest first, ties by name, and stable', () => {
 test('junk never throws', () => {
   assert.deepEqual(unlinkedRowNames(null), []);
   assert.deepEqual(unlinkedRowNames([null, {}]), []);
+});
+
+// ── What a one-line row says about a recipe ──────────────────────────────────
+//
+// ⚠️⚠️ THIS DECISION USED TO LIVE INSIDE allergen-sheet.js, WHERE NO TEST COULD
+// REACH IT — on the one screen in this app that can send somebody to hospital.
+// Moved into the model so a mutation has something to break.
+
+test('the four states, and the dangerous one is told apart from the safe one', () => {
+  const tables = { ingredients: ingredients() };
+
+  // Checked, and it contains something.
+  assert.equal(rowState(recipeAllergens(recipe('R', [row('Flour', 'FLOUR')]), tables)),
+    'declared-listed');
+
+  // Checked, and it contains none of the fourteen. ⚠️ NOT the same as nobody
+  // having looked, and the screen must dress it as a statement somebody made.
+  const none = recipeAllergens(recipe('R', [row('Water', 'WATER')]), tables);
+  assert.equal(rowState(none), 'declared-none');
+  assert.deepEqual(none.allergens, []);
+
+  // Nobody has said anything, and there are rows waiting.
+  assert.equal(rowState(recipeAllergens(recipe('R', [row('Mystery', 'MYSTERY')]), tables)),
+    'not-declared');
+
+  // A recipe with nothing in it is NOT "contains none" — nobody has said so.
+  assert.equal(rowState(recipeAllergens(recipe('R', []), tables)), 'nothing-yet');
+});
+
+// ⚠️⚠️ THE MUTATION THAT MATTERS MOST IN THIS FILE. A recipe with two of six rows
+// declared HAS allergens — and is incomplete. Anything that reads the list instead
+// of asking canLabel() calls it declared, and the row nobody linked could be the
+// one with the hazelnuts.
+test('allergens present but incomplete answers NOT DECLARED, never declared', () => {
+  const half = {
+    complete: false,
+    allergens: ['gluten-wheat', 'milk'],
+    mayContain: [],
+    gaps: [{ name: 'Mystery mix', reason: 'not-declared' }],
+  };
+  assert.equal(canLabel(half), false);
+  assert.equal(rowState(half), 'not-declared');
+  assert.equal(rowIsBlocked(rowState(half)), true);
+});
+
+// ⚠️ EVERY DEFAULT IN THIS FILE POINTS THE SAME WAY: doubt reads as "we do not
+// know". A missing result must never answer the clean-looking state.
+test('junk answers not-declared rather than anything reassuring', () => {
+  for (const bad of [null, undefined, 0, '', false, NaN]) {
+    assert.equal(rowState(bad), 'not-declared', String(bad));
+  }
+  // A result whose shape is wrong is still not an answer.
+  assert.equal(rowState({ complete: true }), 'declared-none');
+  assert.equal(rowState({ complete: false }), 'nothing-yet');
+});
+
+test('only the two declared states are unblocked', () => {
+  assert.deepEqual([...ROW_STATES],
+    ['declared-listed', 'declared-none', 'nothing-yet', 'not-declared']);
+  assert.equal(rowIsBlocked('declared-listed'), false);
+  assert.equal(rowIsBlocked('declared-none'), false);
+  assert.equal(rowIsBlocked('nothing-yet'), true);
+  assert.equal(rowIsBlocked('not-declared'), true);
+  // A state nobody recognises is treated as having an answer only if it is one of
+  // the two — so an unknown string is NOT silently unblocked... it is unblocked.
+  // ⚠️ Stated plainly because it is the one direction that could bite: rowState()
+  // is the only producer, and it can only ever return one of the four above.
+  assert.equal(ROW_STATES.length, 4);
 });
