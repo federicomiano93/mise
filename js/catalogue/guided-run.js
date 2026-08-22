@@ -483,6 +483,7 @@ export function renderRun({ recipe, targetGrams, app, resume = null }) {
       title: t('cat.leaveTheGuidedMix'),
       message: `You are on ${progressText(index, steps.length).toLowerCase()}. It will be waiting where you left it.`,
       okLabel: t('ui.leave'),
+      cancelLabel: t('ui.cancel'),
     });
     if (ok) stop();
     return ok;

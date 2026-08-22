@@ -258,7 +258,7 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
       return;
     }
     busy = true;
-    const ok = await app.confirm({ title: t('cat.saveRecipe'), message: t('cat.saveTheseChanges'), okLabel: t('ui.save') });
+    const ok = await app.confirm({ title: t('cat.saveRecipe'), message: t('cat.saveTheseChanges'), okLabel: t('ui.save'), cancelLabel: t('ui.cancel') });
     if (!ok) { busy = false; return; }
     dirty = false;
     // Local-first: the store updates the list instantly and syncs in the background;
@@ -281,7 +281,7 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
   // Discard protection: Back with unsaved edits asks first.
   app.setLeaveGuard(async () => {
     if (!dirty) return true;
-    return app.confirm({ title: t('cat.discardChanges'), message: t('cat.youHaveUnsavedChanges'), okLabel: t('ui.discard'), danger: true });
+    return app.confirm({ title: t('cat.discardChanges'), message: t('cat.youHaveUnsavedChanges'), okLabel: t('ui.discard'), danger: true, cancelLabel: t('ui.cancel') });
   });
 
   // How much weight this recipe loses on the way to being finished — evaporation in
@@ -339,6 +339,7 @@ export function renderEditor({ recipe, draft, allRecipes, app }) {
             title: t('cat.photo.replaceTitle'),
             message: t('cat.photo.replaceBody'),
             okLabel: t('cat.photo.replaceOk'),
+            cancelLabel: t('ui.cancel'),
             danger: true,
           });
           if (!ok) return;

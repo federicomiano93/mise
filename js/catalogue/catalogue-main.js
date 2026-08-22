@@ -219,6 +219,7 @@ async function togglePhoto() {
     title: turningOn ? t('cat.photo.turnOnTitle') : t('cat.photo.turnOffTitle'),
     message: turningOn ? t('cat.photo.turnOnBody') : t('cat.photo.turnOffBody'),
     okLabel: turningOn ? t('cat.photo.turnOn') : t('cat.photo.turnOff'),
+    cancelLabel: t('ui.cancel'),
   });
   if (!ok) return;
   try {
@@ -421,7 +422,7 @@ const app = {
       ? base + t('cat.itWasImportedInto')
       : base;
 
-    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: t('ui.delete'), danger: true });
+    const ok = await confirmDialog({ title: t('cat.deleteRecipe2'), message, okLabel: t('ui.delete'), danger: true, cancelLabel: t('ui.cancel') });
     if (!ok) return false;
     deleteRecipe(recipe.id);
     toast(t('cat.recipeDeleted'));
@@ -443,6 +444,7 @@ const app = {
       title: t('cat.importIntoCalculator2'),
       message: `Copy “${recipe.name}” into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
       okLabel: t('ui.import'),
+      cancelLabel: t('ui.cancel'),
     });
     if (!ok) return;
     try {
