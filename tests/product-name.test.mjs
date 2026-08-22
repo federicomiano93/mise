@@ -14,8 +14,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
+const ROOT = new URL('../', import.meta.url);
 const read = p => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 
 // Strip line comments before looking: this file's whole point is what the CODE
@@ -59,9 +60,10 @@ test('the sign-in screen shows the product, not a venue', () => {
 });
 
 test('no page still carries a venue name in its title or install name', () => {
-  const pages = ['index.html', 'calculator.html', 'orders.html', 'catalogue.html',
-                 'foodcost.html', 'pastries.html', 'home.html', 'install-guide.html',
-                 'order.html', 'manifest.json'];
+  // ⚠️ DERIVED, NOT LISTED. The list was written out by hand, so a page added later
+  // was never checked at all — which is exactly what suppliers.html did to it.
+  const pages = [...readdirSync(ROOT).filter((n) => n.endsWith('.html')), 'manifest.json'];
+  assert.ok(pages.length >= 9, `only found ${pages.length} files — the scan is not finding them`);
   for (const page of pages) {
     assert.ok(!read(page).includes('The Italian Club'), page);
   }

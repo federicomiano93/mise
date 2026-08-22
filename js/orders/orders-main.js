@@ -10,9 +10,11 @@
 // not under today.
 
 import { t } from '../i18n.js';
+// ⚠️ createDoc / removeDoc / saveIngredientWithPrice / getPriceHistory LEFT WITH THE
+// RECORDS. This page no longer creates, deletes or prices anything — it reads the
+// two collections to draw an order. js/orders/registry-main.js holds those calls now.
 import {
-  watchCollection, watchDoc, saveDoc, createDoc, removeDoc,
-  saveIngredientWithPrice, getPriceHistory, COLLECTIONS,
+  watchCollection, watchDoc, saveDoc, COLLECTIONS,
   watchIngredientPrices, canManageHere,
 } from './firebase-orders.js';
 import { withPrices } from '../price-model.js';
@@ -1460,10 +1462,11 @@ function expandSupplier(supplierId) {
 // ── Management panel ──────────────────────────────────────────────────────────
 function openManagement() {
   if (mgmt) return;
+  // ⚠️ ONLY config/orders REACHES IT NOW. The supplier and ingredient records moved
+  // to their own screen (suppliers.html), so this panel no longer needs — or gets —
+  // either list.
   mgmt = buildManagement(
     {
-      suppliers: () => state.suppliers,
-      ingredients: () => state.ingredients,
       ordersConfig: () => ordersConfig,
     },
     {
@@ -1472,22 +1475,6 @@ function openManagement() {
       // merges, so writing `{ showStock }` alone would leave historyDays untouched —
       // but only as long as every caller keeps passing just what it changed.
       saveOrdersConfig: patch => saveDoc(COLLECTIONS.config, 'orders', patch),
-      saveSupplier: (id, payload) =>
-        id ? saveDoc(COLLECTIONS.suppliers, id, payload) : createDoc(COLLECTIONS.suppliers, payload),
-      // One call for both create and update, because the ingredient and its price
-      // record have to land together or not at all — see saveIngredientWithPrice.
-      // `record` is null whenever the price did not actually move.
-      // ⚠️ writePrice IS PASSED THROUGH, not decided here. A batch is all-or-nothing:
-      // including a write to ingredient-prices for somebody the rules refuse would
-      // fail the WHOLE save, so renaming an ingredient — ordinary work — would come
-      // back as a permission error with nothing on screen explaining it.
-      saveIngredient: (id, payload, record, writePrice) =>
-        saveIngredientWithPrice(id, payload, record, writePrice),
-      priceHistory: (id) => getPriceHistory(id),
-      setSupplierActive: (id, active) => saveDoc(COLLECTIONS.suppliers, id, { active }),
-      setIngredientActive: (id, active) => saveDoc(COLLECTIONS.ingredients, id, { active }),
-      deleteSupplier: (id) => removeDoc(COLLECTIONS.suppliers, id),
-      deleteIngredient: (id) => removeDoc(COLLECTIONS.ingredients, id),
     },
   );
   document.body.appendChild(mgmt.overlay);
@@ -1694,7 +1681,6 @@ async function init() {
     showAlerts();
     renderReminders();
     checkPendingOnce();
-    mgmt?.refresh();
   }, liveDataLost('suppliers'));
   // ⚠️ THE PRICES ARE A SECOND COLLECTION AND ARRIVE SEPARATELY. They moved off
   // the ingredient document because Orders reads every ingredient to work at all,
@@ -1706,7 +1692,6 @@ async function init() {
     state.ingredientPrices = map;
     if (state.loaded.ingredients) {
       state.ingredients = withPrices(state.rawIngredients, map);
-      mgmt?.refresh();
     }
   });
   watchCollection(COLLECTIONS.ingredients, list => {
@@ -1717,7 +1702,6 @@ async function init() {
     renderHistory();
     renderReminders();
     checkPendingOnce();
-    mgmt?.refresh();
   }, liveDataLost('ingredients'));
 }
 

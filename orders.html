@@ -208,8 +208,18 @@
 
     <!-- ⚠️ THREE FOOTER BUTTONS WHERE THERE WERE TWO. This bar has already cost this
          project once: a tab that wrapped by 3px shipped a broken release. Measured at
-         320/375/390px before merging — see the PR. -->
+         320/375/390px before merging — see the PR.
+         ⚠️ AND RE-MEASURED WITH THE NEW LABELS, because "three fits" was proved with
+         DIFFERENT WORDS: «Fornitori» / «Suppliers» is longer than what used to sit
+         here, and it is the label — not the count — that wraps a bar. -->
     <button class="recipe-footer-btn" id="history-footer-btn" type="button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 106 5.3L3 8"/><path d="M12 7v5l4 2"/></svg><span data-i18n="ui.history">History</span></button>
+    <!-- ⚠️ A LINK, NOT A BUTTON, and it leaves this page. The records are a page of
+         their own now (suppliers.html) and the Home has its own card for them; this
+         is the second door, for somebody already standing here mid-order who needs
+         to add a supplier. Nothing is lost by leaving: the draft autosaves on every
+         keystroke.
+         ⚠️ AND IT CARRIES NO ROLE GATE — see the card in index.html. -->
+    <a class="recipe-footer-btn" id="suppliers-footer-btn" href="suppliers.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-4A1 1 0 0 1 5.45 4h13.1a1 1 0 0 1 .95.68L21 9"/><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 13h6"/></svg><span data-i18n="section.suppliers">Suppliers</span></a>
     <button class="recipe-footer-btn" id="settings-footer-btn" type="button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg><span data-i18n="ui.settings">Settings</span></button>
   </div>
 

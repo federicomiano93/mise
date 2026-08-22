@@ -248,8 +248,11 @@ test('⚠️ NOTHING may lock the app to an orientation — not the manifest, no
 });
 
 test('no page loads an orientation lock, and the file is gone from the precache', () => {
-  for (const page of ['index.html', 'orders.html', 'calculator.html', 'foodcost.html',
-    'pastries.html', 'catalogue.html', 'order.html']) {
+  // ⚠️ DERIVED, NOT LISTED — a hand-written list cannot see the page added tomorrow,
+  // and this one had already missed suppliers.html.
+  const pages = readdirSync(root).filter((n) => n.endsWith('.html'));
+  assert.ok(pages.length >= 8, `only found ${pages.length} pages — the scan is not finding them`);
+  for (const page of pages) {
     assert.doesNotMatch(read(page), /orientation-lock/, `${page} must not load an orientation lock`);
   }
   // ⚠️ A precached file that no longer exists makes install() fail, and install() is

@@ -67,6 +67,15 @@ export const HELP = {
     ],
   },
 
+  suppliers: {
+    title: 'section.suppliers',
+    lines: [
+      'help.suppliersEverythingYouBuy',
+      'help.suppliersAllergensLiveHere',
+      'help.suppliersPasteThePack',
+    ],
+  },
+
   foodcost: {
     title: 'help.foodCost',
     lines: [

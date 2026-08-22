@@ -270,6 +270,11 @@ const DICTIONARIES = Object.freeze({
     // bought; they are in DATA_WORDS and can never be a key here.
     'section.calculator': 'Calculator',
     'section.orders': 'Orders',
+    // ⚠️ NOT A SECTION NAME. It is a PAGE inside the `orders` section (the records
+    // that used to sit behind the gear), so it is deliberately absent from
+    // js/sections.js SECTIONS — a name added there switches itself on for every
+    // venue that already exists.
+    'section.suppliers': 'Suppliers',
     'section.catalogue': 'Recipe catalogue',
     'section.pastries': 'Pastries',
     'section.foodcost': 'Food cost',
@@ -593,6 +598,17 @@ const DICTIONARIES = Object.freeze({
     // definition now, and Intl decides the form.
     'orders.itemsCount': { one: '{n} item', other: '{n} items' },
     'orders.whatsappMessage': 'WhatsApp message',
+
+    // ── The Fornitori screen: the records, on a page of their own ────────────
+    'ui.whoYouBuyFrom': 'Who you buy from',
+    'orders.productsCount': { one: '{n} product', other: '{n} products' },
+    'orders.whatTheySell': 'What they sell',
+    'orders.deliveryShort': 'delivery',
+    'orders.orderShort': 'order',
+    // ⚠️ A WORD, NEVER A COLOUR ALONE. «Nobody has looked» and «checked, contains
+    // none of the 14» are the same empty list; only the stamp separates them.
+    'orders.notDeclaredShort': 'not declared',
+    'orders.registry.loadFailed': 'Could not load the suppliers. Check your connection and try again.',
 
     // ── An order list one person sends to another ────────────────────────────
     'orders.request.someone': 'Someone',
@@ -1422,6 +1438,9 @@ const DICTIONARIES = Object.freeze({
     'help.whatToBuySupplier': 'What to buy, supplier by supplier. Order is how many you need; Stock is what you still have.',
     'help.orderPlacedRecordsIt': '“Order placed” records it and clears the row, so the screen always shows what is left to do.',
     'help.suggestedAmountsComeFrom': 'Suggested amounts come from your last 8 orders of that item, so they mean nothing until you have placed a few.',
+    'help.suppliersEverythingYouBuy': 'Everything you buy and who you buy it from. Tap a supplier for its details and every product it sells; tap a product to open its record.',
+    'help.suppliersAllergensLiveHere': 'Allergens belong to the PRODUCT, not to the recipe — so declaring milk on your butter answers for every recipe that uses that butter.',
+    'help.suppliersPasteThePack': 'Paste the ingredient list printed on the pack and the app ticks the allergen boxes for you. It only ever suggests: the product stays undeclared until you tick “I have checked this” yourself.',
     'help.foodCost': 'Food cost',
     'help.whatAProductCosts': 'What a product costs to make, and what it earns.',
     'help.typeTheSellingPrice': 'Type the selling price as it is on the label, WITH VAT. The app works the cost out on the price without VAT.',
@@ -1766,6 +1785,7 @@ const DICTIONARIES = Object.freeze({
 
     'section.calculator': 'Calcolatore',
     'section.orders': 'Ordini',
+    'section.suppliers': 'Fornitori',
     'section.catalogue': 'Ricettario',
     'section.pastries': 'Paste',
     'section.foodcost': 'Food cost',
@@ -2033,6 +2053,15 @@ const DICTIONARIES = Object.freeze({
 
     'orders.itemsCount': { one: '{n} voce', other: '{n} voci' },
     'orders.whatsappMessage': 'Messaggio WhatsApp',
+
+    // ── La schermata Fornitori: le schede, su una pagina tutta loro ──────────
+    'ui.whoYouBuyFrom': 'Da chi compri',
+    'orders.productsCount': { one: '{n} prodotto', other: '{n} prodotti' },
+    'orders.whatTheySell': 'Cosa vendono',
+    'orders.deliveryShort': 'consegna',
+    'orders.orderShort': 'ordine',
+    'orders.notDeclaredShort': 'non dichiarato',
+    'orders.registry.loadFailed': 'Non è stato possibile caricare i fornitori. Controlla la connessione e riprova.',
 
     // ── Una lista d'ordine che una persona manda a un'altra ──────────────────
     'orders.request.someone': 'Qualcuno',
@@ -2796,6 +2825,9 @@ const DICTIONARIES = Object.freeze({
     'help.whatToBuySupplier': 'Cosa comprare, fornitore per fornitore. Ordine è quanti te ne servono; Giacenza è quanti ne hai ancora.',
     'help.orderPlacedRecordsIt': '“Ordine fatto” lo registra e azzera la riga, così la schermata mostra sempre quello che resta da fare.',
     'help.suggestedAmountsComeFrom': 'Le quantità suggerite vengono dai tuoi ultimi 8 ordini di quella voce, quindi non vogliono dire niente finché non ne hai fatti alcuni.',
+    'help.suppliersEverythingYouBuy': 'Tutto quello che compri e da chi lo compri. Tocca un fornitore per vedere i suoi dati e tutti i prodotti che vende; tocca un prodotto per aprire la sua scheda.',
+    'help.suppliersAllergensLiveHere': 'Gli allergeni stanno sul PRODOTTO, non sulla ricetta — quindi dichiarare il latte sul tuo burro risponde per ogni ricetta che usa quel burro.',
+    'help.suppliersPasteThePack': 'Incolla l’elenco ingredienti stampato sulla confezione e l’app spunta le caselle degli allergeni al posto tuo. Propone soltanto: il prodotto resta non dichiarato finché non metti tu la spunta «ho verificato».',
     'help.foodCost': 'Food cost',
     'help.whatAProductCosts': 'Quanto costa produrre un prodotto, e quanto rende.',
     'help.typeTheSellingPrice': 'Scrivi il prezzo di vendita com’è sull’etichetta, CON l’IVA. L’app calcola il costo sul prezzo senza IVA.',

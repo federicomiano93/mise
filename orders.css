@@ -967,6 +967,50 @@ input.ing-stock {
    Edit/Deactivate (P20 — de-emphasise destructive actions). */
 .mgmt-link.danger { color: var(--danger); }
 
+/* ── The Fornitori screen (suppliers.html) ────────────────────────────────────
+   Everything here builds on .mgmt-* above rather than restating it: this screen IS
+   the old management lists, moved out from behind the gear onto a page of their own.
+   Only the rows differ, because here a row DRILLS IN instead of carrying its
+   actions at the right-hand end. */
+.reg-list-host { display: flex; flex-direction: column; }
+
+/* A .mgmt-item that is itself the button. A <button> resets font and alignment, so
+   both have to be said again — and width, because a flex child button shrinks to
+   its content and the rows would end on a ragged right edge. */
+.reg-drill {
+  width: 100%;
+  text-align: left;
+  font-family: 'Manrope', sans-serif;
+  cursor: pointer;
+}
+.reg-drill:active { transform: scale(0.97); }
+.reg-chevron {
+  flex-shrink: 0;
+  color: var(--text3);
+  /* icon + text must be a flex ROW: an SVG in a span is an inline box and would sit
+     on the text baseline, ~2px low. This app's most common bug. */
+  display: flex;
+  align-items: center;
+}
+
+/* "Not declared" on an ingredient row.
+   ⚠️ A WORD, NEVER A COLOUR ALONE. «nobody has looked» and «checked, contains none
+   of the 14» are both an empty allergen list, and only the verification stamp tells
+   them apart — so the row has to SAY which one it is (the v1.63.0 rule, and P18).
+   The amber pair is the system's own, already shipped on the Log's day badge; no
+   new colour is chosen here. */
+.reg-flag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* ── Management forms ─────────────────────────────────────────────────────── */
 .mgmt-form { display: flex; flex-direction: column; gap: 14px; }
 .mgmt-form-title { font-size: 17px; font-weight: 600; color: var(--text); }
