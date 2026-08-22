@@ -32,6 +32,7 @@
 import { t } from '../i18n.js';
 import { el } from './dom.js';
 import { buildSearchBox } from './search-box.js';
+import { dayShort } from './suppliers.js';
 import { NO_SUPPLIER_ID } from './no-supplier.js';
 import { ingredientLabel } from './archive.js';
 import { formatPricePerUnit } from '../price-model.js';
@@ -57,24 +58,33 @@ export function buildRegistry(data, actions) {
   // A .view-switch, not a .tab-bar, and the same pair the Order tab already uses:
   // these are two windows onto ONE set of records, not two different sections. It
   // is also the only two-way control in this app already measured at 320px.
+  // ⚠️⚠️ THE WORDS ARE NOT PUT ON THESE BUTTONS HERE, and that is the whole point.
+  // registry-main.js calls buildRegistry() at MODULE LOAD — before a venue is open, so
+  // before the app knows which language it speaks. A t() on this line answers in the
+  // starting language and keeps that answer for the life of the page: the two labels
+  // read «Suppliers · All ingredients» on an Italian screen, in the app's own words,
+  // for as long as it stayed open. Caught by driving it, not by reading it.
+  //
+  // ⚠️ AND IT IS THE EIGHTH SHAPE OF THAT DEFECT. tests/frozen-phrases.test.mjs looks
+  // for a top-level CONST that calls t(); these calls sit inside a function, which is
+  // normally the fix — except the function itself is called at module load. paintChrome()
+  // below runs on every repaint instead, which is after the language is known.
   const suppliersBtn = el('button', {
     type: 'button', class: 'view-switch-btn active', role: 'tab', 'aria-selected': 'true',
     onClick: () => setTab('suppliers'),
-  }, t('orders.tab.suppliers'));
+  });
   const ingredientsBtn = el('button', {
     type: 'button', class: 'view-switch-btn', role: 'tab', 'aria-selected': 'false',
     onClick: () => setTab('ingredients'),
-  }, t('ui.allIngredients'));
-  const viewSwitch = el('div', {
-    class: 'view-switch', role: 'tablist', 'aria-label': t('orders.tab.suppliers'),
-  }, [suppliersBtn, ingredientsBtn]);
+  });
+  const viewSwitch = el('div', { class: 'view-switch', role: 'tablist' }, [suppliersBtn, ingredientsBtn]);
 
   // MOUNTED ONCE, ROWS REPAINTED — the same arrangement as the supplier list and
   // the flat ingredient list on the Order tab. A live snapshot from another phone
   // must never rip the search box out from under the finger typing into it.
+  // Placeholder deliberately left empty here too — paintChrome() fills it.
   const search = buildSearchBox({
     value: query,
-    placeholder: t('orders.searchASupplier'),
     // Stored immediately so an external refresh() keeps the text; the repaint is
     // the debounced half.
     onInput: text => { query = text; },
@@ -87,20 +97,33 @@ export function buildRegistry(data, actions) {
     // Clear the search when switching, so one list's query never filters the other.
     query = '';
     search.input.value = '';
-    search.input.placeholder = tab === 'suppliers'
-      ? t('orders.searchASupplier') : t('orders.searchAnIngredient');
+    paintList();
+  }
+
+  // Every word that is not a row: the two switch labels and the search placeholder.
+  // Called from paintList(), so it runs again on every live snapshot AND after the
+  // venue's language has arrived — see the note on the buttons above.
+  function paintChrome() {
+    suppliersBtn.textContent = t('orders.tab.suppliers');
+    ingredientsBtn.textContent = t('ui.allIngredients');
+    viewSwitch.setAttribute('aria-label', t('orders.registry.whichList'));
     [[suppliersBtn, tab === 'suppliers'], [ingredientsBtn, tab === 'ingredients']]
       .forEach(([btn, on]) => {
         btn.classList.toggle('active', on);
         btn.setAttribute('aria-selected', String(on));
       });
-    paintList();
+    const ph = tab === 'suppliers' ? t('orders.searchASupplier') : t('orders.searchAnIngredient');
+    search.input.placeholder = ph;
+    // buildSearchBox copies the placeholder into aria-label at build time, when there
+    // was none — so a screen reader would announce an unlabelled field (P18).
+    search.input.setAttribute('aria-label', ph);
   }
 
   const node = el('div', {}, [viewSwitch, search.node, listHost]);
 
   // ── The two lists ───────────────────────────────────────────────────────────
   function paintList() {
+    paintChrome();
     listHost.replaceChildren();
     if (tab === 'suppliers') paintSuppliers();
     else paintIngredients();
@@ -206,9 +229,16 @@ export function buildRegistry(data, actions) {
   // ⚠️ THE ALLERGEN STATE IS ON THE ROW, and it is the only reason this list can
   // guide anybody through sixty-seven of them. Without it the list says which
   // ingredients exist; with it, it says which ones still have no answer.
+  // `supplierName` is undefined ON A SUPPLIER'S OWN SCREEN, where naming the supplier
+  // again would be noise.
+  //
+  // ⚠️ AND «undefined» MUST NOT FALL THROUGH TO «No supplier». The first draft did
+  // `supplierName || t('orders.noSupplier')`, so every product on Aldo's own screen
+  // said «Nessun fornitore» — a plain lie, on the screen that exists to say whose it
+  // is. Found by looking at a screenshot after 34 driven checks had passed.
   function ingredientRow(item, supplierName) {
     const meta = [
-      supplierName || t('orders.noSupplier'),
+      supplierName === undefined ? null : (supplierName || t('orders.noSupplier')),
       item.brand,
       formatPricePerUnit(item) || null,
     ].filter(Boolean).join(' · ');
@@ -237,7 +267,7 @@ export function buildRegistry(data, actions) {
       // Its own record, with the three actions. mgmtRow rather than a bespoke card:
       // Delete is gated inside it, and a second implementation of that gate is a
       // second place for it to be forgotten.
-      const days = (list) => (list || []).map(d => d.slice(0, 3)).join(', ');
+      const days = (list) => (list || []).map(dayShort).join(', ');
       const meta = [
         supplier.category,
         supplier.deliveryDays?.length ? `${t('orders.deliveryShort')} ${days(supplier.deliveryDays)}` : '',
@@ -274,7 +304,7 @@ export function buildRegistry(data, actions) {
         body.appendChild(el('p', { class: 'mgmt-empty', text: t('orders.noIngredientsYetAdd') }));
       } else {
         const list = el('div', { class: 'mgmt-list' });
-        mine.forEach(i => list.appendChild(ingredientRow(i, null)));
+        mine.forEach(i => list.appendChild(ingredientRow(i)));
         body.appendChild(list);
       }
 

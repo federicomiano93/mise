@@ -159,6 +159,32 @@ test('the plural of «product» comes from the dictionary, not from an if', () =
     'Italian and English do not agree about when one form becomes the other');
 });
 
+// ⚠️⚠️ THE EIGHTH SHAPE OF THE FROZEN-PHRASE DEFECT, and it shipped in the first
+// draft of this screen: the two switch labels read «Suppliers · All ingredients» on
+// an Italian phone, for the life of the page.
+//
+// tests/frozen-phrases.test.mjs asks whether a top-level CONST calls t(). These
+// calls sat inside a function, which is normally the fix — except registry-main.js
+// calls that function at MODULE LOAD, before a venue is open and therefore before
+// the app knows what language it speaks. A t() there answers in the starting
+// language and never answers again. Found by driving the app in Italian; every
+// suite was green.
+test('⚠️ the chrome takes its words at PAINT time, not when the module loads', () => {
+  const code = codeOf(REGISTRY);
+  const build = code.slice(0, code.indexOf('function paintChrome'));
+  for (const key of ['orders.tab.suppliers', 'ui.allIngredients', 'orders.searchASupplier']) {
+    assert.ok(!build.includes(key),
+      `${key} is resolved while buildRegistry() runs — and registry-main.js runs it at `
+      + 'module load, so the word freezes in the app\'s starting language');
+  }
+  assert.match(code, /function paintList\(\) \{\s*paintChrome\(\);/,
+    'paintChrome must run on every repaint, which is the only thing that happens '
+    + 'again after the venue\'s language arrives');
+  assert.match(code, /search\.input\.setAttribute\('aria-label'/,
+    'buildSearchBox copies the placeholder into aria-label at build time, when there '
+    + 'was none — so the field would be announced unlabelled (P18)');
+});
+
 test('the two lists share ONE search box, mounted once', () => {
   const code = codeOf(REGISTRY);
   assert.equal((code.match(/buildSearchBox\(/g) || []).length, 1,

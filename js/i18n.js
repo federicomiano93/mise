@@ -609,6 +609,12 @@ const DICTIONARIES = Object.freeze({
     // none of the 14» are the same empty list; only the stamp separates them.
     'orders.notDeclaredShort': 'not declared',
     'orders.registry.loadFailed': 'Could not load the suppliers. Check your connection and try again.',
+    'orders.registry.whichList': 'Which list to show',
+    // ⚠️ The NUMBER keeps its decimal point in both languages: these boxes are
+    // <input type="number">, which refuses a comma. Only «e.g.» is translated.
+    'orders.eg.packWeight': 'e.g. 2.27kg',
+    'orders.eg.rate': 'e.g. 7.20',
+    'orders.eg.pieceWeight': 'e.g. 0.055',
     'orders.ingredientsCount': { one: '{n} ingredient', other: '{n} ingredients' },
 
     // The record forms. ⚠️ These labels were literals passed as an ARGUMENT —
@@ -2095,6 +2101,10 @@ const DICTIONARIES = Object.freeze({
     'orders.orderShort': 'ordine',
     'orders.notDeclaredShort': 'non dichiarato',
     'orders.registry.loadFailed': 'Non è stato possibile caricare i fornitori. Controlla la connessione e riprova.',
+    'orders.registry.whichList': 'Quale elenco mostrare',
+    'orders.eg.packWeight': 'es. 2.27kg',
+    'orders.eg.rate': 'es. 7.20',
+    'orders.eg.pieceWeight': 'es. 0.055',
     'orders.ingredientsCount': { one: '{n} ingrediente', other: '{n} ingredienti' },
 
     // Le schede. ⚠️ Erano scritte in inglese dentro il codice, in una forma che il

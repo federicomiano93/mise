@@ -87,8 +87,12 @@ function priceBlock(item, actions) {
     type: 'number', class: 'mgmt-input', min: '0', step: 'any',
     inputmode: 'decimal', value: value ?? '', placeholder,
   });
-  const rate = money(item?.pricePerUnit, 'e.g. 7.20');
-  const pieceWeight = money(item?.unitWeightKg, 'e.g. 0.055');
+  // ⚠️ THE NUMBER KEEPS ITS DECIMAL POINT IN BOTH LANGUAGES. Only «e.g.» is
+  // translated: the box is <input type="number">, which does not accept a comma, so
+  // an example written «7,20» would be an instruction to type something the field
+  // then refuses.
+  const rate = money(item?.pricePerUnit, t('orders.eg.rate'));
+  const pieceWeight = money(item?.unitWeightKg, t('orders.eg.pieceWeight'));
 
   const rateLabel = el('span', { class: 'mgmt-field-label' });
   const rateHint = el('p', { class: 'notif-note' });
@@ -444,7 +448,7 @@ function allergenBlock(item) {
 export function buildIngredientForm({ item, suppliers, preset, actions, onDone, onCancel }) {
   const name = el('input', { type: 'text', class: 'mgmt-input', value: item?.name || '' });
   const brand = el('input', { type: 'text', class: 'mgmt-input', value: item?.brand || '', placeholder: t('orders.eGGalbani') });
-  const weight = el('input', { type: 'text', class: 'mgmt-input', value: item?.weight || '', placeholder: 'e.g. 2.27kg' });
+  const weight = el('input', { type: 'text', class: 'mgmt-input', value: item?.weight || '', placeholder: t('orders.eg.packWeight') });
   const category = el('input', { type: 'text', class: 'mgmt-input', value: item?.category || '' });
   // "unit" is now the ORDER unit (how you count the order: casse, box), shown
   // next to the quantity — not a unit of measure. Same field, new meaning.
@@ -524,7 +528,10 @@ export function buildIngredientForm({ item, suppliers, preset, actions, onDone, 
   } }, t('ui.save'));
 
   return el('div', { class: 'mgmt-form' }, [
-    el('h2', { class: 'mgmt-form-title', text: item ? t('orders.editIngredient') : t('orders.newIngredient') }),
+    // ⚠️ NO TITLE OF ITS OWN ANY MORE. It had one because the panel's header said
+    // «Impostazioni» and something had to name the form. The form now has a header
+    // of its own that says «Modifica ingrediente», so the h2 said it a second time,
+    // 40px below the first. Seen in a screenshot, not in a measurement.
     field(t('orders.field.name'), name),
     field(t('orders.field.supplier'), supplierSelect),
     field(t('orders.field.brand'), brand),
