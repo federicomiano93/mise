@@ -46,6 +46,12 @@ let searchQuery = '';
 let activeList = null;     // { root, refresh } while the list is shown
 let activeDetail = null;   // { root, refreshCost } while a recipe is shown
 let activeSettings = null; // { root, refresh } while Settings is shown
+let activeSheet = null;    // { root, refresh } while the allergen sheet is shown
+// ⚠️ ITS OWN QUERY, NOT the list's. The two screens search the same recipes for
+// different reasons — "which do I cook" versus "which one is a customer asking
+// about" — and carrying one into the other means opening a screen already
+// filtered by something you typed for a different job.
+let sheetQuery = '';
 let activeRun = null;      // { root, confirmLeave, stop } while a guided mix is on screen
 let currentRecipe = null;  // the recipe shown in detail (for the header Edit button)
 let leaveGuard = null;     // async () => boolean; blocks Back when there are unsaved edits
@@ -116,6 +122,7 @@ function showList() {
   view = 'list';
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   leaveGuard = null;
   setHeader({ title: t('ui.recipes'), sub: t('cat.recipeCatalogue'), back: false, add: true, footer: true });
   activeList = renderList({
@@ -139,6 +146,7 @@ function openLabel(recipe) {
   activeList = null;
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   currentRecipe = recipe;
   leaveGuard = null;
   setHeader({ title: recipe.name || t('cat.label'), sub: t('cat.label'), back: true, add: false });
@@ -166,14 +174,23 @@ function showAllergenSheet() {
   activeList = null;
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   leaveGuard = null;
   setHeader({ title: t('cat.allergens'), sub: t('cat.recipeCatalogue'), back: true, add: false });
-  swap(renderAllergenSheet({
+  activeSheet = renderAllergenSheet({
     recipes: getRecipes(),
     ingredients: getIngredients(),
     recipesById: getRecipesById(),
+    // ⚠️ A GETTER, read at paint time. The venue's `country` decides which words
+    // the law card prints, and this screen can be opened before the session has
+    // resolved — captured once, a null location would say "nobody has said which
+    // country" for ever. Same reason openLabel() reads it fresh on every open.
+    getLocation: () => currentSession().location,
+    initialQuery: sheetQuery,
+    onQueryChange: (q) => { sheetQuery = q; },
     onOpen: openDetail,
-  }).root);
+  });
+  swap(activeSheet.root);
 }
 
 function openDetail(recipe) {
@@ -194,6 +211,7 @@ function openEditor(recipe, draft) {
   activeList = null;
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   setHeader({
     // ⚠️ A draft is a NEW recipe, so `recipe` stays null and the title is right
     // without a special case. See renderEditor for the four things that depends on.
@@ -265,6 +283,7 @@ function showSettings() {
   activeList = null;
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   leaveGuard = null;
   setHeader({ title: t('ui.settings'), sub: t('cat.recipeCatalogue'), back: true, add: false });
   activeSettings = renderSettings({ photoOn: photoIsOn(), onTogglePhoto: togglePhoto });
@@ -303,6 +322,7 @@ function showPhotoCapture(fromEditor = false, keepDraft = null) {
   activeList = null;
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   leaveGuard = null;
   setHeader({ title: t('cat.photo.title'), sub: t('cat.recipeCatalogue'), back: true, add: false });
   swap(renderPhotoCapture({
@@ -327,6 +347,7 @@ function openGuidedEditor(recipe) {
   activeList = null;
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   currentRecipe = recipe;
   setHeader({ title: t('cat.mixingSteps'), sub: recipe.name || t('cat.recipe'), back: true, add: false });
   swap(renderGuidedEditor({ recipe, app }));
@@ -343,6 +364,7 @@ function openRun(recipe, targetGrams, resume) {
   activeList = null;
   activeDetail = null;
   activeSettings = null;
+  activeSheet = null;
   currentRecipe = recipe;
   setHeader({ title: recipe.name || t('cat.recipe'), sub: t('cat.guidedMixing'), back: true, add: false, edit: false });
   activeRun = renderRun({ recipe, targetGrams, app, resume });
@@ -518,6 +540,15 @@ initCatalogue(
       const latest = getRecipes().find(r => r.id === currentRecipe.id) || currentRecipe;
       activeDetail.refreshCost(latest);
     }
+    // ⚠️ THE ALLERGEN SHEET NEVER REFRESHED AT ALL until now — it was drawn once
+    // and never again, so a declaration made on another phone, or data still
+    // arriving on a cold open, simply never reached it. On the screen whose job is
+    // saying what a recipe contains, that is the wrong thing to be stale. Its
+    // search box is mounted once and survives this: only the summary, the work
+    // boxes and the rows are replaced.
+    if (view === 'allergens' && activeSheet) {
+      activeSheet.refresh(getRecipes(), getIngredients(), getRecipesById());
+    }
   },
   () => toast(t('cat.liveSyncInterruptedRecipes')),
 );
@@ -548,12 +579,24 @@ onSession((s) => {
   if (s.status !== 'ready' || paintedWithSession) return;
   paintedWithSession = true;
   if (view === 'list') showList();
+  // ⚠️ THE ALLERGEN SHEET NEEDS THIS TOO, and it is the one screen where being
+  // early is worse than being wrong quietly: its top card names the allergens the
+  // law requires in the venue's COUNTRY, and before the session lands there is no
+  // country to read. It repaints rather than rebuilding, so the search text and
+  // the keyboard survive — the reason it is safe here where an editor would not be.
+  else if (view === 'allergens' && activeSheet) {
+    activeSheet.refresh(getRecipes(), getIngredients(), getRecipesById());
+  }
 });
 
 onLanguageChange(() => {
   if (view === 'list') showList();
   else if (view === 'photo') {
     setHeader({ title: t('cat.photo.title'), sub: t('cat.recipeCatalogue'), back: true, add: false });
+  } else if (view === 'allergens') {
+    // Rebuilt, not repainted: every label and placeholder on it is a t() call
+    // resolved when the element is drawn.
+    showAllergenSheet();
   }
 });
 

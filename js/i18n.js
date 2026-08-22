@@ -719,6 +719,26 @@ const DICTIONARIES = Object.freeze({
     'cat.nothingToImport': 'This recipe has no weight-based ingredients, so there’s nothing to import.',
     'cat.searchAnIngredient': 'Search an ingredient…',
     'cat.sheet.declaredCount': '{n} of {total} recipes fully declared',
+    // ⚠️ A PLURAL ENTRY. This line was built by hand in allergen-sheet.js —
+    // English grammar written into the code, which no translation could reach —
+    // and it printed under an Italian screen for as long as the sheet existed.
+    'cat.sheet.blockedCount': {
+      one: '{n} cannot be labelled yet.',
+      other: '{n} cannot be labelled yet.',
+    },
+    // ⚠️ THE ROW PILLS ARE THEIR OWN KEYS AND MUST STAY SO. cat.alg.declared /
+    // cat.alg.notDeclared read "dichiarati" / "non dichiarati" in Italian, which is
+    // correct where they sit — on the recipe card, describing the ALLERGENS. Here
+    // the subject is the RECIPE, so Italian needs "dichiarata" / "non dichiarata".
+    // Reusing the other pair would print the wrong gender and number on every row.
+    'cat.sheet.rowDeclared': 'fully declared',
+    'cat.sheet.rowNotDeclared': 'not declared',
+    'cat.sheet.theLawHere': 'What the law requires here',
+    'cat.sheet.theSpecificOnes': 'The cereals and nuts the law makes you name one by one',
+    'cat.sheet.namesFollowCountry':
+      'These are the words the law uses {country}. They stay in that language whatever language the app is set to.',
+    'cat.sheet.noCountry':
+      'Nobody has said which country this business sells in, so the app cannot say which allergens the law requires here. The owner sets it when the business is created.',
     'cat.andMore': '…and {n} more',
     'cat.nRows': { one: '{n} row', other: '{n} rows' },
     'cat.nRecipes': { one: '{n} recipe', other: '{n} recipes' },
@@ -2135,6 +2155,19 @@ const DICTIONARIES = Object.freeze({
     'cat.nothingToImport': 'Questa ricetta non ha ingredienti a peso, quindi non c’è niente da importare.',
     'cat.searchAnIngredient': 'Cerca un ingrediente…',
     'cat.sheet.declaredCount': '{n} ricette su {total} completamente dichiarate',
+    'cat.sheet.blockedCount': {
+      one: '{n} non può ancora avere un’etichetta.',
+      other: '{n} non possono ancora avere un’etichetta.',
+    },
+    // Il soggetto è LA RICETTA, quindi femminile singolare — non «dichiarati».
+    'cat.sheet.rowDeclared': 'dichiarata',
+    'cat.sheet.rowNotDeclared': 'non dichiarata',
+    'cat.sheet.theLawHere': 'Cosa richiede la legge qui',
+    'cat.sheet.theSpecificOnes': 'I cereali e la frutta a guscio che la legge fa nominare uno per uno',
+    'cat.sheet.namesFollowCountry':
+      'Queste sono le parole che usa la legge {country}. Restano in quella lingua qualunque sia la lingua dell’app.',
+    'cat.sheet.noCountry':
+      'Nessuno ha detto in che paese vende questa attività, quindi l’app non può dire quali allergeni richiede la legge qui. Lo imposta il titolare quando crea l’attività.',
     'cat.andMore': '…e altri {n}',
     'cat.nRows': { one: '{n} riga', other: '{n} righe' },
     'cat.nRecipes': { one: '{n} ricetta', other: '{n} ricette' },

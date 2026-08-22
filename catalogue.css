@@ -722,6 +722,29 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-alg-sheet-btn:hover { border-color: var(--cat-accent); }
 .cat-alg-sheet-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 
+/* ── What the law requires here ──────────────────────────────────────────────
+   The first card on the allergen sheet: the fourteen groups the venue's COUNTRY
+   makes you declare. Reuses .cat-alg-panel / .cat-alg-head / .cat-alg-body, so
+   the fold behaves and measures exactly like the one on a recipe. */
+.alg-sheet-law { margin-top: 0; margin-bottom: 14px; }
+/* ⚠️ ALL FOURTEEN STAY OUTSIDE THE FOLD — the same rule the recipe's card follows:
+   the ANSWER never folds, only the detail. Nobody at a counter needs telling that
+   "nuts" includes macadamia; they need to know nuts are on the list. Wrapped as one
+   paragraph rather than fourteen rows, so it costs ~3 lines instead of most of a
+   phone screen before the search below it. */
+.alg-sheet-law-list {
+  margin: 0 0 2px; font-size: .92rem; line-height: 1.5; color: var(--cat-text);
+  overflow-wrap: anywhere;
+}
+.alg-sheet-law-sub {
+  margin: 0 0 6px; font-size: .74rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--cat-text-2); font-family: var(--cat-font-mono);
+}
+.alg-sheet-law-group { margin: 0 0 6px; font-size: .85rem; line-height: 1.4; }
+.alg-sheet-law-group-name { font-weight: 700; color: var(--cat-text); }
+.alg-sheet-law-group-codes { color: var(--cat-text-2); }
+.alg-sheet-law-group-name::after { content: ': '; }
+
 .alg-sheet-summary { margin-bottom: 12px; }
 .alg-sheet-count { margin: 0; font-family: var(--cat-font-round); font-size: 1.25rem; font-weight: 700; color: var(--cat-text); }
 .alg-sheet-sub { margin: 2px 0 0; font-size: .88rem; color: var(--cat-text-2); }
@@ -752,13 +775,56 @@ body.cat-zoom-lock { overflow: hidden; }
 .alg-sheet-row:last-child { margin-bottom: 0; }
 .alg-sheet-row:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 .alg-sheet-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* Name and state pill on one line. `wrap` so a long recipe name pushes the pill to
+   the next line rather than squeezing it to nothing — the pill is the part that
+   must never be lost. */
+.alg-sheet-row-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .alg-sheet-name { font-family: var(--cat-font-round); font-weight: 600; font-size: 1rem; color: var(--cat-text); overflow-wrap: anywhere; }
+/* ⚠️ THE STATE IS A WORD, NOT ONLY A COLOUR. A red edge alone is invisible to a
+   colour-blind reader and to a photocopy of this screen pinned in a kitchen (P18),
+   and this is the one screen here that can send somebody to hospital.
+   ⚠️ AND "declared, contains none" WEARS THE SAME PILL AS "declared, contains
+   these", on purpose: both are statements somebody made. The dangerous reading is
+   a recipe nobody has checked looking like one checked and found clear. */
+.alg-sheet-pill {
+  flex: none;
+  font-family: var(--cat-font-mono); font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+}
+/* ⚠️⚠️ MEASURED, AND THE FIRST VERSION WAS UNREADABLE. --cat-brand on
+   --cat-brand-2 came out at 1.63:1 — I had assumed --brand-2 was a light tint the
+   way --warn-bg is, and it is not: #4C6B2A is a DARKER green, the hover state of a
+   solid button. Dark-on-dark at 10.88px is a smear, on the one word that separates
+   "somebody checked this" from "nobody has looked".
+   ⚠️ NO NEW COLOUR WAS CHOSEN: this is the pairing every primary element in the app
+   already uses (catalogue.css:48-49, :188, :280) — solid brand, on-brand ink. The
+   design system has no light green tint, and inventing one is exactly what the UI
+   rule forbids. The two pills are therefore dressed differently in kind, and that
+   reads correctly: a settled state as a solid chip, a warning as a tint, the same
+   way every other warning on this page is drawn. */
+.alg-sheet-pill--ok { color: var(--cat-brand-ink); background: var(--cat-brand); }
+/* ⚠️ --cat-warn-bg, NOT --cat-warn-2. The latter does not exist: it was written
+   here by analogy with --cat-brand-2 and would have painted no background at all,
+   in silence. Twice before in this project an undefined custom property shipped
+   and left a screen flush and flat with nothing reporting it. --cat-warn-bg is the
+   tint every other warning block on this page already uses. */
+.alg-sheet-pill--blocked { color: var(--cat-warn); background: var(--cat-warn-bg); }
 .alg-sheet-what { font-size: .85rem; color: var(--cat-text-2); line-height: 1.35; overflow-wrap: anywhere; }
 /* ⚠️ A recipe with no answer is marked on its EDGE, not only by its words: this
    screen's whole job is making "we do not know" impossible to miss while
    scrolling past twenty rows. */
 .alg-sheet-row--blocked { border-left: 4px solid var(--cat-warn); }
 .alg-sheet-row--blocked .alg-sheet-what { color: var(--cat-warn); font-weight: 600; }
+/* ⚠️ AND THE ANSWER IS AS LOUD AS THE WARNING. Left at the quiet default the
+   allergens read smaller and greyer than "6 ingredients are not declared" two rows
+   above — backwards on the one screen somebody opens BECAUSE a customer is waiting
+   for that answer. The recipe card already makes this argument in its own comment
+   ("Big, because somebody is reading it out to a customer who asked whether it
+   contains nuts"); this follows it rather than inventing a treatment. */
+.alg-sheet-row:not(.alg-sheet-row--blocked) .alg-sheet-what {
+  color: var(--cat-text); font-weight: 600;
+}
 
 .alg-sheet-caveat { margin: 14px 2px 0; font-size: .76rem; color: var(--cat-text-3); line-height: 1.5; }
 
