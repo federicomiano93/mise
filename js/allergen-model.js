@@ -223,7 +223,7 @@ export function missingNutrients(ingredient) {
 // rules do not know about makes every save of that ingredient fail — and a field
 // the rules allow that this function forgets is dropped in silence on the next
 // save. One place, so there is one thing to keep in step.
-export function buildAllergenFields({ allergens, mayContain, checkedAt: stamp, nutrition }) {
+export function buildAllergenFields({ allergens, mayContain, checkedAt: stamp, nutrition, packIngredients }) {
   const clean = normalizeAllergens(allergens);
   const may = normalizeMayContain(mayContain);
   return {
@@ -233,5 +233,14 @@ export function buildAllergenFields({ allergens, mayContain, checkedAt: stamp, n
     mayContain: may.filter(code => !clean.includes(code)),
     allergensCheckedAt: String(stamp == null ? '' : stamp).trim().slice(0, 40),
     nutrition: normalizeNutrition(nutrition),
+    // The ingredient list as printed on the supplier's pack. The app reads it to
+    // PROPOSE allergens; it is stored because it is the audit trail — why
+    // something was declared — and because a better dictionary can then re-check
+    // every ingredient later without anybody re-typing a pack.
+    //
+    // ⚠️ CAPPED AT THE SAME 4000 THE RULES CAP IT AT. A longer string is refused by
+    // the rules, and the rules refuse the WHOLE document — so a paste from a PDF
+    // would make the ingredient unsaveable with nothing on screen explaining why.
+    packIngredients: String(packIngredients == null ? '' : packIngredients).slice(0, 4000),
   };
 }
