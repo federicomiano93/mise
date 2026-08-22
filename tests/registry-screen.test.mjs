@@ -254,6 +254,43 @@ test('⚠️ the two view switches say the SAME word, and it is the plain one', 
     'and the Orders switch must use the very same one');
 });
 
+// ── 6. Which list the screen opens on ────────────────────────────────────────
+
+test('⚠️⚠️ the screen opens on the INGREDIENTS, and all three parts of that agree', () => {
+  // Federico: «adesso quando apro la schermata vedo prima i fornitori, invece voglio
+  // vedere prima gli ingredienti». 67 ingredients, 0 declared — that list is the work.
+  //
+  // ⚠️ ALL THREE ASSERTED TOGETHER BECAUSE ANY ONE ALONE IS A DEFECT. paintChrome()
+  // recomputes `active` from `tab` on every paint, so the default changed alone lights
+  // the wrong tab on the FIRST FRAME — a flash on every open — and the order changed
+  // alone leaves the left-hand tab dark, which reads as broken.
+  const code = codeOf(REGISTRY);
+  assert.match(code, /let tab = 'ingredients';/,
+    'the default list must be the ingredients');
+  assert.match(code, /role: 'tablist' \}, \[ingredientsBtn, suppliersBtn\]/,
+    'the ingredients button must be built FIRST, so it sits on the left');
+  const built = code.slice(0, code.indexOf('const viewSwitch'));
+  const ing = built.indexOf('const ingredientsBtn');
+  const sup = built.indexOf('const suppliersBtn');
+  assert.ok(ing !== -1 && sup !== -1, 'both buttons must exist');
+  assert.match(built.slice(ing, sup), /class: 'view-switch-btn active'[\s\S]*?'aria-selected': 'true'/,
+    'the ingredients button is the one built already lit, matching the default');
+  assert.doesNotMatch(built.slice(sup), /'aria-selected': 'true'/,
+    'and the suppliers button must NOT also claim to be selected');
+});
+
+test('the Orders screen deliberately keeps «Per fornitore» first', () => {
+  // ⚠️ NOT AN OVERSIGHT. On the Order tab you are placing an order, and an order is
+  // placed supplier by supplier. Same control, different job — swapping it there would
+  // put the wrong list under the thumb of somebody mid-order.
+  const orders = read('orders.html');
+  const bySupplier = orders.indexOf('id="view-by-supplier"');
+  const byIngredient = orders.indexOf('id="view-all-ingredients"');
+  assert.ok(bySupplier !== -1 && byIngredient !== -1, 'both Orders view buttons must exist');
+  assert.ok(bySupplier < byIngredient,
+    'Orders keeps the supplier view first — only the records screen was inverted');
+});
+
 test('the retired subtitles are gone from the markup AND from both dictionaries', () => {
   // ⚠️ A KEY LEFT BEHIND IS NOT HARMLESS: the next person reads it as live, and its
   // English no longer describes anything the app shows.
