@@ -47,7 +47,15 @@ import {
 //            setIngredientActive, deleteSupplier, deleteIngredient }
 // -> { node, refresh() }
 export function buildRegistry(data, actions) {
-  let tab = 'suppliers';          // which of the two lists is on screen
+  // ⚠️ INGREDIENTS FIRST, AND THAT IS THE POINT OF THE SCREEN. Federico: «adesso quando
+  // apro la schermata vedo prima i fornitori, invece voglio vedere prima gli
+  // ingredienti». The backlog says why — 67 ingredients, 0 declared: this list IS the
+  // work, the supplier list is the occasional errand.
+  // ⚠️ THREE THINGS MOVE TOGETHER OR IT IS WORSE THAN NOT MOVING THEM: this default, the
+  // DOM order of the two buttons, and which one is built already `active`. paintChrome()
+  // recomputes `active` from `tab` on every paint, so a default changed alone lights the
+  // wrong tab on the FIRST FRAME — a flash on every open.
+  let tab = 'ingredients';        // which of the two lists is on screen
   let query = '';                 // the search text for that list
   // Everything above the page itself. Each entry is { view, overlay }; Back pops one.
   const stack = [];
@@ -69,15 +77,16 @@ export function buildRegistry(data, actions) {
   // for a top-level CONST that calls t(); these calls sit inside a function, which is
   // normally the fix — except the function itself is called at module load. paintChrome()
   // below runs on every repaint instead, which is after the language is known.
-  const suppliersBtn = el('button', {
-    type: 'button', class: 'view-switch-btn active', role: 'tab', 'aria-selected': 'true',
-    onClick: () => setTab('suppliers'),
-  });
   const ingredientsBtn = el('button', {
-    type: 'button', class: 'view-switch-btn', role: 'tab', 'aria-selected': 'false',
+    type: 'button', class: 'view-switch-btn active', role: 'tab', 'aria-selected': 'true',
     onClick: () => setTab('ingredients'),
   });
-  const viewSwitch = el('div', { class: 'view-switch', role: 'tablist' }, [suppliersBtn, ingredientsBtn]);
+  const suppliersBtn = el('button', {
+    type: 'button', class: 'view-switch-btn', role: 'tab', 'aria-selected': 'false',
+    onClick: () => setTab('suppliers'),
+  });
+  // ⚠️ Ingredients on the LEFT and lit, matching the `tab` default above.
+  const viewSwitch = el('div', { class: 'view-switch', role: 'tablist' }, [ingredientsBtn, suppliersBtn]);
 
   // MOUNTED ONCE, ROWS REPAINTED — the same arrangement as the supplier list and
   // the flat ingredient list on the Order tab. A live snapshot from another phone
